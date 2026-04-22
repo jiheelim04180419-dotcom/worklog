@@ -1437,8 +1437,9 @@ return (
     const completedYears   = isAdmin ? getCompletedYears(lv.leaveStartDate) : 0;
     const prevYearsAccrued = completedYears * ANNUAL_LEAVE_DAYS;
     // Only count usage records from PREVIOUS years (not current year)
+    const _yrStartFallback = yr ? yr.start.toISOString().slice(0, 10) : "0000-01-01";
     const prevYearUsed = Math.round((lv.usageRecords || [])
-      .filter(r => (r.type||"use") === "use" && r.date < yrStart)
+      .filter(r => (r.type||"use") === "use" && r.date < _yrStartFallback)
       .reduce((s, r) => s + (+(r.days)||0), 0) * 10) / 10;
     const carriedOverDays  = Math.max(0, Math.round((prevYearsAccrued - prevYearUsed) * 10) / 10);
     const carriedOverHours = Math.round(carriedOverDays * HOURS_PER_DAY * 10) / 10;
