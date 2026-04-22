@@ -9,34 +9,24 @@
 <script src="https://unpkg.com/@babel/standalone@7.23.9/babel.min.js"></script>
 </head>
 <body style="margin:0;padding:0;background:#f4f6fb">
-
 <div id="loading" style="display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:16px;background:#f4f6fb;font-family:sans-serif">
   <div style="font-size:40px">📋</div>
   <p style="color:#3b7ff5;font-weight:700;font-size:16px">WorkLog 로딩 중...</p>
   <p style="color:#aaa;font-size:12px">처음 로딩은 10-20초 걸릴 수 있어요</p>
 </div>
 <div id="root" style="display:none"></div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-<script src="https://unpkg.com/@babel/standalone@7.23.9/babel.min.js"></script>
 <script id="app-source" type="text/plain">
-
-
-
-
-// localStorage polyfill for window.storage API
+// localStorage polyfill
 if (!window.storage) {
   window.storage = {
-    get: (k) => Promise.resolve(localStorage.getItem(k) ? {value: localStorage.getItem(k)} : null),
-    set: (k, v) => { localStorage.setItem(k, v); return Promise.resolve({key:k, value:v}); },
-    delete: (k) => { localStorage.removeItem(k); return Promise.resolve({key:k, deleted:true}); },
-    list: () => Promise.resolve({keys: Object.keys(localStorage)}),
+    get: function(k) { return Promise.resolve(localStorage.getItem(k) ? {value: localStorage.getItem(k)} : null); },
+    set: function(k, v) { localStorage.setItem(k, v); return Promise.resolve({key:k, value:v}); },
+    delete: function(k) { localStorage.removeItem(k); return Promise.resolve({key:k, deleted:true}); },
+    list: function() { return Promise.resolve({keys: Object.keys(localStorage)}); },
   };
 }
 
-const { useState, useEffect, useCallback, useRef } = React;
-
-
+// ─── Firebase Realtime Database helpers ────────────────────────────────────
 let _fbUrl = null;
 
 function getFbUrl() {
@@ -70,7 +60,7 @@ async function fbSet(path, value) {
   } catch { return false; }
 }
 
-
+// ─── Local storage fallback (for session + offline) ────────────────────────
 function lsGet(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } }
 function lsSave(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
 function lsDel(k)     { try { localStorage.removeItem(k); } catch {} }
@@ -84,7 +74,7 @@ async function legacyGet(key) {
   try { const r = await window.storage.get(key); return r ? JSON.parse(r.value) : null; } catch { return null; }
 }
 
-
+// ─── Initial seed data ─────────────────────────────────────────────────────
 const SEED_USERS = [
   { id: "admin", name: "관리자", role: "admin", pw: "admin123", dept: "경영지원", joinDate: "2022-01-01" },
   { id: "emp1", name: "김민준", role: "employee", pw: "1234", dept: "개발팀", joinDate: "2023-03-15" },
@@ -117,7 +107,7 @@ const today = (() => {
   return y + "-" + m + "-" + dd;
 })();
 
-
+// ─── Utilities ─────────────────────────────────────────────────────────────
 function calcHours(s, e) {
   if (!s || !e) return 0;
   const [sh, sm] = s.split(":").map(Number);
@@ -131,12 +121,12 @@ function korDate(d) {
   return dt.toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric", weekday: "short" });
 }
 
-
+// ─── Work type constants ───────────────────────────────────────────────────
 const FULLTIME_START = "07:00";
 const FULLTIME_END   = "16:30";
 const FULLTIME_HOURS = calcHours(FULLTIME_START, FULLTIME_END) - 0.5; // 9.5h - 30min lunch = 9h
 
-
+// ─── Travel Allowance Data & Calculator ───────────────────────────────────
 // Coordinates [lat, lng] for all known locations
 const LOCATION_COORDS = {
   "Bathurst":            [-33.4193, 149.5777],
@@ -187,7 +177,7 @@ function geoKm(a, b) {
   return Math.round(2 * R * Math.asin(Math.sqrt(h)) * 1.28); // road factor 1.28
 }
 
-// Allowance formula (applied to total km - round trip or one-way for 출장)
+// Allowance formula (applied to total km — round trip or one-way for 출장)
 function calcTravelAllowance(km) {
   if (!km || km <= 0) return 0;
   const deducted = Math.max(0, km - 50);
@@ -198,7 +188,7 @@ function calcTravelAllowance(km) {
   return Math.max(before, before > 0 ? 10 : 0);
 }
 
-
+// ─── Leave Accrual Helpers ────────────────────────────────────────────────
 const ANNUAL_LEAVE_DAYS  = 20;
 const HOURS_PER_DAY      = 7.6;
 const ANNUAL_LEAVE_HOURS = ANNUAL_LEAVE_DAYS * HOURS_PER_DAY; // 152h
@@ -224,14 +214,14 @@ function getCurrentLeaveYear(leaveStartDate) {
 // Normalize old leave format → new format
 function normLeave(lv, joinDate) {
   const base = joinDate || today;
-  if (!lv) return { leaveStartDate: base, usedDays: 0, rateHistory: [{ from: base, dailyRate: 0 }], usageRecords: [] };
+  if (!lv) return { leaveStartDate: base, usedDays: 0, noLeave: false, rateHistory: [{ from: base, dailyRate: 0 }], usageRecords: [] };
   const usageRecords = Array.isArray(lv.usageRecords) ? lv.usageRecords : [];
-  // usedDays = sum of usageRecords if records exist, else fall back to stored value
   const usedDays = usageRecords.length > 0
     ? Math.round(usageRecords.reduce((s, r) => s + (+(r.days) || 0), 0) * 100) / 100
-    : +(lv.usedDays || (lv.used ? +(lv.used / HOURS_PER_DAY).toFixed(2) : 0)) || 0;
-  if (lv.leaveStartDate !== undefined) return { ...lv, usedDays, usageRecords };
-  return { leaveStartDate: base, usedDays, rateHistory: [{ from: base, dailyRate: 0 }], usageRecords };
+    : +(lv.usedDays !== undefined ? lv.usedDays : (lv.used ? +(lv.used / HOURS_PER_DAY).toFixed(2) : 0)) || 0;
+  // Always preserve noLeave flag if it exists
+  if (lv.leaveStartDate !== undefined || lv.noLeave) return { ...lv, usedDays, usageRecords };
+  return { leaveStartDate: base, usedDays, noLeave: false, rateHistory: [{ from: base, dailyRate: 0 }], usageRecords };
 }
 
 // Accrued days in the CURRENT leave year, capped at 20
@@ -354,7 +344,7 @@ function getCompletedYears(leaveStartDate) {
   return count;
 }
 
-
+// ─── Icons (SVG inline) ────────────────────────────────────────────────────
 const Icon = {
   home: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="20" height="20"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
   log: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="20" height="20"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>,
@@ -369,7 +359,7 @@ const Icon = {
   x: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="16" height="16"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
 };
 
-
+// ─── Main App ──────────────────────────────────────────────────────────────
 function App() {
   const [ready, setReady]   = useState(false);
   const [session, setSession] = useState(null);
@@ -402,7 +392,7 @@ function App() {
         // Poll every 30s for real-time feel
         pollRef.current = setInterval(loadFromFb, 30000);
       } else {
-        // No Firebase - load from legacy window.storage / local fallback
+        // No Firebase — load from legacy window.storage / local fallback
         const u  = await legacyGet("wm_users")  || SEED_USERS;
         const l  = await legacyGet("wm_logs")   || [];
         const lv = await legacyGet("wm_leaves") || SEED_LEAVES;
@@ -475,10 +465,12 @@ function App() {
     saveFb(u, null, lv);
   };
 
-  if (!session) return <LoginScreen users={users} onLogin={login} onTeamCode={handleTeamCode} />;
+  if (!session) return <LoginScreen users={users} onLogin={login} />;
 
   const currentUser = users.find(u => u.id === session.id) || session;
-  const isAdmin = currentUser.role === "admin";
+  const isAdmin      = currentUser.role === "admin" || currentUser.role === "superadmin" || currentUser.role === "viewadmin";
+  const isSuperAdmin = currentUser.role === "admin" || currentUser.role === "superadmin";
+  const isViewAdmin  = currentUser.role === "viewadmin";
 
   return (
     <div style={styles.app}>
@@ -487,7 +479,7 @@ function App() {
         {tab === "home" && <HomeTab user={currentUser} users={users} logs={logs} leaves={leaves} isAdmin={isAdmin} />}
         {tab === "log" && <LogTab user={currentUser} users={users} logs={logs} leaves={leaves} isAdmin={isAdmin} persist={persist} />}
         {tab === "leave" && <LeaveTab user={currentUser} users={users} leaves={leaves} isAdmin={isAdmin} persist={persist} updateLeaveUsage={updateLeaveUsage} />}
-        {isAdmin && tab === "team" && <TeamTab users={users} leaves={leaves} logs={logs} persist={persist} />}
+        {isAdmin && tab === "team" && <TeamTab users={users} leaves={leaves} logs={logs} persist={persist} isSuperAdmin={isSuperAdmin} />}
         {tab === "payroll" && <PayrollTab user={currentUser} users={users} logs={logs} leaves={leaves} isAdmin={isAdmin} persist={persist} />}
       </div>
       <BottomNav tab={tab} setTab={setTab} isAdmin={isAdmin} userHasLeave={isAdmin || !normLeave(leaves[currentUser.id], currentUser.joinDate).noLeave} />
@@ -495,7 +487,7 @@ function App() {
   );
 }
 
-
+// ─── Firebase Setup Screen ─────────────────────────────────────────────────
 function FirebaseSetup({ onDone }) {
   const [url, setUrl]     = useState("");
   const [testing, setTesting] = useState(false);
@@ -552,30 +544,16 @@ function FirebaseSetup({ onDone }) {
   );
 }
 
-
-function LoginScreen({ users, onLogin, onTeamCode }) {
+// ─── Login ─────────────────────────────────────────────────────────────────
+function LoginScreen({ users, onLogin }) {
   const [id, setId] = useState("");
   const [pw, setPw] = useState("");
   const [err, setErr] = useState("");
-  const [showCode, setShowCode] = useState(false);
-  const [codeInput, setCodeInput] = useState("");
-  const [codeErr, setCodeErr] = useState("");
 
   const submit = () => {
     const user = users.find(u => u.id === id && u.pw === pw);
     if (!user) { setErr("아이디 또는 비밀번호가 올바르지 않습니다."); return; }
     onLogin(user);
-  };
-
-  const applyCode = () => {
-    try {
-      const decoded = decodeURIComponent(escape(atob(codeInput.trim())));
-      const payload = JSON.parse(decoded);
-      if (!payload.users) { setCodeErr("올바른 팀 코드가 아닙니다."); return; }
-      onTeamCode(payload);
-      setShowCode(false);
-      setCodeErr("");
-    } catch { setCodeErr("코드가 올바르지 않습니다. 다시 확인해주세요."); }
   };
 
   return (
@@ -586,63 +564,24 @@ function LoginScreen({ users, onLogin, onTeamCode }) {
           <h1 style={styles.logoTitle}>WorkLog</h1>
           <p style={styles.logoSub}>근무일지 & 연차 관리 시스템</p>
         </div>
-
-        {!showCode ? (
-          <>
-            <div style={styles.field}>
-              <label style={styles.label}>아이디</label>
-              <input style={styles.input} value={id} onChange={e => setId(e.target.value)}
-                placeholder="아이디 입력" onKeyDown={e => e.key === "Enter" && submit()} autoCapitalize="none" />
-            </div>
-            <div style={styles.field}>
-              <label style={styles.label}>비밀번호</label>
-              <input style={styles.input} type="password" value={pw} onChange={e => setPw(e.target.value)}
-                placeholder="비밀번호 입력" onKeyDown={e => e.key === "Enter" && submit()} />
-            </div>
-            {err && <p style={styles.errText}>{err}</p>}
-            <button style={styles.btnPrimary} onClick={submit}>로그인</button>
-            <button style={{ ...styles.btnSecondary, width: "100%", marginTop: 10 }}
-              onClick={() => setShowCode(true)}>🔑 팀 코드로 계정 설정</button>
-          </>
-        ) : (
-          <>
-            <p style={{ fontSize: 13, color: C.sub, marginBottom: 12, textAlign: "center" }}>
-              관리자에게 받은 팀 코드를 붙여넣으세요
-            </p>
-            <div style={styles.field}>
-              <label style={styles.label}>팀 코드</label>
-              <textarea style={{ ...styles.input, height: 80, fontSize: 11, wordBreak: "break-all" }}
-                value={codeInput} onChange={e => setCodeInput(e.target.value)}
-                placeholder="코드 붙여넣기..." />
-            </div>
-            {codeErr && <p style={styles.errText}>{codeErr}</p>}
-            <button style={styles.btnPrimary} onClick={applyCode}>✅ 적용하기</button>
-            <button style={{ ...styles.btnSecondary, width: "100%", marginTop: 10 }}
-              onClick={() => setShowCode(false)}>← 돌아가기</button>
-          </>
-        )}
+        <div style={styles.field}>
+          <label style={styles.label}>아이디</label>
+          <input style={styles.input} value={id} onChange={e => setId(e.target.value)}
+            placeholder="아이디 입력" onKeyDown={e => e.key === "Enter" && submit()} autoCapitalize="none" />
+        </div>
+        <div style={styles.field}>
+          <label style={styles.label}>비밀번호</label>
+          <input style={styles.input} type="password" value={pw} onChange={e => setPw(e.target.value)}
+            placeholder="비밀번호 입력" onKeyDown={e => e.key === "Enter" && submit()} />
+        </div>
+        {err && <p style={styles.errText}>{err}</p>}
+        <button style={styles.btnPrimary} onClick={submit}>로그인</button>
       </div>
     </div>
-  );
+  )
 }
 
-
-function Header({ user, onLogout }) {
-  return (
-    <div style={styles.header}>
-      <div style={styles.headerLeft}>
-        <span style={styles.headerLogo}>📋</span>
-        <span style={styles.headerTitle}>WorkLog</span>
-      </div>
-      <div style={styles.headerRight}>
-        <span style={styles.headerUser}>{user.name}<span style={styles.roleBadge}>{user.role === "admin" ? "관리자" : "직원"}</span></span>
-        <button style={styles.logoutBtn} onClick={onLogout}>{Icon.logout}</button>
-      </div>
-    </div>
-  );
-}
-
-
+// ─── Bottom Nav ────────────────────────────────────────────────────────────
 function BottomNav({ tab, setTab, isAdmin, userHasLeave }) {
   const Icon_payroll = <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="20" height="20"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>;
   const items = [
@@ -664,7 +603,7 @@ function BottomNav({ tab, setTab, isAdmin, userHasLeave }) {
   );
 }
 
-
+// ─── Home Tab ──────────────────────────────────────────────────────────────
 function HomeTab({ user, users, logs, leaves, isAdmin }) {
   const myLogs    = isAdmin ? logs : logs.filter(l => l.userId === user.id);
   const myLv       = normLeave(leaves[user.id], user.joinDate);
@@ -755,7 +694,7 @@ function StatCard({ label, value, sub, color, emoji }) {
   );
 }
 
-
+// ─── Log Tab ───────────────────────────────────────────────────────────────
 function LogTab({ user, users, logs, leaves, isAdmin, persist }) {
   const [showForm, setShowForm] = useState(false);
   const [filterUser, setFilterUser] = useState(isAdmin ? "all" : user.id);
@@ -830,7 +769,7 @@ function LogTab({ user, users, logs, leaves, isAdmin, persist }) {
                   </div>
                   {isAdmin && l.travel.needsConfirm && !l.travel.adminConfirmed && (
                     <div style={styles.confirmBadgeRow}>
-                      <span style={styles.confirmBadge}>⚠️ km 수동입력 - 확인 필요</span>
+                      <span style={styles.confirmBadge}>⚠️ km 수동입력 — 확인 필요</span>
                       <button style={styles.confirmBtn}
                         onClick={() => {
                           const next = logs.map(lg => lg.id === l.id
@@ -866,7 +805,7 @@ function LogTab({ user, users, logs, leaves, isAdmin, persist }) {
       {showForm && (
         <LogForm
           log={editLog}
-          userId={editLog ? editLog.userId : (isAdmin ? (filterUser === "all" ? users.find(u => u.role !== "admin") && users.find(u => u.role !== "admin").id || user.id || user.id : filterUser) : user.id)}
+          userId={editLog ? editLog.userId : (isAdmin ? (filterUser === "all" ? users.find(u => u.role !== "admin")?.id || user.id : filterUser) : user.id)}
           users={users}
           leaves={leaves}
           isAdmin={isAdmin}
@@ -882,7 +821,7 @@ function LogTab({ user, users, logs, leaves, isAdmin, persist }) {
   );
 }
 
-
+// ─── OSRM leg distance component ──────────────────────────────────────────
 function OsrmLegBox({ from, to, autoKm, overrideVal, onOverride, onReset }) {
   const [loading, setLoading] = useState(false);
   const fetchOsrm = async () => {
@@ -930,7 +869,7 @@ function GeocodeLegBox({ fromName, toName, overrideVal, onOverride, onReset }) {
           defaultValue={overrideVal || ""}
           placeholder="km 입력"
           onBlur={e => { if (e.target.value) onOverride(e.target.value); }}
-          onKeyDown={e => { if (e.key === "Enter" && ref.current && ref.current.value) onOverride(ref.current.value); }}
+          onKeyDown={e => { if (e.key === "Enter" && (ref && ref.current.value)) onOverride(ref.current.value); }}
         />
         <span style={{ fontSize: 11, color: C.sub, whiteSpace: "nowrap" }}>km</span>
         {overrideVal !== undefined && <button style={styles.legKmReset} onClick={() => { if (ref.current) ref.current.value = ""; onReset(); }}>↺</button>}
@@ -956,8 +895,6 @@ function getWorkTypes(date, hasLeaveAccrual) {
   }
   return types;
 }
-
-
 
 function LogForm({ log, userId, users, leaves, isAdmin, onSave, onClose }) {
   // Detect existing workType from saved log
@@ -989,7 +926,7 @@ function LogForm({ log, userId, users, leaves, isAdmin, onSave, onClose }) {
 
   // Check if the logged user has leave accrual
   const logUserId = form.userId || userId;
-  const targetLeave = normLeave((leaves || {})[logUserId], (users && users.find)(u => u.id === logUserId) && users.find(u => u.id === logUserId).joinDate);
+  const targetLeave = normLeave((leaves || {})[logUserId], (users && users.find)(u => u.id === logUserId)?.joinDate);
   const hasLeaveAccrual = !targetLeave.noLeave;
 
   // Dynamic work types based on date and leave accrual
@@ -1026,10 +963,10 @@ function LogForm({ log, userId, users, leaves, isAdmin, onSave, onClose }) {
     });
   };
 
-  
+  // ── Travel state ──
   const [hasTavel, setHasTravel] = useState(!!(log && log.travel));
 
-  // Normalize travel data - handles old formats (from/to/via) and new format (stops)
+  // Normalize travel data — handles old formats (from/to/via) and new format (stops)
   const normTravel = (t) => {
     if (!t) return { isBizTrip: false, hasDinner: false, stops: ["Bathurst", ""], kmOverrides: {}, adminConfirmed: false };
     if (t.stops && Array.isArray(t.stops)) return { isBizTrip: false, hasDinner: false, adminConfirmed: false, ...t, kmOverrides: t.kmOverrides || {} };
@@ -1196,7 +1133,7 @@ function LogForm({ log, userId, users, leaves, isAdmin, onSave, onClose }) {
         {workType === "dayoff" && (
           <div style={{ ...styles.timeInfoBox, background: "#f5f5f5", borderColor: "#ddd" }}>
             <span style={styles.timeInfoIcon}>🌴</span>
-            <span style={{ color: "#888" }}>휴무일 - 근무 없음</span>
+            <span style={{ color: "#888" }}>휴무일 — 근무 없음</span>
             <span style={{ ...styles.timeInfoHours, color: "#aaa" }}>0h</span>
           </div>
         )}
@@ -1425,7 +1362,7 @@ function LogForm({ log, userId, users, leaves, isAdmin, onSave, onClose }) {
             {travelCalc.outboundKm > 0 && (
               <div style={styles.allowanceResult}>
                 {travelCalc.needsConfirm && (
-                  <div style={styles.confirmWarning}>⚠️ 수동 입력 km 포함 - 관리자 확인 필요</div>
+                  <div style={styles.confirmWarning}>⚠️ 수동 입력 km 포함 — 관리자 확인 필요</div>
                 )}
                 <div style={styles.allowanceRow}>
                   <span style={styles.allowanceLabel}>편도 (경유 포함)</span>
@@ -1474,7 +1411,7 @@ function LogForm({ log, userId, users, leaves, isAdmin, onSave, onClose }) {
   );
 }
 
-
+// ─── Leave Tab ─────────────────────────────────────────────────────────────
 function LeaveTab({ user, users, leaves, isAdmin, persist, updateLeaveUsage }) {
   const [showForm, setShowForm] = useState(false);
   const [editTarget, setEditTarget] = useState(null);
@@ -1525,7 +1462,7 @@ function LeaveTab({ user, users, leaves, isAdmin, persist, updateLeaveUsage }) {
               )}
             </div>
 
-            {/* -- ADMIN: per-rate accrual breakdown -- */}
+            {/* ── ADMIN: per-rate accrual breakdown ── */}
             {isAdmin && hasRateSplit ? (
               <div style={styles.rateAccrualBox}>
                 <p style={styles.rateAccrualTitle}>📅 오늘 기준 일급별 적립 현황</p>
@@ -1560,7 +1497,7 @@ function LeaveTab({ user, users, leaves, isAdmin, persist, updateLeaveUsage }) {
                 </div>
               </div>
             ) : (
-              /* -- Employee / no rate split: simple accrual box -- */
+              /* ── Employee / no rate split: simple accrual box ── */
               <div style={styles.todayAccrualBox}>
                 <div style={styles.todayAccrualMain}>
                   <span style={styles.todayAccrualLabel}>오늘까지 적립</span>
@@ -1616,7 +1553,7 @@ function LeaveTab({ user, users, leaves, isAdmin, persist, updateLeaveUsage }) {
               </div>
             )}
 
-            {/* Usage records - all users see, admin can edit */}
+            {/* Usage records — all users see, admin can edit */}
             <LeaveUsageSection
               records={lv.usageRecords || []}
               isAdmin={isAdmin}
@@ -1764,8 +1701,8 @@ function LeaveUsageSection({ records, isAdmin, onUpdate }) {
 }
 
 function LeaveEditForm({ targetId, users, leaves, onSave, onClose }) {
-  const emps = users.filter(u => u.role !== "admin");
-  const firstId = targetId || (emps[0] && emps[0].id) || "";
+  const emps = users.filter(u => u.role === "employee");
+  const firstId = targetId || emps[0]?.id || "";
 
   const buildState = (id) => {
     const u  = users.find(u => u.id === id);
@@ -1774,7 +1711,7 @@ function LeaveEditForm({ targetId, users, leaves, onSave, onClose }) {
       selId: id,
       leaveStartDate: lv.leaveStartDate || (u && u.joinDate) || today,
       usedDays: +(lv.usedDays) || 0,
-      rateHistory: lv.rateHistory && lv.rateHistory.length ? lv.rateHistory : [{ from: lv.leaveStartDate || (u && u.joinDate) || today, dailyRate: 0 }],
+      rateHistory: (lv && lv.rateHistory.length) ? lv.rateHistory : [{ from: lv.leaveStartDate || (u && u.joinDate) || today, dailyRate: 0 }],
     };
   };
 
@@ -1786,7 +1723,7 @@ function LeaveEditForm({ targetId, users, leaves, onSave, onClose }) {
   const setRate = (i, field, val) =>
     setState(s => { const rh = [...s.rateHistory]; rh[i] = { ...rh[i], [field]: val }; return { ...s, rateHistory: rh }; });
   const addRate = () =>
-    setState(s => ({ ...s, rateHistory: [...s.rateHistory, { from: today, dailyRate: (s.rateHistory[s.rateHistory.length - 1] && s.rateHistory[s.rateHistory.length - 1].dailyRate) || 0 }] }));
+    setState(s => ({ ...s, rateHistory: [...s.rateHistory, { from: today, dailyRate: s.rateHistory.at(-1)?.dailyRate || 0 }] }));
   const removeRate = (i) =>
     setState(s => ({ ...s, rateHistory: s.rateHistory.filter((_, j) => j !== i) }));
 
@@ -1893,12 +1830,12 @@ function LeaveEditForm({ targetId, users, leaves, onSave, onClose }) {
   );
 }
 
-
-function TeamTab({ users, leaves, logs, persist }) {
+// ─── Team Tab (Admin only) ─────────────────────────────────────────────────
+function TeamTab({ users, leaves, logs, persist, isSuperAdmin }) {
   const [showAdd, setShowAdd]     = useState(false);
   const [editEmp, setEditEmp]     = useState(null);
   const [confirmId, setConfirmId] = useState(null);
-  const emps = users.filter(u => u.role !== "admin");
+  const emps = users.filter(u => u.role === "employee");
 
   const deleteEmp = (id) => { persist(users.filter(u => u.id !== id), null, null); setConfirmId(null); };
 
@@ -1911,7 +1848,7 @@ function TeamTab({ users, leaves, logs, persist }) {
     <div style={styles.page}>
       <div style={styles.pageHeader}>
         <h2 style={styles.pageTitle}>직원 관리</h2>
-        <button style={styles.btnAdd} onClick={() => setShowAdd(true)}>{Icon.plus} 추가</button>
+        {isSuperAdmin && <button style={styles.btnAdd} onClick={() => setShowAdd(true)}>{Icon.plus} 추가</button>}
       </div>
 
       {emps.map(u => {
@@ -1936,8 +1873,8 @@ function TeamTab({ users, leaves, logs, persist }) {
               </div>
             </div>
             <div style={{ display: "flex", gap: 4, flexShrink: 0, alignItems: "center" }}>
-              <button style={styles.iconBtn} onClick={() => { setConfirmId(null); setEditEmp(u); }}>{Icon.edit}</button>
-              {confirmId === u.id ? (
+              {isSuperAdmin && <button style={styles.iconBtn} onClick={() => { setConfirmId(null); setEditEmp(u); }}>{Icon.edit}</button>}
+              {isSuperAdmin && (confirmId === u.id ? (
                 <div style={styles.confirmInline}>
                   <span style={{ fontSize: 11, color: "#f77" }}>삭제?</span>
                   <button style={styles.confirmYes} onClick={() => deleteEmp(u.id)}>예</button>
@@ -1945,7 +1882,7 @@ function TeamTab({ users, leaves, logs, persist }) {
                 </div>
               ) : (
                 <button style={{ ...styles.iconBtn, color: "#f77" }} onClick={() => { setEditEmp(null); setConfirmId(u.id); }}>{Icon.trash}</button>
-              )}
+              ))}
             </div>
           </div>
         );
@@ -2008,6 +1945,7 @@ function LeaveAccrualSettings({ noLeave, setNoLeave, leaveStartDate, setLeaveSta
 
 function AddEmpForm({ onSave, onClose }) {
   const [form, setForm]                     = useState({ id: "", name: "", dept: "", joinDate: today, pw: "1234" });
+  const [role, setRole]                     = useState("employee");
   const [noLeave, setNoLeave]               = useState(false);
   const [leaveStartDate, setLeaveStartDate] = useState(today);
   const [err, setErr]                       = useState("");
@@ -2015,20 +1953,18 @@ function AddEmpForm({ onSave, onClose }) {
 
   const suggestId = (name) => {
     if (!name.trim()) return "";
-    // Use first character's Unicode code point to make a simple ID
     const code = name.trim().charCodeAt(0);
-    const num  = ((code % 900) + 100).toString();
-    return "user" + num;
+    return "user" + ((code % 900) + 100).toString();
   };
 
   const submit = () => {
-    if (!form.name.trim())                   { setErr("이름을 입력하세요."); return; }
-    if (!form.id.trim())                     { setErr("아이디를 입력하세요."); return; }
-    if (!/^[a-zA-Z0-9_]+$/.test(form.id))   { setErr("아이디는 영문/숫자/언더바(_)만 사용 가능해요."); return; }
-    const startDate = noLeave ? null : leaveStartDate;
-    const leaveData = { leaveStartDate: startDate, usedDays: 0, noLeave,
-      rateHistory: startDate ? [{ from: startDate, dailyRate: 0 }] : [], usageRecords: [] };
-    onSave({ ...form, id: form.id.trim(), role: "employee" }, leaveData);
+    if (!form.name.trim())                 { setErr("이름을 입력하세요."); return; }
+    if (!form.id.trim())                   { setErr("아이디를 입력하세요."); return; }
+    if (!/^[a-zA-Z0-9_]+$/.test(form.id)) { setErr("아이디는 영문/숫자/언더바(_)만 사용 가능해요."); return; }
+    const startDate = (role === "employee" && !noLeave) ? leaveStartDate : (noLeave ? null : leaveStartDate);
+    const leaveData = { leaveStartDate: role !== "employee" ? null : startDate, usedDays: 0, noLeave: role !== "employee" ? true : noLeave,
+      rateHistory: (role === "employee" && startDate) ? [{ from: startDate, dailyRate: 0 }] : [], usageRecords: [] };
+    onSave({ ...form, id: form.id.trim(), role }, leaveData);
   };
 
   return (
@@ -2071,8 +2007,21 @@ function AddEmpForm({ onSave, onClose }) {
             <input type="password" style={styles.input} value={form.pw} onChange={e => set("pw", e.target.value)} />
           </div>
         </div>
-        <LeaveAccrualSettings noLeave={noLeave} setNoLeave={setNoLeave}
-          leaveStartDate={leaveStartDate} setLeaveStartDate={setLeaveStartDate} joinDate={form.joinDate} />
+        <div style={styles.field}>
+          <label style={styles.label}>역할</label>
+          <select style={styles.input} value={role} onChange={e => setRole(e.target.value)}>
+            <option value="employee">직원</option>
+            <option value="viewadmin">관리자 (조회만 — 수정 불가)</option>
+            <option value="superadmin">슈퍼 관리자 (모든 권한)</option>
+          </select>
+        </div>
+        {role === "employee" && <LeaveAccrualSettings noLeave={noLeave} setNoLeave={setNoLeave}
+          leaveStartDate={leaveStartDate} setLeaveStartDate={setLeaveStartDate} joinDate={form.joinDate} />}
+        {role !== "employee" && <div style={{ ...styles.leaveSettingBox, borderColor: "#c5d8ff", background: "#f0f5ff", marginBottom: 14 }}>
+          <p style={{ margin: 0, fontSize: 12, color: "#3b5fc0" }}>
+            {role === "superadmin" ? "🔑 슈퍼 관리자 — 직원 추가/수정/삭제 포함 모든 권한" : "👁️ 일반 관리자 — 근무일지·급여·연차 조회만 가능, 수정 불가"}
+          </p>
+        </div>}
         {err && <p style={{ color: "#f77", fontSize: 13, fontWeight: 600, margin: "0 0 10px" }}>⚠️ {err}</p>}
         <div style={styles.modalFooter}>
           <button style={styles.btnSecondary} onClick={onClose}>취소</button>
@@ -2102,7 +2051,7 @@ function EditEmpForm({ emp, leaveData, onSave, onClose }) {
     const newLeave = { ...leaveData, leaveStartDate: startDate, noLeave,
       contractorInfo: noLeave ? ci : undefined,
       rateHistory: startDate
-        ? ((leaveData.rateHistory && leaveData.rateHistory.length) ? leaveData.rateHistory : [{ from: startDate, dailyRate: 0 }])
+        ? ((leaveData && leaveData.rateHistory.length) ? leaveData.rateHistory : [{ from: startDate, dailyRate: 0 }])
         : [] };
     onSave({ ...emp, ...form }, newLeave);
   };
@@ -2137,7 +2086,7 @@ function EditEmpForm({ emp, leaveData, onSave, onClose }) {
         <LeaveAccrualSettings noLeave={noLeave} setNoLeave={setNoLeave}
           leaveStartDate={leaveStartDate} setLeaveStartDate={setLeaveStartDate} joinDate={form.joinDate} />
 
-        {/* Contractor invoice info - only when noLeave */}
+        {/* Contractor invoice info — only when noLeave */}
         {noLeave && (
           <div style={{ ...styles.leaveSettingBox, borderColor: "#c5d8ff", background: "#f0f5ff", marginBottom: 14 }}>
             <p style={{ ...styles.leaveSettingTitle, color: C.primary }}>📄 인보이스 정보</p>
@@ -2180,8 +2129,6 @@ function EditEmpForm({ emp, leaveData, onSave, onClose }) {
   );
 }
 
-
-
 function DataBackup({ users, leaves, logs, persist }) {
   const [expanded, setExpanded]         = useState(false);
   const [importText, setImportText]     = useState("");
@@ -2218,7 +2165,7 @@ function DataBackup({ users, leaves, logs, persist }) {
         <div style={{ paddingTop: 12 }}>
           {fbUrl && (
             <div style={{ background: "#f0f9f4", border: "1.5px solid #34c98b", borderRadius: 10, padding: "10px 14px", marginBottom: 14 }}>
-              <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: "#1a6644" }}>🔥 Firebase 연결됨 - 실시간 동기화 중</p>
+              <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: "#1a6644" }}>🔥 Firebase 연결됨 — 실시간 동기화 중</p>
               <p style={{ margin: "2px 0 0", fontSize: 10, color: "#888", wordBreak: "break-all" }}>{fbUrl}</p>
               <button style={{ marginTop: 8, fontSize: 11, color: "#f77", background: "none", border: "1px solid #f77", borderRadius: 6, padding: "3px 8px", cursor: "pointer", fontFamily: "inherit" }}
                 onClick={() => { try { localStorage.removeItem("wm_fb_url"); } catch {} window.location.reload(); }}>
@@ -2243,7 +2190,7 @@ function DataBackup({ users, leaves, logs, persist }) {
 }
 
 
-
+// ─── OSRM driving distance (meters) between two [lat,lng] points ──────────
 async function fetchDrivingKm(coord1, coord2) {
   try {
     const url = `https://router.project-osrm.org/route/v1/driving/${coord1[1]},${coord1[0]};${coord2[1]},${coord2[0]}?overview=false`;
@@ -2307,8 +2254,8 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, persist }) {
       else if (l.workType === "dayoff")        dayoffDays += 1;
       else if (l.workType === "publicholiday") holidayDays += 1;
       else if (!l.workType)                    fulltimeDays += 1;
-      if ((l.travel && l.travel.allowance)) travelTotal += l.travel.allowance;
-      if ((l.travel && l.travel.hasDinner)) travelTotal += 25;
+      if ((l && l.travel.allowance)) travelTotal += l.travel.allowance;
+      if ((l && l.travel.hasDinner)) travelTotal += 25;
     });
     return { fulltimeDays, overtimeHours, parttimeHours, travelTotal, dayoffDays, holidayDays };
   };
@@ -2373,7 +2320,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, persist }) {
 
         const s = calcStats(periodLogs);
         const fulltimeLogs = periodLogs.filter(l => l.workType === "fulltime" || l.workType === "overtime" || (!l.workType));
-        const travelLogs   = periodLogs.filter(l => (l.travel && l.travel.allowance) || (l.travel && l.travel.hasDinner));
+        const travelLogs   = periodLogs.filter(l => (l && l.travel.allowance) || (l && l.travel.hasDinner));
         const parttimeLogs = periodLogs.filter(l => l.workType === "parttime");
         const dayoffLogs   = periodLogs.filter(l => l.workType === "dayoff");
         const holidayLogs  = periodLogs.filter(l => l.workType === "publicholiday");
@@ -2407,8 +2354,8 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, persist }) {
                 logs={parttimeLogs} renderDetail={l => `${dayStr(l.date)} ${l.startTime}~${l.endTime} (${fmt(l.hours)}h)`} />
               <PayStat emoji="🚗" label="트래블" val={s.travelTotal > 0 ? `$${s.travelTotal.toFixed(2)}` : "-"} color="#34c98b"
                 logs={travelLogs} renderDetail={l => {
-                  const stops = ((l.travel && l.travel.stops) || []).filter(Boolean).join("→");
-                  const amt   = ((l.travel && l.travel.allowance) || 0) + ((l.travel && l.travel.hasDinner) ? 25 : 0);
+                  const stops = ((l && l.travel.stops) || []).filter(Boolean).join("→");
+                  const amt   = ((l && l.travel.allowance) || 0) + ((l && l.travel.hasDinner) ? 25 : 0);
                   return `${dayStr(l.date)} ${stops} $${amt.toFixed(2)}`;
                 }} />
               {s.dayoffDays > 0 && <PayStat emoji="🌴" label="휴무" val={`${s.dayoffDays}일`} color="#888"
@@ -2423,7 +2370,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, persist }) {
   );
 }
 
-
+// ─── Invoice Button + In-App PDF Preview ─────────────────────────────────
 const inv = {
   info:       { fontSize: 11, color: "#444", lineHeight: 1.6, margin: 0 },
   sectionHdr: { background: "#1a4fa8", color: "#fff", fontWeight: 700, padding: "4px 8px", fontSize: 11, marginBottom: 6 },
@@ -2467,9 +2414,9 @@ function InvoiceButton({ u, s, periodLogs, startDate, endDate, leaveData, onInvo
       { desc: "Over time " + workDesc,          qty: s.overtimeHours ? fmt(s.overtimeHours)+"h" : "", unit: otAmt ? otRate : "", amt: otAmt || "" },
       { desc: deductDesc || "Deduction",        qty: "",              unit: "",                         amt: deductNum ? -deductNum : "" },
     ];
-    const fmtC = (v) => { if (v === "" || v === 0) return "-"; const n = parseFloat(v); return isNaN(n) ? String(v) : n.toFixed(2); };
+    const fmtC = (v) => { if (v === "" || v === 0) return "–"; const n = parseFloat(v); return isNaN(n) ? String(v) : n.toFixed(2); };
     const addrLines = (a) => (a||"").split(",").map(l=>l.trim()).filter(Boolean).map(l=>`<p style="margin:0;font-size:11px;color:#444">${l}</p>`).join("");
-    const emptyRows = Array(9).fill('<tr><td>&nbsp;</td><td></td><td></td><td style="text-align:right">-</td></tr>').join("");
+    const emptyRows = Array(9).fill('<tr><td>&nbsp;</td><td></td><td></td><td style="text-align:right">–</td></tr>').join("");
 
     return `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Invoice ${invoiceNum}</title>
 <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;font-size:12px;padding:20px}
@@ -2511,7 +2458,7 @@ ${emptyRows}
 <div class="foot"><p class="ty">Thank you for your business!</p>
 <table><tr><td class="tttd">SUBTOTAL</td><td class="tttd" style="text-align:right">${subtotal.toFixed(2)}</td></tr>
 <tr><td class="tttd">TAX RATE</td><td class="tttd" style="text-align:right">0.000%</td></tr>
-<tr><td class="tttd">TAX</td><td class="tttd" style="text-align:right">-</td></tr>
+<tr><td class="tttd">TAX</td><td class="tttd" style="text-align:right">–</td></tr>
 <tr><td class="ttot">TOTAL</td><td class="ttot" style="text-align:right">$ ${subtotal.toFixed(2)}</td></tr>
 </table></div>
 ${contactEmail?`<p style="text-align:center;margin-top:20px;font-size:10px;color:#888">If you have any questions about this invoice, please contact<br/><span style="color:#1a4fa8">${contactEmail}</span></p>`:""}
@@ -2524,7 +2471,7 @@ ${contactEmail?`<p style="text-align:center;margin-top:20px;font-size:10px;color
   const splitAddr = (addr) => addr ? addr.split(",").map(l => l.trim()).filter(Boolean) : [];
 
   const fmtCell = (v) => {
-    if (v === "" || v === 0) return "-";
+    if (v === "" || v === 0) return "–";
     const n = parseFloat(v);
     return isNaN(n) ? String(v) : n.toFixed(2);
   };
@@ -2541,11 +2488,11 @@ ${contactEmail?`<p style="text-align:center;margin-top:20px;font-size:10px;color
       ci.billToAddress || "",
       "",
       "DESCRIPTION                    QTY   UNIT     AMOUNT",
-      "-----------------------------------------------------",
+      "─────────────────────────────────────────────────────",
     ];
     const addRow = (desc, qty, unit, amt) => {
       if (!qty && !amt) return;
-      lines.push(`${desc.padEnd(30)} ${String(qty||"").padStart(5)}  ${String(unit ? parseFloat(unit).toFixed(2) : "").padStart(7)}  ${String(amt ? parseFloat(amt).toFixed(2) : "-").padStart(8)}`);
+      lines.push(`${desc.padEnd(30)} ${String(qty||"").padStart(5)}  ${String(unit ? parseFloat(unit).toFixed(2) : "").padStart(7)}  ${String(amt ? parseFloat(amt).toFixed(2) : "–").padStart(8)}`);
     };
     if (s.fulltimeDays)    addRow(workDesc, s.fulltimeDays, dailyRate, fullAmt);
     if (s.travelTotal > 0) addRow("Travel allowance", trvlCnt, trvlUnit, s.travelTotal);
@@ -2553,7 +2500,7 @@ ${contactEmail?`<p style="text-align:center;margin-top:20px;font-size:10px;color
     if (s.parttimeHours)   addRow("Half time " + workDesc, fmt(s.parttimeHours)+"h", ptRate, ptAmt);
     if (s.overtimeHours)   addRow("Over time " + workDesc, fmt(s.overtimeHours)+"h", otRate, otAmt);
     if (deductNum)         addRow(deductDesc || "Deduction", "", "", -deductNum);
-    lines.push("-----------------------------------------------------");
+    lines.push("─────────────────────────────────────────────────────");
     lines.push(`${"TOTAL".padEnd(40)} $${subtotal.toFixed(2)}`);
     if (contactEmail) lines.push(`\nQuestions? ${contactEmail}`);
     return lines.filter(l => l !== "").join("\n");
@@ -2589,7 +2536,7 @@ ${contactEmail?`<p style="text-align:center;margin-top:20px;font-size:10px;color
       <td style={{ ...inv.tdRow, textAlign: "right" }}>{fmtCell(amt !== undefined ? amt : "")}</td>
     </tr>
   );
-  const ERow = () => <tr><td style={inv.tdRow}>&nbsp;</td><td style={inv.tdRow}></td><td style={inv.tdRow}></td><td style={{ ...inv.tdRow, textAlign: "right" }}>-</td></tr>;
+  const ERow = () => <tr><td style={inv.tdRow}>&nbsp;</td><td style={inv.tdRow}></td><td style={inv.tdRow}></td><td style={{ ...inv.tdRow, textAlign: "right" }}>–</td></tr>;
 
   if (!show) return (
     <button style={styles.invoiceBtn} onClick={() => setShow(true)}>📄 PDF 인보이스</button>
@@ -2661,7 +2608,7 @@ function EmptyState({ msg }) {
   return <div style={styles.empty}><p style={{ margin: 0, color: "#aaa" }}>📭 {msg}</p></div>;
 }
 
-
+// ─── Styles ────────────────────────────────────────────────────────────────
 const C = { primary: "#3b7ff5", bg: "#f4f6fb", card: "#fff", border: "#eaecf3", text: "#1a1d2e", sub: "#8891a8", success: "#34c98b", danger: "#f76f6f" };
 
 const styles = {
@@ -2923,59 +2870,22 @@ const styles = {
   addViaBtn2: { fontSize: 11, background: C.primary, color: "#fff", border: "none", borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontFamily: "inherit", fontWeight: 600 },
 };
 
-
-
-// Error boundary
-class ErrorBoundary extends React.Component {
-  constructor(p) { super(p); this.state = { error: null }; }
-  static getDerivedStateFromError(e) { return { error: e }; }
-  render() {
-    if (this.state.error) {
-      return React.createElement('div', {style:{padding:20,color:'red',fontFamily:'monospace',fontSize:12,whiteSpace:'pre-wrap'}},
-        'ERROR: ' + (this.state.error.message || String(this.state.error)) + '\n\n' + (this.state.error.stack || '')
-      );
-    }
-    return this.props.children;
-  }
-}
-
-try {
-  ReactDOM.createRoot(document.getElementById('root')).render(
-    React.createElement(ErrorBoundary, null, React.createElement(App))
-  );
-} catch(e) {
-  document.getElementById('root').innerHTML = '<pre style="color:red;padding:20px;font-size:12px">' + e.message + '\n' + e.stack + '</pre>';
-}
-
-
-
-
+ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
 </script>
 <script>
 function runApp() {
   try {
-    if (typeof Babel === 'undefined') {
-      setTimeout(runApp, 100);
-      return;
-    }
+    if (typeof Babel === 'undefined') { setTimeout(runApp, 100); return; }
     var source = document.getElementById('app-source').textContent;
-    var result = Babel.transform(source, {
-      presets: ['react'],
-      filename: 'app.jsx'
-    });
+    var result = Babel.transform(source, { presets: ['react'], filename: 'app.jsx' });
     eval(result.code);
     document.getElementById('loading').style.display = 'none';
     document.getElementById('root').style.display = 'block';
   } catch(e) {
-    document.getElementById('loading').innerHTML = '<pre style="color:red;padding:20px;font-size:11px;white-space:pre-wrap;max-width:100%">오류: ' + e.message + '\n\n' + (e.stack||'') + '</pre>';
+    document.getElementById('loading').innerHTML = '<pre style="color:red;padding:20px;font-size:11px;white-space:pre-wrap;max-width:100%;overflow:auto">오류: ' + e.message + '\n\n' + (e.stack||'') + '</pre>';
   }
 }
-document.addEventListener('DOMContentLoaded', function() {
-  setTimeout(runApp, 500);
-});
+document.addEventListener('DOMContentLoaded', function() { setTimeout(runApp, 500); });
 </script>
-
-
-
 </body>
 </html>
