@@ -847,8 +847,11 @@ function LogForm({ log, userId, users, leaves, isAdmin, onSave, onClose }) {
   });
 
   // Check if the logged user has leave accrual
-  const logUserId = form.userId || userId;
-  const targetLeave = normLeave((leaves || {})[logUserId], (users && users.find)(u => u.id === logUserId)?.joinDate);
+  const logUserId   = form.userId || userId;
+  const safeUsers   = Array.isArray(users) ? users : [];
+  const safeLeaves  = leaves || {};
+  const targetUser  = safeUsers.find(u => u.id === logUserId);
+  const targetLeave = normLeave(safeLeaves[logUserId], targetUser ? targetUser.joinDate : null);
   const hasLeaveAccrual = !targetLeave.noLeave;
 
   // Dynamic work types based on date and leave accrual
@@ -1389,8 +1392,9 @@ function LeaveTab({ user, users, leaves, isAdmin, persist, updateLeaveUsage }) {
               )}
             </div>
 
+
             {/* Admin: per-rate accrual breakdown or simple accrual */}
-            {isAdmin && hasRateSplit ? (
+            {!lv.noLeave && isAdmin && hasRateSplit && (
               <div style={styles.rateAccrualBox}>
                 <p style={styles.rateAccrualTitle}>📅 오늘 기준 일급별 적립 현황</p>
                 {accruedByPeriod.map(function(p, i) { return (
@@ -1423,7 +1427,8 @@ function LeaveTab({ user, users, leaves, isAdmin, persist, updateLeaveUsage }) {
                   합계 <strong>{accDays.toFixed(2)}일 ({accHours.toFixed(1)}h)</strong> 적립
                 </div>
               </div>
-            ) : (
+            )}
+            {!lv.noLeave && (!isAdmin || !hasRateSplit) && (
               <div style={styles.todayAccrualBox}>
                 <div style={styles.todayAccrualMain}>
                   <span style={styles.todayAccrualLabel}>오늘까지 적립</span>
@@ -1448,13 +1453,12 @@ function LeaveTab({ user, users, leaves, isAdmin, persist, updateLeaveUsage }) {
               </div>
             </div>
 
-            {/* Chips */}
             <div style={styles.leaveChips}>
-              <LeaveChip label="적립"  val={accDays.toFixed(1) + "일"}  color="#4f8ef7" />
+              <LeaveChip label="적립" val={accDays.toFixed(1) + "일"} color="#4f8ef7" />
               {grantDays > 0 && <LeaveChip label="지급" val={"+" + grantDays.toFixed(1) + "일"} color="#34c98b" />}
-              <LeaveChip label="사용"  val={usedDays.toFixed(1) + "일"} color="#f7a440" />
-              <LeaveChip label="잔여"  val={remDays.toFixed(1) + "일"}  color={color} />
-              <LeaveChip label="잔여h" val={remHours + "h"}             color="#888" />
+              <LeaveChip label="사용" val={usedDays.toFixed(1) + "일"} color="#f7a440" />
+              <LeaveChip label="잔여" val={remDays.toFixed(1) + "일"} color={color} />
+              <LeaveChip label="잔여h" val={remHours + "h"} color="#888" />
             </div>
 
             {isAdmin && completedYears > 0 && (
@@ -1468,10 +1472,8 @@ function LeaveTab({ user, users, leaves, isAdmin, persist, updateLeaveUsage }) {
                 </div>
                 <div style={styles.carryoverRight}>
                   {carriedOverDays > 0 ? (
-                    <>
-                      <span style={styles.carryoverDays}>{carriedOverDays.toFixed(1)}일</span>
-                      <span style={styles.carryoverHours}>{carriedOverHours}h</span>
-                    </>
+                    <><span style={styles.carryoverDays}>{carriedOverDays.toFixed(1)}일</span>
+                    <span style={styles.carryoverHours}>{carriedOverHours}h</span></>
                   ) : (
                     <span style={styles.carryoverNone}>없음</span>
                   )}
