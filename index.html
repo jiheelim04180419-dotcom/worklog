@@ -216,7 +216,7 @@ function normLeave(lv, joinDate) {
   // usedDays = sum of usageRecords if records exist, else fall back to stored value
   const usedDays = usageRecords.length > 0
     ? Math.round(usageRecords.reduce((s, r) => s + (+(r.days) || 0), 0) * 100) / 100
-    : +(lv.usedDays ?? (lv.used ? +(lv.used / HOURS_PER_DAY).toFixed(2) : 0)) || 0;
+    : +(lv.usedDays || (lv.used ? +(lv.used / HOURS_PER_DAY).toFixed(2) : 0)) || 0;
   if (lv.leaveStartDate !== undefined) return { ...lv, usedDays, usageRecords };
   return { leaveStartDate: base, usedDays, rateHistory: [{ from: base, dailyRate: 0 }], usageRecords };
 }
@@ -690,9 +690,9 @@ function HomeTab({ user, users, logs, leaves, isAdmin }) {
             return (
               <div key={l.id} style={styles.logCard}>
                 <div style={styles.logCardLeft}>
-                  <div style={styles.logAvatar}>{(emp?.name || "?")[0]}</div>
+                  <div style={styles.logAvatar}>{((emp && emp.name) || "?")[0]}</div>
                   <div>
-                    <p style={styles.logName}>{isAdmin ? emp?.name || l.userId : korDate(l.date)}</p>
+                    <p style={styles.logName}>{isAdmin ? (emp && emp.name) || l.userId : korDate(l.date)}</p>
                     <p style={styles.logContent}>{l.content}</p>
                   </div>
                 </div>
@@ -787,7 +787,7 @@ function LogTab({ user, users, logs, leaves, isAdmin, persist }) {
           <div key={l.id} style={styles.logItem}>
             <div style={styles.logItemDate}>{l.date.slice(5)} ({["일","월","화","수","목","금","토"][new Date(l.date + "T00:00:00").getDay()]})</div>
             <div style={styles.logItemBody}>
-              {isAdmin && <span style={styles.empName}>{emp?.name || l.userId}</span>}
+              {isAdmin && <span style={styles.empName}>{(emp && emp.name) || l.userId}</span>}
               <p style={styles.logItemContent}>{l.content}</p>
               <div style={styles.logItemMeta}>
                 {(() => {
@@ -853,7 +853,7 @@ function LogTab({ user, users, logs, leaves, isAdmin, persist }) {
       {showForm && (
         <LogForm
           log={editLog}
-          userId={editLog ? editLog.userId : (isAdmin ? (filterUser === "all" ? users.find(u => u.role !== "admin")?.id || user.id : filterUser) : user.id)}
+          userId={editLog ? editLog.userId : (isAdmin ? (filterUser === "all" ? users.find(u => u.role !== "admin") && users.find(u => u.role !== "admin").id || user.id || user.id : filterUser) : user.id)}
           users={users}
           leaves={leaves}
           isAdmin={isAdmin}
@@ -880,7 +880,7 @@ function OsrmLegBox({ from, to, autoKm, overrideVal, onOverride, onReset }) {
     setLoading(false);
     if (km) onOverride(km);
   };
-  const display = overrideVal !== undefined ? overrideVal : (autoKm ?? "");
+  const display = overrideVal !== undefined ? overrideVal : (autoKm || "");
   return (
     <div style={styles.legKmBox}>
       {overrideVal === undefined && autoKm !== null && <span style={styles.legKmAuto}>📐 {autoKm}km</span>}
@@ -914,10 +914,10 @@ function GeocodeLegBox({ fromName, toName, overrideVal, onOverride, onReset }) {
           inputMode="numeric"
           pattern="[0-9]*"
           style={{ ...styles.legKmInput, flex: 1, textAlign: "left", fontSize: 14, width: "auto", minWidth: 60 }}
-          defaultValue={overrideVal ?? ""}
+          defaultValue={overrideVal || ""}
           placeholder="km 입력"
           onBlur={e => { if (e.target.value) onOverride(e.target.value); }}
-          onKeyDown={e => { if (e.key === "Enter" && ref.current?.value) onOverride(ref.current.value); }}
+          onKeyDown={e => { if (e.key === "Enter" && ref.(current && current.value)) onOverride(ref.current.value); }}
         />
         <span style={{ fontSize: 11, color: C.sub, whiteSpace: "nowrap" }}>km</span>
         {overrideVal !== undefined && <button style={styles.legKmReset} onClick={() => { if (ref.current) ref.current.value = ""; onReset(); }}>↺</button>}
@@ -957,24 +957,24 @@ function LogForm({ log, userId, users, leaves, isAdmin, onSave, onClose }) {
   const [form, setForm] = useState(() => {
     const wt = detectType(log);
     return {
-      id: log?.id || uid(),
-      userId: log?.userId || userId,
-      date: log?.date || new Date().toISOString().slice(0, 10),
-      startTime: wt === "parttime" ? (log?.startTime || "09:00") : FULLTIME_START,
-      endTime:   wt === "parttime" ? (log?.endTime   || "13:00") : FULLTIME_END,
-      otStart: log?.otStart || FULLTIME_END,
-      otEnd:   log?.otEnd   || "18:00",
-      content: log?.content || "",
-      status:  log?.status  || "정상",
-      hours:   log?.hours   || FULLTIME_HOURS,
+      id: (log && log.id) || uid(),
+      userId: (log && log.userId) || userId,
+      date: (log && log.date) || new Date().toISOString().slice(0, 10),
+      startTime: wt === "parttime" ? ((log && log.startTime) || "09:00") : FULLTIME_START,
+      endTime:   wt === "parttime" ? ((log && log.endTime)   || "13:00") : FULLTIME_END,
+      otStart: (log && log.otStart) || FULLTIME_END,
+      otEnd:   (log && log.otEnd)   || "18:00",
+      content: (log && log.content) || "",
+      status:  (log && log.status)  || "정상",
+      hours:   (log && log.hours)   || FULLTIME_HOURS,
       workType: wt,
-      travel: log?.travel || null,
+      travel: (log && log.travel) || null,
     };
   });
 
   // Check if the logged user has leave accrual
   const logUserId = form.userId || userId;
-  const targetLeave = normLeave((leaves || {})[logUserId], users?.find(u => u.id === logUserId)?.joinDate);
+  const targetLeave = normLeave((leaves || {})[logUserId], (users && users.find)(u => u.id === logUserId) && users.find(u => u.id === logUserId).joinDate);
   const hasLeaveAccrual = !targetLeave.noLeave;
 
   // Dynamic work types based on date and leave accrual
@@ -1012,7 +1012,7 @@ function LogForm({ log, userId, users, leaves, isAdmin, onSave, onClose }) {
   };
 
   
-  const [hasTavel, setHasTravel] = useState(!!log?.travel);
+  const [hasTavel, setHasTravel] = useState(!!(log && log.travel));
 
   // Normalize travel data - handles old formats (from/to/via) and new format (stops)
   const normTravel = (t) => {
@@ -1025,7 +1025,7 @@ function LogForm({ log, userId, users, leaves, isAdmin, onSave, onClose }) {
     return { isBizTrip: !!t.isBizTrip, hasDinner: !!t.hasDinner, adminConfirmed: false, stops: [oldFrom, ...oldVia, oldTo], kmOverrides: {} };
   };
 
-  const initTravel = normTravel(log?.travel);
+  const initTravel = normTravel((log && log.travel));
   const [travel, setTravel] = useState(initTravel);
 
   // Track which stops are in "custom text" mode (not from dropdown)
@@ -1044,9 +1044,9 @@ function LogForm({ log, userId, users, leaves, isAdmin, onSave, onClose }) {
 
   // Compute leg distances and totals
   const getTravelCalc = (t, sm) => {
-    const stops = Array.isArray(t?.stops) ? t.stops : ["Bathurst", ""];
-    const kmOverrides = t?.kmOverrides || {};
-    const isBizTrip = !!t?.isBizTrip;
+    const stops = Array.isArray((t && t.stops)) ? t.stops : ["Bathurst", ""];
+    const kmOverrides = (t && t.kmOverrides) || {};
+    const isBizTrip = !!(t && t.isBizTrip);
 
     // Outbound legs: each consecutive stop pair
     const legs = stops.slice(0, -1).map((from, i) => {
@@ -1054,8 +1054,8 @@ function LogForm({ log, userId, users, leaves, isAdmin, onSave, onClose }) {
       const c1 = getCoord(from, i);
       const c2 = getCoord(to, i + 1);
       const isManual = (!c1 || !c2);
-      const autoKm = (!isManual) ? (geoKm(from, to) ?? null) : null;
-      const km = kmOverrides[i] !== undefined ? Number(kmOverrides[i]) : (autoKm ?? 0);
+      const autoKm = (!isManual) ? (geoKm(from, to) || null) : null;
+      const km = kmOverrides[i] !== undefined ? Number(kmOverrides[i]) : (autoKm || 0);
       return { from, to, autoKm, km, isManual, hasCoords: !!c1 && !!c2 };
     });
 
@@ -1068,11 +1068,11 @@ function LogForm({ log, userId, users, leaves, isAdmin, onSave, onClose }) {
     const c2 = getCoord(dest, stops.length - 1);
     const returnIsManual = (!c1 || !c2);
     const returnAutoKm = (!returnIsManual && dest && origin && dest !== origin)
-      ? (geoKm(dest, origin) ?? null) : null;
+      ? (geoKm(dest, origin) || null) : null;
     const returnOverride = kmOverrides["return"];
     const returnKm = returnOverride !== undefined
       ? Number(returnOverride)
-      : (returnAutoKm ?? (outboundKm > 0 ? outboundKm : 0));
+      : (returnAutoKm || (outboundKm > 0 ? outboundKm : 0));
 
     const totalKm = isBizTrip ? outboundKm : outboundKm + returnKm;
     const allowance = calcTravelAllowance(totalKm);
@@ -1391,7 +1391,7 @@ function LogForm({ log, userId, users, leaves, isAdmin, onSave, onClose }) {
                         <span style={styles.legKmAuto}>📐 {travelCalc.returnAutoKm}km</span>
                       )}
                       <input type="number" style={styles.legKmInput}
-                        value={travel.kmOverrides["return"] ?? ""}
+                        value={travel.kmOverrides["return"] || ""}
                         placeholder={travelCalc.returnAutoKm !== null ? `${travelCalc.returnAutoKm}` : "km"}
                         onChange={e => setTravelField({ kmOverrides: { ...travel.kmOverrides, return: e.target.value } })}
                         min={0} />
@@ -1750,16 +1750,16 @@ function LeaveUsageSection({ records, isAdmin, onUpdate }) {
 
 function LeaveEditForm({ targetId, users, leaves, onSave, onClose }) {
   const emps = users.filter(u => u.role !== "admin");
-  const firstId = targetId || emps[0]?.id || "";
+  const firstId = targetId || (emps[0] && emps[0].id) || "";
 
   const buildState = (id) => {
     const u  = users.find(u => u.id === id);
-    const lv = normLeave(leaves[id], u?.joinDate);
+    const lv = normLeave(leaves[id], (u && u.joinDate));
     return {
       selId: id,
-      leaveStartDate: lv.leaveStartDate || u?.joinDate || today,
+      leaveStartDate: lv.leaveStartDate || (u && u.joinDate) || today,
       usedDays: +(lv.usedDays) || 0,
-      rateHistory: lv.rateHistory?.length ? lv.rateHistory : [{ from: lv.leaveStartDate || u?.joinDate || today, dailyRate: 0 }],
+      rateHistory: lv.(rateHistory && rateHistory.length) ? lv.rateHistory : [{ from: lv.leaveStartDate || (u && u.joinDate) || today, dailyRate: 0 }],
     };
   };
 
@@ -1771,7 +1771,7 @@ function LeaveEditForm({ targetId, users, leaves, onSave, onClose }) {
   const setRate = (i, field, val) =>
     setState(s => { const rh = [...s.rateHistory]; rh[i] = { ...rh[i], [field]: val }; return { ...s, rateHistory: rh }; });
   const addRate = () =>
-    setState(s => ({ ...s, rateHistory: [...s.rateHistory, { from: today, dailyRate: s.rateHistory.at(-1)?.dailyRate || 0 }] }));
+    setState(s => ({ ...s, rateHistory: [...s.rateHistory, { from: today, dailyRate: (s.rateHistory[s.rateHistory.length - 1] && s.rateHistory[s.rateHistory.length - 1].dailyRate) || 0 }] }));
   const removeRate = (i) =>
     setState(s => ({ ...s, rateHistory: s.rateHistory.filter((_, j) => j !== i) }));
 
@@ -2087,7 +2087,7 @@ function EditEmpForm({ emp, leaveData, onSave, onClose }) {
     const newLeave = { ...leaveData, leaveStartDate: startDate, noLeave,
       contractorInfo: noLeave ? ci : undefined,
       rateHistory: startDate
-        ? (leaveData.rateHistory?.length ? leaveData.rateHistory : [{ from: startDate, dailyRate: 0 }])
+        ? ((leaveData.rateHistory && leaveData.rateHistory.length) ? leaveData.rateHistory : [{ from: startDate, dailyRate: 0 }])
         : [] };
     onSave({ ...emp, ...form }, newLeave);
   };
@@ -2290,8 +2290,8 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, persist }) {
       else if (l.workType === "dayoff")        dayoffDays += 1;
       else if (l.workType === "publicholiday") holidayDays += 1;
       else if (!l.workType)                    fulltimeDays += 1;
-      if (l.travel?.allowance) travelTotal += l.travel.allowance;
-      if (l.travel?.hasDinner) travelTotal += 25;
+      if ((l.travel && l.travel.allowance)) travelTotal += l.travel.allowance;
+      if ((l.travel && l.travel.hasDinner)) travelTotal += 25;
     });
     return { fulltimeDays, overtimeHours, parttimeHours, travelTotal, dayoffDays, holidayDays };
   };
@@ -2356,7 +2356,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, persist }) {
 
         const s = calcStats(periodLogs);
         const fulltimeLogs = periodLogs.filter(l => l.workType === "fulltime" || l.workType === "overtime" || (!l.workType));
-        const travelLogs   = periodLogs.filter(l => l.travel?.allowance || l.travel?.hasDinner);
+        const travelLogs   = periodLogs.filter(l => (l.travel && l.travel.allowance) || (l.travel && l.travel.hasDinner));
         const parttimeLogs = periodLogs.filter(l => l.workType === "parttime");
         const dayoffLogs   = periodLogs.filter(l => l.workType === "dayoff");
         const holidayLogs  = periodLogs.filter(l => l.workType === "publicholiday");
@@ -2390,8 +2390,8 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, persist }) {
                 logs={parttimeLogs} renderDetail={l => `${dayStr(l.date)} ${l.startTime}~${l.endTime} (${fmt(l.hours)}h)`} />
               <PayStat emoji="🚗" label="트래블" val={s.travelTotal > 0 ? `$${s.travelTotal.toFixed(2)}` : "-"} color="#34c98b"
                 logs={travelLogs} renderDetail={l => {
-                  const stops = (l.travel?.stops || []).filter(Boolean).join("→");
-                  const amt   = (l.travel?.allowance || 0) + (l.travel?.hasDinner ? 25 : 0);
+                  const stops = ((l.travel && l.travel.stops) || []).filter(Boolean).join("→");
+                  const amt   = ((l.travel && l.travel.allowance) || 0) + ((l.travel && l.travel.hasDinner) ? 25 : 0);
                   return `${dayStr(l.date)} ${stops} $${amt.toFixed(2)}`;
                 }} />
               {s.dayoffDays > 0 && <PayStat emoji="🌴" label="휴무" val={`${s.dayoffDays}일`} color="#888"
