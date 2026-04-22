@@ -235,11 +235,17 @@ function normLeave(lv, joinDate) {
   const base = joinDate || today;
   if (!lv) return { leaveStartDate: base, usedDays: 0, noLeave: false, rateHistory: [{ from: base, dailyRate: 0 }], usageRecords: [] };
   const usageRecords = Array.isArray(lv.usageRecords) ? lv.usageRecords : [];
-  // Separate use vs grant records
-  const useRecs   = usageRecords.filter(r => (r.type||"use") === "use");
-  const grantRecs = usageRecords.filter(r => r.type === "grant");
+
+  // Only count current leave year records
+  const yr = getCurrentLeaveYear(lv.leaveStartDate || base);
+  const yrStart = yr ? yr.start.toISOString().slice(0, 10) : "0000-01-01";
+  const yrEnd   = yr ? yr.end.toISOString().slice(0, 10)   : "9999-12-31";
+
+  const useRecs   = usageRecords.filter(r => (r.type||"use") === "use" && r.date >= yrStart && r.date <= yrEnd);
+  const grantRecs = usageRecords.filter(r => r.type === "grant" && r.date >= yrStart && r.date <= yrEnd);
   const usedDays  = Math.round(useRecs.reduce((s, r) => s + (+(r.days)||0), 0) * 100) / 100;
   const grantDays = Math.round(grantRecs.reduce((s, r) => s + (+(r.days)||0), 0) * 100) / 100;
+
   if (lv.leaveStartDate !== undefined || lv.noLeave) return { ...lv, usedDays, grantDays, usageRecords };
   return { leaveStartDate: base, usedDays, grantDays: 0, noLeave: false, rateHistory: [{ from: base, dailyRate: 0 }], usageRecords };
 }
@@ -1383,30 +1389,11 @@ function LeaveTab({ user, users, leaves, isAdmin, persist, updateLeaveUsage }) {
               )}
             </div>
 
-            {/* noLeave employee: show contractor rate history */}
-            {lv.noLeave ? (
-              <div style={{ ...styles.todayAccrualBox, background: "#fff8f0", border: "1px solid #ffd699" }}>
-                <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: "#a05c00" }}>💰 일급 변동 이력 (연차 미적용)</p>
-                {hasContractorRates ? (
-                  contractorRates.slice().sort(function(a,b){ return (a.from||"") < (b.from||"") ? -1 : 1; }).map(function(r, i, arr) {
-                    return (
-                      <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 0", borderBottom: i < arr.length-1 ? "1px solid #ffe0a0" : "none" }}>
-                        <span style={{ fontSize: 11, color: "#666" }}>{r.from} ~ {arr[i+1] ? arr[i+1].from : "현재"}</span>
-                        <span style={{ fontSize: 14, fontWeight: 700, color: "#a05c00" }}>${parseFloat(r.dailyRate || 0).toFixed(2)}/일</span>
-                      </div>
-                    );
-                  })
-                ) : (
-                  <p style={{ margin: 0, fontSize: 11, color: C.sub }}>일급 이력 없음 — 직원 수정에서 추가하세요</p>
-                )}
-              </div>
-            ) : null}
-
-            {/* Admin: per-rate accrual or simple for leave employees */}
-            {!lv.noLeave && (isAdmin && hasRateSplit ? (
+            {/* Admin: per-rate accrual breakdown or simple accrual */}
+            {isAdmin && hasRateSplit ? (
               <div style={styles.rateAccrualBox}>
                 <p style={styles.rateAccrualTitle}>📅 오늘 기준 일급별 적립 현황</p>
-                {accruedByPeriod.map((p, i) => (
+                {accruedByPeriod.map(function(p, i) { return (
                   <div key={i} style={{ ...styles.rateAccrualRow, ...(p.isActive ? styles.rateAccrualActive : {}) }}>
                     <div style={styles.rateAccrualLeft}>
                       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -1431,7 +1418,7 @@ function LeaveTab({ user, users, leaves, isAdmin, persist, updateLeaveUsage }) {
                       <span style={styles.rateAccrualRateSub}>/일</span>
                     </div>
                   </div>
-                ))}
+                ); })}
                 <div style={styles.rateAccrualTotal}>
                   합계 <strong>{accDays.toFixed(2)}일 ({accHours.toFixed(1)}h)</strong> 적립
                 </div>
@@ -1448,7 +1435,7 @@ function LeaveTab({ user, users, leaves, isAdmin, persist, updateLeaveUsage }) {
                   <span style={{ color: "#7b5ea7" }}>잔여 {Math.ceil(yearDays - elapsedInYear)}일</span>
                 </div>
               </div>
-            ))}
+            )}
 
             {/* Progress bar */}
             <div style={styles.leaveBarWrap}>
@@ -1463,14 +1450,13 @@ function LeaveTab({ user, users, leaves, isAdmin, persist, updateLeaveUsage }) {
 
             {/* Chips */}
             <div style={styles.leaveChips}>
-              <LeaveChip label="적립"  val={`${accDays.toFixed(1)}일`}  color="#4f8ef7" />
-              {grantDays > 0 && <LeaveChip label="지급" val={`+${grantDays.toFixed(1)}일`} color="#34c98b" />}
-              <LeaveChip label="사용"  val={`${usedDays.toFixed(1)}일`} color="#f7a440" />
-              <LeaveChip label="잔여"  val={`${remDays.toFixed(1)}일`}  color={color} />
-              <LeaveChip label="잔여h" val={`${remHours}h`}             color="#888" />
+              <LeaveChip label="적립"  val={accDays.toFixed(1) + "일"}  color="#4f8ef7" />
+              {grantDays > 0 && <LeaveChip label="지급" val={"+" + grantDays.toFixed(1) + "일"} color="#34c98b" />}
+              <LeaveChip label="사용"  val={usedDays.toFixed(1) + "일"} color="#f7a440" />
+              <LeaveChip label="잔여"  val={remDays.toFixed(1) + "일"}  color={color} />
+              <LeaveChip label="잔여h" val={remHours + "h"}             color="#888" />
             </div>
 
-            {/* Admin: carryover from previous years */}
             {isAdmin && completedYears > 0 && (
               <div style={{ ...styles.carryoverBox, ...(carriedOverDays > 0 ? {} : styles.carryoverBoxZero) }}>
                 <div style={styles.carryoverLeft}>
@@ -1493,11 +1479,11 @@ function LeaveTab({ user, users, leaves, isAdmin, persist, updateLeaveUsage }) {
               </div>
             )}
 
-            {/* Usage records — all users see, admin can edit */}
             <LeaveUsageSection
               records={lv.usageRecords || []}
+              leaveStartDate={lv.leaveStartDate}
               isAdmin={isAdmin}
-              onUpdate={isAdmin ? (records) => updateLeaveUsage(u.id, u.joinDate, records) : null}
+              onUpdate={isAdmin ? function(records) { return updateLeaveUsage(u.id, u.joinDate, records); } : null}
             />
           </div>
         );
@@ -1525,14 +1511,19 @@ function LeaveChip({ label, val, color }) {
   );
 }
 
-function LeaveUsageSection({ records, isAdmin, onUpdate }) {
+function LeaveUsageSection({ records, leaveStartDate, isAdmin, onUpdate }) {
   const [expanded, setExpanded] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [editId, setEditId] = useState(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [form, setForm] = useState({ date: today, days: 1, note: "", type: "use" });
 
-  const sorted = [...records].sort((a, b) => b.date.localeCompare(a.date));
+  // Current year filter
+  const yr       = getCurrentLeaveYear(leaveStartDate);
+  const yrStart  = yr ? yr.start.toISOString().slice(0, 10) : "0000-01-01";
+  const yrEnd    = yr ? yr.end.toISOString().slice(0, 10)   : "9999-12-31";
+  const currYearRecords = records.filter(r => r.date >= yrStart && r.date <= yrEnd);
+  const sorted   = [...records].sort((a, b) => b.date.localeCompare(a.date));
 
   const openAdd = () => { setForm({ date: today, days: 1, note: "", type: "use" }); setEditId(null); setShowAdd(true); };
   const openEdit = (r) => { setForm({ date: r.date, days: r.days, note: r.note || "", type: r.type || "use" }); setEditId(r.id); setShowAdd(true); };
@@ -1552,8 +1543,8 @@ function LeaveUsageSection({ records, isAdmin, onUpdate }) {
   };
 
   // type "grant" = 지급(+), "use" = 사용(-)
-  const totalUsed  = Math.round(records.filter(r => (r.type||"use") === "use").reduce((s, r) => s + (+(r.days)||0), 0) * 100) / 100;
-  const totalGrant = Math.round(records.filter(r => r.type === "grant").reduce((s, r) => s + (+(r.days)||0), 0) * 100) / 100;
+  const totalUsed  = Math.round(currYearRecords.filter(r => (r.type||"use") === "use").reduce((s, r) => s + (+(r.days)||0), 0) * 100) / 100;
+  const totalGrant = Math.round(currYearRecords.filter(r => r.type === "grant").reduce((s, r) => s + (+(r.days)||0), 0) * 100) / 100;
 
   return (
     <div style={styles.usageSection}>
@@ -1574,12 +1565,21 @@ function LeaveUsageSection({ records, isAdmin, onUpdate }) {
         <div style={styles.usageList}>
           {sorted.length === 0
             ? <p style={{ margin: "8px 0", fontSize: 12, color: "#aaa", textAlign: "center" }}>사용 기록이 없습니다.</p>
-            : sorted.map(r => (
-              <div key={r.id} style={styles.usageRow}>
+            : sorted.map(r => {
+                const isCurrYear = r.date >= yrStart && r.date <= yrEnd;
+                const isGrant    = r.type === "grant";
+                return (
+              <div key={r.id} style={{ ...styles.usageRow, opacity: isCurrYear ? 1 : 0.5 }}>
                 <div style={styles.usageLeft}>
-                  <div style={styles.usageDateBadge}>{r.date.slice(5)}</div>
+                  <div style={{ ...styles.usageDateBadge, background: isGrant ? "#34c98b" : isCurrYear ? "#4f8ef7" : "#aaa" }}>
+                    {r.date.slice(5)}
+                  </div>
                   <div>
-                    <p style={styles.usageDays}>{+(r.days)}일 <span style={styles.usageHours}>({((+(r.days)) * HOURS_PER_DAY).toFixed(1)}h)</span></p>
+                    <p style={styles.usageDays}>
+                      {isGrant ? "+" : "-"}{+(r.days)}일
+                      <span style={styles.usageHours}> ({((+(r.days)) * HOURS_PER_DAY).toFixed(1)}h)</span>
+                      {!isCurrYear && <span style={{ fontSize: 9, color: "#aaa", marginLeft: 4 }}>이전연도</span>}
+                    </p>
                     {r.note && <p style={styles.usageNote}>{r.note}</p>}
                   </div>
                 </div>
@@ -1598,7 +1598,8 @@ function LeaveUsageSection({ records, isAdmin, onUpdate }) {
                   )
                 )}
               </div>
-            ))
+                );
+              })
           }
         </div>
       )}
@@ -2046,9 +2047,9 @@ function EditEmpForm({ emp, leaveData, onSave, onClose, companies }) {
   const setWH = (i, k, v) => setWorkHistory(h => h.map((r, idx) => idx === i ? { ...r, [k]: v } : r));
   const delWH = (i) => setWorkHistory(h => h.filter((_, idx) => idx !== i));
 
-  // Contractor rate history (for noLeave employees)
+  // Rate history for ALL employees
   const [contractorRates, setContractorRates] = useState(
-    leaveData.contractorRateHistory || (ci.dailyRate ? [{ from: emp.joinDate || today, dailyRate: ci.dailyRate }] : [])
+    leaveData.contractorRateHistory || leaveData.rateHistory || []
   );
   const addRate    = () => setContractorRates(r => [...r, { from: today, dailyRate: "" }]);
   const setRate    = (i, k, v) => setContractorRates(r => r.map((x, idx) => idx === i ? { ...x, [k]: v } : x));
@@ -2063,7 +2064,7 @@ function EditEmpForm({ emp, leaveData, onSave, onClose, companies }) {
       leaveStartDate: startDate,
       noLeave,
       contractorInfo: noLeave ? { ...ci } : undefined,
-      contractorRateHistory: noLeave ? contractorRates : undefined,
+      contractorRateHistory: contractorRates,
       workHistory,
       rateHistory: startDate
         ? (leaveData.rateHistory && leaveData.rateHistory.length ? leaveData.rateHistory : [{ from: startDate, dailyRate: 0 }])
@@ -2160,24 +2161,7 @@ function EditEmpForm({ emp, leaveData, onSave, onClose, companies }) {
               <label style={styles.label}>업무 내용 (영문)</label>
               <input style={styles.input} value={ci.workDesc || ""} onChange={e => setC("workDesc", e.target.value)} placeholder="Wall and Floor Tiling" />
             </div>
-            <p style={{ ...styles.leaveSettingTitle, color: C.primary, marginTop: 4 }}>💰 일급 변동 이력</p>
-            <p style={{ fontSize: 11, color: C.sub, marginBottom: 8 }}>일급이 변경될 때마다 날짜와 금액을 추가하세요</p>
-            {contractorRates.map((r, i) => (
-              <div key={i} style={styles.row2}>
-                <div style={{ ...styles.field, flex: 1 }}>
-                  <label style={styles.label}>{i === 0 ? "최초 시작일" : "변경일"}</label>
-                  <input type="date" style={styles.input} value={r.from || ""} onChange={e => setRate(i, "from", e.target.value)} />
-                </div>
-                <div style={{ ...styles.field, flex: 1 }}>
-                  <label style={styles.label}>일당 ($)</label>
-                  <div style={{ display: "flex", gap: 4 }}>
-                    <input type="number" style={{ ...styles.input, flex: 1 }} value={r.dailyRate || ""} onChange={e => setRate(i, "dailyRate", e.target.value)} placeholder="350" min={0} />
-                    {i > 0 && <button style={{ ...styles.iconBtn, color: "#f77" }} onClick={() => removeRate(i)}>{Icon.trash}</button>}
-                  </div>
-                </div>
-              </div>
-            ))}
-            <button style={{ ...styles.btnSecondary, width: "100%", marginBottom: 8 }} onClick={addRate}>+ 일급 변동 추가</button>
+
             {[["billToName","회사명","K&M Tiling Bathurst Pty Ltd"],["billToAddress","주소","10/51 Hampden Park Rd, Kelso NSW 2795"],["billToEmail","이메일","accounts@example.com"]].map(([k,l,ph]) => (
               <div key={k} style={styles.field}>
                 <label style={styles.label}>{l}</label>
@@ -2186,6 +2170,32 @@ function EditEmpForm({ emp, leaveData, onSave, onClose, companies }) {
             ))}
           </div>
         )}
+
+
+        {/* 일급 변동 이력 - ALL employees */}
+        <div style={{ ...styles.leaveSettingBox, borderColor: "#ffd699", background: "#fff8f0", marginBottom: 14 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <p style={{ ...styles.leaveSettingTitle, color: "#a05c00", margin: 0 }}>💰 일급 변동 이력</p>
+            <button style={{ ...styles.btnAdd, fontSize: 11, padding: "4px 10px", background: "#ffd699", color: "#a05c00", border: "none" }} onClick={addRate}>+ 추가</button>
+          </div>
+          <p style={{ fontSize: 11, color: C.sub, marginBottom: 8 }}>일급이 변경될 때마다 날짜와 금액을 추가하세요</p>
+          {contractorRates.length === 0 && <p style={{ fontSize: 11, color: "#aaa" }}>아직 없음 — + 추가 버튼으로 입력하세요</p>}
+          {contractorRates.map((r, i) => (
+            <div key={i} style={styles.row2}>
+              <div style={{ ...styles.field, flex: 1 }}>
+                <label style={styles.label}>{i === 0 ? "최초 시작일" : "변경일"}</label>
+                <input type="date" style={styles.input} value={r.from || ""} onChange={e => setRate(i, "from", e.target.value)} />
+              </div>
+              <div style={{ ...styles.field, flex: 1 }}>
+                <label style={styles.label}>일당 ($)</label>
+                <div style={{ display: "flex", gap: 4 }}>
+                  <input type="number" style={{ ...styles.input, flex: 1 }} value={r.dailyRate || ""} onChange={e => setRate(i, "dailyRate", e.target.value)} placeholder="350" min={0} />
+                  {i > 0 && <button style={{ ...styles.iconBtn, color: "#f77" }} onClick={() => removeRate(i)}>{Icon.trash}</button>}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
 
         {/* Work History */}
         <div style={{ ...styles.leaveSettingBox, borderColor: "#e0d6ff", background: "#f8f4ff", marginBottom: 14 }}>
