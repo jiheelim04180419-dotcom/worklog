@@ -18,8 +18,8 @@
 if (!window.storage) {
   window.storage = {
     get: function(k) { return Promise.resolve(localStorage.getItem(k) ? {value: localStorage.getItem(k)} : null); },
-    set: function(k, v) { localStorage.setItem(k, v); return Promise.resolve({key:k, value:v}); },
-    delete: function(k) { localStorage.removeItem(k); return Promise.resolve({key:k, deleted:true}); },
+    set: function(k, v) { localStorage.setItem(k, v); return Promise.resolve({key:k,value:v}); },
+    delete: function(k) { localStorage.removeItem(k); return Promise.resolve({key:k,deleted:true}); },
     list: function() { return Promise.resolve({keys: Object.keys(localStorage)}); },
   };
 }
@@ -472,6 +472,26 @@ function LoginScreen({ users, onLogin }) {
       </div>
     </div>
   )
+}
+
+// ─── Header ────────────────────────────────────────────────────────────────
+function Header({ user, onLogout }) {
+  return (
+    <div style={styles.header}>
+      <div style={styles.headerLeft}>
+        <span style={styles.headerLogo}>📋</span>
+        <span style={styles.headerTitle}>WorkLog</span>
+      </div>
+      <div style={styles.headerRight}>
+        <span style={styles.headerUser}>{user.name}
+          <span style={styles.roleBadge}>
+            {user.role === "superadmin" ? "슈퍼관리자" : user.role === "admin" ? "관리자" : user.role === "viewadmin" ? "관리자" : "직원"}
+          </span>
+        </span>
+        <button style={styles.logoutBtn} onClick={onLogout}>{Icon.logout}</button>
+      </div>
+    </div>
+  );
 }
 
 // ─── Bottom Nav ────────────────────────────────────────────────────────────
@@ -1987,6 +2007,8 @@ function EditEmpForm({ emp, leaveData, onSave, onClose, companies }) {
     onSave({ ...emp, ...form }, newLeave);
   };
 
+;
+
   return (
     <div style={styles.modal}>
       <div style={styles.modalBox}>
@@ -3049,7 +3071,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
 var attempts = 0;
 function runApp() {
   attempts++;
-  if (attempts > 30) { document.getElementById("loadmsg").style.color="red"; document.getElementById("loadmsg").textContent="로딩 실패 - 새로고침 해주세요"; return; }
+  if (attempts > 30) { document.getElementById("loadmsg").style.color="red"; document.getElementById("loadmsg").textContent="로딩 실패"; return; }
   if (typeof Babel === "undefined") { setTimeout(runApp, 1000); return; }
   try {
     var src = document.getElementById("src").textContent;
