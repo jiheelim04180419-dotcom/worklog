@@ -535,7 +535,19 @@ function HomeTab({ user, users, logs, leaves, isAdmin }) {
   const monthLogs = myLogs.filter(l => l.date.startsWith(thisMonth));
   const monthHours = monthLogs.reduce((s, l) => s + (l.hours || 0), 0);
   const todayStr  = today;
+  const [selectedDate, setSelectedDate] = useState(todayStr);
+  const isToday = selectedDate === todayStr;
+
+  const selectedLogs = isAdmin
+    ? logs.filter(l => l.date === selectedDate)
+    : logs.filter(l => l.userId === user.id && l.date === selectedDate);
+
   const todayLogs = isAdmin ? logs.filter(l => l.date === todayStr) : logs.filter(l => l.userId === user.id && l.date === todayStr);
+
+  // For admin: staff who haven't logged for selected date
+  const staffUsers = isAdmin ? users.filter(u => u.role === "employee") : [];
+  const loggedIds  = new Set(selectedLogs.map(l => l.userId));
+  const missingStaff = staffUsers.filter(u => !loggedIds.has(u.id));
 
   return (
     <div style={styles.page}>
@@ -550,23 +562,46 @@ function HomeTab({ user, users, logs, leaves, isAdmin }) {
           <StatCard label="이번 달 근무" value={`${fmt(monthHours)}h`} sub={`${monthLogs.length}일 출근`} color="#34c98b" emoji="💼" />
         </>}
         {isAdmin && <>
-          <StatCard label="전체 직원" value={`${users.filter(u => u.role !== "admin").length}명`} sub="재직 중" color="#4f8ef7" emoji="👥" />
-          <StatCard label="오늘 출근" value={`${todayLogs.length}명`} sub={`근무일지 등록`} color="#34c98b" emoji="✅" />
+          <StatCard label="전체 직원" value={`${staffUsers.length}명`} sub="재직 중" color="#4f8ef7" emoji="👥" />
+          <StatCard label="오늘 출근" value={`${todayLogs.length}명`} sub="근무일지 등록" color="#34c98b" emoji="✅" />
         </>}
       </div>
 
       <div style={styles.section}>
-        <h3 style={styles.sectionTitle}>{isAdmin ? "오늘 근무현황" : "최근 근무일지"}</h3>
-        {todayLogs.length === 0
-          ? <EmptyState msg={isAdmin ? "오늘 등록된 근무일지가 없습니다." : "오늘 근무일지가 없습니다."} />
-          : todayLogs.slice(0, 5).map(l => {
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+          <h3 style={{ ...styles.sectionTitle, margin: 0 }}>{isAdmin ? "근무현황" : "근무일지"}</h3>
+          {isAdmin && (
+            <input type="date" style={{ ...styles.input, width: "auto", fontSize: 12, padding: "4px 8px" }}
+              value={selectedDate} onChange={e => setSelectedDate(e.target.value)} />
+          )}
+        </div>
+
+        {/* Missing staff (admin only) */}
+        {isAdmin && missingStaff.length > 0 && (
+          <div style={{ background: "#fff8f0", border: "1px solid #ffd699", borderRadius: 10, padding: "8px 12px", marginBottom: 10 }}>
+            <p style={{ margin: "0 0 6px", fontSize: 11, fontWeight: 700, color: "#a05c00" }}>
+              ⚠️ 미등록 ({missingStaff.length}명)
+            </p>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {missingStaff.map(u => (
+                <span key={u.id} style={{ fontSize: 11, background: "#fff", border: "1px solid #ffd699", borderRadius: 6, padding: "2px 8px", color: "#a05c00" }}>
+                  {u.name}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {selectedLogs.length === 0
+          ? <EmptyState msg={isAdmin ? `${selectedDate === todayStr ? "오늘" : selectedDate} 등록된 근무일지가 없습니다.` : "근무일지가 없습니다."} />
+          : selectedLogs.map(l => {
             const emp = users.find(u => u.id === l.userId);
             return (
               <div key={l.id} style={styles.logCard}>
                 <div style={styles.logCardLeft}>
                   <div style={styles.logAvatar}>{((emp && emp.name) || "?")[0]}</div>
                   <div>
-                    <p style={styles.logName}>{isAdmin ? (emp && emp.name) || l.userId : korDate(l.date)}</p>
+                    <p style={styles.logName}>{isAdmin ? ((emp && emp.name) || l.userId) : korDate(l.date)}</p>
                     <p style={styles.logContent}>{l.content}</p>
                   </div>
                 </div>
@@ -1373,9 +1408,10 @@ function LeaveTab({ user, users, leaves, isAdmin, persist, updateLeaveUsage }) {
         // Carryover: unused days from completed previous years
         const completedYears   = isAdmin ? getCompletedYears(lv.leaveStartDate) : 0;
         const prevYearsAccrued = completedYears * ANNUAL_LEAVE_DAYS;
+        // Only count usage records from PREVIOUS years (not current year)
         const prevYearUsed = Math.round((lv.usageRecords || [])
-          .filter(function(r) { return (r.type||"use") === "use" && r.date < yrStart; })
-          .reduce(function(s, r) { return s + (+(r.days)||0); }, 0) * 10) / 10;
+          .filter(r => (r.type||"use") === "use" && r.date < yrStart)
+          .reduce((s, r) => s + (+(r.days)||0), 0) * 10) / 10;
         const carriedOverDays  = Math.max(0, Math.round((prevYearsAccrued - prevYearUsed) * 10) / 10);
         const carriedOverHours = Math.round(carriedOverDays * HOURS_PER_DAY * 10) / 10;
 
@@ -1395,100 +1431,7 @@ function LeaveTab({ user, users, leaves, isAdmin, persist, updateLeaveUsage }) {
               )}
             </div>
 
-
-            {/* Admin: per-rate accrual breakdown or simple accrual */}
-            {!lv.noLeave && isAdmin && hasRateSplit && (
-              <div style={styles.rateAccrualBox}>
-                <p style={styles.rateAccrualTitle}>📅 오늘 기준 일급별 적립 현황</p>
-                {accruedByPeriod.map(function(p, i) { return (
-                  <div key={i} style={{ ...styles.rateAccrualRow, ...(p.isActive ? styles.rateAccrualActive : {}) }}>
-                    <div style={styles.rateAccrualLeft}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <span style={{ ...styles.periodIdx, background: p.isActive ? "#3b7ff5" : p.isComplete ? "#34c98b" : "#ccc" }}>
-                          {p.isActive ? "▶" : p.isComplete ? "✓" : i+1}
-                        </span>
-                        <div>
-                          <p style={styles.rateAccrualDates}>{p.from} ~ {p.to}</p>
-                          <p style={styles.rateAccrualCalDays}>
-                            {p.isComplete ? (p.calDaysTotal + "일 완료") : p.isActive ? (p.calDaysElapsed + "/" + p.calDaysTotal + "일 경과") : "미시작"}
-                          </p>
-                        </div>
-                      </div>
-                      <div style={styles.rateAccrualNums}>
-                        <span style={styles.rateAccrualDays}>{p.accruedDays.toFixed(2)}일</span>
-                        <span style={styles.rateAccrualHoursText}>{p.accruedHours.toFixed(1)}h</span>
-                        {!p.isComplete && <span style={styles.rateAccrualOf}>/ {p.totalDays.toFixed(2)}일</span>}
-                      </div>
-                    </div>
-                    <div style={styles.rateAccrualRateCol}>
-                      <span style={styles.rateAccrualRate}>${p.dailyRate}</span>
-                      <span style={styles.rateAccrualRateSub}>/일</span>
-                    </div>
-                  </div>
-                ); })}
-                <div style={styles.rateAccrualTotal}>
-                  합계 <strong>{accDays.toFixed(2)}일 ({accHours.toFixed(1)}h)</strong> 적립
-                </div>
-              </div>
-            )}
-            {!lv.noLeave && (!isAdmin || !hasRateSplit) && (
-              <div style={styles.todayAccrualBox}>
-                <div style={styles.todayAccrualMain}>
-                  <span style={styles.todayAccrualLabel}>오늘까지 적립</span>
-                  <span style={styles.todayAccrualValue}>{accDays.toFixed(2)}일</span>
-                  <span style={styles.todayAccrualHours}>{accHours.toFixed(1)}h</span>
-                </div>
-                <div style={styles.todayAccrualSub}>
-                  <span>연차연도 {Math.floor(elapsedInYear)}일 경과</span>
-                  <span style={{ color: "#7b5ea7" }}>잔여 {Math.ceil(yearDays - elapsedInYear)}일</span>
-                </div>
-              </div>
-            )}
-
-            {/* Progress bar */}
-            <div style={styles.leaveBarWrap}>
-              <div style={styles.leaveBar}>
-                <div style={{ ...styles.leaveBarFill, width: pct + "%", background: color }} />
-              </div>
-              <div style={styles.leaveNums}>
-                <span style={{ color }}>잔여 <strong>{remDays.toFixed(1)}일 ({remHours}h)</strong></span>
-                <span>사용 <strong>{usedDays.toFixed(1)}일</strong></span>
-              </div>
-            </div>
-
-            <div style={styles.leaveChips}>
-              <LeaveChip label="적립" val={accDays.toFixed(1) + "일"} color="#4f8ef7" />
-              {grantDays > 0 && <LeaveChip label="지급" val={"+" + grantDays.toFixed(1) + "일"} color="#34c98b" />}
-              <LeaveChip label="사용" val={usedDays.toFixed(1) + "일"} color="#f7a440" />
-              <LeaveChip label="잔여" val={remDays.toFixed(1) + "일"} color={color} />
-              <LeaveChip label="잔여h" val={remHours + "h"} color="#888" />
-            </div>
-
-            {isAdmin && completedYears > 0 && (
-              <div style={{ ...styles.carryoverBox, ...(carriedOverDays > 0 ? {} : styles.carryoverBoxZero) }}>
-                <div style={styles.carryoverLeft}>
-                  <span style={styles.carryoverIcon}>{carriedOverDays > 0 ? "⏳" : "✅"}</span>
-                  <div>
-                    <p style={styles.carryoverLabel}>이전 연도 미사용 연차 ({completedYears}년차 완료)</p>
-                    <p style={styles.carryoverSub}>과거 누적 {prevYearsAccrued}일 중 이전연도 사용 {prevYearUsed.toFixed(1)}일</p>
-                  </div>
-                </div>
-                <div style={styles.carryoverRight}>
-                  {carriedOverDays > 0 ? (
-                    <><span style={styles.carryoverDays}>{carriedOverDays.toFixed(1)}일</span>
-                    <span style={styles.carryoverHours}>{carriedOverHours}h</span></>
-                  ) : (
-                    <span style={styles.carryoverNone}>없음</span>
-                  )}
-                </div>
-              </div>
-            )}
-
-            <LeaveUsageSection
-              records={lv.usageRecords || []}
-              leaveStartDate={lv.leaveStartDate}
-              isAdmin={isAdmin}
-              onUpdate={isAdmin ? function(records) { return updateLeaveUsage(u.id, u.joinDate, records); } : null}
+            
             />
           </div>
         );
@@ -1796,7 +1739,11 @@ function TeamTab({ users, leaves, logs, persist, isSuperAdmin, companies }) {
   const [showAdd, setShowAdd]     = useState(false);
   const [editEmp, setEditEmp]     = useState(null);
   const [confirmId, setConfirmId] = useState(null);
-  const emps = users.filter(u => u.role === "employee");
+  // Show all users except the original "admin" account
+  const emps = users.filter(u => u.id !== "admin");
+  // Separate by role for display
+  const adminEmps = emps.filter(u => u.role === "superadmin" || u.role === "viewadmin");
+  const staffEmps = emps.filter(u => u.role === "employee");
 
   const deleteEmp = (id) => { persist(users.filter(u => u.id !== id), null, null); setConfirmId(null); };
 
@@ -1812,17 +1759,27 @@ function TeamTab({ users, leaves, logs, persist, isSuperAdmin, companies }) {
         {isSuperAdmin && <button style={styles.btnAdd} onClick={() => setShowAdd(true)}>{Icon.plus} 추가</button>}
       </div>
 
-      {emps.map(u => {
+      {adminEmps.length > 0 && (
+        <p style={{ fontSize: 11, fontWeight: 700, color: C.sub, margin: "0 0 8px", textTransform: "uppercase" }}>
+          관리자 계정
+        </p>
+      )}
+
+      {[...adminEmps, ...staffEmps].map(u => {
         const lv  = normLeave(leaves[u.id], u.joinDate);
         const acc = calcAccruedDays(lv.leaveStartDate);
         const rem = Math.max(0, acc - (+(lv.usedDays) || 0));
+        const roleLabel = u.role === "superadmin" ? "🔑 슈퍼관리자" : u.role === "viewadmin" ? "👁️ 관리자" : null;
         return (
-          <div key={u.id} style={styles.empCard}>
+          <div key={u.id} style={{ ...styles.empCard, ...(roleLabel ? { borderLeft: "3px solid #3b7ff5" } : {}) }}>
             <div style={styles.empCardLeft}>
               <div style={{ ...styles.logAvatar, width: 44, height: 44, fontSize: 18 }}>{u.name[0]}</div>
               <div>
                 <p style={styles.logName}>{u.name} <span style={styles.deptBadge}>{u.dept}</span></p>
-                <p style={styles.logContent}>ID: <strong>{u.id}</strong> &nbsp;|&nbsp; 입사: {u.joinDate}</p>
+                <p style={styles.logContent}>
+                  ID: <strong>{u.id}</strong> &nbsp;|&nbsp; 입사: {u.joinDate}
+                  {roleLabel && <span style={{ marginLeft: 6, fontSize: 10, color: "#3b7ff5", fontWeight: 700 }}>{roleLabel}</span>}
+                </p>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
                   {lv.noLeave
                     ? <span style={styles.noLeaveBadge}>연차 미적용</span>
@@ -2019,6 +1976,7 @@ function AddEmpForm({ onSave, onClose }) {
 
 function EditEmpForm({ emp, leaveData, onSave, onClose, companies }) {
   const [form, setForm]                     = useState({ name: emp.name, dept: emp.dept, joinDate: emp.joinDate, pw: emp.pw || "" });
+  const [role, setRole]                     = useState(emp.role || "employee");
   const [noLeave, setNoLeave]               = useState(!!leaveData.noLeave);
   const [leaveStartDate, setLeaveStartDate] = useState(leaveData.leaveStartDate || emp.joinDate);
   const [visa, setVisa]                     = useState(emp.visa || { type: "", from: "", to: "" });
@@ -2075,7 +2033,7 @@ function EditEmpForm({ emp, leaveData, onSave, onClose, companies }) {
         ? (leaveData.rateHistory && leaveData.rateHistory.length ? leaveData.rateHistory : [{ from: startDate, dailyRate: 0 }])
         : [],
     };
-    onSave({ ...emp, ...form, visa }, newLeave);
+    onSave({ ...emp, ...form, visa, role }, newLeave);
   };
 
   return (
@@ -2104,6 +2062,14 @@ function EditEmpForm({ emp, leaveData, onSave, onClose, companies }) {
             <label style={styles.label}>비밀번호 변경</label>
             <input type="password" style={styles.input} value={form.pw} onChange={e => set("pw", e.target.value)} placeholder="변경 시 입력" />
           </div>
+        </div>
+        <div style={styles.field}>
+          <label style={styles.label}>역할</label>
+          <select style={styles.input} value={role} onChange={e => setRole(e.target.value)}>
+            <option value="employee">직원</option>
+            <option value="viewadmin">관리자 (조회만 — 수정 불가)</option>
+            <option value="superadmin">슈퍼 관리자 (모든 권한)</option>
+          </select>
         </div>
         <LeaveAccrualSettings noLeave={noLeave} setNoLeave={setNoLeave}
           leaveStartDate={leaveStartDate} setLeaveStartDate={setLeaveStartDate} joinDate={form.joinDate} />
