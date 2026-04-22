@@ -1410,7 +1410,10 @@ function LeaveTab({ user, users, leaves, isAdmin, persist, updateLeaveUsage }) {
 
         // Contractor rate history (noLeave employees)
         const contractorRates = lv.contractorRateHistory || [];
-        const hasContractorRates = lv.noLeave && contractorRates.length > 0;
+        const hasContractorRates = contractorRates.length > 0;
+        const allRates = lv.noLeave
+          ? contractorRates.slice().sort(function(a,b){ return (a.from||"") < (b.from||"") ? -1 : 1; })
+          : rateHistory.slice().sort(function(a,b){ return (a.from||"") < (b.from||"") ? -1 : 1; });
         const yearDays        = yr ? Math.round((yr.end - yr.start) / (1000*60*60*24)) : 365;
         const elapsedInYear   = yr ? Math.max(0, Math.min((new Date() - yr.start) / (1000*60*60*24), yearDays)) : 0;
 
@@ -1441,7 +1444,114 @@ function LeaveTab({ user, users, leaves, isAdmin, persist, updateLeaveUsage }) {
               )}
             </div>
 
-            
+
+            {/* Accrual display */}
+            {!lv.noLeave && isAdmin && hasRateSplit && (
+              <div style={styles.rateAccrualBox}>
+                <p style={styles.rateAccrualTitle}>📅 오늘 기준 일급별 적립 현황</p>
+                {accruedByPeriod.map(function(p, i) { return (
+                  <div key={i} style={{ ...styles.rateAccrualRow, ...(p.isActive ? styles.rateAccrualActive : {}) }}>
+                    <div style={styles.rateAccrualLeft}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <span style={{ ...styles.periodIdx, background: p.isActive ? "#3b7ff5" : p.isComplete ? "#34c98b" : "#ccc" }}>
+                          {p.isActive ? "▶" : p.isComplete ? "✓" : i+1}
+                        </span>
+                        <div>
+                          <p style={styles.rateAccrualDates}>{p.from} ~ {p.to}</p>
+                          <p style={styles.rateAccrualCalDays}>
+                            {p.isComplete ? (p.calDaysTotal + "일 완료") : p.isActive ? (p.calDaysElapsed + "/" + p.calDaysTotal + "일 경과") : "미시작"}
+                          </p>
+                        </div>
+                      </div>
+                      <div style={styles.rateAccrualNums}>
+                        <span style={styles.rateAccrualDays}>{p.accruedDays.toFixed(2)}일</span>
+                        <span style={styles.rateAccrualHoursText}>{p.accruedHours.toFixed(1)}h</span>
+                        {!p.isComplete && <span style={styles.rateAccrualOf}>/ {p.totalDays.toFixed(2)}일</span>}
+                      </div>
+                    </div>
+                    <div style={styles.rateAccrualRateCol}>
+                      <span style={styles.rateAccrualRate}>${p.dailyRate}</span>
+                      <span style={styles.rateAccrualRateSub}>/일</span>
+                    </div>
+                  </div>
+                ); })}
+                <div style={styles.rateAccrualTotal}>
+                  합계 <strong>{accDays.toFixed(2)}일 ({accHours.toFixed(1)}h)</strong> 적립
+                </div>
+              </div>
+            )}
+            {!lv.noLeave && (!isAdmin || !hasRateSplit) && (
+              <div style={styles.todayAccrualBox}>
+                <div style={styles.todayAccrualMain}>
+                  <span style={styles.todayAccrualLabel}>오늘까지 적립</span>
+                  <span style={styles.todayAccrualValue}>{accDays.toFixed(2)}일</span>
+                  <span style={styles.todayAccrualHours}>{accHours.toFixed(1)}h</span>
+                </div>
+                <div style={styles.todayAccrualSub}>
+                  <span>연차연도 {Math.floor(elapsedInYear)}일 경과</span>
+                  <span style={{ color: "#7b5ea7" }}>잔여 {Math.ceil(yearDays - elapsedInYear)}일</span>
+                </div>
+              </div>
+            )}
+
+            <div style={styles.leaveBarWrap}>
+              <div style={styles.leaveBar}>
+                <div style={{ ...styles.leaveBarFill, width: pct + "%", background: color }} />
+              </div>
+              <div style={styles.leaveNums}>
+                <span style={{ color }}>잔여 <strong>{remDays.toFixed(1)}일 ({remHours}h)</strong></span>
+                <span>사용 <strong>{usedDays.toFixed(1)}일</strong></span>
+              </div>
+            </div>
+
+            <div style={styles.leaveChips}>
+              <LeaveChip label="적립" val={accDays.toFixed(1) + "일"} color="#4f8ef7" />
+              {grantDays > 0 && <LeaveChip label="지급" val={"+" + grantDays.toFixed(1) + "일"} color="#34c98b" />}
+              <LeaveChip label="사용" val={usedDays.toFixed(1) + "일"} color="#f7a440" />
+              <LeaveChip label="잔여" val={remDays.toFixed(1) + "일"} color={color} />
+              <LeaveChip label="잔여h" val={remHours + "h"} color="#888" />
+            </div>
+
+            {isAdmin && completedYears > 0 && (
+              <div style={{ ...styles.carryoverBox, ...(carriedOverDays > 0 ? {} : styles.carryoverBoxZero) }}>
+                <div style={styles.carryoverLeft}>
+                  <span style={styles.carryoverIcon}>{carriedOverDays > 0 ? "⏳" : "✅"}</span>
+                  <div>
+                    <p style={styles.carryoverLabel}>이전 연도 미사용 연차 ({completedYears}년차 완료)</p>
+                    <p style={styles.carryoverSub}>과거 누적 {prevYearsAccrued}일 중 이전연도 사용 {prevYearUsed.toFixed(1)}일</p>
+                  </div>
+                </div>
+                <div style={styles.carryoverRight}>
+                  {carriedOverDays > 0 ? (
+                    <><span style={styles.carryoverDays}>{carriedOverDays.toFixed(1)}일</span>
+                    <span style={styles.carryoverHours}>{carriedOverHours}h</span></>
+                  ) : (
+                    <span style={styles.carryoverNone}>없음</span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Admin: rate history for ALL employees */}
+            {isAdmin && allRates.length > 0 && (
+              <div style={{ background: "#fff8f0", border: "1px solid #ffd699", borderRadius: 10, padding: "10px 12px", marginBottom: 10 }}>
+                <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: "#a05c00" }}>💰 일급 변동 이력</p>
+                {allRates.map(function(r, i, arr) {
+                  return (
+                    <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", borderBottom: i < arr.length-1 ? "1px solid #ffe0a0" : "none" }}>
+                      <span style={{ fontSize: 11, color: "#666" }}>{r.from || "??"} ~ {arr[i+1] ? arr[i+1].from : "현재"}</span>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: "#a05c00" }}>${parseFloat(r.dailyRate || 0).toFixed(2)}/일</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            <LeaveUsageSection
+              records={lv.usageRecords || []}
+              leaveStartDate={lv.leaveStartDate}
+              isAdmin={isAdmin}
+              onUpdate={isAdmin ? function(records) { return updateLeaveUsage(u.id, u.joinDate, records); } : null}
             />
           </div>
         );
