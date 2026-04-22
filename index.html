@@ -2870,7 +2870,21 @@ const styles = {
   addViaBtn2: { fontSize: 11, background: C.primary, color: "#fff", border: "none", borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontFamily: "inherit", fontWeight: 600 },
 };
 
-ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App));
+class ErrorBoundary extends React.Component {
+  constructor(p) { super(p); this.state = { err: null }; }
+  static getDerivedStateFromError(e) { return { err: e }; }
+  render() {
+    if (this.state.err) {
+      return React.createElement("pre", {
+        style: { color:"red", padding:"20px", fontSize:"11px", whiteSpace:"pre-wrap", fontFamily:"monospace" }
+      }, "렌더 오류: " + this.state.err.message + "\n" + (this.state.err.stack||""));
+    }
+    return this.props.children;
+  }
+}
+ReactDOM.createRoot(document.getElementById("root")).render(
+  React.createElement(ErrorBoundary, null, React.createElement(App))
+);
 </script>
 <script>
 var attempts = 0;
