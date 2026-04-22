@@ -235,12 +235,13 @@ function normLeave(lv, joinDate) {
   const base = joinDate || today;
   if (!lv) return { leaveStartDate: base, usedDays: 0, noLeave: false, rateHistory: [{ from: base, dailyRate: 0 }], usageRecords: [] };
   const usageRecords = Array.isArray(lv.usageRecords) ? lv.usageRecords : [];
-  const usedDays = usageRecords.length > 0
-    ? Math.round(usageRecords.reduce((s, r) => s + (+(r.days) || 0), 0) * 100) / 100
-    : +(lv.usedDays !== undefined ? lv.usedDays : (lv.used ? +(lv.used / HOURS_PER_DAY).toFixed(2) : 0)) || 0;
-  // Always preserve noLeave flag if it exists
-  if (lv.leaveStartDate !== undefined || lv.noLeave) return { ...lv, usedDays, usageRecords };
-  return { leaveStartDate: base, usedDays, noLeave: false, rateHistory: [{ from: base, dailyRate: 0 }], usageRecords };
+  // Separate use vs grant records
+  const useRecs   = usageRecords.filter(r => (r.type||"use") === "use");
+  const grantRecs = usageRecords.filter(r => r.type === "grant");
+  const usedDays  = Math.round(useRecs.reduce((s, r) => s + (+(r.days)||0), 0) * 100) / 100;
+  const grantDays = Math.round(grantRecs.reduce((s, r) => s + (+(r.days)||0), 0) * 100) / 100;
+  if (lv.leaveStartDate !== undefined || lv.noLeave) return { ...lv, usedDays, grantDays, usageRecords };
+  return { leaveStartDate: base, usedDays, grantDays: 0, noLeave: false, rateHistory: [{ from: base, dailyRate: 0 }], usageRecords };
 }
 
 // Accrued days in the CURRENT leave year, capped at 20
@@ -1330,7 +1331,7 @@ function LogForm({ log, userId, users, leaves, isAdmin, onSave, onClose }) {
 function LeaveTab({ user, users, leaves, isAdmin, persist, updateLeaveUsage }) {
   const [showForm, setShowForm] = useState(false);
   const [editTarget, setEditTarget] = useState(null);
-  const empList = isAdmin ? users.filter(u => u.role !== "admin") : [user];
+  const empList = isAdmin ? users.filter(u => u.role === "employee" && !normLeave(leaves[u.id], u.joinDate).noLeave) : [user];
 
   return (
     <div style={styles.page}>
@@ -1345,13 +1346,18 @@ function LeaveTab({ user, users, leaves, isAdmin, persist, updateLeaveUsage }) {
         const accDays      = calcAccruedDays(lv.leaveStartDate);
         const accHours     = Math.round(accDays * HOURS_PER_DAY * 10) / 10;
         const usedDays     = +(lv.usedDays) || 0;
-        const remDays      = Math.max(0, accDays - usedDays);
+        const grantDays    = +(lv.grantDays) || 0;
+        const remDays      = Math.max(0, accDays + grantDays - usedDays);
         const remHours     = Math.round(remDays * HOURS_PER_DAY * 10) / 10;
         const pct          = Math.min(100, (remDays / ANNUAL_LEAVE_DAYS) * 100);
         const color        = remDays < 4 ? "#f77" : remDays < 10 ? "#ffc347" : "#34c98b";
         const rateHistory  = Array.isArray(lv.rateHistory) ? lv.rateHistory : [];
         const accruedByPeriod = isAdmin ? getAccruedByPeriod(lv.leaveStartDate, rateHistory) : [];
         const hasRateSplit    = accruedByPeriod.length >= 2;
+
+        // Contractor rate history (noLeave employees)
+        const contractorRates = lv.contractorRateHistory || [];
+        const hasContractorRates = lv.noLeave && contractorRates.length > 0;
         const yearDays        = yr ? Math.round((yr.end - yr.start) / (1000*60*60*24)) : 365;
         const elapsedInYear   = yr ? Math.max(0, Math.min((new Date() - yr.start) / (1000*60*60*24), yearDays)) : 0;
 
@@ -1377,8 +1383,27 @@ function LeaveTab({ user, users, leaves, isAdmin, persist, updateLeaveUsage }) {
               )}
             </div>
 
-            {/* ── ADMIN: per-rate accrual breakdown ── */}
-            {isAdmin && hasRateSplit ? (
+            {/* noLeave employee: show contractor rate history */}
+            {lv.noLeave ? (
+              <div style={{ ...styles.todayAccrualBox, background: "#fff8f0", border: "1px solid #ffd699" }}>
+                <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: "#a05c00" }}>💰 일급 변동 이력 (연차 미적용)</p>
+                {hasContractorRates ? (
+                  contractorRates.slice().sort(function(a,b){ return (a.from||"") < (b.from||"") ? -1 : 1; }).map(function(r, i, arr) {
+                    return (
+                      <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 0", borderBottom: i < arr.length-1 ? "1px solid #ffe0a0" : "none" }}>
+                        <span style={{ fontSize: 11, color: "#666" }}>{r.from} ~ {arr[i+1] ? arr[i+1].from : "현재"}</span>
+                        <span style={{ fontSize: 14, fontWeight: 700, color: "#a05c00" }}>${parseFloat(r.dailyRate || 0).toFixed(2)}/일</span>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <p style={{ margin: 0, fontSize: 11, color: C.sub }}>일급 이력 없음 — 직원 수정에서 추가하세요</p>
+                )}
+              </div>
+            ) : null}
+
+            {/* Admin: per-rate accrual or simple for leave employees */}
+            {!lv.noLeave && (isAdmin && hasRateSplit ? (
               <div style={styles.rateAccrualBox}>
                 <p style={styles.rateAccrualTitle}>📅 오늘 기준 일급별 적립 현황</p>
                 {accruedByPeriod.map((p, i) => (
@@ -1391,7 +1416,7 @@ function LeaveTab({ user, users, leaves, isAdmin, persist, updateLeaveUsage }) {
                         <div>
                           <p style={styles.rateAccrualDates}>{p.from} ~ {p.to}</p>
                           <p style={styles.rateAccrualCalDays}>
-                            {p.isComplete ? `${p.calDaysTotal}일 완료` : p.isActive ? `${p.calDaysElapsed}/${p.calDaysTotal}일 경과` : "미시작"}
+                            {p.isComplete ? (p.calDaysTotal + "일 완료") : p.isActive ? (p.calDaysElapsed + "/" + p.calDaysTotal + "일 경과") : "미시작"}
                           </p>
                         </div>
                       </div>
@@ -1412,7 +1437,6 @@ function LeaveTab({ user, users, leaves, isAdmin, persist, updateLeaveUsage }) {
                 </div>
               </div>
             ) : (
-              /* ── Employee / no rate split: simple accrual box ── */
               <div style={styles.todayAccrualBox}>
                 <div style={styles.todayAccrualMain}>
                   <span style={styles.todayAccrualLabel}>오늘까지 적립</span>
@@ -1424,7 +1448,7 @@ function LeaveTab({ user, users, leaves, isAdmin, persist, updateLeaveUsage }) {
                   <span style={{ color: "#7b5ea7" }}>잔여 {Math.ceil(yearDays - elapsedInYear)}일</span>
                 </div>
               </div>
-            )}
+            ))}
 
             {/* Progress bar */}
             <div style={styles.leaveBarWrap}>
@@ -1440,6 +1464,7 @@ function LeaveTab({ user, users, leaves, isAdmin, persist, updateLeaveUsage }) {
             {/* Chips */}
             <div style={styles.leaveChips}>
               <LeaveChip label="적립"  val={`${accDays.toFixed(1)}일`}  color="#4f8ef7" />
+              {grantDays > 0 && <LeaveChip label="지급" val={`+${grantDays.toFixed(1)}일`} color="#34c98b" />}
               <LeaveChip label="사용"  val={`${usedDays.toFixed(1)}일`} color="#f7a440" />
               <LeaveChip label="잔여"  val={`${remDays.toFixed(1)}일`}  color={color} />
               <LeaveChip label="잔여h" val={`${remHours}h`}             color="#888" />
@@ -1505,18 +1530,18 @@ function LeaveUsageSection({ records, isAdmin, onUpdate }) {
   const [showAdd, setShowAdd] = useState(false);
   const [editId, setEditId] = useState(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
-  const [form, setForm] = useState({ date: today, days: 1, note: "" });
+  const [form, setForm] = useState({ date: today, days: 1, note: "", type: "use" });
 
   const sorted = [...records].sort((a, b) => b.date.localeCompare(a.date));
 
-  const openAdd = () => { setForm({ date: today, days: 1, note: "" }); setEditId(null); setShowAdd(true); };
-  const openEdit = (r) => { setForm({ date: r.date, days: r.days, note: r.note || "" }); setEditId(r.id); setShowAdd(true); };
+  const openAdd = () => { setForm({ date: today, days: 1, note: "", type: "use" }); setEditId(null); setShowAdd(true); };
+  const openEdit = (r) => { setForm({ date: r.date, days: r.days, note: r.note || "", type: r.type || "use" }); setEditId(r.id); setShowAdd(true); };
 
   const save = () => {
     if (!form.date || !form.days) return;
     const next = editId
       ? records.map(r => r.id === editId ? { ...r, ...form, days: +(form.days) } : r)
-      : [...records, { id: uid(), date: form.date, days: +(form.days), note: form.note }];
+      : [...records, { id: uid(), date: form.date, days: +(form.days), note: form.note, type: form.type || "use" }];
     onUpdate(next);
     setShowAdd(false);
   };
@@ -1526,14 +1551,16 @@ function LeaveUsageSection({ records, isAdmin, onUpdate }) {
     setConfirmDeleteId(null);
   };
 
-  const totalUsed = Math.round(records.reduce((s, r) => s + (+(r.days) || 0), 0) * 100) / 100;
+  // type "grant" = 지급(+), "use" = 사용(-)
+  const totalUsed  = Math.round(records.filter(r => (r.type||"use") === "use").reduce((s, r) => s + (+(r.days)||0), 0) * 100) / 100;
+  const totalGrant = Math.round(records.filter(r => r.type === "grant").reduce((s, r) => s + (+(r.days)||0), 0) * 100) / 100;
 
   return (
     <div style={styles.usageSection}>
       <div style={styles.usageSectionHeader} onClick={() => setExpanded(p => !p)}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={styles.usageSectionTitle}>📋 연차 사용 기록</span>
-          <span style={styles.usageBadge}>{records.length}건 · {totalUsed}일</span>
+          <span style={styles.usageSectionTitle}>📋 연차 사용/지급 기록</span>
+          <span style={styles.usageBadge}>사용 {totalUsed}일{totalGrant > 0 ? ` · 지급 +${totalGrant}일` : ""}</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           {isAdmin && (
@@ -1580,8 +1607,21 @@ function LeaveUsageSection({ records, isAdmin, onUpdate }) {
         <div style={styles.modal}>
           <div style={styles.modalBox}>
             <div style={styles.modalHeader}>
-              <h3 style={styles.modalTitle}>{editId ? "사용 기록 수정" : "연차 사용 추가"}</h3>
+              <h3 style={styles.modalTitle}>{editId ? "기록 수정" : "연차 사용/지급 추가"}</h3>
               <button style={styles.iconBtn} onClick={() => setShowAdd(false)}>{Icon.x}</button>
+            </div>
+            <div style={styles.field}>
+              <label style={styles.label}>유형</label>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={() => setForm(f => ({ ...f, type: "use" }))}
+                  style={{ ...styles.btnSecondary, flex: 1, background: form.type !== "grant" ? "#f77" : "#f4f6fb", color: form.type !== "grant" ? "#fff" : C.sub, border: "none" }}>
+                  ➖ 사용
+                </button>
+                <button onClick={() => setForm(f => ({ ...f, type: "grant" }))}
+                  style={{ ...styles.btnSecondary, flex: 1, background: form.type === "grant" ? "#34c98b" : "#f4f6fb", color: form.type === "grant" ? "#fff" : C.sub, border: "none" }}>
+                  ➕ 지급
+                </button>
+              </div>
             </div>
             <div style={styles.row2}>
               <div style={{ ...styles.field, flex: 1 }}>
@@ -1785,14 +1825,24 @@ function TeamTab({ users, leaves, logs, persist, isSuperAdmin, companies }) {
                       </span>
                   }
                 </div>
-                {/* Work history summary */}
+                {/* Visa info */}
+                {u.visa && u.visa.type && (
+                  <p style={{ margin: "2px 0 0", fontSize: 10, color: "#1a7a4a", fontWeight: 600 }}>
+                    🛂 {u.visa.type} {u.visa.from && `${u.visa.from} ~`} {u.visa.to || ""}
+                    {u.visa.to && new Date(u.visa.to) < new Date() && <span style={{ color: "#f77" }}> (만료)</span>}
+                  </p>
+                )}
                 {lv.workHistory && lv.workHistory.length > 0 && (
                   <div style={{ marginTop: 4 }}>
                     {lv.workHistory.map((wh, i) => {
-                      const co = companies && companies.find(c => c.id === wh.companyId);
+                      const co    = companies && companies.find(c => c.id === wh.companyId);
+                      const fromD = wh.from ? new Date(wh.from) : null;
+                      const toD   = wh.to ? new Date(wh.to) : new Date();
+                      const days  = fromD ? Math.round((toD - fromD) / (1000*60*60*24)) + 1 : null;
                       return (
                         <p key={i} style={{ margin: "1px 0", fontSize: 10, color: C.sub }}>
                           🏢 {co ? co.name : wh.companyId} {wh.from}{wh.to ? " ~ " + wh.to : " ~ 재직중"}
+                          {days ? ` (${days}일)` : ""}
                         </p>
                       );
                     })}
@@ -1965,6 +2015,7 @@ function EditEmpForm({ emp, leaveData, onSave, onClose, companies }) {
   const [form, setForm]                     = useState({ name: emp.name, dept: emp.dept, joinDate: emp.joinDate, pw: emp.pw || "" });
   const [noLeave, setNoLeave]               = useState(!!leaveData.noLeave);
   const [leaveStartDate, setLeaveStartDate] = useState(leaveData.leaveStartDate || emp.joinDate);
+  const [visa, setVisa]                     = useState(emp.visa || { type: "", from: "", to: "" });
   const [ci, setCi]                         = useState(leaveData.contractorInfo || {
     nameEn: "", address: "", phone: "", abn: "", email: "",
     dailyRate: "", workDesc: "Wall and Floor Tiling",
@@ -1995,19 +2046,31 @@ function EditEmpForm({ emp, leaveData, onSave, onClose, companies }) {
   const setWH = (i, k, v) => setWorkHistory(h => h.map((r, idx) => idx === i ? { ...r, [k]: v } : r));
   const delWH = (i) => setWorkHistory(h => h.filter((_, idx) => idx !== i));
 
+  // Contractor rate history (for noLeave employees)
+  const [contractorRates, setContractorRates] = useState(
+    leaveData.contractorRateHistory || (ci.dailyRate ? [{ from: emp.joinDate || today, dailyRate: ci.dailyRate }] : [])
+  );
+  const addRate    = () => setContractorRates(r => [...r, { from: today, dailyRate: "" }]);
+  const setRate    = (i, k, v) => setContractorRates(r => r.map((x, idx) => idx === i ? { ...x, [k]: v } : x));
+  const removeRate = (i) => setContractorRates(r => r.filter((_, idx) => idx !== i));
+
   const submit = () => {
     if (!form.name.trim()) return;
     const startDate = noLeave ? null : leaveStartDate;
-    const newLeave = { ...leaveData, leaveStartDate: startDate, noLeave,
+    // For noLeave employees, also save rateHistory using contractorRates
+    const newLeave = {
+      ...leaveData,
+      leaveStartDate: startDate,
+      noLeave,
       contractorInfo: noLeave ? { ...ci } : undefined,
+      contractorRateHistory: noLeave ? contractorRates : undefined,
       workHistory,
       rateHistory: startDate
         ? (leaveData.rateHistory && leaveData.rateHistory.length ? leaveData.rateHistory : [{ from: startDate, dailyRate: 0 }])
-        : [] };
-    onSave({ ...emp, ...form }, newLeave);
+        : [],
+    };
+    onSave({ ...emp, ...form, visa }, newLeave);
   };
-
-;
 
   return (
     <div style={styles.modal}>
@@ -2039,7 +2102,29 @@ function EditEmpForm({ emp, leaveData, onSave, onClose, companies }) {
         <LeaveAccrualSettings noLeave={noLeave} setNoLeave={setNoLeave}
           leaveStartDate={leaveStartDate} setLeaveStartDate={setLeaveStartDate} joinDate={form.joinDate} />
 
-        {/* Contractor invoice info — only when noLeave */}
+        {/* Visa info */}
+        <div style={{ ...styles.leaveSettingBox, borderColor: "#d0f0e0", background: "#f0fdf6", marginBottom: 14 }}>
+          <p style={{ ...styles.leaveSettingTitle, color: "#1a7a4a" }}>🛂 비자 정보</p>
+          <div style={styles.row2}>
+            <div style={{ ...styles.field, flex: 1 }}>
+              <label style={styles.label}>비자 종류</label>
+              <select style={styles.input} value={visa.type || ""} onChange={e => setVisa(v => ({ ...v, type: e.target.value }))}>
+                <option value="">선택 안함</option>
+                {["WHV1","WHV2","WHV3","TSS","SID","ENS"].map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+          </div>
+          <div style={styles.row2}>
+            <div style={{ ...styles.field, flex: 1 }}>
+              <label style={styles.label}>비자 시작일</label>
+              <input type="date" style={styles.input} value={visa.from || ""} onChange={e => setVisa(v => ({ ...v, from: e.target.value }))} />
+            </div>
+            <div style={{ ...styles.field, flex: 1 }}>
+              <label style={styles.label}>비자 만료일</label>
+              <input type="date" style={styles.input} value={visa.to || ""} onChange={e => setVisa(v => ({ ...v, to: e.target.value }))} />
+            </div>
+          </div>
+        </div>
         {noLeave && (
           <div style={{ ...styles.leaveSettingBox, borderColor: "#c5d8ff", background: "#f0f5ff", marginBottom: 14 }}>
             <p style={{ ...styles.leaveSettingTitle, color: C.primary }}>📄 인보이스 정보</p>
@@ -2075,7 +2160,24 @@ function EditEmpForm({ emp, leaveData, onSave, onClose, companies }) {
               <label style={styles.label}>업무 내용 (영문)</label>
               <input style={styles.input} value={ci.workDesc || ""} onChange={e => setC("workDesc", e.target.value)} placeholder="Wall and Floor Tiling" />
             </div>
-            <p style={{ ...styles.leaveSettingTitle, color: C.primary, marginTop: 4 }}>🏢 Bill To (자동입력 또는 직접수정)</p>
+            <p style={{ ...styles.leaveSettingTitle, color: C.primary, marginTop: 4 }}>💰 일급 변동 이력</p>
+            <p style={{ fontSize: 11, color: C.sub, marginBottom: 8 }}>일급이 변경될 때마다 날짜와 금액을 추가하세요</p>
+            {contractorRates.map((r, i) => (
+              <div key={i} style={styles.row2}>
+                <div style={{ ...styles.field, flex: 1 }}>
+                  <label style={styles.label}>{i === 0 ? "최초 시작일" : "변경일"}</label>
+                  <input type="date" style={styles.input} value={r.from || ""} onChange={e => setRate(i, "from", e.target.value)} />
+                </div>
+                <div style={{ ...styles.field, flex: 1 }}>
+                  <label style={styles.label}>일당 ($)</label>
+                  <div style={{ display: "flex", gap: 4 }}>
+                    <input type="number" style={{ ...styles.input, flex: 1 }} value={r.dailyRate || ""} onChange={e => setRate(i, "dailyRate", e.target.value)} placeholder="350" min={0} />
+                    {i > 0 && <button style={{ ...styles.iconBtn, color: "#f77" }} onClick={() => removeRate(i)}>{Icon.trash}</button>}
+                  </div>
+                </div>
+              </div>
+            ))}
+            <button style={{ ...styles.btnSecondary, width: "100%", marginBottom: 8 }} onClick={addRate}>+ 일급 변동 추가</button>
             {[["billToName","회사명","K&M Tiling Bathurst Pty Ltd"],["billToAddress","주소","10/51 Hampden Park Rd, Kelso NSW 2795"],["billToEmail","이메일","accounts@example.com"]].map(([k,l,ph]) => (
               <div key={k} style={styles.field}>
                 <label style={styles.label}>{l}</label>
@@ -2300,9 +2402,9 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, persist }) {
       </div>
 
       {emps.map(u => {
-        const periodLogs = getPeriodLogs(u.id);
-        const lv = normLeave(leaves[u.id], u.joinDate);
-        const isInvoiceEmp = lv.noLeave; // contractor = no leave accrual
+        const periodLogs     = getPeriodLogs(u.id);
+        const lv             = normLeave(leaves[u.id], u.joinDate);
+        const isInvoiceEmp   = lv.noLeave;
 
         if (periodLogs.length === 0) return (
           <div key={u.id} style={{ ...styles.payCard, opacity: 0.5 }}>
@@ -2316,12 +2418,14 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, persist }) {
           </div>
         );
 
-        const s = calcStats(periodLogs);
-        const fulltimeLogs = periodLogs.filter(l => l.workType === "fulltime" || l.workType === "overtime" || (!l.workType));
-        const travelLogs   = periodLogs.filter(l => l.travel && l.travel.allowance || l.travel && l.travel.hasDinner);
-        const parttimeLogs = periodLogs.filter(l => l.workType === "parttime");
-        const dayoffLogs   = periodLogs.filter(l => l.workType === "dayoff");
-        const holidayLogs  = periodLogs.filter(l => l.workType === "publicholiday");
+        const s              = calcStats(periodLogs);
+        const fulltimeLogs   = periodLogs.filter(l => l.workType === "fulltime" || l.workType === "overtime" || (!l.workType));
+        const travelLogs     = periodLogs.filter(l => (l.travel && l.travel.allowance) || (l.travel && l.travel.hasDinner));
+        const parttimeLogs   = periodLogs.filter(l => l.workType === "parttime");
+        const dayoffLogs     = periodLogs.filter(l => l.workType === "dayoff");
+        const holidayLogs    = periodLogs.filter(l => l.workType === "publicholiday");
+        const usageRecs      = (lv.usageRecords || []).filter(r => (r.type||"use") === "use" && r.date >= startDate && r.date <= endDate);
+        const leaveDaysInPeriod = Math.round(usageRecs.reduce((s, r) => s + (+(r.days)||0), 0) * 100) / 100;
 
         return (
           <div key={u.id} style={styles.payCard}>
@@ -2360,6 +2464,10 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, persist }) {
                 logs={dayoffLogs} renderDetail={l => dayStr(l.date)} />}
               {s.holidayDays > 0 && <PayStat emoji="🎉" label="퍼블릭홀리데이" val={`${s.holidayDays}일`} color="#e07000"
                 logs={holidayLogs} renderDetail={l => dayStr(l.date)} />}
+              {!isInvoiceEmp && leaveDaysInPeriod > 0 && (
+                <PayStat emoji="🏖️" label="연차" val={`${leaveDaysInPeriod}일`} color="#7b5ea7"
+                  logs={usageRecs} renderDetail={r => `${dayStr(r.date)} ${r.note || ""} (${r.days}일 · 풀타임 ${(r.days * FULLTIME_HOURS).toFixed(1)}h)`} />
+              )}
             </div>
           </div>
         );
