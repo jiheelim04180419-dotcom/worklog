@@ -1,26 +1,2935 @@
 <!DOCTYPE html>
-<html>
+<html lang="ko">
 <head>
 <meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+<title>WorkLog</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone@7.23.9/babel.min.js"></script>
 </head>
-<body>
+<body style="margin:0;padding:0;background:#f4f6fb">
 <div id="root"></div>
 <script type="text/babel" data-presets="react,env">
-const { useState } = React;
-function App() {
-  const [count, setCount] = useState(0);
+// localStorage polyfill for window.storage API
+if (!window.storage) {
+  window.storage = {
+    get: (k) => Promise.resolve(localStorage.getItem(k) ? {value: localStorage.getItem(k)} : null),
+    set: (k, v) => { localStorage.setItem(k, v); return Promise.resolve({key:k, value:v}); },
+    delete: (k) => { localStorage.removeItem(k); return Promise.resolve({key:k, deleted:true}); },
+    list: () => Promise.resolve({keys: Object.keys(localStorage)}),
+  };
+}
+
+const { useState, useEffect, useCallback, useRef } = React;
+
+
+let _fbUrl = null;
+
+function getFbUrl() {
+  try { return localStorage.getItem("wm_fb_url") || null; } catch { return null; }
+}
+function setFbUrl(url) {
+  _fbUrl = url;
+  try { localStorage.setItem("wm_fb_url", url); } catch {}
+}
+
+async function fbGet(path) {
+  const base = _fbUrl || getFbUrl();
+  if (!base) return null;
+  try {
+    const r = await fetch(base + "/" + path + ".json");
+    if (!r.ok) return null;
+    return await r.json();
+  } catch { return null; }
+}
+
+async function fbSet(path, value) {
+  const base = _fbUrl || getFbUrl();
+  if (!base) return false;
+  try {
+    const r = await fetch(base + "/" + path + ".json", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(value),
+    });
+    return r.ok;
+  } catch { return false; }
+}
+
+
+function lsGet(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } }
+function lsSave(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+function lsDel(k)     { try { localStorage.removeItem(k); } catch {} }
+
+async function sessionGet()    { return lsGet("wm_session", null); }
+async function sessionSave(v)  { lsSave("wm_session", v); }
+async function sessionRemove() { lsDel("wm_session"); }
+
+// Legacy window.storage compat (for loading old local data)
+async function legacyGet(key) {
+  try { const r = await window.storage.get(key); return r ? JSON.parse(r.value) : null; } catch { return null; }
+}
+
+
+const SEED_USERS = [
+  { id: "admin", name: "관리자", role: "admin", pw: "admin123", dept: "경영지원", joinDate: "2022-01-01" },
+  { id: "emp1", name: "김민준", role: "employee", pw: "1234", dept: "개발팀", joinDate: "2023-03-15" },
+  { id: "emp2", name: "이서연", role: "employee", pw: "1234", dept: "마케팅팀", joinDate: "2022-07-01" },
+  { id: "emp3", name: "박도현", role: "employee", pw: "1234", dept: "영업팀", joinDate: "2024-01-10" },
+];
+const SEED_LEAVES = {
+  emp1: { leaveStartDate: "2023-03-15", usedDays: 4.5, rateHistory: [{ from: "2023-03-15", dailyRate: 200 }],
+    usageRecords: [
+      { id: "ur1", date: "2023-12-22", days: 2, note: "크리스마스 연휴" },
+      { id: "ur2", date: "2024-01-26", days: 1, note: "Australia Day" },
+      { id: "ur3", date: "2024-04-05", days: 1.5, note: "개인 사유" },
+    ]},
+  emp2: { leaveStartDate: "2022-07-01", usedDays: 7, rateHistory: [{ from: "2022-07-01", dailyRate: 180 }, { from: "2023-01-15", dailyRate: 215 }],
+    usageRecords: [
+      { id: "ur4", date: "2025-08-12", days: 3, note: "연름 휴가" },
+      { id: "ur5", date: "2025-10-06", days: 2, note: "Labour Day 연휴" },
+      { id: "ur6", date: "2026-01-27", days: 2, note: "Australia Day" },
+    ]},
+  emp3: { leaveStartDate: "2024-01-10", usedDays: 1, rateHistory: [{ from: "2024-01-10", dailyRate: 195 }],
+    usageRecords: [
+      { id: "ur7", date: "2024-04-19", days: 1, note: "Good Friday" },
+    ]},
+};
+const today = (() => {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,"0");
+  const dd = String(d.getDate()).padStart(2,"0");
+  return y + "-" + m + "-" + dd;
+})();
+
+
+function calcHours(s, e) {
+  if (!s || !e) return 0;
+  const [sh, sm] = s.split(":").map(Number);
+  const [eh, em] = e.split(":").map(Number);
+  return Math.max(0, (eh * 60 + em - sh * 60 - sm) / 60);
+}
+function fmt(n) { return n % 1 === 0 ? n : n.toFixed(1); }
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
+function korDate(d) {
+  const dt = new Date(d + "T00:00:00");
+  return dt.toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric", weekday: "short" });
+}
+
+
+const FULLTIME_START = "07:00";
+const FULLTIME_END   = "16:30";
+const FULLTIME_HOURS = calcHours(FULLTIME_START, FULLTIME_END) - 0.5; // 9.5h - 30min lunch = 9h
+
+
+// Coordinates [lat, lng] for all known locations
+const LOCATION_COORDS = {
+  "Bathurst":            [-33.4193, 149.5777],
+  "Orange":              [-33.2837, 149.1001],
+  "Black Springs":       [-33.8500, 149.8200],
+  "Blayney":             [-33.5327, 149.2593],
+  "Browns Creek":        [-33.5800, 149.8500],
+  "Caloola":             [-33.6200, 149.4000],
+  "Canowindra":          [-33.5680, 148.6609],
+  "Capertee":            [-33.1300, 150.0100],
+  "Cargo":               [-33.4300, 148.7400],
+  "Cowra":               [-33.8303, 148.6838],
+  "Cumnock":             [-32.9300, 148.7600],
+  "Dubbo":               [-32.2569, 148.6011],
+  "Eugowra":             [-33.4322, 148.3800],
+  "Forbes":              [-33.3838, 148.0022],
+  "Gilgandra":           [-31.7194, 148.6630],
+  "Gooloogong":          [-33.5700, 148.4600],
+  "Hobbys Yards":        [-33.7300, 149.6300],
+  "Hill End":            [-33.0300, 149.4200],
+  "Jenolan":             [-33.8200, 150.0200],
+  "Kandos / Rylstone":   [-32.8700, 149.9600],
+  "Killongbutta":        [-33.1800, 149.5200],
+  "Lidsdale":            [-33.2800, 150.0700],
+  "Lithgow":             [-33.4826, 150.1578],
+  "Marrangaroo":         [-33.4500, 150.1100],
+  "Millthorpe":          [-33.4497, 149.1758],
+  "Molong":              [-33.0996, 148.8699],
+  "Moorbel":             [-33.5000, 149.0000],
+  "Mudgee / Cudgegong":  [-32.5935, 149.5871],
+  "Oberon":              [-33.7056, 149.8594],
+  "Parkes":              [-33.1311, 148.1726],
+  "Tarana":              [-33.5200, 149.7800],
+  "Trunkey":             [-33.7200, 149.3700],
+  "Wallerawang":         [-33.4100, 150.0700],
+  "Wellington":          [-32.5537, 148.9437],
+};
+const ALL_LOCATIONS = Object.keys(LOCATION_COORDS).sort();
+
+// Haversine distance (km) between two named locations, with road factor
+function geoKm(a, b) {
+  const c1 = LOCATION_COORDS[a], c2 = LOCATION_COORDS[b];
+  if (!c1 || !c2) return null;
+  const R = 6371, toR = Math.PI / 180;
+  const dLat = (c2[0] - c1[0]) * toR;
+  const dLon = (c2[1] - c1[1]) * toR;
+  const h = Math.sin(dLat/2)**2 + Math.cos(c1[0]*toR)*Math.cos(c2[0]*toR)*Math.sin(dLon/2)**2;
+  return Math.round(2 * R * Math.asin(Math.sqrt(h)) * 1.28); // road factor 1.28
+}
+
+// Allowance formula (applied to total km - round trip or one-way for 출장)
+function calcTravelAllowance(km) {
+  if (!km || km <= 0) return 0;
+  const deducted = Math.max(0, km - 50);
+  const m = deducted / 50;
+  const dec = m % 1;
+  const units = Math.floor(m) + (dec < 0.4 ? 0 : dec < 0.8 ? 0.5 : 1);
+  const before = units * 16;
+  return Math.max(before, before > 0 ? 10 : 0);
+}
+
+
+const ANNUAL_LEAVE_DAYS  = 20;
+const HOURS_PER_DAY      = 7.6;
+const ANNUAL_LEAVE_HOURS = ANNUAL_LEAVE_DAYS * HOURS_PER_DAY; // 152h
+
+// Get the CURRENT leave year: most recent anniversary → next anniversary
+function getCurrentLeaveYear(leaveStartDate) {
+  if (!leaveStartDate) return null;
+  const start = new Date(leaveStartDate + "T00:00:00");
+  const now   = new Date();
+  let yearStart = new Date(start);
+  // advance year-by-year until next anniversary is in the future
+  while (true) {
+    const next = new Date(yearStart);
+    next.setFullYear(next.getFullYear() + 1);
+    if (next > now) break;
+    yearStart = next;
+  }
+  const yearEnd = new Date(yearStart);
+  yearEnd.setFullYear(yearEnd.getFullYear() + 1);
+  return { start: yearStart, end: yearEnd };
+}
+
+// Normalize old leave format → new format
+function normLeave(lv, joinDate) {
+  const base = joinDate || today;
+  if (!lv) return { leaveStartDate: base, usedDays: 0, rateHistory: [{ from: base, dailyRate: 0 }], usageRecords: [] };
+  const usageRecords = Array.isArray(lv.usageRecords) ? lv.usageRecords : [];
+  // usedDays = sum of usageRecords if records exist, else fall back to stored value
+  const usedDays = usageRecords.length > 0
+    ? Math.round(usageRecords.reduce((s, r) => s + (+(r.days) || 0), 0) * 100) / 100
+    : +(lv.usedDays || (lv.used ? +(lv.used / HOURS_PER_DAY).toFixed(2) : 0)) || 0;
+  if (lv.leaveStartDate !== undefined) return { ...lv, usedDays, usageRecords };
+  return { leaveStartDate: base, usedDays, rateHistory: [{ from: base, dailyRate: 0 }], usageRecords };
+}
+
+// Accrued days in the CURRENT leave year, capped at 20
+function calcAccruedDays(leaveStartDate) {
+  if (!leaveStartDate) return 0;  const yr = getCurrentLeaveYear(leaveStartDate);
+  if (!yr) return 0;
+  const now       = new Date();
+  const cutoff    = now < yr.end ? now : yr.end;
+  const elapsed   = Math.max(0, cutoff - yr.start);
+  const yearTotal = yr.end - yr.start;
+  return Math.round(Math.min(elapsed / yearTotal, 1) * ANNUAL_LEAVE_DAYS * 100) / 100;
+}
+
+// Split CURRENT leave year by daily rate changes → proportional leave days per period
+function getLeavePeriods(leaveStartDate, rateHistory) {
+  if (!leaveStartDate || !rateHistory || rateHistory.length < 2) return [];
+  const yr = getCurrentLeaveYear(leaveStartDate);
+  if (!yr) return [];
+  const { start, end } = yr;
+  const yearTotalMs = end - start;
+
+  // Only rate entries that are relevant (rate in effect covers part of this year)
+  const sorted = [...rateHistory]
+    .sort((a, b) => a.from.localeCompare(b.from))
+    .filter((r, i, arr) => {
+      const rEnd = i < arr.length - 1 ? new Date(arr[i+1].from + "T00:00:00") : end;
+      return new Date(r.from + "T00:00:00") < end && rEnd > start;
+    });
+
+  if (sorted.length < 2) return [];
+
+  const periods = [];
+  for (let i = 0; i < sorted.length; i++) {
+    const pStart = new Date(Math.max(+new Date(sorted[i].from + "T00:00:00"), +start));
+    const pEnd   = i < sorted.length - 1
+      ? new Date(Math.min(+new Date(sorted[i+1].from + "T00:00:00"), +end))
+      : end;
+    if (+pEnd <= +pStart) continue;
+    const calDays   = Math.round((pEnd - pStart) / (1000 * 60 * 60 * 24));
+    const leaveDays = Math.round(((pEnd - pStart) / yearTotalMs) * ANNUAL_LEAVE_DAYS * 100) / 100;
+    periods.push({
+      from:       pStart.toISOString().slice(0, 10),
+      to:         pEnd.toISOString().slice(0, 10),
+      calDays,
+      leaveDays,
+      leaveHours: Math.round(leaveDays * HOURS_PER_DAY * 100) / 100,
+      dailyRate:  sorted[i].dailyRate,
+    });
+  }
+  return periods;
+}
+
+// Show current leave year label e.g. "2025-07-01 ~ 2026-07-01"
+function leaveYearLabel(leaveStartDate) {
+  const yr = getCurrentLeaveYear(leaveStartDate);
+  if (!yr) return "";
+  return `${yr.start.toISOString().slice(0,10)} ~ ${yr.end.toISOString().slice(0,10)}`;
+}
+
+// For ADMIN: how many days/hours have accrued under each rate period UP TO TODAY
+function getAccruedByPeriod(leaveStartDate, rateHistory) {
+  const yr = getCurrentLeaveYear(leaveStartDate);
+  if (!yr || !rateHistory || rateHistory.length < 2) return [];
+  const { start, end } = yr;
+  const yearTotalMs = end - start;
+  const now = new Date();
+
+  const sorted = [...rateHistory]
+    .sort((a, b) => a.from.localeCompare(b.from))
+    .filter((r, i, arr) => {
+      const rEnd = i < arr.length - 1 ? new Date(arr[i+1].from + "T00:00:00") : end;
+      return new Date(r.from + "T00:00:00") < end && rEnd > start;
+    });
+
+  if (sorted.length < 2) return [];
+
+  return sorted.map((r, i) => {
+    const pStart = new Date(Math.max(+new Date(r.from + "T00:00:00"), +start));
+    const pEnd   = i < sorted.length - 1
+      ? new Date(Math.min(+new Date(sorted[i+1].from + "T00:00:00"), +end))
+      : end;
+    if (+pEnd <= +pStart) return null;
+
+    // Elapsed portion of this period up to today
+    const todayCap     = now < pEnd ? now : pEnd;
+    const elapsedMs    = Math.max(0, +todayCap - +pStart);
+    const totalPeriodMs = +pEnd - +pStart;
+
+    const calDaysElapsed = Math.round(elapsedMs / (1000*60*60*24));
+    const calDaysTotal   = Math.round(totalPeriodMs / (1000*60*60*24));
+    const accruedDays    = Math.round((elapsedMs / yearTotalMs) * ANNUAL_LEAVE_DAYS * 100) / 100;
+    const accruedHours   = Math.round(accruedDays * HOURS_PER_DAY * 100) / 100;
+    const totalDays      = Math.round((totalPeriodMs / yearTotalMs) * ANNUAL_LEAVE_DAYS * 100) / 100;
+
+    return {
+      from: pStart.toISOString().slice(0, 10),
+      to:   pEnd.toISOString().slice(0, 10),
+      calDaysElapsed, calDaysTotal,
+      accruedDays, accruedHours,
+      totalDays,
+      dailyRate: r.dailyRate,
+      isActive:   now >= pStart && now < pEnd,
+      isComplete: now >= pEnd,
+    };
+  }).filter(Boolean).filter(p => p.calDaysTotal > 0);
+}
+// Count fully completed leave years since leaveStartDate
+function getCompletedYears(leaveStartDate) {
+  if (!leaveStartDate) return 0;
+  const start = new Date(leaveStartDate + "T00:00:00");
+  if (isNaN(start.getTime())) return 0;
+  const now   = new Date();
+  let count = 0, curr = new Date(start);
+  while (count < 200) {
+    const next = new Date(curr);
+    next.setFullYear(next.getFullYear() + 1);
+    if (next > now) break;
+    curr = next; count++;
+  }
+  return count;
+}
+
+
+const Icon = {
+  home: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="20" height="20"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
+  log: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="20" height="20"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>,
+  leave: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="20" height="20"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
+  team: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="20" height="20"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
+  plus: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="18" height="18"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
+  edit: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="16" height="16"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
+  trash: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="16" height="16"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>,
+  logout: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>,
+  clock: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="16" height="16"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
+  check: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="16" height="16"><polyline points="20 6 9 17 4 12"/></svg>,
+  x: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="16" height="16"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
+};
+
+
+export default function App() {
+  const [ready, setReady]   = useState(false);
+  const [session, setSession] = useState(null);
+  const [users, setUsers]   = useState(SEED_USERS);
+  const [logs, setLogs]     = useState([]);
+  const [leaves, setLeaves] = useState(SEED_LEAVES);
+  const [tab, setTab]       = useState("home");
+
+  // Load all data from persistent storage on mount
+  const [fbConfigured, setFbConfigured] = useState(false);
+  const pollRef = useRef(null);
+
+  const loadFromFb = async () => {
+    const [u, l, lv] = await Promise.all([
+      fbGet("users"), fbGet("logs"), fbGet("leaves"),
+    ]);
+    if (u) setUsers(Object.values(u).length ? Object.values(u) : u);
+    if (l) setLogs(Array.isArray(l) ? l : Object.values(l));
+    if (lv) setLeaves(lv);
+    return !!(u || l || lv);
+  };
+
+  useEffect(() => {
+    (async () => {
+      const fbUrl = getFbUrl();
+      if (fbUrl) {
+        _fbUrl = fbUrl;
+        setFbConfigured(true);
+        await loadFromFb();
+        // Poll every 30s for real-time feel
+        pollRef.current = setInterval(loadFromFb, 30000);
+      } else {
+        // No Firebase - load from legacy window.storage / local fallback
+        const u  = await legacyGet("wm_users")  || SEED_USERS;
+        const l  = await legacyGet("wm_logs")   || [];
+        const lv = await legacyGet("wm_leaves") || SEED_LEAVES;
+        setUsers(u); setLogs(l); setLeaves(lv);
+      }
+      setSession(await sessionGet());
+      setReady(true);
+    })();
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, []);
+
+  const saveFb = useCallback(async (u, l, lv) => {
+    const base = _fbUrl || getFbUrl();
+    if (!base) return;
+    if (u)  fbSet("users",  u);
+    if (l)  fbSet("logs",   l);
+    if (lv) fbSet("leaves", lv);
+  }, []);
+
+  const persist = useCallback(async (u, l, lv) => {
+    if (u)  { setUsers(u);  saveFb(u, null, null); }
+    if (l)  { setLogs(l);   saveFb(null, l, null); }
+    if (lv) { setLeaves(lv); saveFb(null, null, lv); }
+  }, [saveFb]);
+
+  const updateLeaveUsage = useCallback((userId, joinDate, records) => {
+    setLeaves(prev => {
+      const lv = normLeave(prev[userId] || {}, joinDate);
+      const usedDays = Math.round(records.reduce((s, r) => s + (+(r.days) || 0), 0) * 100) / 100;
+      const next = { ...prev, [userId]: { ...lv, usageRecords: records, usedDays } };
+      saveFb(null, null, next);
+      return next;
+    });
+  }, [saveFb]);
+
+  const login = async (user) => {
+    await sessionSave(user);
+    setSession(user);
+    setTab("home");
+  };
+
+  const logout = async () => {
+    await sessionRemove();
+    setSession(null);
+  };
+
+  if (!ready) return (
+    <div style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: "#f4f6fb" }}>
+      <div style={{ textAlign: "center" }}>
+        <div style={{ fontSize: 40, marginBottom: 12 }}>📋</div>
+        <p style={{ color: "#3b7ff5", fontWeight: 700, fontSize: 16 }}>WorkLog 로딩 중...</p>
+      </div>
+    </div>
+  );
+
+  if (!getFbUrl()) return (
+    <FirebaseSetup onDone={async (url) => {
+      setFbUrl(url); _fbUrl = url;
+      const ok = await loadFromFb();
+      if (!ok) { await saveFb(SEED_USERS, [], SEED_LEAVES); }
+      pollRef.current = setInterval(loadFromFb, 30000);
+      setFbConfigured(true);
+    }} />
+  );
+
+  const handleTeamCode = async (payload) => {
+    const u  = payload.users  || SEED_USERS;
+    const lv = payload.leaves || SEED_LEAVES;
+    setUsers(u); setLeaves(lv);
+    saveFb(u, null, lv);
+  };
+
+  if (!session) return <LoginScreen users={users} onLogin={login} onTeamCode={handleTeamCode} />;
+
+  const currentUser = users.find(u => u.id === session.id) || session;
+  const isAdmin = currentUser.role === "admin";
+
   return (
-    <div style={{padding:20, fontFamily:'sans-serif'}}>
-      <h1>✅ React Works!</h1>
-      <p>Count: {count}</p>
-      <button onClick={() => setCount(c => c+1)}>Click me</button>
+    <div style={styles.app}>
+      <Header user={currentUser} onLogout={logout} />
+      <div style={styles.content}>
+        {tab === "home" && <HomeTab user={currentUser} users={users} logs={logs} leaves={leaves} isAdmin={isAdmin} />}
+        {tab === "log" && <LogTab user={currentUser} users={users} logs={logs} leaves={leaves} isAdmin={isAdmin} persist={persist} />}
+        {tab === "leave" && <LeaveTab user={currentUser} users={users} leaves={leaves} isAdmin={isAdmin} persist={persist} updateLeaveUsage={updateLeaveUsage} />}
+        {isAdmin && tab === "team" && <TeamTab users={users} leaves={leaves} logs={logs} persist={persist} />}
+        {tab === "payroll" && <PayrollTab user={currentUser} users={users} logs={logs} leaves={leaves} isAdmin={isAdmin} persist={persist} />}
+      </div>
+      <BottomNav tab={tab} setTab={setTab} isAdmin={isAdmin} userHasLeave={isAdmin || !normLeave(leaves[currentUser.id], currentUser.joinDate).noLeave} />
     </div>
   );
 }
-ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
+
+
+function FirebaseSetup({ onDone }) {
+  const [url, setUrl]     = useState("");
+  const [testing, setTesting] = useState(false);
+  const [err, setErr]     = useState("");
+
+  const test = async () => {
+    if (!url.trim()) { setErr("URL을 입력하세요."); return; }
+    const clean = url.trim().replace(/\/$/, "");
+    setTesting(true); setErr("");
+    try {
+      const r = await fetch(clean + "/.json");
+      if (!r.ok) throw new Error("연결 실패 (HTTP " + r.status + ")");
+      setTesting(false);
+      onDone(clean);
+    } catch(e) {
+      setTesting(false);
+      setErr("❌ 연결 실패: " + e.message + "\nURL을 다시 확인해주세요.");
+    }
+  };
+
+  return (
+    <div style={{ minHeight:"100dvh", background:"#f4f6fb", display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}>
+      <div style={{ background:"#fff", borderRadius:20, padding:"32px 24px", width:"100%", maxWidth:400, boxShadow:"0 8px 40px #3b7ff520" }}>
+        <div style={{ textAlign:"center", marginBottom:24 }}>
+          <div style={{ fontSize:44, marginBottom:8 }}>🔥</div>
+          <h2 style={{ margin:0, fontSize:22, fontWeight:800, color:"#3b7ff5" }}>Firebase 연결</h2>
+          <p style={{ margin:"8px 0 0", fontSize:13, color:"#888" }}>실시간 동기화를 위해 한 번만 설정해요</p>
+        </div>
+
+        <div style={{ background:"#f0f5ff", borderRadius:12, padding:14, marginBottom:20, fontSize:12, color:"#3b5fc0", lineHeight:1.7 }}>
+          <strong>설정 방법 (5분)</strong><br/>
+          1. <a href="https://console.firebase.google.com" target="_blank" rel="noopener" style={{ color:"#3b7ff5" }}>console.firebase.google.com</a> 접속<br/>
+          2. 프로젝트 만들기 (Google Analytics 비활성화)<br/>
+          3. 왼쪽 "빌드" → "Realtime Database" → "데이터베이스 만들기"<br/>
+          4. <strong>테스트 모드</strong>로 시작 → 완료<br/>
+          5. 화면 상단 URL 복사 후 아래 붙여넣기<br/>
+          <span style={{ color:"#888" }}>예: https://myapp-default-rtdb.firebaseio.com</span>
+        </div>
+
+        <div style={{ marginBottom:14 }}>
+          <label style={{ display:"block", fontSize:11, fontWeight:600, color:"#888", marginBottom:6, textTransform:"uppercase" }}>Firebase Database URL</label>
+          <input style={{ width:"100%", boxSizing:"border-box", border:"1.5px solid #e0e6f0", borderRadius:10, padding:"10px 12px", fontSize:13, fontFamily:"inherit", outline:"none" }}
+            value={url} onChange={e => setUrl(e.target.value)}
+            placeholder="https://yourapp-default-rtdb.firebaseio.com"
+            autoCapitalize="none" />
+        </div>
+        {err && <p style={{ color:"#f77", fontSize:12, marginBottom:10, whiteSpace:"pre-line" }}>{err}</p>}
+        <button style={{ width:"100%", background:"#3b7ff5", color:"#fff", border:"none", borderRadius:12, padding:"13px 0", fontSize:15, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}
+          onClick={test} disabled={testing}>
+          {testing ? "연결 테스트 중..." : "🔗 연결하기"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+
+function LoginScreen({ users, onLogin, onTeamCode }) {
+  const [id, setId] = useState("");
+  const [pw, setPw] = useState("");
+  const [err, setErr] = useState("");
+  const [showCode, setShowCode] = useState(false);
+  const [codeInput, setCodeInput] = useState("");
+  const [codeErr, setCodeErr] = useState("");
+
+  const submit = () => {
+    const user = users.find(u => u.id === id && u.pw === pw);
+    if (!user) { setErr("아이디 또는 비밀번호가 올바르지 않습니다."); return; }
+    onLogin(user);
+  };
+
+  const applyCode = () => {
+    try {
+      const decoded = decodeURIComponent(escape(atob(codeInput.trim())));
+      const payload = JSON.parse(decoded);
+      if (!payload.users) { setCodeErr("올바른 팀 코드가 아닙니다."); return; }
+      onTeamCode(payload);
+      setShowCode(false);
+      setCodeErr("");
+    } catch { setCodeErr("코드가 올바르지 않습니다. 다시 확인해주세요."); }
+  };
+
+  return (
+    <div style={styles.loginWrap}>
+      <div style={styles.loginBox}>
+        <div style={styles.loginLogo}>
+          <div style={styles.logoIcon}>📋</div>
+          <h1 style={styles.logoTitle}>WorkLog</h1>
+          <p style={styles.logoSub}>근무일지 & 연차 관리 시스템</p>
+        </div>
+
+        {!showCode ? (
+          <>
+            <div style={styles.field}>
+              <label style={styles.label}>아이디</label>
+              <input style={styles.input} value={id} onChange={e => setId(e.target.value)}
+                placeholder="아이디 입력" onKeyDown={e => e.key === "Enter" && submit()} autoCapitalize="none" />
+            </div>
+            <div style={styles.field}>
+              <label style={styles.label}>비밀번호</label>
+              <input style={styles.input} type="password" value={pw} onChange={e => setPw(e.target.value)}
+                placeholder="비밀번호 입력" onKeyDown={e => e.key === "Enter" && submit()} />
+            </div>
+            {err && <p style={styles.errText}>{err}</p>}
+            <button style={styles.btnPrimary} onClick={submit}>로그인</button>
+            <button style={{ ...styles.btnSecondary, width: "100%", marginTop: 10 }}
+              onClick={() => setShowCode(true)}>🔑 팀 코드로 계정 설정</button>
+          </>
+        ) : (
+          <>
+            <p style={{ fontSize: 13, color: C.sub, marginBottom: 12, textAlign: "center" }}>
+              관리자에게 받은 팀 코드를 붙여넣으세요
+            </p>
+            <div style={styles.field}>
+              <label style={styles.label}>팀 코드</label>
+              <textarea style={{ ...styles.input, height: 80, fontSize: 11, wordBreak: "break-all" }}
+                value={codeInput} onChange={e => setCodeInput(e.target.value)}
+                placeholder="코드 붙여넣기..." />
+            </div>
+            {codeErr && <p style={styles.errText}>{codeErr}</p>}
+            <button style={styles.btnPrimary} onClick={applyCode}>✅ 적용하기</button>
+            <button style={{ ...styles.btnSecondary, width: "100%", marginTop: 10 }}
+              onClick={() => setShowCode(false)}>← 돌아가기</button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
+function Header({ user, onLogout }) {
+  return (
+    <div style={styles.header}>
+      <div style={styles.headerLeft}>
+        <span style={styles.headerLogo}>📋</span>
+        <span style={styles.headerTitle}>WorkLog</span>
+      </div>
+      <div style={styles.headerRight}>
+        <span style={styles.headerUser}>{user.name}<span style={styles.roleBadge}>{user.role === "admin" ? "관리자" : "직원"}</span></span>
+        <button style={styles.logoutBtn} onClick={onLogout}>{Icon.logout}</button>
+      </div>
+    </div>
+  );
+}
+
+
+function BottomNav({ tab, setTab, isAdmin, userHasLeave }) {
+  const Icon_payroll = <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="20" height="20"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>;
+  const items = [
+    { key: "home",    label: "홈",      icon: Icon.home },
+    { key: "log",     label: "근무일지", icon: Icon.log },
+    ...(userHasLeave ? [{ key: "leave", label: "연차", icon: Icon.leave }] : []),
+    { key: "payroll", label: "급여",    icon: Icon_payroll },
+    ...(isAdmin ? [{ key: "team", label: "직원관리", icon: Icon.team }] : []),
+  ];
+  return (
+    <nav style={styles.nav}>
+      {items.map(i => (
+        <button key={i.key} style={{ ...styles.navItem, ...(tab === i.key ? styles.navItemActive : {}) }} onClick={() => setTab(i.key)}>
+          {i.icon}
+          <span style={styles.navLabel}>{i.label}</span>
+        </button>
+      ))}
+    </nav>
+  );
+}
+
+
+function HomeTab({ user, users, logs, leaves, isAdmin }) {
+  const myLogs    = isAdmin ? logs : logs.filter(l => l.userId === user.id);
+  const myLv       = normLeave(leaves[user.id], user.joinDate);
+  const myAccDays  = calcAccruedDays(myLv.leaveStartDate);
+  const myRemDays  = Math.max(0, myAccDays - (myLv.usedDays || 0));
+  const thisMonth = new Date().toISOString().slice(0, 7);
+  const monthLogs = myLogs.filter(l => l.date.startsWith(thisMonth));
+  const monthHours = monthLogs.reduce((s, l) => s + (l.hours || 0), 0);
+  const todayStr  = today;
+  const todayLogs = isAdmin ? logs.filter(l => l.date === todayStr) : logs.filter(l => l.userId === user.id && l.date === todayStr);
+
+  return (
+    <div style={styles.page}>
+      <div style={styles.greeting}>
+        <h2 style={styles.greetingText}>안녕하세요, {user.name}님 👋</h2>
+        <p style={styles.dateText}>{korDate(todayStr)}</p>
+      </div>
+
+      <div style={styles.statsGrid}>
+        {!isAdmin && <>
+          <StatCard label="연차 잔여" value={`${myRemDays.toFixed(1)}일`} sub={`적립 ${myAccDays.toFixed(1)}일 / 20일`} color="#4f8ef7" emoji="🏖️" />
+          <StatCard label="이번 달 근무" value={`${fmt(monthHours)}h`} sub={`${monthLogs.length}일 출근`} color="#34c98b" emoji="💼" />
+        </>}
+        {isAdmin && <>
+          <StatCard label="전체 직원" value={`${users.filter(u => u.role !== "admin").length}명`} sub="재직 중" color="#4f8ef7" emoji="👥" />
+          <StatCard label="오늘 출근" value={`${todayLogs.length}명`} sub={`근무일지 등록`} color="#34c98b" emoji="✅" />
+        </>}
+      </div>
+
+      <div style={styles.section}>
+        <h3 style={styles.sectionTitle}>{isAdmin ? "오늘 근무현황" : "최근 근무일지"}</h3>
+        {todayLogs.length === 0
+          ? <EmptyState msg={isAdmin ? "오늘 등록된 근무일지가 없습니다." : "오늘 근무일지가 없습니다."} />
+          : todayLogs.slice(0, 5).map(l => {
+            const emp = users.find(u => u.id === l.userId);
+            return (
+              <div key={l.id} style={styles.logCard}>
+                <div style={styles.logCardLeft}>
+                  <div style={styles.logAvatar}>{((emp && emp.name) || "?")[0]}</div>
+                  <div>
+                    <p style={styles.logName}>{isAdmin ? (emp && emp.name) || l.userId : korDate(l.date)}</p>
+                    <p style={styles.logContent}>{l.content}</p>
+                  </div>
+                </div>
+                <div style={styles.logHours}>{l.startTime}~{l.endTime}<br /><span style={styles.logHoursBig}>{fmt(l.hours)}h</span></div>
+              </div>
+            );
+          })}
+      </div>
+
+      {isAdmin && (
+        <div style={styles.section}>
+          <h3 style={styles.sectionTitle}>연차 현황</h3>
+          {users.filter(u => u.role !== "admin").map(u => {
+            const lv   = normLeave(leaves[u.id], u.joinDate);
+            const acc  = calcAccruedDays(lv.leaveStartDate);
+            const rem  = Math.max(0, acc - (lv.usedDays || 0));
+            const pct  = acc > 0 ? Math.min(100, (rem / acc) * 100) : 0;
+            return (
+              <div key={u.id} style={styles.leaveRow}>
+                <div style={styles.leaveRowLeft}>
+                  <div style={styles.logAvatar}>{u.name[0]}</div>
+                  <div>
+                    <p style={styles.logName}>{u.name} <span style={styles.deptBadge}>{u.dept}</span></p>
+                    <p style={styles.logContent}>잔여 {rem.toFixed(1)}일 / 적립 {acc.toFixed(1)}일</p>
+                  </div>
+                </div>
+                <div style={styles.miniBar}>
+                  <div style={{ ...styles.miniBarFill, width: pct + "%", background: pct < 30 ? "#f77" : "#4f8ef7" }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StatCard({ label, value, sub, color, emoji }) {
+  return (
+    <div style={{ ...styles.statCard, borderTop: `3px solid ${color}` }}>
+      <span style={styles.statEmoji}>{emoji}</span>
+      <p style={styles.statValue}>{value}</p>
+      <p style={styles.statLabel}>{label}</p>
+      <p style={styles.statSub}>{sub}</p>
+    </div>
+  );
+}
+
+
+function LogTab({ user, users, logs, leaves, isAdmin, persist }) {
+  const [showForm, setShowForm] = useState(false);
+  const [filterUser, setFilterUser] = useState(isAdmin ? "all" : user.id);
+  const [filterMonth, setFilterMonth] = useState(new Date().toISOString().slice(0, 7));
+  const [editLog, setEditLog] = useState(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+
+  const filtered = logs
+    .filter(l => (filterUser === "all" ? true : l.userId === filterUser))
+    .filter(l => l.date.startsWith(filterMonth))
+    .sort((a, b) => b.date.localeCompare(a.date));
+
+  const deleteLog = (id) => {
+    persist(null, logs.filter(l => l.id !== id), null);
+    setConfirmDeleteId(null);
+  };
+
+  return (
+    <div style={styles.page}>
+      <div style={styles.pageHeader}>
+        <h2 style={styles.pageTitle}>근무일지</h2>
+        <button style={styles.btnAdd} onClick={() => { setEditLog(null); setShowForm(true); }}>{Icon.plus} 등록</button>
+      </div>
+
+      <div style={styles.filterRow}>
+        <input type="month" style={styles.filterInput} value={filterMonth} onChange={e => setFilterMonth(e.target.value)} />
+        {isAdmin && (
+          <select style={styles.filterInput} value={filterUser} onChange={e => setFilterUser(e.target.value)}>
+            <option value="all">전체 직원</option>
+            {users.filter(u => u.role !== "admin").map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+          </select>
+        )}
+      </div>
+
+      <div style={styles.logSummary}>
+        <span>총 {filtered.length}건 &nbsp;|&nbsp; {fmt(filtered.reduce((s, l) => s + (l.hours || 0), 0))}시간</span>
+      </div>
+
+      {filtered.length === 0 ? <EmptyState msg="해당 기간 근무일지가 없습니다." /> : filtered.map(l => {
+        const emp = users.find(u => u.id === l.userId);
+        return (
+          <div key={l.id} style={styles.logItem}>
+            <div style={styles.logItemDate}>{l.date.slice(5)} ({["일","월","화","수","목","금","토"][new Date(l.date + "T00:00:00").getDay()]})</div>
+            <div style={styles.logItemBody}>
+              {isAdmin && <span style={styles.empName}>{(emp && emp.name) || l.userId}</span>}
+              <p style={styles.logItemContent}>{l.content}</p>
+              <div style={styles.logItemMeta}>
+                {(() => {
+                  if (l.workType === "dayoff") return <span style={{ color: "#888" }}>🌴 휴무</span>;
+                  if (l.workType === "publicholiday") return <span style={{ color: "#e07000" }}>🎉 퍼블릭홀리데이 <strong>{fmt(FULLTIME_HOURS)}h</strong></span>;
+                  if (l.workType === "overtime") {
+                    const otH = calcHours(l.otStart, l.otEnd);
+                    return <><strong>{fmt(FULLTIME_HOURS)}h</strong> <span style={{color:"#f7a440",fontWeight:700}}>+ {fmt(otH)}h OT</span></>;
+                  }
+                  return <strong>{fmt(l.hours)}h</strong>;
+                })()}
+                <span style={{ ...styles.statusBadge,
+                  background: l.workType === "overtime" ? "#f7a44022" : l.workType === "parttime" ? "#7b5ea722" : l.workType === "dayoff" ? "#88888822" : l.workType === "publicholiday" ? "#e0700022" : "#4f8ef722",
+                  color: l.workType === "overtime" ? "#c87800" : l.workType === "parttime" ? "#7b5ea7" : l.workType === "dayoff" ? "#888" : l.workType === "publicholiday" ? "#e07000" : "#3b7ff5"
+                }}>
+                  {l.workType === "fulltime" ? "풀타임" : l.workType === "overtime" ? "오버타임" : l.workType === "parttime" ? "파트타임" : l.workType === "dayoff" ? "휴무" : l.workType === "publicholiday" ? "퍼블릭홀리데이" : l.status}
+                </span>
+              </div>
+              {l.travel && (
+                <div>
+                  <div style={styles.travelTag}>
+                    {l.travel.isBizTrip ? "🏨" : "🚗"} {
+                      (l.travel.stops || [l.travel.from, ...(l.travel.via||[]), l.travel.to || l.travel.destination]).filter(Boolean).join(" → ")
+                    }
+                  {(l.travel.allowance > 0) && <span style={styles.travelTagAmt}> · ${(l.travel.allowance + (l.travel.hasDinner ? 25 : 0)).toFixed(2)}</span>}
+                    {l.travel.hasDinner && <span style={{ ...styles.travelTagAmt, color: "#e07000" }}> · 🍽️$25</span>}
+                  </div>
+                  {isAdmin && l.travel.needsConfirm && !l.travel.adminConfirmed && (
+                    <div style={styles.confirmBadgeRow}>
+                      <span style={styles.confirmBadge}>⚠️ km 수동입력 - 확인 필요</span>
+                      <button style={styles.confirmBtn}
+                        onClick={() => {
+                          const next = logs.map(lg => lg.id === l.id
+                            ? { ...lg, travel: { ...lg.travel, adminConfirmed: true } }
+                            : lg);
+                          persist(null, next, null);
+                        }}>✓ 확인</button>
+                    </div>
+                  )}
+                  {isAdmin && l.travel.needsConfirm && l.travel.adminConfirmed && (
+                    <span style={styles.confirmedBadge}>✅ 확인 완료</span>
+                  )}
+                </div>
+              )}
+            </div>
+            {(isAdmin || l.userId === user.id) && (
+              <div style={styles.logActions}>
+                <button style={styles.iconBtn} onClick={() => { setEditLog(l); setShowForm(true); }}>{Icon.edit}</button>
+                {confirmDeleteId === l.id ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                    <button style={{ ...styles.confirmYes, fontSize: 10, padding: "2px 6px" }} onClick={() => deleteLog(l.id)}>삭제</button>
+                    <button style={{ ...styles.confirmNo, fontSize: 10, padding: "2px 6px" }} onClick={() => setConfirmDeleteId(null)}>취소</button>
+                  </div>
+                ) : (
+                  <button style={{ ...styles.iconBtn, color: "#f77" }} onClick={() => setConfirmDeleteId(l.id)}>{Icon.trash}</button>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      {showForm && (
+        <LogForm
+          log={editLog}
+          userId={editLog ? editLog.userId : (isAdmin ? (filterUser === "all" ? users.find(u => u.role !== "admin") && users.find(u => u.role !== "admin").id || user.id || user.id : filterUser) : user.id)}
+          users={users}
+          leaves={leaves}
+          isAdmin={isAdmin}
+          onSave={(newLog) => {
+            const next = editLog ? logs.map(l => l.id === editLog.id ? newLog : l) : [newLog, ...logs];
+            persist(null, next, null);
+            setShowForm(false);
+          }}
+          onClose={() => setShowForm(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+
+function OsrmLegBox({ from, to, autoKm, overrideVal, onOverride, onReset }) {
+  const [loading, setLoading] = useState(false);
+  const fetchOsrm = async () => {
+    const c1 = LOCATION_COORDS[from], c2 = LOCATION_COORDS[to];
+    if (!c1 || !c2) return;
+    setLoading(true);
+    const km = await fetchDrivingKm(c1, c2);
+    setLoading(false);
+    if (km) onOverride(km);
+  };
+  const display = overrideVal !== undefined ? overrideVal : (autoKm || "");
+  return (
+    <div style={styles.legKmBox}>
+      {overrideVal === undefined && autoKm !== null && <span style={styles.legKmAuto}>📐 {autoKm}km</span>}
+      <input type="number" style={styles.legKmInput} value={display}
+        placeholder={autoKm !== null ? `${autoKm}` : "km"}
+        onChange={e => onOverride(e.target.value)} min={0} />
+      {LOCATION_COORDS[from] && LOCATION_COORDS[to] && (
+        <button style={styles.osrmBtn} onClick={fetchOsrm} disabled={loading} title="실제 도로 거리">{loading ? "…" : "🗺️"}</button>
+      )}
+      {overrideVal !== undefined && <button style={styles.legKmReset} onClick={onReset}>↺</button>}
+    </div>
+  );
+}
+
+function GeocodeLegBox({ fromName, toName, overrideVal, onOverride, onReset }) {
+  const ref = React.useRef(null);
+  const mapsUrl = fromName && toName
+    ? `https://www.google.com/maps/dir/${encodeURIComponent(fromName + ", NSW")}/${encodeURIComponent(toName + ", NSW")}`
+    : null;
+  return (
+    <div style={{ ...styles.legKmBox, borderColor: "#a0c4ff", background: "#f0f6ff", flexDirection: "column", alignItems: "stretch", gap: 8, minWidth: 190, padding: "10px 12px" }}>
+      {mapsUrl && (
+        <a href={mapsUrl} target="_blank" rel="noopener noreferrer" style={styles.geocodeBtn}>
+          🗺️ Google Maps에서 거리 확인
+        </a>
+      )}
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <input
+          ref={ref}
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          style={{ ...styles.legKmInput, flex: 1, textAlign: "left", fontSize: 14, width: "auto", minWidth: 60 }}
+          defaultValue={overrideVal || ""}
+          placeholder="km 입력"
+          onBlur={e => { if (e.target.value) onOverride(e.target.value); }}
+          onKeyDown={e => { if (e.key === "Enter" && ref.(current && current.value)) onOverride(ref.current.value); }}
+        />
+        <span style={{ fontSize: 11, color: C.sub, whiteSpace: "nowrap" }}>km</span>
+        {overrideVal !== undefined && <button style={styles.legKmReset} onClick={() => { if (ref.current) ref.current.value = ""; onReset(); }}>↺</button>}
+      </div>
+      {overrideVal !== undefined && <span style={{ fontSize: 11, color: "#34c98b", fontWeight: 600 }}>✅ {overrideVal}km 저장됨</span>}
+    </div>
+  );
+}
+
+const WORK_TYPES_BASE = [
+  { key: "fulltime",  label: "풀타임",     emoji: "✅" },
+  { key: "overtime",  label: "오버타임",   emoji: "⏰" },
+  { key: "parttime",  label: "파트타임",   emoji: "🕐" },
+  { key: "dayoff",    label: "휴무",       emoji: "🌴" },
+];
+// Public holiday: weekday only, leave-accruing employees only
+function getWorkTypes(date, hasLeaveAccrual) {
+  const types = [...WORK_TYPES_BASE];
+  if (hasLeaveAccrual) {
+    const day = new Date((date || today) + "T00:00:00").getDay();
+    const isWeekday = day >= 1 && day <= 5;
+    if (isWeekday) types.push({ key: "publicholiday", label: "퍼블릭홀리데이", emoji: "🎉" });
+  }
+  return types;
+}
+
+function LogForm({ log, userId, users, leaves, isAdmin, onSave, onClose }) {
+  // Detect existing workType from saved log
+  const detectType = (l) => {
+    if (!l) return "fulltime";
+    if (l.workType) return l.workType;
+    if (l.status === "연장근무") return "overtime";
+    return "fulltime";
+  };
+
+  const [workType, setWorkType] = useState(detectType(log));
+  const [form, setForm] = useState(() => {
+    const wt = detectType(log);
+    return {
+      id: (log && log.id) || uid(),
+      userId: (log && log.userId) || userId,
+      date: (log && log.date) || new Date().toISOString().slice(0, 10),
+      startTime: wt === "parttime" ? ((log && log.startTime) || "09:00") : FULLTIME_START,
+      endTime:   wt === "parttime" ? ((log && log.endTime)   || "13:00") : FULLTIME_END,
+      otStart: (log && log.otStart) || FULLTIME_END,
+      otEnd:   (log && log.otEnd)   || "18:00",
+      content: (log && log.content) || "",
+      status:  (log && log.status)  || "정상",
+      hours:   (log && log.hours)   || FULLTIME_HOURS,
+      workType: wt,
+      travel: (log && log.travel) || null,
+    };
+  });
+
+  // Check if the logged user has leave accrual
+  const logUserId = form.userId || userId;
+  const targetLeave = normLeave((leaves || {})[logUserId], (users && users.find)(u => u.id === logUserId) && users.find(u => u.id === logUserId).joinDate);
+  const hasLeaveAccrual = !targetLeave.noLeave;
+
+  // Dynamic work types based on date and leave accrual
+  const WORK_TYPES = getWorkTypes(form.date, hasLeaveAccrual);
+
+  // Recalc hours
+  const recalcHours = (f, wt) => {
+    if (wt === "fulltime" || wt === "publicholiday") return FULLTIME_HOURS;
+    if (wt === "overtime")  return FULLTIME_HOURS + calcHours(f.otStart, f.otEnd);
+    if (wt === "parttime")  return calcHours(f.startTime, f.endTime);
+    if (wt === "dayoff")    return 0;
+    return f.hours;
+  };
+
+  const set = (k, v) => {
+    setForm(f => {
+      const next = { ...f, [k]: v };
+      next.hours = recalcHours(next, workType);
+      return next;
+    });
+  };
+
+  const switchType = (wt) => {
+    setWorkType(wt);
+    setForm(f => {
+      const next = { ...f, workType: wt };
+      if (wt === "fulltime" || wt === "overtime" || wt === "publicholiday") {
+        next.startTime = FULLTIME_START;
+        next.endTime   = FULLTIME_END;
+      }
+      if (wt === "dayoff") { next.startTime = ""; next.endTime = ""; }
+      next.hours = recalcHours(next, wt);
+      return next;
+    });
+  };
+
+  
+  const [hasTavel, setHasTravel] = useState(!!(log && log.travel));
+
+  // Normalize travel data - handles old formats (from/to/via) and new format (stops)
+  const normTravel = (t) => {
+    if (!t) return { isBizTrip: false, hasDinner: false, stops: ["Bathurst", ""], kmOverrides: {}, adminConfirmed: false };
+    if (t.stops && Array.isArray(t.stops)) return { isBizTrip: false, hasDinner: false, adminConfirmed: false, ...t, kmOverrides: t.kmOverrides || {} };
+    // Migrate old format: { from, via[], to/destination }
+    const oldFrom = t.from || "Bathurst";
+    const oldVia  = Array.isArray(t.via) ? t.via : [];
+    const oldTo   = t.to || t.destination || "";
+    return { isBizTrip: !!t.isBizTrip, hasDinner: !!t.hasDinner, adminConfirmed: false, stops: [oldFrom, ...oldVia, oldTo], kmOverrides: {} };
+  };
+
+  const initTravel = normTravel((log && log.travel));
+  const [travel, setTravel] = useState(initTravel);
+
+  // Track which stops are in "custom text" mode (not from dropdown)
+  const [stopModes, setStopModes] = useState(() => {
+    const m = {};
+    (initTravel.stops || []).forEach((s, i) => {
+      if (s && !ALL_LOCATIONS.includes(s)) m[i] = "custom";
+    });
+    return m;
+  });
+  // Cache geocoded coords for custom stops: { [stopIndex]: [lat, lng] }
+  const [customCoords, setCustomCoords] = useState({});
+
+  const getCoord = (stopName, stopIndex) =>
+    LOCATION_COORDS[stopName] || customCoords[stopIndex] || null;
+
+  // Compute leg distances and totals
+  const getTravelCalc = (t, sm) => {
+    const stops = Array.isArray((t && t.stops)) ? t.stops : ["Bathurst", ""];
+    const kmOverrides = (t && t.kmOverrides) || {};
+    const isBizTrip = !!(t && t.isBizTrip);
+
+    // Outbound legs: each consecutive stop pair
+    const legs = stops.slice(0, -1).map((from, i) => {
+      const to = stops[i + 1];
+      const c1 = getCoord(from, i);
+      const c2 = getCoord(to, i + 1);
+      const isManual = (!c1 || !c2);
+      const autoKm = (!isManual) ? (geoKm(from, to) || null) : null;
+      const km = kmOverrides[i] !== undefined ? Number(kmOverrides[i]) : (autoKm || 0);
+      return { from, to, autoKm, km, isManual, hasCoords: !!c1 && !!c2 };
+    });
+
+    const outboundKm = legs.reduce((s, l) => s + (l.km || 0), 0);
+
+    // Return leg: destination → origin directly
+    const origin = stops[0];
+    const dest   = stops[stops.length - 1];
+    const c1 = getCoord(origin, 0);
+    const c2 = getCoord(dest, stops.length - 1);
+    const returnIsManual = (!c1 || !c2);
+    const returnAutoKm = (!returnIsManual && dest && origin && dest !== origin)
+      ? (geoKm(dest, origin) || null) : null;
+    const returnOverride = kmOverrides["return"];
+    const returnKm = returnOverride !== undefined
+      ? Number(returnOverride)
+      : (returnAutoKm || (outboundKm > 0 ? outboundKm : 0));
+
+    const totalKm = isBizTrip ? outboundKm : outboundKm + returnKm;
+    const allowance = calcTravelAllowance(totalKm);
+    const needsConfirm = legs.some((l, i) => l.isManual && kmOverrides[i] !== undefined)
+      || (returnIsManual && returnOverride !== undefined);
+
+    return { legs, outboundKm, returnKm, returnAutoKm, returnIsManual, totalKm, allowance, needsConfirm };
+  };
+
+  const setTravelField = (patch) => setTravel(t => ({ ...t, ...patch }));
+
+  const setStop = (i, val, isCustom = false) => {
+    setTravel(t => { const stops = [...t.stops]; stops[i] = val; return { ...t, stops }; });
+    setStopModes(m => isCustom ? { ...m, [i]: "custom" } : (() => { const n = { ...m }; delete n[i]; return n; })());
+  };
+
+  const addStop = () => {
+    setTravel(t => {
+      const stops = [...t.stops];
+      stops.splice(stops.length - 1, 0, "");
+      return { ...t, stops };
+    });
+  };
+
+  const removeStop = (i) => {
+    setTravel(t => {
+      const stops = t.stops.filter((_, j) => j !== i);
+      const kmOverrides = { ...t.kmOverrides };
+      delete kmOverrides[i];
+      return { ...t, stops, kmOverrides };
+    });
+    setStopModes(m => { const n = { ...m }; delete n[i]; return n; });
+  };
+
+  const setKmOverride = (i, val) =>
+    setTravel(t => ({ ...t, kmOverrides: { ...t.kmOverrides, [i]: val === "" ? undefined : val } }));
+
+  const [submitErr, setSubmitErr] = useState("");
+
+  const travelCalc = getTravelCalc(travel, stopModes);
+
+  const submit = () => {
+    if (hasTavel) {
+      const stops = travel.stops || [];
+      if (!stops[0] || !stops[stops.length - 1]) {
+        setSubmitErr("출발지와 도착지를 입력해주세요."); return;
+      }
+    }
+    setSubmitErr("");
+    const saved = { ...form, workType, travel: hasTavel ? { ...travel, ...travelCalc, adminConfirmed: false } : null };
+    const statusMap = { fulltime:"풀타임", overtime:"오버타임", parttime:"파트타임", dayoff:"휴무", publicholiday:"퍼블릭홀리데이" };
+    saved.status = statusMap[workType] || "풀타임";
+    onSave(saved);
+  };
+
+  const otHours = workType === "overtime" ? calcHours(form.otStart, form.otEnd) : 0;
+
+  return (
+    <div style={styles.modal}>
+      <div style={styles.modalBox}>
+        <div style={styles.modalHeader}>
+          <h3 style={styles.modalTitle}>{log ? "근무일지 수정" : "근무일지 등록"}</h3>
+          <button style={styles.iconBtn} onClick={onClose}>{Icon.x}</button>
+        </div>
+
+        {/* Employee selector (admin only) */}
+        {isAdmin && (
+          <div style={styles.field}>
+            <label style={styles.label}>직원</label>
+            <select style={styles.input} value={form.userId} onChange={e => set("userId", e.target.value)}>
+              {users.filter(u => u.role !== "admin").map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+            </select>
+          </div>
+        )}
+
+        {/* Date */}
+        <div style={styles.field}>
+          <label style={styles.label}>날짜</label>
+          <input type="date" style={styles.input} value={form.date} onChange={e => set("date", e.target.value)} />
+        </div>
+
+        {/* Work type toggle */}
+        <div style={styles.field}>
+          <label style={styles.label}>근무 유형</label>
+          <div style={styles.typeRow}>
+            {WORK_TYPES.map(wt => (
+              <button key={wt.key}
+                style={{ ...styles.typeBtn, ...(workType === wt.key ? styles.typeBtnActive : {}) }}
+                onClick={() => switchType(wt.key)}>
+                {wt.emoji} {wt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Full-time / public holiday: show fixed hours info */}
+        {(workType === "fulltime" || workType === "publicholiday") && (
+          <div style={styles.timeInfoBox}>
+            <span style={styles.timeInfoIcon}>{workType === "publicholiday" ? "🎉" : "🕖"}</span>
+            <span>{workType === "publicholiday" ? "퍼블릭홀리데이" : "풀타임"} <strong>{FULLTIME_START} ~ {FULLTIME_END}</strong></span>
+            <span style={styles.timeInfoHours}>{fmt(FULLTIME_HOURS)}h</span>
+          </div>
+        )}
+
+        {/* Day off */}
+        {workType === "dayoff" && (
+          <div style={{ ...styles.timeInfoBox, background: "#f5f5f5", borderColor: "#ddd" }}>
+            <span style={styles.timeInfoIcon}>🌴</span>
+            <span style={{ color: "#888" }}>휴무일 - 근무 없음</span>
+            <span style={{ ...styles.timeInfoHours, color: "#aaa" }}>0h</span>
+          </div>
+        )}
+
+        {/* Overtime: fixed base + OT range */}
+        {workType === "overtime" && (
+          <>
+            <div style={styles.timeInfoBox}>
+              <span style={styles.timeInfoIcon}>🕖</span>
+              <span>기본 <strong>{FULLTIME_START} ~ {FULLTIME_END}</strong></span>              <span style={styles.timeInfoHours}>{fmt(FULLTIME_HOURS)}h</span>
+            </div>
+            <div style={styles.otSection}>
+              <label style={styles.label}>추가 근무 시간</label>
+              <div style={styles.row2}>
+                <div style={{ ...styles.field, flex: 1, marginBottom: 0 }}>
+                  <label style={{ ...styles.label, fontSize: 10 }}>OT 시작</label>
+                  <input type="time" style={styles.input} value={form.otStart}
+                    onChange={e => set("otStart", e.target.value)} min={FULLTIME_END} />
+                </div>
+                <div style={{ ...styles.field, flex: 1, marginBottom: 0 }}>
+                  <label style={{ ...styles.label, fontSize: 10 }}>OT 종료</label>
+                  <input type="time" style={styles.input} value={form.otEnd}
+                    onChange={e => set("otEnd", e.target.value)} />
+                </div>
+              </div>
+              {otHours > 0 && (
+                <div style={{ ...styles.otBadge }}>+{fmt(otHours)}h 추가 근무</div>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* Part-time: custom start/end */}
+        {workType === "parttime" && (
+          <div style={styles.row2}>
+            <div style={{ ...styles.field, flex: 1 }}>
+              <label style={styles.label}>출근</label>
+              <input type="time" style={styles.input} value={form.startTime}
+                onChange={e => set("startTime", e.target.value)} />
+            </div>
+            <div style={{ ...styles.field, flex: 1 }}>
+              <label style={styles.label}>퇴근</label>
+              <input type="time" style={styles.input} value={form.endTime}
+                onChange={e => set("endTime", e.target.value)} />
+            </div>
+          </div>
+        )}
+
+        {/* Total hours summary - hide for dayoff */}
+        {workType !== "dayoff" && (
+        <div style={styles.hoursDisplay}>
+          총 근무시간: <strong>{fmt(form.hours)}시간</strong>
+          {workType === "overtime" && otHours > 0 && (
+            <span style={styles.otLabel}> (기본 {fmt(FULLTIME_HOURS)}h + OT {fmt(otHours)}h)</span>
+          )}
+        </div>
+        )}
+
+        {/* Work content */}
+        <div style={styles.field}>
+          <label style={styles.label}>업무 내용</label>
+          <textarea style={{ ...styles.input, height: 72, resize: "vertical" }} value={form.content}
+            onChange={e => set("content", e.target.value)} placeholder="오늘의 업무 내용을 입력하세요." />
+        </div>
+
+        {/* Travel Allowance toggle */}
+        <div style={styles.travelToggleRow}>
+          <span style={styles.travelToggleLabel}>🚗 Travel Allowance</span>
+          <button style={{ ...styles.toggleBtn, ...(hasTavel ? styles.toggleBtnOn : {}) }}
+            onClick={() => setHasTravel(p => !p)}>
+            {hasTavel ? "ON" : "OFF"}
+          </button>
+        </div>
+
+        {hasTavel && (
+          <div style={styles.travelBox}>
+            {/* Business trip toggle */}
+            <div style={styles.bizTripRow}>
+              <div>
+                <p style={styles.bizTripLabel}>🏨 출장 모드</p>
+                <p style={styles.bizTripSub}>ON: 편도 계산 · 저녁식비 포함</p>
+              </div>
+              <button style={{ ...styles.toggleBtn, ...(travel.isBizTrip ? styles.toggleBtnOn : {}) }}
+                onClick={() => setTravelField({ isBizTrip: !travel.isBizTrip })}>
+                {travel.isBizTrip ? "ON" : "OFF"}
+              </button>
+            </div>
+
+            {travel.isBizTrip && (
+              <label style={styles.dinnerCheck}>
+                <input type="checkbox" checked={travel.hasDinner}
+                  onChange={e => setTravelField({ hasDinner: e.target.checked })}
+                  style={{ width: 16, height: 16, accentColor: "#34c98b" }} />
+                <span>🍽️ 출장 저녁식비 청구</span>
+              </label>
+            )}
+
+            <div style={styles.divider} />
+
+            {/* Route stops */}
+            <label style={{ ...styles.label, marginBottom: 10 }}>경로</label>
+            {travel.stops.map((stop, i) => {
+              const isFirst = i === 0;
+              const isLast  = i === travel.stops.length - 1;
+              const isMiddle = !isFirst && !isLast;
+              const isCustomMode = stopModes[i] === "custom";
+              const leg = travelCalc.legs[i];
+              const overrideVal = travel.kmOverrides[i];
+
+              return (
+                <div key={i}>
+                  <div style={styles.stopRow}>
+                    <div style={styles.stopDotCol}>
+                      <div style={{ ...styles.stopDot, background: isFirst ? "#4f8ef7" : isLast ? "#f76f6f" : "#ffc347" }} />
+                      {!isLast && <div style={styles.stopLine} />}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                        <label style={{ ...styles.label, fontSize: 10, margin: 0 }}>
+                          {isFirst ? "출발지" : isLast ? "도착지" : `경유지 ${i}`}
+                        </label>
+                        <button style={styles.modeToggle}
+                          onClick={() => {
+                            if (isCustomMode) {
+                              setStop(i, "", false);
+                            } else {
+                              setStop(i, stop || "", true);
+                            }
+                          }}>
+                          {isCustomMode ? "📋 목록에서 선택" : "✏️ 직접 입력"}
+                        </button>
+                      </div>
+
+                      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                        {isCustomMode ? (
+                          <input
+                            style={{ ...styles.input, flex: 1, borderColor: "#ffc347" }}
+                            value={stop}
+                            onChange={e => setStop(i, e.target.value, true)}
+                            placeholder="지명 직접 입력..."
+                          />
+                        ) : (
+                          <select style={{ ...styles.input, flex: 1 }} value={stop}
+                            onChange={e => setStop(i, e.target.value, false)}>
+                            <option value="">-- 선택 --</option>
+                            {ALL_LOCATIONS.map(n => <option key={n} value={n}>{n}</option>)}
+                          </select>
+                        )}
+                        {isMiddle && (
+                          <button style={{ ...styles.iconBtn, color: "#f77", flexShrink: 0 }}
+                            onClick={() => removeStop(i)}>{Icon.trash}</button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Leg km row */}
+                  {leg && (
+                    <div style={styles.legKmRow}>
+                      <div style={styles.legKmLine} />
+                      {leg.isManual ? (
+                        <GeocodeLegBox
+                          fromName={travel.stops[i]}
+                          toName={travel.stops[i + 1]}
+                          overrideVal={travel.kmOverrides[i]}
+                          onOverride={(v) => setKmOverride(i, v)}
+                          onReset={() => setKmOverride(i, "")}
+                        />
+                      ) : (
+                        // Known stops → auto calc + OSRM option
+                        <OsrmLegBox
+                          from={leg.from} to={leg.to}
+                          autoKm={leg.autoKm}
+                          overrideVal={overrideVal}
+                          onOverride={(v) => setKmOverride(i, v)}
+                          onReset={() => setKmOverride(i, "")}
+                        />
+                      )}
+                      <div style={styles.legKmLine} />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
+            <button style={styles.addViaBtn} onClick={addStop}>+ 경유지 추가</button>
+
+            {/* Return leg: only when not biz trip AND waypoints exist */}
+            {!travel.isBizTrip && (travel.stops || []).length > 2 && travelCalc.outboundKm > 0 && (
+              <div style={styles.returnLegBox}>
+                <div style={styles.returnLegHeader}>
+                  <span style={styles.returnLegLabel}>↩️ 귀환 (목적지 → 출발지 직통)</span>
+                </div>
+                <div style={styles.legKmRow}>
+                  <div style={styles.legKmLine} />
+                  {travelCalc.returnIsManual ? (
+                    <GeocodeLegBox
+                      fromName={travel.stops[travel.stops.length - 1]}
+                      toName={travel.stops[0]}
+                      overrideVal={travel.kmOverrides["return"]}
+                      onOverride={(v) => setTravelField({ kmOverrides: { ...travel.kmOverrides, return: v } })}
+                      onReset={() => { const o = { ...travel.kmOverrides }; delete o["return"]; setTravelField({ kmOverrides: o }); }}
+                    />
+                  ) : (
+                    <div style={styles.legKmBox}>
+                      {travelCalc.returnAutoKm !== null && travel.kmOverrides["return"] === undefined && (
+                        <span style={styles.legKmAuto}>📐 {travelCalc.returnAutoKm}km</span>
+                      )}
+                      <input type="number" style={styles.legKmInput}
+                        value={travel.kmOverrides["return"] || ""}
+                        placeholder={travelCalc.returnAutoKm !== null ? `${travelCalc.returnAutoKm}` : "km"}
+                        onChange={e => setTravelField({ kmOverrides: { ...travel.kmOverrides, return: e.target.value } })}
+                        min={0} />
+                      {travel.kmOverrides["return"] !== undefined && (
+                        <button style={styles.legKmReset}
+                          onClick={() => { const o = { ...travel.kmOverrides }; delete o["return"]; setTravelField({ kmOverrides: o }); }}>↺</button>
+                      )}
+                    </div>
+                  )}
+                  <div style={styles.legKmLine} />
+                </div>
+              </div>
+            )}
+
+            {/* Summary */}
+            {travelCalc.outboundKm > 0 && (
+              <div style={styles.allowanceResult}>
+                {travelCalc.needsConfirm && (
+                  <div style={styles.confirmWarning}>⚠️ 수동 입력 km 포함 - 관리자 확인 필요</div>
+                )}
+                <div style={styles.allowanceRow}>
+                  <span style={styles.allowanceLabel}>편도 (경유 포함)</span>
+                  <span style={styles.allowanceValue}>{travelCalc.outboundKm} km</span>
+                </div>
+                {!travel.isBizTrip && (
+                  <div style={styles.allowanceRow}>
+                    <span style={styles.allowanceLabel}>↩️ 귀환 (직통)</span>
+                    <span style={styles.allowanceValue}>{travelCalc.returnKm} km</span>
+                  </div>
+                )}
+                <div style={{ ...styles.allowanceRow, borderTop: "1px solid #b3f5d4", paddingTop: 8, marginTop: 4 }}>
+                  <span style={{ ...styles.allowanceLabel, fontWeight: 700, color: "#1a6644" }}>
+                    {travel.isBizTrip ? "편도 합계" : "총 거리"}
+                  </span>
+                  <span style={styles.allowanceValue}>{travelCalc.totalKm} km</span>
+                </div>
+                <div style={{ ...styles.allowanceRow, borderTop: "1px solid #b3f5d4", paddingTop: 8, marginTop: 4 }}>
+                  <span style={{ ...styles.allowanceLabel, fontWeight: 700, color: "#1a6644" }}>Travel Allowance</span>
+                  <span style={styles.allowanceBig}>${travelCalc.allowance.toFixed(2)}</span>
+                </div>
+                {travel.isBizTrip && travel.hasDinner && (
+                  <div style={styles.dinnerRow}>
+                    <span style={styles.allowanceLabel}>🍽️ 출장 저녁식비</span>
+                    <span style={{ fontSize: 15, fontWeight: 700, color: "#e07000" }}>$25.00</span>
+                  </div>
+                )}
+                {travel.isBizTrip && travel.hasDinner && (
+                  <div style={{ ...styles.allowanceRow, borderTop: "1px solid #b3f5d4", paddingTop: 8, marginTop: 4 }}>
+                    <span style={{ ...styles.allowanceLabel, fontWeight: 700, color: "#1a6644" }}>합계</span>
+                    <span style={styles.allowanceBig}>${(travelCalc.allowance + 25).toFixed(2)}</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {submitErr && <p style={{ color: "#f77", fontSize: 13, fontWeight: 600, margin: "0 0 10px" }}>⚠️ {submitErr}</p>}
+        <div style={styles.modalFooter}>
+          <button style={styles.btnSecondary} onClick={onClose}>취소</button>
+          <button style={styles.btnPrimary} onClick={submit}>{log ? "수정 완료" : "등록"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+function LeaveTab({ user, users, leaves, isAdmin, persist, updateLeaveUsage }) {
+  const [showForm, setShowForm] = useState(false);
+  const [editTarget, setEditTarget] = useState(null);
+  const empList = isAdmin ? users.filter(u => u.role !== "admin") : [user];
+
+  return (
+    <div style={styles.page}>
+      <div style={styles.pageHeader}>
+        <h2 style={styles.pageTitle}>연차 관리</h2>
+        {isAdmin && <button style={styles.btnAdd} onClick={() => { setEditTarget(null); setShowForm(true); }}>{Icon.edit} 수정</button>}
+      </div>
+
+      {empList.map(u => {
+        const lv           = normLeave(leaves[u.id], u.joinDate);
+        const yr           = getCurrentLeaveYear(lv.leaveStartDate);
+        const accDays      = calcAccruedDays(lv.leaveStartDate);
+        const accHours     = Math.round(accDays * HOURS_PER_DAY * 10) / 10;
+        const usedDays     = +(lv.usedDays) || 0;
+        const remDays      = Math.max(0, accDays - usedDays);
+        const remHours     = Math.round(remDays * HOURS_PER_DAY * 10) / 10;
+        const pct          = Math.min(100, (remDays / ANNUAL_LEAVE_DAYS) * 100);
+        const color        = remDays < 4 ? "#f77" : remDays < 10 ? "#ffc347" : "#34c98b";
+        const rateHistory  = Array.isArray(lv.rateHistory) ? lv.rateHistory : [];
+        const accruedByPeriod = isAdmin ? getAccruedByPeriod(lv.leaveStartDate, rateHistory) : [];
+        const hasRateSplit    = accruedByPeriod.length >= 2;
+        const yearDays        = yr ? Math.round((yr.end - yr.start) / (1000*60*60*24)) : 365;
+        const elapsedInYear   = yr ? Math.max(0, Math.min((new Date() - yr.start) / (1000*60*60*24), yearDays)) : 0;
+
+        // Carryover: unused days from completed previous years
+        const completedYears   = isAdmin ? getCompletedYears(lv.leaveStartDate) : 0;
+        const prevYearsAccrued = completedYears * ANNUAL_LEAVE_DAYS;
+        const carriedOverDays  = Math.max(0, Math.round((prevYearsAccrued - usedDays) * 10) / 10);
+        const carriedOverHours = Math.round(carriedOverDays * HOURS_PER_DAY * 10) / 10;
+
+        return (
+          <div key={u.id} style={styles.leaveCard}>
+            {/* Header */}
+            <div style={styles.leaveCardTop}>
+              <div style={styles.leaveCardLeft}>
+                <div style={{ ...styles.logAvatar, width: 40, height: 40, fontSize: 16 }}>{u.name[0]}</div>
+                <div>
+                  <p style={styles.logName}>{u.name} <span style={styles.deptBadge}>{u.dept}</span></p>
+                  <p style={styles.logContent}>{yr ? `${yr.start.toISOString().slice(0,10)} ~ ${yr.end.toISOString().slice(0,10)}` : lv.leaveStartDate}</p>
+                </div>
+              </div>
+              {isAdmin && (
+                <button style={styles.iconBtn} onClick={() => { setEditTarget(u.id); setShowForm(true); }}>{Icon.edit}</button>
+              )}
+            </div>
+
+            {/* -- ADMIN: per-rate accrual breakdown -- */}
+            {isAdmin && hasRateSplit ? (
+              <div style={styles.rateAccrualBox}>
+                <p style={styles.rateAccrualTitle}>📅 오늘 기준 일급별 적립 현황</p>
+                {accruedByPeriod.map((p, i) => (
+                  <div key={i} style={{ ...styles.rateAccrualRow, ...(p.isActive ? styles.rateAccrualActive : {}) }}>
+                    <div style={styles.rateAccrualLeft}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <span style={{ ...styles.periodIdx, background: p.isActive ? "#3b7ff5" : p.isComplete ? "#34c98b" : "#ccc" }}>
+                          {p.isActive ? "▶" : p.isComplete ? "✓" : i+1}
+                        </span>
+                        <div>
+                          <p style={styles.rateAccrualDates}>{p.from} ~ {p.to}</p>
+                          <p style={styles.rateAccrualCalDays}>
+                            {p.isComplete ? `${p.calDaysTotal}일 완료` : p.isActive ? `${p.calDaysElapsed}/${p.calDaysTotal}일 경과` : "미시작"}
+                          </p>
+                        </div>
+                      </div>
+                      <div style={styles.rateAccrualNums}>
+                        <span style={styles.rateAccrualDays}>{p.accruedDays.toFixed(2)}일</span>
+                        <span style={styles.rateAccrualHoursText}>{p.accruedHours.toFixed(1)}h</span>
+                        {!p.isComplete && <span style={styles.rateAccrualOf}>/ {p.totalDays.toFixed(2)}일</span>}
+                      </div>
+                    </div>
+                    <div style={styles.rateAccrualRateCol}>
+                      <span style={styles.rateAccrualRate}>${p.dailyRate}</span>
+                      <span style={styles.rateAccrualRateSub}>/일</span>
+                    </div>
+                  </div>
+                ))}
+                <div style={styles.rateAccrualTotal}>
+                  합계 <strong>{accDays.toFixed(2)}일 ({accHours.toFixed(1)}h)</strong> 적립
+                </div>
+              </div>
+            ) : (
+              /* -- Employee / no rate split: simple accrual box -- */
+              <div style={styles.todayAccrualBox}>
+                <div style={styles.todayAccrualMain}>
+                  <span style={styles.todayAccrualLabel}>오늘까지 적립</span>
+                  <span style={styles.todayAccrualValue}>{accDays.toFixed(2)}일</span>
+                  <span style={styles.todayAccrualHours}>{accHours.toFixed(1)}h</span>
+                </div>
+                <div style={styles.todayAccrualSub}>
+                  <span>연차연도 {Math.floor(elapsedInYear)}일 경과</span>
+                  <span style={{ color: "#7b5ea7" }}>잔여 {Math.ceil(yearDays - elapsedInYear)}일</span>
+                </div>
+              </div>
+            )}
+
+            {/* Progress bar */}
+            <div style={styles.leaveBarWrap}>
+              <div style={styles.leaveBar}>
+                <div style={{ ...styles.leaveBarFill, width: pct + "%", background: color }} />
+              </div>
+              <div style={styles.leaveNums}>
+                <span style={{ color }}>잔여 <strong>{remDays.toFixed(1)}일 ({remHours}h)</strong></span>
+                <span>사용 <strong>{usedDays.toFixed(1)}일</strong></span>
+              </div>
+            </div>
+
+            {/* Chips */}
+            <div style={styles.leaveChips}>
+              <LeaveChip label="적립"  val={`${accDays.toFixed(1)}일`}  color="#4f8ef7" />
+              <LeaveChip label="사용"  val={`${usedDays.toFixed(1)}일`} color="#f7a440" />
+              <LeaveChip label="잔여"  val={`${remDays.toFixed(1)}일`}  color={color} />
+              <LeaveChip label="잔여h" val={`${remHours}h`}             color="#888" />
+            </div>
+
+            {/* Admin: carryover from previous years */}
+            {isAdmin && completedYears > 0 && (
+              <div style={{ ...styles.carryoverBox, ...(carriedOverDays > 0 ? {} : styles.carryoverBoxZero) }}>
+                <div style={styles.carryoverLeft}>
+                  <span style={styles.carryoverIcon}>{carriedOverDays > 0 ? "⏳" : "✅"}</span>
+                  <div>
+                    <p style={styles.carryoverLabel}>이전 연도 미사용 연차 ({completedYears}년차 완료)</p>
+                    <p style={styles.carryoverSub}>과거 누적 {prevYearsAccrued}일 중 사용 {Math.min(usedDays, prevYearsAccrued).toFixed(1)}일</p>
+                  </div>
+                </div>
+                <div style={styles.carryoverRight}>
+                  {carriedOverDays > 0 ? (
+                    <>
+                      <span style={styles.carryoverDays}>{carriedOverDays.toFixed(1)}일</span>
+                      <span style={styles.carryoverHours}>{carriedOverHours}h</span>
+                    </>
+                  ) : (
+                    <span style={styles.carryoverNone}>없음</span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Usage records - all users see, admin can edit */}
+            <LeaveUsageSection
+              records={lv.usageRecords || []}
+              isAdmin={isAdmin}
+              onUpdate={isAdmin ? (records) => updateLeaveUsage(u.id, u.joinDate, records) : null}
+            />
+          </div>
+        );
+      })}
+
+      {showForm && isAdmin && (
+        <LeaveEditForm
+          targetId={editTarget}
+          users={users}
+          leaves={leaves}
+          onSave={(id, lv) => { persist(null, null, { ...leaves, [id]: lv }); setShowForm(false); }}
+          onClose={() => setShowForm(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+function LeaveChip({ label, val, color }) {
+  return (
+    <div style={{ ...styles.chip, borderColor: color + "44", background: color + "11" }}>
+      <span style={{ color, fontSize: 13, fontWeight: 600 }}>{val}</span>
+      <span style={{ fontSize: 11, color: "#999" }}>{label}</span>
+    </div>
+  );
+}
+
+function LeaveUsageSection({ records, isAdmin, onUpdate }) {
+  const [expanded, setExpanded] = useState(false);
+  const [showAdd, setShowAdd] = useState(false);
+  const [editId, setEditId] = useState(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const [form, setForm] = useState({ date: today, days: 1, note: "" });
+
+  const sorted = [...records].sort((a, b) => b.date.localeCompare(a.date));
+
+  const openAdd = () => { setForm({ date: today, days: 1, note: "" }); setEditId(null); setShowAdd(true); };
+  const openEdit = (r) => { setForm({ date: r.date, days: r.days, note: r.note || "" }); setEditId(r.id); setShowAdd(true); };
+
+  const save = () => {
+    if (!form.date || !form.days) return;
+    const next = editId
+      ? records.map(r => r.id === editId ? { ...r, ...form, days: +(form.days) } : r)
+      : [...records, { id: uid(), date: form.date, days: +(form.days), note: form.note }];
+    onUpdate(next);
+    setShowAdd(false);
+  };
+
+  const del = (id) => {
+    onUpdate(records.filter(r => r.id !== id));
+    setConfirmDeleteId(null);
+  };
+
+  const totalUsed = Math.round(records.reduce((s, r) => s + (+(r.days) || 0), 0) * 100) / 100;
+
+  return (
+    <div style={styles.usageSection}>
+      <div style={styles.usageSectionHeader} onClick={() => setExpanded(p => !p)}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={styles.usageSectionTitle}>📋 연차 사용 기록</span>
+          <span style={styles.usageBadge}>{records.length}건 · {totalUsed}일</span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {isAdmin && (
+            <button style={styles.usageAddBtn} onClick={e => { e.stopPropagation(); openAdd(); }}>+ 추가</button>
+          )}
+          <span style={{ fontSize: 12, color: "#888" }}>{expanded ? "▲" : "▼"}</span>
+        </div>
+      </div>
+
+      {expanded && (
+        <div style={styles.usageList}>
+          {sorted.length === 0
+            ? <p style={{ margin: "8px 0", fontSize: 12, color: "#aaa", textAlign: "center" }}>사용 기록이 없습니다.</p>
+            : sorted.map(r => (
+              <div key={r.id} style={styles.usageRow}>
+                <div style={styles.usageLeft}>
+                  <div style={styles.usageDateBadge}>{r.date.slice(5)}</div>
+                  <div>
+                    <p style={styles.usageDays}>{+(r.days)}일 <span style={styles.usageHours}>({((+(r.days)) * HOURS_PER_DAY).toFixed(1)}h)</span></p>
+                    {r.note && <p style={styles.usageNote}>{r.note}</p>}
+                  </div>
+                </div>
+                {isAdmin && (
+                  confirmDeleteId === r.id ? (
+                    <div style={styles.confirmInline}>
+                      <span style={{ fontSize: 11, color: "#f77" }}>삭제?</span>
+                      <button style={styles.confirmYes} onClick={() => del(r.id)}>예</button>
+                      <button style={styles.confirmNo} onClick={() => setConfirmDeleteId(null)}>아니오</button>
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", gap: 2 }}>
+                      <button style={styles.iconBtn} onClick={() => openEdit(r)}>{Icon.edit}</button>
+                      <button style={{ ...styles.iconBtn, color: "#f77" }} onClick={() => setConfirmDeleteId(r.id)}>{Icon.trash}</button>
+                    </div>
+                  )
+                )}
+              </div>
+            ))
+          }
+        </div>
+      )}
+
+      {showAdd && isAdmin && (
+        <div style={styles.modal}>
+          <div style={styles.modalBox}>
+            <div style={styles.modalHeader}>
+              <h3 style={styles.modalTitle}>{editId ? "사용 기록 수정" : "연차 사용 추가"}</h3>
+              <button style={styles.iconBtn} onClick={() => setShowAdd(false)}>{Icon.x}</button>
+            </div>
+            <div style={styles.row2}>
+              <div style={{ ...styles.field, flex: 1 }}>
+                <label style={styles.label}>날짜</label>
+                <input type="date" style={styles.input} value={form.date}
+                  onChange={e => setForm(f => ({ ...f, date: e.target.value }))} />
+              </div>
+              <div style={{ ...styles.field, width: 90 }}>
+                <label style={styles.label}>일수</label>
+                <input type="number" style={styles.input} value={form.days} min={0.5} max={ANNUAL_LEAVE_DAYS} step={0.5}
+                  onChange={e => setForm(f => ({ ...f, days: e.target.value }))} />
+              </div>
+            </div>
+            <div style={styles.hoursDisplay}>
+              {+(form.days) || 0}일 = {((+(form.days) || 0) * HOURS_PER_DAY).toFixed(1)}h
+            </div>
+            <div style={styles.field}>
+              <label style={styles.label}>사유 (선택)</label>
+              <input style={styles.input} value={form.note}
+                onChange={e => setForm(f => ({ ...f, note: e.target.value }))}
+                placeholder="예: 여름 휴가, 개인 사유..." />
+            </div>
+            <div style={styles.modalFooter}>
+              <button style={styles.btnSecondary} onClick={() => setShowAdd(false)}>취소</button>
+              <button style={styles.btnPrimary} onClick={save}>{editId ? "수정" : "추가"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function LeaveEditForm({ targetId, users, leaves, onSave, onClose }) {
+  const emps = users.filter(u => u.role !== "admin");
+  const firstId = targetId || (emps[0] && emps[0].id) || "";
+
+  const buildState = (id) => {
+    const u  = users.find(u => u.id === id);
+    const lv = normLeave(leaves[id], (u && u.joinDate));
+    return {
+      selId: id,
+      leaveStartDate: lv.leaveStartDate || (u && u.joinDate) || today,
+      usedDays: +(lv.usedDays) || 0,
+      rateHistory: lv.(rateHistory && rateHistory.length) ? lv.rateHistory : [{ from: lv.leaveStartDate || (u && u.joinDate) || today, dailyRate: 0 }],
+    };
+  };
+
+  const [state, setState] = useState(() => buildState(firstId));
+  const set = (k, v) => setState(s => ({ ...s, [k]: v }));
+
+  const changeEmp = (id) => setState(buildState(id));
+
+  const setRate = (i, field, val) =>
+    setState(s => { const rh = [...s.rateHistory]; rh[i] = { ...rh[i], [field]: val }; return { ...s, rateHistory: rh }; });
+  const addRate = () =>
+    setState(s => ({ ...s, rateHistory: [...s.rateHistory, { from: today, dailyRate: (s.rateHistory[s.rateHistory.length - 1] && s.rateHistory[s.rateHistory.length - 1].dailyRate) || 0 }] }));
+  const removeRate = (i) =>
+    setState(s => ({ ...s, rateHistory: s.rateHistory.filter((_, j) => j !== i) }));
+
+  const accDays = calcAccruedDays(state.leaveStartDate);
+  const remDays = Math.max(0, accDays - state.usedDays);
+  const periods = getLeavePeriods(state.leaveStartDate, state.rateHistory);
+
+  const save = () => {
+    if (!state.leaveStartDate) { return; }
+    onSave(state.selId, { leaveStartDate: state.leaveStartDate, usedDays: +(state.usedDays) || 0, rateHistory: state.rateHistory });
+  };
+
+  return (
+    <div style={styles.modal}>
+      <div style={styles.modalBox}>
+        <div style={styles.modalHeader}>
+          <h3 style={styles.modalTitle}>연차 수정 (관리자)</h3>
+          <button style={styles.iconBtn} onClick={onClose}>{Icon.x}</button>
+        </div>
+
+        <div style={styles.field}>
+          <label style={styles.label}>직원</label>
+          <select style={styles.input} value={state.selId} onChange={e => changeEmp(e.target.value)}>
+            {emps.map(u => <option key={u.id} value={u.id}>{u.name} ({u.dept})</option>)}
+          </select>
+        </div>
+
+        <div style={styles.row2}>
+          <div style={{ ...styles.field, flex: 1 }}>
+            <label style={styles.label}>적립 시작일</label>
+            <input type="date" style={styles.input} value={state.leaveStartDate}
+              onChange={e => set("leaveStartDate", e.target.value)} />
+          </div>
+          <div style={{ ...styles.field, flex: 1 }}>
+            <label style={styles.label}>사용 일수</label>
+            <input type="number" style={styles.input} value={state.usedDays} min={0} max={ANNUAL_LEAVE_DAYS} step={0.5}
+              onChange={e => set("usedDays", parseFloat(e.target.value) || 0)} />
+          </div>
+        </div>
+
+        <div style={styles.hoursDisplay}>
+          적립 <strong>{accDays.toFixed(1)}일</strong> ({(accDays*HOURS_PER_DAY).toFixed(1)}h)
+          &nbsp;·&nbsp; 사용 <strong>{state.usedDays.toFixed(1)}일</strong>
+          &nbsp;·&nbsp; 잔여 <strong style={{ color: "#34c98b" }}>{remDays.toFixed(1)}일</strong> ({(remDays*HOURS_PER_DAY).toFixed(1)}h)
+        </div>
+
+        {/* Rate history */}
+        <div style={styles.field}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <label style={{ ...styles.label, margin: 0 }}>일당 변경 이력</label>
+            <button style={styles.addViaBtn2} onClick={addRate}>+ 추가</button>
+          </div>
+          {state.rateHistory.map((r, i) => (
+            <div key={i} style={styles.rateRow}>
+              <div style={{ flex: 1 }}>
+                <label style={{ ...styles.label, fontSize: 10 }}>적용 시작일</label>
+                <input type="date" style={styles.input} value={r.from}
+                  onChange={e => setRate(i, "from", e.target.value)} />
+              </div>
+              <div style={{ width: 90 }}>
+                <label style={{ ...styles.label, fontSize: 10 }}>일당 ($)</label>
+                <input type="number" style={styles.input} value={r.dailyRate} min={0}
+                  onChange={e => setRate(i, "dailyRate", parseFloat(e.target.value) || 0)} />
+              </div>
+              {state.rateHistory.length > 1 && (
+                <button style={{ ...styles.iconBtn, color: "#f77", alignSelf: "flex-end", marginBottom: 2 }}
+                  onClick={() => removeRate(i)}>{Icon.trash}</button>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {periods.length > 0 && (
+          <div style={{ ...styles.periodBox, marginBottom: 14 }}>
+            <p style={styles.periodTitle}>📋 일급 변동 기간별 연차 배분 미리보기</p>
+            <p style={{ margin: "-4px 0 10px", fontSize: 11, color: "#7b5ea7" }}>현재 연차 연도: {leaveYearLabel(state.leaveStartDate)}</p>
+            {periods.map((p, i) => (
+              <div key={i} style={styles.periodRow}>
+                <div style={styles.periodLeft}>
+                  <span style={styles.periodIdx}>{i + 1}</span>
+                  <div>
+                    <p style={styles.periodDates}>{p.from} ~ {p.to}</p>
+                    <p style={styles.periodDays}>{p.calDays}일간 · 연차 {p.leaveDays.toFixed(2)}일 ({p.leaveHours.toFixed(1)}h)</p>
+                  </div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <span style={styles.periodRate}>${p.dailyRate}/일</span>
+                  <p style={{ margin: "2px 0 0", fontSize: 11, color: "#5a3e9b" }}>≈ ${(p.leaveDays * p.dailyRate).toFixed(2)}</p>
+                </div>
+              </div>
+            ))}
+            <div style={styles.periodTotal}>
+              총 연차가치 ${periods.reduce((s,p) => s + p.leaveDays * p.dailyRate, 0).toFixed(2)}
+            </div>
+          </div>
+        )}
+
+        <div style={styles.modalFooter}>
+          <button style={styles.btnSecondary} onClick={onClose}>취소</button>
+          <button style={styles.btnPrimary} onClick={save}>저장</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+function TeamTab({ users, leaves, logs, persist }) {
+  const [showAdd, setShowAdd]     = useState(false);
+  const [editEmp, setEditEmp]     = useState(null);
+  const [confirmId, setConfirmId] = useState(null);
+  const emps = users.filter(u => u.role !== "admin");
+
+  const deleteEmp = (id) => { persist(users.filter(u => u.id !== id), null, null); setConfirmId(null); };
+
+  const saveEmp = (updated, leaveData) => {
+    persist(users.map(u => u.id === updated.id ? updated : u), null, leaveData ? { ...leaves, [updated.id]: leaveData } : null);
+    setEditEmp(null);
+  };
+
+  return (
+    <div style={styles.page}>
+      <div style={styles.pageHeader}>
+        <h2 style={styles.pageTitle}>직원 관리</h2>
+        <button style={styles.btnAdd} onClick={() => setShowAdd(true)}>{Icon.plus} 추가</button>
+      </div>
+
+      {emps.map(u => {
+        const lv  = normLeave(leaves[u.id], u.joinDate);
+        const acc = calcAccruedDays(lv.leaveStartDate);
+        const rem = Math.max(0, acc - (+(lv.usedDays) || 0));
+        return (
+          <div key={u.id} style={styles.empCard}>
+            <div style={styles.empCardLeft}>
+              <div style={{ ...styles.logAvatar, width: 44, height: 44, fontSize: 18 }}>{u.name[0]}</div>
+              <div>
+                <p style={styles.logName}>{u.name} <span style={styles.deptBadge}>{u.dept}</span></p>
+                <p style={styles.logContent}>ID: <strong>{u.id}</strong> &nbsp;|&nbsp; 입사: {u.joinDate}</p>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
+                  {lv.noLeave
+                    ? <span style={styles.noLeaveBadge}>연차 미적용</span>
+                    : <span style={styles.leaveBadge}>잔여 {rem.toFixed(1)}일
+                        {lv.leaveStartDate && <span style={{ fontWeight: 400, opacity: 0.7 }}> · {lv.leaveStartDate}~</span>}
+                      </span>
+                  }
+                </div>
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 4, flexShrink: 0, alignItems: "center" }}>
+              <button style={styles.iconBtn} onClick={() => { setConfirmId(null); setEditEmp(u); }}>{Icon.edit}</button>
+              {confirmId === u.id ? (
+                <div style={styles.confirmInline}>
+                  <span style={{ fontSize: 11, color: "#f77" }}>삭제?</span>
+                  <button style={styles.confirmYes} onClick={() => deleteEmp(u.id)}>예</button>
+                  <button style={styles.confirmNo} onClick={() => setConfirmId(null)}>아니오</button>
+                </div>
+              ) : (
+                <button style={{ ...styles.iconBtn, color: "#f77" }} onClick={() => { setEditEmp(null); setConfirmId(u.id); }}>{Icon.trash}</button>
+              )}
+            </div>
+          </div>
+        );
+      })}
+
+      {showAdd && (
+        <AddEmpForm
+          onSave={(emp, leaveData) => { persist([...users, emp], null, { ...leaves, [emp.id]: leaveData }); setShowAdd(false); }}
+          onClose={() => setShowAdd(false)}
+        />
+      )}
+
+      {editEmp && (
+        <EditEmpForm
+          emp={editEmp}
+          leaveData={normLeave(leaves[editEmp.id], editEmp.joinDate)}
+          onSave={saveEmp}
+          onClose={() => setEditEmp(null)}
+        />
+      )}
+
+      <DataBackup users={users} leaves={leaves} logs={logs} persist={persist} />
+    </div>
+  );
+}
+
+function LeaveAccrualSettings({ noLeave, setNoLeave, leaveStartDate, setLeaveStartDate, joinDate }) {
+  const [useCustom, setUseCustom] = useState(!!(leaveStartDate && leaveStartDate !== joinDate));
+  return (
+    <div style={styles.leaveSettingBox}>
+      <p style={styles.leaveSettingTitle}>🏖️ 연차 적립 설정</p>
+      <label style={styles.dinnerCheck}>
+        <input type="checkbox" checked={noLeave} onChange={e => setNoLeave(e.target.checked)}
+          style={{ width: 16, height: 16, accentColor: "#f77" }} />
+        <span style={{ color: noLeave ? "#f77" : C.text, fontWeight: noLeave ? 700 : 400 }}>연차 적립 없음</span>
+      </label>
+      {!noLeave && (
+        <>
+          <label style={{ ...styles.dinnerCheck, marginTop: 8 }}>
+            <input type="checkbox" checked={useCustom} onChange={e => {
+              setUseCustom(e.target.checked);
+              if (!e.target.checked) setLeaveStartDate(joinDate);
+            }} style={{ width: 16, height: 16, accentColor: C.primary }} />
+            <span>입사일과 다른 날짜부터 적립</span>
+          </label>
+          {useCustom ? (
+            <div style={{ ...styles.field, marginTop: 8, marginBottom: 0 }}>
+              <label style={styles.label}>적립 시작일</label>
+              <input type="date" style={styles.input} value={leaveStartDate || ""}
+                onChange={e => setLeaveStartDate(e.target.value)} />
+            </div>
+          ) : (
+            <p style={{ margin: "6px 0 0", fontSize: 11, color: C.sub }}>입사일({joinDate})부터 자동 적립</p>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function AddEmpForm({ onSave, onClose }) {
+  const [form, setForm]                     = useState({ id: "", name: "", dept: "", joinDate: today, pw: "1234" });
+  const [noLeave, setNoLeave]               = useState(false);
+  const [leaveStartDate, setLeaveStartDate] = useState(today);
+  const [err, setErr]                       = useState("");
+  const set = (k, v) => { setErr(""); setForm(f => ({ ...f, [k]: v })); if (k === "joinDate") setLeaveStartDate(v); };
+
+  const suggestId = (name) => {
+    if (!name.trim()) return "";
+    // Use first character's Unicode code point to make a simple ID
+    const code = name.trim().charCodeAt(0);
+    const num  = ((code % 900) + 100).toString();
+    return "user" + num;
+  };
+
+  const submit = () => {
+    if (!form.name.trim())                   { setErr("이름을 입력하세요."); return; }
+    if (!form.id.trim())                     { setErr("아이디를 입력하세요."); return; }
+    if (!/^[a-zA-Z0-9_]+$/.test(form.id))   { setErr("아이디는 영문/숫자/언더바(_)만 사용 가능해요."); return; }
+    const startDate = noLeave ? null : leaveStartDate;
+    const leaveData = { leaveStartDate: startDate, usedDays: 0, noLeave,
+      rateHistory: startDate ? [{ from: startDate, dailyRate: 0 }] : [], usageRecords: [] };
+    onSave({ ...form, id: form.id.trim(), role: "employee" }, leaveData);
+  };
+
+  return (
+    <div style={styles.modal}>
+      <div style={styles.modalBox}>
+        <div style={styles.modalHeader}>
+          <h3 style={styles.modalTitle}>직원 추가</h3>
+          <button style={styles.iconBtn} onClick={onClose}>{Icon.x}</button>
+        </div>
+        <div style={styles.row2}>
+          <div style={{ ...styles.field, flex: 1 }}>
+            <label style={styles.label}>이름</label>
+            <input style={styles.input} value={form.name}
+              onChange={e => {
+                const name = e.target.value;
+                setErr("");
+                setForm(f => ({ ...f, name, id: f.id || suggestId(name) }));
+              }}
+              placeholder="홍길동" />
+          </div>
+          <div style={{ ...styles.field, flex: 1 }}>
+            <label style={styles.label}>부서</label>
+            <input style={styles.input} value={form.dept} onChange={e => set("dept", e.target.value)} placeholder="개발팀" />
+          </div>
+        </div>
+        <div style={styles.field}>
+          <label style={styles.label}>로그인 아이디</label>
+          <input style={{ ...styles.input, ...(err.includes("아이디") ? { borderColor: "#f77" } : {}) }}
+            value={form.id} onChange={e => set("id", e.target.value)}
+            placeholder="예: hong, kim01, jane" autoCapitalize="none" />
+          <p style={{ margin: "4px 0 0", fontSize: 11, color: C.sub }}>영문·숫자·언더바(_)만 사용 가능</p>
+        </div>
+        <div style={styles.row2}>
+          <div style={{ ...styles.field, flex: 1 }}>
+            <label style={styles.label}>입사일</label>
+            <input type="date" style={styles.input} value={form.joinDate} onChange={e => set("joinDate", e.target.value)} />
+          </div>
+          <div style={{ ...styles.field, flex: 1 }}>
+            <label style={styles.label}>초기 비밀번호</label>
+            <input type="password" style={styles.input} value={form.pw} onChange={e => set("pw", e.target.value)} />
+          </div>
+        </div>
+        <LeaveAccrualSettings noLeave={noLeave} setNoLeave={setNoLeave}
+          leaveStartDate={leaveStartDate} setLeaveStartDate={setLeaveStartDate} joinDate={form.joinDate} />
+        {err && <p style={{ color: "#f77", fontSize: 13, fontWeight: 600, margin: "0 0 10px" }}>⚠️ {err}</p>}
+        <div style={styles.modalFooter}>
+          <button style={styles.btnSecondary} onClick={onClose}>취소</button>
+          <button style={styles.btnPrimary} onClick={submit}>추가</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EditEmpForm({ emp, leaveData, onSave, onClose }) {
+  const [form, setForm]                     = useState({ name: emp.name, dept: emp.dept, joinDate: emp.joinDate, pw: emp.pw || "" });
+  const [noLeave, setNoLeave]               = useState(!!leaveData.noLeave);
+  const [leaveStartDate, setLeaveStartDate] = useState(leaveData.leaveStartDate || emp.joinDate);
+  const [ci, setCi] = useState(leaveData.contractorInfo || {
+    nameEn: "", address: "", phone: "", abn: "", email: "",
+    dailyRate: "", workDesc: "Wall and Floor Tiling",
+    invoiceNum: 10001,
+    billToName: "", billToAddress: "", billToEmail: "",
+  });
+  const set  = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  const setC = (k, v) => setCi(c => ({ ...c, [k]: v }));
+
+  const submit = () => {
+    if (!form.name.trim()) return;
+    const startDate = noLeave ? null : leaveStartDate;
+    const newLeave = { ...leaveData, leaveStartDate: startDate, noLeave,
+      contractorInfo: noLeave ? ci : undefined,
+      rateHistory: startDate
+        ? ((leaveData.rateHistory && leaveData.rateHistory.length) ? leaveData.rateHistory : [{ from: startDate, dailyRate: 0 }])
+        : [] };
+    onSave({ ...emp, ...form }, newLeave);
+  };
+
+  return (
+    <div style={styles.modal}>
+      <div style={styles.modalBox}>
+        <div style={styles.modalHeader}>
+          <h3 style={styles.modalTitle}>직원 정보 수정</h3>
+          <button style={styles.iconBtn} onClick={onClose}>{Icon.x}</button>
+        </div>
+        <div style={styles.row2}>
+          <div style={{ ...styles.field, flex: 1 }}>
+            <label style={styles.label}>이름</label>
+            <input style={styles.input} value={form.name} onChange={e => set("name", e.target.value)} />
+          </div>
+          <div style={{ ...styles.field, flex: 1 }}>
+            <label style={styles.label}>부서</label>
+            <input style={styles.input} value={form.dept} onChange={e => set("dept", e.target.value)} />
+          </div>
+        </div>
+        <div style={styles.row2}>
+          <div style={{ ...styles.field, flex: 1 }}>
+            <label style={styles.label}>입사일</label>
+            <input type="date" style={styles.input} value={form.joinDate} onChange={e => set("joinDate", e.target.value)} />
+          </div>
+          <div style={{ ...styles.field, flex: 1 }}>
+            <label style={styles.label}>비밀번호 변경</label>
+            <input type="password" style={styles.input} value={form.pw} onChange={e => set("pw", e.target.value)} placeholder="변경 시 입력" />
+          </div>
+        </div>
+        <LeaveAccrualSettings noLeave={noLeave} setNoLeave={setNoLeave}
+          leaveStartDate={leaveStartDate} setLeaveStartDate={setLeaveStartDate} joinDate={form.joinDate} />
+
+        {/* Contractor invoice info - only when noLeave */}
+        {noLeave && (
+          <div style={{ ...styles.leaveSettingBox, borderColor: "#c5d8ff", background: "#f0f5ff", marginBottom: 14 }}>
+            <p style={{ ...styles.leaveSettingTitle, color: C.primary }}>📄 인보이스 정보</p>
+            {[["nameEn","인보이스 표시 이름 (영문)","SEYEONG IM"],["address","주소","77 Magnolia Blvd, Dubbo NSW 2830"],["phone","전화번호","0422 924 607"],["abn","ABN","6010 6252 816"],["email","본인 이메일","lay824255@gmail.com"]].map(([k,l,ph]) => (
+              <div key={k} style={styles.field}>
+                <label style={styles.label}>{l}</label>
+                <input style={styles.input} value={ci[k]} onChange={e => setC(k, e.target.value)} placeholder={ph} />
+              </div>
+            ))}
+            <div style={styles.row2}>
+              <div style={{ ...styles.field, flex: 1 }}>
+                <label style={styles.label}>일당 ($)</label>
+                <input type="number" style={styles.input} value={ci.dailyRate} onChange={e => setC("dailyRate", e.target.value)} placeholder="350" min={0} />
+              </div>
+              <div style={{ ...styles.field, flex: 1 }}>
+                <label style={styles.label}>인보이스 번호</label>
+                <input type="number" style={styles.input} value={ci.invoiceNum} onChange={e => setC("invoiceNum", e.target.value)} placeholder="10001" min={1} />
+              </div>
+            </div>
+            <div style={styles.field}>
+              <label style={styles.label}>업무 내용 (영문)</label>
+              <input style={styles.input} value={ci.workDesc} onChange={e => setC("workDesc", e.target.value)} placeholder="Wall and Floor Tiling" />
+            </div>
+            <p style={{ ...styles.leaveSettingTitle, color: C.primary, marginTop: 4 }}>🏢 Bill To (청구처)</p>
+            {[["billToName","회사명","K&M Tiling Bathurst Pty Ltd"],["billToAddress","주소","10/51 Hampden Park Rd, Kelso NSW 2795"],["billToEmail","이메일","accounts@example.com"]].map(([k,l,ph]) => (
+              <div key={k} style={styles.field}>
+                <label style={styles.label}>{l}</label>
+                <input style={styles.input} value={ci[k]} onChange={e => setC(k, e.target.value)} placeholder={ph} />
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div style={styles.modalFooter}>
+          <button style={styles.btnSecondary} onClick={onClose}>취소</button>
+          <button style={styles.btnPrimary} onClick={submit}>저장</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DataBackup({ users, leaves, logs, persist }) {
+  const [expanded, setExpanded]         = useState(false);
+  const [importText, setImportText]     = useState("");
+  const [importStatus, setImportStatus] = useState("");
+  const [copied, setCopied]             = useState(false);
+
+  const exportData = () => {
+    const data = JSON.stringify({ users, leaves, logs, exportedAt: new Date().toISOString() }, null, 2);
+    const ta = document.createElement("textarea");
+    ta.value = data; document.body.appendChild(ta); ta.select();
+    document.execCommand("copy"); document.body.removeChild(ta);
+    setCopied(true); setTimeout(() => setCopied(false), 2000);
+  };
+
+  const importData = () => {
+    try {
+      const parsed = JSON.parse(importText.trim());
+      if (!parsed.users || !parsed.leaves) { setImportStatus("❌ 올바른 백업 데이터가 아닙니다."); return; }
+      persist(parsed.users, parsed.logs || [], parsed.leaves);
+      setImportStatus("✅ 복원 완료!"); setImportText("");
+      setTimeout(() => setImportStatus(""), 2000);
+    } catch { setImportStatus("❌ JSON 형식이 올바르지 않습니다."); }
+  };
+
+  const fbUrl = getFbUrl();
+
+  return (
+    <div style={styles.backupBox}>
+      <div style={styles.backupHeader} onClick={() => setExpanded(p => !p)}>
+        <span style={styles.backupTitle}>💾 데이터 백업 / 복원</span>
+        <span style={{ fontSize: 12, color: "#888" }}>{expanded ? "▲" : "▼"}</span>
+      </div>
+      {expanded && (
+        <div style={{ paddingTop: 12 }}>
+          {fbUrl && (
+            <div style={{ background: "#f0f9f4", border: "1.5px solid #34c98b", borderRadius: 10, padding: "10px 14px", marginBottom: 14 }}>
+              <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: "#1a6644" }}>🔥 Firebase 연결됨 - 실시간 동기화 중</p>
+              <p style={{ margin: "2px 0 0", fontSize: 10, color: "#888", wordBreak: "break-all" }}>{fbUrl}</p>
+              <button style={{ marginTop: 8, fontSize: 11, color: "#f77", background: "none", border: "1px solid #f77", borderRadius: 6, padding: "3px 8px", cursor: "pointer", fontFamily: "inherit" }}
+                onClick={() => { try { localStorage.removeItem("wm_fb_url"); } catch {} window.location.reload(); }}>
+                Firebase 재설정
+              </button>
+            </div>
+          )}
+          <p style={styles.backupDesc}>코드 업데이트 후 데이터 복원용 백업이에요.</p>
+          <button style={{ ...styles.btnPrimary, marginBottom: 12 }} onClick={exportData}>
+            {copied ? "✅ 클립보드에 복사됨!" : "📋 현재 데이터 복사 (백업)"}
+          </button>
+          <label style={styles.label}>백업 데이터 붙여넣기 (복원)</label>
+          <textarea style={{ ...styles.input, height: 80, fontSize: 11, resize: "vertical", marginBottom: 8 }}
+            value={importText} onChange={e => setImportText(e.target.value)}
+            placeholder='{"users":[...],"leaves":{...},...} 형식으로 붙여넣으세요' />
+          {importStatus && <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 600 }}>{importStatus}</p>}
+          <button style={{ ...styles.btnSecondary, width: "100%" }} onClick={importData}>복원하기</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+
+async function fetchDrivingKm(coord1, coord2) {
+  try {
+    const url = `https://router.project-osrm.org/route/v1/driving/${coord1[1]},${coord1[0]};${coord2[1]},${coord2[0]}?overview=false`;
+    const res  = await fetch(url);
+    const data = await res.json();
+    if (data.code === "Ok") return Math.round(data.routes[0].distance / 1000);
+    return null;
+  } catch { return null; }
+}
+
+async function geocodePlace(query) {
+  try {
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query + ", NSW, Australia")}&format=json&limit=1`;
+    const res  = await fetch(url, { headers: { "Accept-Language": "en" } });
+    const data = await res.json();
+    if (data.length > 0) return [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+    return null;
+  } catch { return null; }
+}
+
+const DAY_KO = ["일","월","화","수","목","금","토"];
+function dayStr(dateStr) {
+  const d = new Date(dateStr + "T00:00:00");
+  return dateStr.slice(5) + "(" + DAY_KO[d.getDay()] + ")";
+}
+// Returns YYYY-MM-DD in LOCAL time (avoids UTC timezone shift)
+function localDateStr(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,"0");
+  const dd = String(d.getDate()).padStart(2,"0");
+  return y + "-" + m + "-" + dd;
+}
+function PayrollTab({ user, users, logs, leaves, isAdmin, persist }) {
+  const [startDate, setStartDate] = useState(() => {
+    // Default to most recent April 13 or similar
+    return "2026-04-13";
+  });
+  const PERIOD_DAYS = 14;
+
+  const endDate = (() => {
+    const d = new Date(startDate + "T00:00:00");
+    d.setDate(d.getDate() + PERIOD_DAYS - 1);
+    return localDateStr(d);
+  })();
+
+  // Admin sees all; employee sees only self
+  const emps = isAdmin
+    ? users.filter(u => u.role !== "admin")
+    : users.filter(u => u.id === user.id);
+
+  const getPeriodLogs = (userId) =>
+    logs.filter(l => l.userId === userId && l.date >= startDate && l.date <= endDate)
+        .sort((a, b) => a.date.localeCompare(b.date));
+
+  const calcStats = (periodLogs) => {
+    let fulltimeDays = 0, overtimeHours = 0, parttimeHours = 0, travelTotal = 0, dayoffDays = 0, holidayDays = 0;
+    periodLogs.forEach(l => {
+      if (l.workType === "fulltime")           fulltimeDays += 1;
+      else if (l.workType === "overtime")      { fulltimeDays += 1; overtimeHours += calcHours(l.otStart || "16:30", l.otEnd || "16:30"); }
+      else if (l.workType === "parttime")      parttimeHours += (l.hours || 0);
+      else if (l.workType === "dayoff")        dayoffDays += 1;
+      else if (l.workType === "publicholiday") holidayDays += 1;
+      else if (!l.workType)                    fulltimeDays += 1;
+      if ((l.travel && l.travel.allowance)) travelTotal += l.travel.allowance;
+      if ((l.travel && l.travel.hasDinner)) travelTotal += 25;
+    });
+    return { fulltimeDays, overtimeHours, parttimeHours, travelTotal, dayoffDays, holidayDays };
+  };
+
+  return (
+    <div style={styles.page}>
+      <div style={styles.pageHeader}>
+        <h2 style={styles.pageTitle}>💰 {isAdmin ? "급여 요약" : "내 급여 내역"}</h2>
+      </div>
+
+      <div style={styles.payPeriodBox}>
+        <div style={styles.payPeriodRow}>
+          <div style={{ flex: 1 }}>
+            <label style={styles.label}>시작일</label>
+            <input type="date" style={styles.input} value={startDate}
+              onChange={e => setStartDate(e.target.value)} />
+          </div>
+          <div style={styles.payPeriodArrow}>→</div>
+          <div style={{ flex: 1 }}>
+            <label style={styles.label}>종료일 (2주)</label>
+            <div style={{ ...styles.input, background: "#f0f5ff", color: "#3b5fc0", fontWeight: 600, display: "flex", alignItems: "center" }}>
+              {endDate}
+            </div>
+          </div>
+        </div>
+        <div style={{ display: "flex", justifyContent: "center", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+          <button style={styles.todayBtn} onClick={() => setStartDate(today)}>오늘 시작</button>
+          <button style={styles.todayBtn} onClick={() => {
+            const BASE = new Date("2026-04-13T00:00:00");
+            const diff = Math.floor((Date.now() - BASE.getTime()) / (1000*60*60*24*14));
+            const d = new Date(BASE); d.setDate(d.getDate() + diff * 14);
+            setStartDate(localDateStr(d));
+          }}>현재 기간</button>
+          <button style={styles.todayBtn} onClick={() => {
+            const BASE = new Date("2026-04-13T00:00:00");
+            const diff = Math.floor((Date.now() - BASE.getTime()) / (1000*60*60*24*14));
+            const d = new Date(BASE); d.setDate(d.getDate() + (diff - 1) * 14);
+            setStartDate(localDateStr(d));
+          }}>이전 기간</button>
+        </div>
+        <p style={{ margin: "6px 0 0", fontSize: 11, color: C.sub, textAlign: "center" }}>
+          {dayStr(startDate)} ~ {dayStr(endDate)} · {PERIOD_DAYS}일
+        </p>
+      </div>
+
+      {emps.map(u => {
+        const periodLogs = getPeriodLogs(u.id);
+        const lv = normLeave(leaves[u.id], u.joinDate);
+        const isInvoiceEmp = lv.noLeave; // contractor = no leave accrual
+
+        if (periodLogs.length === 0) return (
+          <div key={u.id} style={{ ...styles.payCard, opacity: 0.5 }}>
+            <div style={styles.payCardHeader}>
+              <div style={styles.logAvatar}>{u.name[0]}</div>
+              <div>
+                <p style={styles.logName}>{u.name} <span style={styles.deptBadge}>{u.dept}</span></p>
+                <p style={styles.logContent}>이 기간 근무일지 없음</p>
+              </div>
+            </div>
+          </div>
+        );
+
+        const s = calcStats(periodLogs);
+        const fulltimeLogs = periodLogs.filter(l => l.workType === "fulltime" || l.workType === "overtime" || (!l.workType));
+        const travelLogs   = periodLogs.filter(l => (l.travel && l.travel.allowance) || (l.travel && l.travel.hasDinner));
+        const parttimeLogs = periodLogs.filter(l => l.workType === "parttime");
+        const dayoffLogs   = periodLogs.filter(l => l.workType === "dayoff");
+        const holidayLogs  = periodLogs.filter(l => l.workType === "publicholiday");
+
+        return (
+          <div key={u.id} style={styles.payCard}>
+            <div style={styles.payCardHeader}>
+              <div style={styles.logAvatar}>{u.name[0]}</div>
+              <div style={{ flex: 1 }}>
+                <p style={styles.logName}>{u.name} <span style={styles.deptBadge}>{u.dept}</span></p>
+                <p style={styles.logContent}>총 {periodLogs.length}일 기록</p>
+              </div>
+              {isInvoiceEmp && (
+                <InvoiceButton u={u} s={s} periodLogs={periodLogs} startDate={startDate} endDate={endDate} leaveData={lv}
+                  onInvoiceSent={() => {
+                    const ci = lv.contractorInfo || {};
+                    const nextNum = (parseInt(ci.invoiceNum) || 10000) + 1;
+                    const nextLv = { ...lv, contractorInfo: { ...ci, invoiceNum: nextNum } };
+                    persist(null, null, { ...leaves, [u.id]: nextLv });
+                  }}
+                />
+              )}
+            </div>
+            <div style={styles.payGrid}>
+              <PayStat emoji="✅" label="풀타임" val={`${s.fulltimeDays}일`} color="#4f8ef7"
+                logs={fulltimeLogs} renderDetail={l => `${dayStr(l.date)} ${l.workType === "overtime" ? `(+OT ${fmt(calcHours(l.otStart,l.otEnd))}h)` : ""}`} />
+              <PayStat emoji="⏰" label="오버타임" val={`${fmt(s.overtimeHours)}h`} color="#f7a440"
+                logs={periodLogs.filter(l => l.workType === "overtime")}
+                renderDetail={l => `${dayStr(l.date)} ${l.otStart}~${l.otEnd} (+${fmt(calcHours(l.otStart,l.otEnd))}h)`} />
+              <PayStat emoji="🕐" label="파트타임" val={`${fmt(s.parttimeHours)}h`} color="#7b5ea7"
+                logs={parttimeLogs} renderDetail={l => `${dayStr(l.date)} ${l.startTime}~${l.endTime} (${fmt(l.hours)}h)`} />
+              <PayStat emoji="🚗" label="트래블" val={s.travelTotal > 0 ? `$${s.travelTotal.toFixed(2)}` : "-"} color="#34c98b"
+                logs={travelLogs} renderDetail={l => {
+                  const stops = ((l.travel && l.travel.stops) || []).filter(Boolean).join("→");
+                  const amt   = ((l.travel && l.travel.allowance) || 0) + ((l.travel && l.travel.hasDinner) ? 25 : 0);
+                  return `${dayStr(l.date)} ${stops} $${amt.toFixed(2)}`;
+                }} />
+              {s.dayoffDays > 0 && <PayStat emoji="🌴" label="휴무" val={`${s.dayoffDays}일`} color="#888"
+                logs={dayoffLogs} renderDetail={l => dayStr(l.date)} />}
+              {s.holidayDays > 0 && <PayStat emoji="🎉" label="퍼블릭홀리데이" val={`${s.holidayDays}일`} color="#e07000"
+                logs={holidayLogs} renderDetail={l => dayStr(l.date)} />}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+
+const inv = {
+  info:       { fontSize: 11, color: "#444", lineHeight: 1.6, margin: 0 },
+  sectionHdr: { background: "#1a4fa8", color: "#fff", fontWeight: 700, padding: "4px 8px", fontSize: 11, marginBottom: 6 },
+  smallTable: { borderCollapse: "collapse", fontSize: 11 },
+  th:         { border: "1px solid #aaa", padding: "4px 12px", background: "#1a4fa8", color: "#fff", fontWeight: 700, textAlign: "center" },
+  td:         { border: "1px solid #aaa", padding: "4px 12px", textAlign: "center" },
+  th2:        { background: "#1a4fa8", color: "#fff", padding: "5px 8px", fontWeight: 700 },
+  tdRow:      { borderBottom: "1px solid #e0e6f0", padding: "4px 8px" },
+};
+function InvoiceButton({ u, s, periodLogs, startDate, endDate, leaveData, onInvoiceSent }) {
+  const [show, setShow]             = useState(false);
+  const [deductDesc, setDeductDesc] = useState("Deduction");
+  const [deductAmt, setDeductAmt]   = useState("");
+  const ci         = (leaveData && leaveData.contractorInfo) || {};
+  const dailyRate  = parseFloat(ci.dailyRate) || 0;
+  const ptRate     = dailyRate > 0 ? dailyRate / 9 : 0;
+  const otRate     = dailyRate > 0 ? dailyRate / 8 : 0;
+  const workDesc   = ci.workDesc || "Work";
+  const invoiceNum = ci.invoiceNum || "10001";
+  const deductNum  = parseFloat(deductAmt) || 0;
+  const fullAmt    = s.fulltimeDays * dailyRate;
+  const travelLogs = periodLogs.filter(l => l.travel && (l.travel.allowance || l.travel.hasDinner));
+  const trvlCnt    = travelLogs.length;
+  const trvlUnit   = trvlCnt > 0 ? s.travelTotal / trvlCnt : 0;
+  const bizLogs    = periodLogs.filter(l => l.travel && l.travel.hasDinner);
+  const bizAmt     = bizLogs.length * 25;
+  const ptAmt      = s.parttimeHours * ptRate;
+  const otAmt      = s.overtimeHours * otRate;
+  const subtotal   = fullAmt + s.travelTotal + ptAmt + otAmt - deductNum;
+
+  const displayName  = ci.nameEn || (u.name || "").toUpperCase();
+  const contactEmail = ci.email  || ci.billToEmail || "";
+
+  // Build printable HTML for download
+  const buildHTML = () => {
+    const rows = [
+      { desc: workDesc,                         qty: s.fulltimeDays  || "",  unit: s.fulltimeDays  ? dailyRate : "",  amt: fullAmt    || "" },
+      { desc: "Travel allowance",               qty: trvlCnt         || "",  unit: trvlCnt         ? trvlUnit  : "",  amt: s.travelTotal || "" },
+      { desc: "Business trip",                  qty: bizLogs.length  || "",  unit: bizLogs.length  ? 25        : "",  amt: bizAmt     || "" },
+      { desc: "Half time " + workDesc,          qty: s.parttimeHours ? fmt(s.parttimeHours)+"h" : "", unit: ptAmt ? ptRate : "", amt: ptAmt || "" },
+      { desc: "Over time " + workDesc,          qty: s.overtimeHours ? fmt(s.overtimeHours)+"h" : "", unit: otAmt ? otRate : "", amt: otAmt || "" },
+      { desc: deductDesc || "Deduction",        qty: "",              unit: "",                         amt: deductNum ? -deductNum : "" },
+    ];
+    const fmtC = (v) => { if (v === "" || v === 0) return "-"; const n = parseFloat(v); return isNaN(n) ? String(v) : n.toFixed(2); };
+    const addrLines = (a) => (a||"").split(",").map(l=>l.trim()).filter(Boolean).map(l=>`<p style="margin:0;font-size:11px;color:#444">${l}</p>`).join("");
+    const emptyRows = Array(9).fill('<tr><td>&nbsp;</td><td></td><td></td><td style="text-align:right">-</td></tr>').join("");
+
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Invoice ${invoiceNum}</title>
+<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;font-size:12px;padding:20px}
+.hdr{display:flex;justify-content:space-between;margin-bottom:16px}
+.name{color:#1a4fa8;font-size:20px;font-weight:900;margin-bottom:4px}
+.inv-title{color:#1a4fa8;font-size:26px;font-weight:900;text-align:right;margin-bottom:8px}
+table{border-collapse:collapse}td,th{padding:4px 8px}
+.ith{background:#1a4fa8;color:#fff;font-weight:700;text-align:center;border:1px solid #aaa}
+.itd{border:1px solid #aaa;text-align:center}
+.bhdr{background:#1a4fa8;color:#fff;font-weight:700;padding:4px 8px;font-size:11px;margin-bottom:6px}
+.binfo{font-size:11px;color:#444;line-height:1.6}
+.th2{background:#1a4fa8;color:#fff;padding:5px 8px;font-weight:700}
+.tdr{border-bottom:1px solid #e0e6f0;padding:4px 8px;font-size:11px}
+.foot{display:flex;justify-content:space-between;align-items:flex-end;margin-top:4px}
+.ty{font-style:italic;color:#1a4fa8;font-size:11px}
+.tttd{padding:3px 8px;color:#555;font-size:11px}
+.ttot{background:#1a4fa8;color:#fff;font-weight:700;padding:6px 8px;font-size:12px}
+</style></head><body>
+<div class="hdr">
+  <div><div class="name">${displayName}</div>${addrLines(ci.address)}
+  ${ci.phone?`<p style="margin:0;font-size:11px;color:#444">Phone: ${ci.phone}</p>`:""}
+  ${ci.abn?`<p style="margin:0;font-size:11px;color:#444">ABN: ${ci.abn}</p>`:""}</div>
+  <div><div class="inv-title">INVOICE</div>
+  <table><tr><td class="ith">INVOICE #</td><td class="ith">DATE</td></tr>
+  <tr><td class="itd">${invoiceNum}</td><td class="itd">${today}</td></tr></table></div>
+</div>
+<div style="margin-bottom:12px"><div class="bhdr">BILL TO</div>
+<div class="binfo">${ci.billToName||""}${addrLines(ci.billToAddress)}${ci.billToEmail?`<br/>${ci.billToEmail}`:""}</div></div>
+<table style="width:100%">
+<thead><tr>
+<th class="th2" style="text-align:left;width:52%">DESCRIPTION</th>
+<th class="th2" style="text-align:right;width:12%">QTY</th>
+<th class="th2" style="text-align:right;width:18%">UNIT PRICE</th>
+<th class="th2" style="text-align:right;width:18%">AMOUNT</th>
+</tr></thead><tbody>
+${rows.map(r=>`<tr><td class="tdr">${r.desc}</td><td class="tdr" style="text-align:right">${r.qty}</td><td class="tdr" style="text-align:right">${fmtC(r.unit)}</td><td class="tdr" style="text-align:right">${fmtC(r.amt)}</td></tr>`).join("")}
+${emptyRows}
+</tbody></table>
+<div class="foot"><p class="ty">Thank you for your business!</p>
+<table><tr><td class="tttd">SUBTOTAL</td><td class="tttd" style="text-align:right">${subtotal.toFixed(2)}</td></tr>
+<tr><td class="tttd">TAX RATE</td><td class="tttd" style="text-align:right">0.000%</td></tr>
+<tr><td class="tttd">TAX</td><td class="tttd" style="text-align:right">-</td></tr>
+<tr><td class="ttot">TOTAL</td><td class="ttot" style="text-align:right">$ ${subtotal.toFixed(2)}</td></tr>
+</table></div>
+${contactEmail?`<p style="text-align:center;margin-top:20px;font-size:10px;color:#888">If you have any questions about this invoice, please contact<br/><span style="color:#1a4fa8">${contactEmail}</span></p>`:""}
+</body></html>`;
+  };
+
+  const html    = buildHTML();
+  const iframeRef = React.useRef(null);
+
+  const splitAddr = (addr) => addr ? addr.split(",").map(l => l.trim()).filter(Boolean) : [];
+
+  const fmtCell = (v) => {
+    if (v === "" || v === 0) return "-";
+    const n = parseFloat(v);
+    return isNaN(n) ? String(v) : n.toFixed(2);
+  };
+
+  const buildPlainText = () => {
+    const lines = [
+      `INVOICE #${invoiceNum}  DATE: ${today}`,
+      `FROM: ${displayName}`,
+      ci.address ? ci.address : "",
+      ci.phone ? `Phone: ${ci.phone}` : "",
+      ci.abn ? `ABN: ${ci.abn}` : "",
+      "",
+      `BILL TO: ${ci.billToName || ""}`,
+      ci.billToAddress || "",
+      "",
+      "DESCRIPTION                    QTY   UNIT     AMOUNT",
+      "-----------------------------------------------------",
+    ];
+    const addRow = (desc, qty, unit, amt) => {
+      if (!qty && !amt) return;
+      lines.push(`${desc.padEnd(30)} ${String(qty||"").padStart(5)}  ${String(unit ? parseFloat(unit).toFixed(2) : "").padStart(7)}  ${String(amt ? parseFloat(amt).toFixed(2) : "-").padStart(8)}`);
+    };
+    if (s.fulltimeDays)    addRow(workDesc, s.fulltimeDays, dailyRate, fullAmt);
+    if (s.travelTotal > 0) addRow("Travel allowance", trvlCnt, trvlUnit, s.travelTotal);
+    if (bizLogs.length)    addRow("Business trip", bizLogs.length, 25, bizAmt);
+    if (s.parttimeHours)   addRow("Half time " + workDesc, fmt(s.parttimeHours)+"h", ptRate, ptAmt);
+    if (s.overtimeHours)   addRow("Over time " + workDesc, fmt(s.overtimeHours)+"h", otRate, otAmt);
+    if (deductNum)         addRow(deductDesc || "Deduction", "", "", -deductNum);
+    lines.push("-----------------------------------------------------");
+    lines.push(`${"TOTAL".padEnd(40)} $${subtotal.toFixed(2)}`);
+    if (contactEmail) lines.push(`\nQuestions? ${contactEmail}`);
+    return lines.filter(l => l !== "").join("\n");
+  };
+
+  const sendEmail = () => {
+    const subject = encodeURIComponent(`Invoice #${invoiceNum} - ${displayName} - ${startDate} to ${endDate}`);
+    const body    = encodeURIComponent(buildPlainText());
+    const to      = ci.billToEmail || "";
+    window.location.href = `mailto:${to}?subject=${subject}&body=${body}`;
+    if (onInvoiceSent) onInvoiceSent();
+  };
+
+  const shareInvoice = async () => {
+    const filename = "invoice_" + invoiceNum + "_" + (ci.nameEn || u.name || "") + ".html";
+    try {
+      const file = new File([html], filename, { type: "text/html" });
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: "Invoice #" + invoiceNum });
+        if (onInvoiceSent) onInvoiceSent();
+        return;
+      }
+    } catch(e) { /* fall through */ }
+    // Fallback: open email app
+    sendEmail();
+  };
+
+  const IRow = ({ desc, qty, unit, amt }) => (
+    <tr>
+      <td style={inv.tdRow}>{desc}</td>
+      <td style={{ ...inv.tdRow, textAlign: "right" }}>{qty !== undefined ? qty : ""}</td>
+      <td style={{ ...inv.tdRow, textAlign: "right" }}>{fmtCell(unit !== undefined ? unit : "")}</td>
+      <td style={{ ...inv.tdRow, textAlign: "right" }}>{fmtCell(amt !== undefined ? amt : "")}</td>
+    </tr>
+  );
+  const ERow = () => <tr><td style={inv.tdRow}>&nbsp;</td><td style={inv.tdRow}></td><td style={inv.tdRow}></td><td style={{ ...inv.tdRow, textAlign: "right" }}>-</td></tr>;
+
+  if (!show) return (
+    <button style={styles.invoiceBtn} onClick={() => setShow(true)}>📄 PDF 인보이스</button>
+  );
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "#fff", zIndex: 500, display: "flex", flexDirection: "column" }}>
+      {/* Toolbar */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", borderBottom: "1px solid #eee", background: "#fff", flexShrink: 0, gap: 6 }}>
+        <button style={styles.iconBtn} onClick={() => setShow(false)}>{Icon.x}</button>
+        <span style={{ fontWeight: 700, fontSize: 14, flex: 1, textAlign: "center" }}>인보이스 #{ invoiceNum}</span>
+        <button style={{ background: "#1a4fa8", color: "#fff", border: "none", borderRadius: 8, padding: "8px 14px", fontSize: 13, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}
+          onClick={shareInvoice}>📤 공유 / 저장</button>
+      </div>
+
+      {/* Info banner */}
+      <div style={{ padding: "7px 14px", background: "#f0f5ff", borderBottom: "1px solid #c5d8ff", fontSize: 11, color: "#3b5fc0", flexShrink: 0 }}>
+        📤 공유/저장 → <strong>iOS:</strong> "파일에 저장" 또는 이메일 선택 &nbsp;·&nbsp; <strong>Android:</strong> 파일 저장 또는 이메일
+      </div>
+
+      {/* Deduction */}
+      <div style={{ padding: "8px 14px", background: "#f8f4ff", borderBottom: "1px solid #e0d6ff", flexShrink: 0 }}>
+        <p style={{ fontSize: 11, fontWeight: 600, color: "#5a3e9b", marginBottom: 4 }}>➖ Deduction</p>
+        <div style={{ display: "flex", gap: 8 }}>
+          <input style={{ ...styles.input, flex: 2, fontSize: 12 }} value={deductDesc}
+            onChange={e => setDeductDesc(e.target.value)} placeholder="Deduction 내용" />
+          <input type="number" style={{ ...styles.input, flex: 1, fontSize: 12 }} value={deductAmt}
+            onChange={e => setDeductAmt(e.target.value)} placeholder="금액 $" min={0} />
+        </div>
+      </div>
+
+      {/* Invoice preview via iframe */}
+      <iframe
+        ref={iframeRef}
+        srcDoc={html}
+        style={{ flex: 1, border: "none", width: "100%" }}
+        title="invoice"
+      />
+    </div>
+  );
+}
+
+function PayStat({ emoji, label, val, color, logs = [], renderDetail }) {
+  const [open, setOpen] = useState(false);
+  const hasDetail = logs.length > 0;
+  return (
+    <div style={{ ...styles.payStatCell, borderLeft: `3px solid ${color}`, cursor: hasDetail ? "pointer" : "default" }}
+      onClick={() => hasDetail && setOpen(p => !p)}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <span style={{ fontSize: 16 }}>{emoji}</span>
+        {hasDetail && <span style={{ fontSize: 10, color: color, opacity: 0.7 }}>{open ? "▲" : "▼"}</span>}
+      </div>
+      <span style={{ fontSize: 15, fontWeight: 700, color }}>{val}</span>
+      <span style={{ fontSize: 11, color: C.sub }}>{label}</span>
+      {open && hasDetail && (
+        <div style={{ marginTop: 8, borderTop: `1px solid ${color}22`, paddingTop: 6 }}>
+          {logs.map((l, i) => (
+            <p key={i} style={{ margin: "3px 0", fontSize: 11, color: C.text, lineHeight: 1.4 }}>
+              · {renderDetail(l)}
+            </p>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function EmptyState({ msg }) {
+  return <div style={styles.empty}><p style={{ margin: 0, color: "#aaa" }}>📭 {msg}</p></div>;
+}
+
+
+const C = { primary: "#3b7ff5", bg: "#f4f6fb", card: "#fff", border: "#eaecf3", text: "#1a1d2e", sub: "#8891a8", success: "#34c98b", danger: "#f76f6f" };
+
+const styles = {
+  app: { fontFamily: "'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif", background: C.bg, minHeight: "100dvh", display: "flex", flexDirection: "column", maxWidth: 480, margin: "0 auto", position: "relative" },
+  content: { flex: 1, overflowY: "auto", paddingBottom: 72 },
+  page: { padding: "16px 16px 0" },
+  pageHeader: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 },
+  pageTitle: { margin: 0, fontSize: 20, fontWeight: 700, color: C.text },
+
+  // Login
+  loginWrap: { minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(135deg, #e8efff 0%, #f4f6fb 100%)", padding: 20 },
+  loginBox: { background: C.card, borderRadius: 20, padding: "32px 24px", width: "100%", maxWidth: 380, boxShadow: "0 8px 40px #3b7ff520" },
+  loginLogo: { textAlign: "center", marginBottom: 28 },
+  logoIcon: { fontSize: 44, marginBottom: 8 },
+  logoTitle: { margin: 0, fontSize: 28, fontWeight: 800, color: C.primary },
+  logoSub: { margin: "4px 0 0", fontSize: 13, color: C.sub },
+  demoHint: { marginTop: 16, padding: "10px 0 0", borderTop: "1px solid " + C.border },
+
+  // Header
+  header: { background: C.card, borderBottom: "1px solid " + C.border, padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 10 },
+  headerLeft: { display: "flex", alignItems: "center", gap: 8 },
+  headerLogo: { fontSize: 22 },
+  headerTitle: { fontSize: 17, fontWeight: 700, color: C.primary, margin: 0 },
+  headerRight: { display: "flex", alignItems: "center", gap: 8 },
+  headerUser: { fontSize: 13, color: C.text, fontWeight: 500, display: "flex", alignItems: "center", gap: 6 },
+  roleBadge: { background: C.primary + "18", color: C.primary, fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 20 },
+  logoutBtn: { background: "none", border: "none", cursor: "pointer", color: C.sub, padding: 4, display: "flex" },
+
+  // Nav
+  nav: { position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 480, background: C.card, borderTop: "1px solid " + C.border, display: "flex", padding: "8px 0 env(safe-area-inset-bottom, 8px)", zIndex: 20 },
+  navItem: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3, background: "none", border: "none", cursor: "pointer", color: C.sub, padding: "4px 0", fontSize: 10 },
+  navItemActive: { color: C.primary },
+  navLabel: { fontSize: 11, fontWeight: 500 },
+
+  // Forms
+  field: { marginBottom: 14 },
+  label: { display: "block", fontSize: 12, fontWeight: 600, color: C.sub, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.04em" },
+  input: { width: "100%", boxSizing: "border-box", border: "1.5px solid " + C.border, borderRadius: 10, padding: "10px 12px", fontSize: 14, color: C.text, background: C.bg, outline: "none", fontFamily: "inherit" },
+  row2: { display: "flex", gap: 12 },
+  hoursDisplay: { textAlign: "center", background: C.primary + "10", borderRadius: 10, padding: "8px 12px", fontSize: 14, color: C.primary, marginBottom: 14 },
+  errText: { color: C.danger, fontSize: 13, margin: "-6px 0 10px", textAlign: "center" },
+
+  // Buttons
+  btnPrimary: { width: "100%", background: C.primary, color: "#fff", border: "none", borderRadius: 12, padding: "13px 0", fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" },
+  btnSecondary: { flex: 1, background: C.border, color: C.text, border: "none", borderRadius: 12, padding: "12px 0", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" },
+  btnAdd: { display: "flex", alignItems: "center", gap: 5, background: C.primary, color: "#fff", border: "none", borderRadius: 10, padding: "8px 14px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" },
+  iconBtn: { background: "none", border: "none", cursor: "pointer", color: C.sub, padding: 4, display: "flex", alignItems: "center" },
+
+  // Modal
+  modal: { position: "fixed", inset: 0, background: "#0007", zIndex: 100, display: "flex", alignItems: "flex-end", justifyContent: "center" },
+  modalBox: { background: C.card, borderRadius: "20px 20px 0 0", padding: "24px 20px", paddingBottom: "calc(24px + env(safe-area-inset-bottom, 16px))", width: "100%", maxWidth: 480, maxHeight: "92dvh", overflowY: "auto" },
+  modalHeader: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 },
+  modalTitle: { margin: 0, fontSize: 18, fontWeight: 700, color: C.text },
+  modalFooter: { display: "flex", gap: 10, marginTop: 8 },
+
+  // Cards
+  statsGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 20 },
+  statCard: { background: C.card, borderRadius: 14, padding: "16px 14px", boxShadow: "0 2px 8px #0000000a" },
+  statEmoji: { fontSize: 22 },
+  statValue: { margin: "8px 0 2px", fontSize: 24, fontWeight: 800, color: C.text },
+  statLabel: { margin: 0, fontSize: 12, color: C.sub, fontWeight: 600 },
+  statSub: { margin: "2px 0 0", fontSize: 11, color: "#bbb" },
+
+  section: { marginBottom: 24 },
+  sectionTitle: { fontSize: 15, fontWeight: 700, color: C.text, margin: "0 0 12px" },
+
+  greeting: { marginBottom: 20 },
+  greetingText: { margin: 0, fontSize: 20, fontWeight: 700, color: C.text },
+  dateText: { margin: "4px 0 0", fontSize: 13, color: C.sub },
+
+  logCard: { background: C.card, borderRadius: 12, padding: "12px 14px", marginBottom: 8, display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: "0 1px 4px #0000000a" },
+  logCardLeft: { display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 },
+  logAvatar: { width: 34, height: 34, borderRadius: "50%", background: "linear-gradient(135deg, #4f8ef7, #7b5ea7)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, flexShrink: 0 },
+  logName: { margin: 0, fontSize: 13, fontWeight: 600, color: C.text },
+  logContent: { margin: "2px 0 0", fontSize: 12, color: C.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 180 },
+  logHours: { fontSize: 11, color: C.sub, textAlign: "right", flexShrink: 0 },
+  logHoursBig: { fontSize: 14, fontWeight: 700, color: C.primary },
+
+  filterRow: { display: "flex", gap: 8, marginBottom: 8 },
+  filterInput: { flex: 1, border: "1.5px solid " + C.border, borderRadius: 10, padding: "8px 10px", fontSize: 13, background: C.card, color: C.text, fontFamily: "inherit", outline: "none" },
+  logSummary: { fontSize: 12, color: C.sub, marginBottom: 10, fontWeight: 500 },
+
+  logItem: { background: C.card, borderRadius: 12, padding: "12px 14px", marginBottom: 8, display: "flex", gap: 10, alignItems: "flex-start", boxShadow: "0 1px 4px #0000000a" },
+  logItemDate: { fontSize: 12, fontWeight: 700, color: C.primary, width: 48, flexShrink: 0, paddingTop: 2 },
+  logItemBody: { flex: 1, minWidth: 0 },
+  empName: { fontSize: 11, fontWeight: 700, color: "#fff", background: C.primary, borderRadius: 6, padding: "1px 7px", marginBottom: 4, display: "inline-block" },
+  logItemContent: { margin: "0 0 6px", fontSize: 13, color: C.text },
+  logItemMeta: { display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: C.sub },
+  statusBadge: { borderRadius: 6, padding: "1px 7px", fontSize: 11, fontWeight: 600, marginLeft: 4 },
+  logActions: { display: "flex", flexDirection: "column", gap: 4, flexShrink: 0 },
+
+  // Leave
+  leaveRow: { background: C.card, borderRadius: 12, padding: "10px 14px", marginBottom: 8, display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: "0 1px 4px #0000000a" },
+  leaveRowLeft: { display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 },
+  miniBar: { width: 60, height: 6, background: C.border, borderRadius: 999, overflow: "hidden", flexShrink: 0, marginLeft: 10 },
+  miniBarFill: { height: "100%", borderRadius: 999, transition: "width 0.3s" },
+
+  leaveCard: { background: C.card, borderRadius: 14, padding: "16px", marginBottom: 12, boxShadow: "0 2px 8px #0000000a" },
+  leaveCardTop: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 },
+  leaveCardLeft: { display: "flex", alignItems: "center", gap: 10 },
+  leaveBarWrap: { marginBottom: 12 },
+  leaveBar: { height: 10, background: C.border, borderRadius: 999, overflow: "hidden", marginBottom: 8 },
+  leaveBarFill: { height: "100%", borderRadius: 999, transition: "width 0.4s" },
+  leaveNums: { display: "flex", justifyContent: "space-between", fontSize: 12, color: C.sub },
+  leaveChips: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 6 },
+  chip: { border: "1.5px solid", borderRadius: 10, padding: "8px 6px", display: "flex", flexDirection: "column", alignItems: "center", gap: 2 },
+
+  // Team
+  empCard: { background: C.card, borderRadius: 14, padding: "14px 16px", marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: "0 1px 4px #0000000a" },
+  empCardLeft: { display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 0 },
+  deptBadge: { fontSize: 10, fontWeight: 600, color: "#7b5ea7", background: "#7b5ea715", borderRadius: 6, padding: "1px 6px", marginLeft: 4 },
+
+  empty: { textAlign: "center", padding: "32px 0", background: C.card, borderRadius: 12, marginBottom: 8 },
+
+  // Work type selector
+  typeRow: { display: "flex", gap: 8 },
+  typeBtn: { flex: 1, padding: "9px 4px", border: "1.5px solid " + C.border, borderRadius: 10, background: C.bg, color: C.sub, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s" },
+  typeBtnActive: { border: "1.5px solid " + C.primary, background: C.primary + "12", color: C.primary },
+
+  // Time info box (fulltime/OT base display)
+  timeInfoBox: { display: "flex", alignItems: "center", gap: 8, background: "#f0f5ff", border: "1px solid #c5d8ff", borderRadius: 10, padding: "10px 14px", marginBottom: 14, fontSize: 13, color: "#3b5fc0" },
+  timeInfoIcon: { fontSize: 16 },
+  timeInfoHours: { marginLeft: "auto", fontWeight: 700, fontSize: 14 },
+
+  // OT section
+  otSection: { background: "#fff8ed", border: "1px solid #ffd699", borderRadius: 10, padding: "12px 14px", marginBottom: 14 },
+  otBadge: { marginTop: 10, textAlign: "center", background: "#f7a44022", color: "#c87800", borderRadius: 8, padding: "6px 0", fontSize: 13, fontWeight: 700 },
+  otLabel: { fontSize: 12, color: C.sub, fontWeight: 400 },
+
+  // Travel
+  travelToggleRow: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0 10px", borderTop: "1px solid " + C.border, marginTop: 4 },
+  travelToggleLabel: { fontSize: 14, fontWeight: 600, color: C.text },
+  toggleBtn: { padding: "5px 16px", borderRadius: 20, border: "1.5px solid " + C.border, background: C.bg, color: C.sub, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" },
+  toggleBtnOn: { border: "1.5px solid #34c98b", background: "#34c98b18", color: "#34c98b" },
+  travelBox: { background: "#f5fdf8", border: "1px solid #b3f5d4", borderRadius: 12, padding: "14px", marginBottom: 14 },
+  bizTripRow: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 },
+  bizTripLabel: { margin: 0, fontSize: 14, fontWeight: 700, color: C.text },
+  bizTripSub: { margin: "2px 0 0", fontSize: 11, color: C.sub },
+  dinnerCheck: { display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 600, color: "#2d7a5a", marginBottom: 12, cursor: "pointer" },
+  dinnerRow: { paddingTop: 6, display: "flex", justifyContent: "space-between", alignItems: "center" },
+  divider: { height: 1, background: "#b3f5d4", margin: "4px 0 14px" },
+  stopRow: { display: "flex", gap: 10, marginBottom: 0, alignItems: "flex-start" },
+  stopDotCol: { display: "flex", flexDirection: "column", alignItems: "center", width: 16, paddingTop: 22, flexShrink: 0 },
+  stopDot: { width: 12, height: 12, borderRadius: "50%", flexShrink: 0, border: "2px solid #fff", boxShadow: "0 0 0 1.5px #ccc" },
+  stopLine: { width: 2, flex: 1, minHeight: 24, background: "#c8e6c9", margin: "3px 0" },
+  legKmRow: { display: "flex", alignItems: "center", gap: 6, marginLeft: 26, marginBottom: 6, marginTop: 4 },
+  legKmLine: { height: 1, flex: 1, background: "#c8e6c9" },
+  legKmBox: { display: "flex", alignItems: "center", gap: 5, background: "#edfaf3", border: "1px solid #b3f5d4", borderRadius: 8, padding: "4px 8px" },
+  legKmAuto: { fontSize: 11, color: "#2d7a5a", whiteSpace: "nowrap" },
+  legKmInput: { width: 60, border: "none", background: "transparent", fontSize: 12, fontWeight: 700, color: "#1a6644", fontFamily: "inherit", outline: "none", textAlign: "center" },
+  legKmReset: { fontSize: 10, color: "#2d7a5a", background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", padding: 0 },
+  osrmBtn: { fontSize: 13, background: "none", border: "none", cursor: "pointer", padding: "0 2px", lineHeight: 1 },
+  geocodeBtn: { background: C.primary, color: "#fff", border: "none", borderRadius: 8, padding: "8px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", width: "100%", textAlign: "center", textDecoration: "none", display: "block" },
+  returnLegBox: { background: "#f0f9ff", border: "1px solid #c5e8ff", borderRadius: 10, padding: "10px 12px", marginBottom: 8 },
+  returnLegHeader: { marginBottom: 6 },
+  returnLegLabel: { fontSize: 12, fontWeight: 600, color: "#3b5fc0" },
+  addViaBtn: { background: "none", border: "1.5px dashed #b3f5d4", borderRadius: 8, padding: "7px 0", width: "100%", color: "#2d7a5a", fontSize: 12, fontWeight: 600, cursor: "pointer", marginBottom: 12, fontFamily: "inherit", marginTop: 4 },
+  allowanceResult: { background: "#fff", border: "1px solid #b3f5d4", borderRadius: 10, padding: "12px 14px", marginTop: 8 },
+  allowanceRow: { display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: 6 },
+  allowanceLabel: { fontSize: 12, color: "#2d7a5a" },
+  allowanceValue: { fontSize: 13, color: "#1a3a2a", fontWeight: 500 },
+  allowanceBig: { fontSize: 20, fontWeight: 800, color: "#1a6644" },
+  travelTag: { marginTop: 6, fontSize: 11, color: "#2d7a5a", background: "#e8faf2", borderRadius: 6, padding: "3px 8px", display: "inline-flex", alignItems: "center", gap: 4, flexWrap: "wrap" },
+  travelTagAmt: { fontWeight: 700, color: "#1a6644" },
+  modeToggle: { fontSize: 10, color: "#2d7a5a", background: "none", border: "1px solid #b3f5d4", borderRadius: 6, padding: "2px 7px", cursor: "pointer", fontFamily: "inherit", fontWeight: 600, whiteSpace: "nowrap" },
+  legKmHint: { margin: 0, fontSize: 10, fontWeight: 600, color: "#a05c00" },
+  confirmWarning: { background: "#fff8e1", border: "1px solid #ffc347", borderRadius: 8, padding: "8px 10px", fontSize: 12, color: "#a05c00", fontWeight: 600, marginBottom: 10 },
+  confirmBadgeRow: { display: "flex", alignItems: "center", gap: 6, marginTop: 4 },
+  confirmBadge: { fontSize: 10, background: "#fff3cd", color: "#a05c00", border: "1px solid #ffc347", borderRadius: 6, padding: "2px 7px", fontWeight: 600 },
+  confirmBtn: { fontSize: 11, background: "#34c98b", color: "#fff", border: "none", borderRadius: 6, padding: "3px 9px", cursor: "pointer", fontFamily: "inherit", fontWeight: 700 },
+  confirmedBadge: { fontSize: 10, background: "#e8faf2", color: "#1a6644", borderRadius: 6, padding: "2px 7px", fontWeight: 600, display: "inline-block", marginTop: 3 },
+
+  // Leave accrual
+  accrualInfo: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 },
+  accrualLabel: { fontSize: 11, color: C.sub, fontWeight: 600, textTransform: "uppercase" },
+  accrualRate: { fontSize: 12, color: C.primary, fontWeight: 600 },
+  todayAccrualBox: { background: "linear-gradient(135deg, #eef4ff, #f0f9ff)", border: "1.5px solid #c5d8ff", borderRadius: 12, padding: "12px 14px", marginBottom: 12 },
+  todayAccrualMain: { display: "flex", alignItems: "baseline", gap: 8, marginBottom: 5 },
+  todayAccrualLabel: { fontSize: 11, fontWeight: 700, color: "#3b5fc0", textTransform: "uppercase", letterSpacing: "0.04em", marginRight: 2 },
+  todayAccrualValue: { fontSize: 22, fontWeight: 800, color: "#3b7ff5" },
+  todayAccrualHours: { fontSize: 15, fontWeight: 700, color: "#3b7ff5", opacity: 0.75 },
+  todayAccrualSub: { display: "flex", justifyContent: "space-between", fontSize: 11, color: C.sub },
+  rateAccrualBox: { background: "#f8f4ff", border: "1.5px solid #d0bfff", borderRadius: 12, padding: "12px 14px", marginBottom: 12 },
+  rateAccrualTitle: { margin: "0 0 10px", fontSize: 12, fontWeight: 700, color: "#5a3e9b" },
+  rateAccrualRow: { borderRadius: 10, padding: "10px 10px", marginBottom: 8, background: "#fff", border: "1px solid #ece5ff", display: "flex", alignItems: "center", justifyContent: "space-between" },
+  rateAccrualActive: { border: "1.5px solid #4f8ef7", background: "#f0f6ff" },
+  rateAccrualLeft: { flex: 1 },
+  rateAccrualDates: { margin: 0, fontSize: 11, color: C.text, fontWeight: 500 },
+  rateAccrualCalDays: { margin: "2px 0 6px", fontSize: 11, color: C.sub },
+  rateAccrualNums: { display: "flex", alignItems: "baseline", gap: 5 },
+  rateAccrualDays: { fontSize: 18, fontWeight: 800, color: "#3b7ff5" },
+  rateAccrualHoursText: { fontSize: 13, fontWeight: 700, color: "#3b7ff5", opacity: 0.8 },
+  rateAccrualOf: { fontSize: 11, color: C.sub },
+  rateAccrualRateCol: { display: "flex", flexDirection: "column", alignItems: "flex-end", flexShrink: 0, marginLeft: 10 },
+  rateAccrualRate: { fontSize: 16, fontWeight: 800, color: "#5a3e9b" },
+  rateAccrualRateSub: { fontSize: 10, color: C.sub },
+  rateAccrualTotal: { borderTop: "1px solid #d0bfff", paddingTop: 8, marginTop: 4, textAlign: "right", fontSize: 12, color: "#5a3e9b" },
+  carryoverBox: { display: "flex", alignItems: "center", justifyContent: "space-between", background: "#fff8ed", border: "1.5px solid #ffd699", borderRadius: 10, padding: "10px 14px", marginTop: 10 },
+  carryoverBoxZero: { background: "#f0fdf4", border: "1.5px solid #b3f5d4" },
+  carryoverLeft: { display: "flex", alignItems: "center", gap: 8 },
+  carryoverIcon: { fontSize: 18 },
+  carryoverLabel: { margin: 0, fontSize: 12, fontWeight: 700, color: "#a05c00" },
+  carryoverSub: { margin: "2px 0 0", fontSize: 11, color: C.sub },
+  carryoverRight: { display: "flex", flexDirection: "column", alignItems: "flex-end" },
+  carryoverDays: { fontSize: 18, fontWeight: 800, color: "#c87800" },
+  carryoverHours: { fontSize: 11, fontWeight: 600, color: "#a05c00" },
+  carryoverNone: { fontSize: 12, fontWeight: 600, color: "#34c98b" },
+
+  // Leave usage records
+  usageSection: { marginTop: 10, borderTop: "1px solid " + C.border, paddingTop: 10 },
+  usageSectionHeader: { display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", padding: "2px 0 6px" },
+  usageSectionTitle: { fontSize: 12, fontWeight: 700, color: C.text },
+  usageBadge: { fontSize: 11, background: C.primary + "18", color: C.primary, borderRadius: 6, padding: "1px 7px", fontWeight: 600 },
+  usageAddBtn: { fontSize: 11, background: C.primary, color: "#fff", border: "none", borderRadius: 6, padding: "3px 9px", cursor: "pointer", fontFamily: "inherit", fontWeight: 700 },
+  usageList: { paddingTop: 4 },
+  usageRow: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid " + C.border },
+  usageLeft: { display: "flex", alignItems: "center", gap: 10 },
+  usageDateBadge: { background: C.primary + "18", color: C.primary, borderRadius: 8, padding: "4px 8px", fontSize: 12, fontWeight: 700, minWidth: 36, textAlign: "center" },
+  usageDays: { margin: 0, fontSize: 14, fontWeight: 700, color: C.text },
+  usageHours: { fontSize: 11, fontWeight: 400, color: C.sub },
+  usageNote: { margin: "2px 0 0", fontSize: 11, color: C.sub },
+  confirmInline: { display: "flex", alignItems: "center", gap: 5 },
+  confirmYes: { fontSize: 11, fontWeight: 700, background: "#f77", color: "#fff", border: "none", borderRadius: 6, padding: "3px 8px", cursor: "pointer", fontFamily: "inherit" },
+  confirmNo: { fontSize: 11, fontWeight: 600, background: C.border, color: C.text, border: "none", borderRadius: 6, padding: "3px 8px", cursor: "pointer", fontFamily: "inherit" },
+
+  // Data backup
+  backupBox: { marginTop: 20, background: "#fffbf0", border: "1.5px solid #ffd699", borderRadius: 12, padding: "14px" },
+  backupHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" },
+  backupTitle: { fontSize: 13, fontWeight: 700, color: "#a05c00" },
+  backupDesc: { fontSize: 12, color: C.sub, marginBottom: 12, whiteSpace: "pre-line", lineHeight: 1.6 },
+
+  // Payroll
+  payPeriodBox: { background: "#f0f5ff", border: "1.5px solid #c5d8ff", borderRadius: 12, padding: "14px", marginBottom: 16 },
+  payPeriodRow: { display: "flex", alignItems: "flex-end", gap: 10 },
+  payPeriodArrow: { fontSize: 18, color: C.primary, paddingBottom: 10, flexShrink: 0 },
+  payCard: { background: C.card, borderRadius: 14, padding: "14px 16px", marginBottom: 12, boxShadow: "0 2px 8px #0000000a" },
+  payCardHeader: { display: "flex", alignItems: "center", gap: 10, marginBottom: 12 },
+  payGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 },
+  payStatCell: { background: C.bg, borderRadius: 10, padding: "10px 12px", display: "flex", flexDirection: "column", gap: 2 },
+  todayBtn: { fontSize: 12, fontWeight: 600, background: C.primary + "18", color: C.primary, border: "1.5px solid " + C.primary + "44", borderRadius: 8, padding: "5px 12px", cursor: "pointer", fontFamily: "inherit" },
+  invoiceBtn: { fontSize: 11, fontWeight: 700, background: "#fff", border: "1.5px solid " + C.primary, color: C.primary, borderRadius: 8, padding: "5px 10px", cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap", flexShrink: 0 },
+  invoicePreview: { background: "#f4f6fb", border: "1px solid " + C.border, borderRadius: 10, padding: "14px", fontSize: 11, lineHeight: 1.7, overflowX: "auto", whiteSpace: "pre-wrap", fontFamily: "monospace", maxHeight: "55dvh", overflowY: "auto" },
+
+  // Employee leave badges
+  noLeaveBadge: { fontSize: 10, fontWeight: 700, background: "#f7727218", color: "#f77", borderRadius: 6, padding: "2px 8px", border: "1px solid #f7727244" },
+  leaveBadge:   { fontSize: 11, fontWeight: 600, background: C.primary + "15", color: C.primary, borderRadius: 6, padding: "2px 8px" },
+  leaveSettingBox: { background: "#f8f4ff", border: "1.5px solid #d0bfff", borderRadius: 10, padding: "12px 14px", marginBottom: 14 },
+  leaveSettingTitle: { margin: "0 0 10px", fontSize: 12, fontWeight: 700, color: "#5a3e9b" },
+  periodBox: { background: "#f8f4ff", border: "1px solid #d6c5f5", borderRadius: 10, padding: "12px 14px", marginTop: 12 },
+  periodTitle: { margin: "0 0 10px", fontSize: 12, fontWeight: 700, color: "#5a3e9b" },
+  periodRow: { display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: 8, marginBottom: 8, borderBottom: "1px solid #ece5ff" },
+  periodLeft: { display: "flex", alignItems: "center", gap: 10 },
+  periodIdx: { width: 20, height: 20, borderRadius: "50%", background: "#7b5ea7", color: "#fff", fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 },
+  periodDates: { margin: 0, fontSize: 11, color: C.text, fontWeight: 500 },
+  periodDays: { margin: "2px 0 0", fontSize: 12, fontWeight: 700, color: "#5a3e9b" },
+  periodRate: { fontSize: 13, fontWeight: 700, color: "#5a3e9b" },
+  periodTotal: { fontSize: 11, color: C.sub, textAlign: "right", marginTop: 4 },
+  rateRow: { display: "flex", gap: 8, alignItems: "flex-start", marginBottom: 10 },
+  addViaBtn2: { fontSize: 11, background: C.primary, color: "#fff", border: "none", borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontFamily: "inherit", fontWeight: 600 },
+};
+
+
+
+// Error boundary
+class ErrorBoundary extends React.Component {
+  constructor(p) { super(p); this.state = { error: null }; }
+  static getDerivedStateFromError(e) { return { error: e }; }
+  render() {
+    if (this.state.error) {
+      return React.createElement('div', {style:{padding:20,color:'red',fontFamily:'monospace',fontSize:12,whiteSpace:'pre-wrap'}},
+        'ERROR: ' + (this.state.error.message || String(this.state.error)) + '\n\n' + (this.state.error.stack || '')
+      );
+    }
+    return this.props.children;
+  }
+}
+
+try {
+  ReactDOM.createRoot(document.getElementById('root')).render(
+    React.createElement(ErrorBoundary, null, React.createElement(App))
+  );
+} catch(e) {
+  document.getElementById('root').innerHTML = '<pre style="color:red;padding:20px;font-size:12px">' + e.message + '\n' + e.stack + '</pre>';
+}
+
 </script>
 </body>
 </html>
