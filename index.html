@@ -10,7 +10,8 @@
 </head>
 <body style="margin:0;padding:0;background:#f4f6fb">
 <div id="root"></div>
-<script type="text/babel" data-presets="react,env">
+<script type="text/babel" data-presets="react,env" data-type="module">
+
 // localStorage polyfill for window.storage API
 if (!window.storage) {
   window.storage = {
@@ -943,6 +944,9 @@ function getWorkTypes(date, hasLeaveAccrual) {
   }
   return types;
 }
+
+</script>
+<script type="text/babel" data-presets="react,env" data-type="module">
 
 function LogForm({ log, userId, users, leaves, isAdmin, onSave, onClose }) {
   // Detect existing workType from saved log
@@ -2165,6 +2169,9 @@ function EditEmpForm({ emp, leaveData, onSave, onClose }) {
   );
 }
 
+</script>
+<script type="text/babel" data-presets="react,env" data-type="module">
+
 function DataBackup({ users, leaves, logs, persist }) {
   const [expanded, setExpanded]         = useState(false);
   const [importText, setImportText]     = useState("");
@@ -2930,6 +2937,8 @@ try {
   document.getElementById('root').innerHTML = '<pre style="color:red;padding:20px;font-size:12px">' + e.message + '\n' + e.stack + '</pre>';
 }
 
+
 </script>
+
 </body>
 </html>
