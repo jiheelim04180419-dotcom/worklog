@@ -2960,7 +2960,7 @@ function runApp() {
     }
     var source = document.getElementById('app-source').textContent;
     var result = Babel.transform(source, {
-      presets: [['react'], ['env', {targets: {browsers: ['last 2 versions']}}]],
+      presets: ['react'],
       filename: 'app.jsx'
     });
     eval(result.code);
