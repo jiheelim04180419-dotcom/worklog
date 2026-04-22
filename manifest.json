@@ -1,0 +1,20 @@
+{
+  "name": "K&M Tiling Bathurst",
+  "short_name": "K&M",
+  "start_url": "/worklog/",
+  "display": "standalone",
+  "background_color": "#f4f6fb",
+  "theme_color": "#3b7ff5",
+  "icons": [
+    {
+      "src": "icon.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon.png", 
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
