@@ -2873,19 +2873,23 @@ const styles = {
 ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
 </script>
 <script>
+function showError(msg) {
+  document.getElementById('loading').innerHTML = '<pre style="color:red;padding:20px;font-size:11px;white-space:pre-wrap;max-width:100%;overflow:auto">오류: ' + msg + '</pre>';
+}
 function runApp() {
   try {
     if (typeof Babel === 'undefined') { setTimeout(runApp, 100); return; }
+    if (typeof React === 'undefined')  { showError('React not loaded'); return; }
     var source = document.getElementById('app-source').textContent;
     var result = Babel.transform(source, { presets: ['react'], filename: 'app.jsx' });
-    eval(result.code);
+    (0, eval)(result.code);
     document.getElementById('loading').style.display = 'none';
     document.getElementById('root').style.display = 'block';
   } catch(e) {
-    document.getElementById('loading').innerHTML = '<pre style="color:red;padding:20px;font-size:11px;white-space:pre-wrap;max-width:100%;overflow:auto">오류: ' + e.message + '\n\n' + (e.stack||'') + '</pre>';
+    showError(e.message + '\n\n' + (e.stack||''));
   }
 }
-document.addEventListener('DOMContentLoaded', function() { setTimeout(runApp, 500); });
+document.addEventListener('DOMContentLoaded', function() { setTimeout(runApp, 800); });
 </script>
 </body>
 </html>
