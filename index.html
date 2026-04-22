@@ -15,7 +15,6 @@
 </div>
 <div id="root" style="display:none"></div>
 <script id="src" type="text/plain">
-// localStorage polyfill for window.storage
 if (!window.storage) {
   window.storage = {
     get: function(k) { return Promise.resolve(localStorage.getItem(k) ? {value: localStorage.getItem(k)} : null); },
@@ -73,6 +72,26 @@ async function sessionRemove() { lsDel("wm_session"); }
 async function legacyGet(key) {
   try { const r = await window.storage.get(key); return r ? JSON.parse(r.value) : null; } catch { return null; }
 }
+
+// ─── Company seed data ────────────────────────────────────────────────────
+const SEED_COMPANIES = [
+  {
+    id: "co1",
+    name: "K&M Tiling Bathurst Pty Ltd",
+    address: "10/51 Hampden Park Rd, Kelso NSW 2795",
+    email: "accounts@knmtilingbathurst.com",
+    abn: "",
+    phone: "",
+  },
+  {
+    id: "co2",
+    name: "회사 2",
+    address: "",
+    email: "",
+    abn: "",
+    phone: "",
+  },
+];
 
 // ─── Initial seed data ─────────────────────────────────────────────────────
 const SEED_USERS = [
@@ -458,12 +477,14 @@ function LoginScreen({ users, onLogin }) {
 // ─── Bottom Nav ────────────────────────────────────────────────────────────
 function BottomNav({ tab, setTab, isAdmin, userHasLeave }) {
   const Icon_payroll = <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="20" height="20"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>;
+  const Icon_company = <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="20" height="20"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>;
   const items = [
     { key: "home",    label: "홈",      icon: Icon.home },
     { key: "log",     label: "근무일지", icon: Icon.log },
     ...(userHasLeave ? [{ key: "leave", label: "연차", icon: Icon.leave }] : []),
     { key: "payroll", label: "급여",    icon: Icon_payroll },
-    ...(isAdmin ? [{ key: "team", label: "직원관리", icon: Icon.team }] : []),
+    ...(isAdmin ? [{ key: "team",    label: "직원관리", icon: Icon.team }] : []),
+    ...(isAdmin ? [{ key: "company", label: "회사",    icon: Icon_company }] : []),
   ];
   return (
     <nav style={styles.nav}>
@@ -1705,7 +1726,7 @@ function LeaveEditForm({ targetId, users, leaves, onSave, onClose }) {
 }
 
 // ─── Team Tab (Admin only) ─────────────────────────────────────────────────
-function TeamTab({ users, leaves, logs, persist, isSuperAdmin }) {
+function TeamTab({ users, leaves, logs, persist, isSuperAdmin, companies }) {
   const [showAdd, setShowAdd]     = useState(false);
   const [editEmp, setEditEmp]     = useState(null);
   const [confirmId, setConfirmId] = useState(null);
@@ -1744,6 +1765,19 @@ function TeamTab({ users, leaves, logs, persist, isSuperAdmin }) {
                       </span>
                   }
                 </div>
+                {/* Work history summary */}
+                {lv.workHistory && lv.workHistory.length > 0 && (
+                  <div style={{ marginTop: 4 }}>
+                    {lv.workHistory.map((wh, i) => {
+                      const co = companies && companies.find(c => c.id === wh.companyId);
+                      return (
+                        <p key={i} style={{ margin: "1px 0", fontSize: 10, color: C.sub }}>
+                          🏢 {co ? co.name : wh.companyId} {wh.from}{wh.to ? " ~ " + wh.to : " ~ 재직중"}
+                        </p>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
             <div style={{ display: "flex", gap: 4, flexShrink: 0, alignItems: "center" }}>
@@ -1773,6 +1807,7 @@ function TeamTab({ users, leaves, logs, persist, isSuperAdmin }) {
         <EditEmpForm
           emp={editEmp}
           leaveData={normLeave(leaves[editEmp.id], editEmp.joinDate)}
+          companies={companies}
           onSave={saveEmp}
           onClose={() => setEditEmp(null)}
         />
@@ -1906,24 +1941,46 @@ function AddEmpForm({ onSave, onClose }) {
   );
 }
 
-function EditEmpForm({ emp, leaveData, onSave, onClose }) {
+function EditEmpForm({ emp, leaveData, onSave, onClose, companies }) {
   const [form, setForm]                     = useState({ name: emp.name, dept: emp.dept, joinDate: emp.joinDate, pw: emp.pw || "" });
   const [noLeave, setNoLeave]               = useState(!!leaveData.noLeave);
   const [leaveStartDate, setLeaveStartDate] = useState(leaveData.leaveStartDate || emp.joinDate);
-  const [ci, setCi] = useState(leaveData.contractorInfo || {
+  const [ci, setCi]                         = useState(leaveData.contractorInfo || {
     nameEn: "", address: "", phone: "", abn: "", email: "",
     dailyRate: "", workDesc: "Wall and Floor Tiling",
     invoiceNum: 10001,
+    selectedCompanyId: (companies && companies[0]) ? companies[0].id : "",
     billToName: "", billToAddress: "", billToEmail: "",
   });
+  // Work history: [{companyId, from, to}]
+  const [workHistory, setWorkHistory] = useState(leaveData.workHistory || []);
+
   const set  = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const setC = (k, v) => setCi(c => ({ ...c, [k]: v }));
+
+  // Auto-fill billTo when company selected
+  const selectCompany = (companyId) => {
+    const co = companies && companies.find(c => c.id === companyId);
+    setC("selectedCompanyId", companyId);
+    if (co) {
+      setC("billToName", co.name);
+      setC("billToAddress", co.address);
+      setC("billToEmail", co.email);
+    }
+  };
+
+  const addWorkHistory = () => {
+    setWorkHistory(h => [...h, { companyId: (companies && companies[0]) ? companies[0].id : "", from: today, to: "" }]);
+  };
+  const setWH = (i, k, v) => setWorkHistory(h => h.map((r, idx) => idx === i ? { ...r, [k]: v } : r));
+  const delWH = (i) => setWorkHistory(h => h.filter((_, idx) => idx !== i));
 
   const submit = () => {
     if (!form.name.trim()) return;
     const startDate = noLeave ? null : leaveStartDate;
     const newLeave = { ...leaveData, leaveStartDate: startDate, noLeave,
-      contractorInfo: noLeave ? ci : undefined,
+      contractorInfo: noLeave ? { ...ci } : undefined,
+      workHistory,
       rateHistory: startDate
         ? (leaveData.rateHistory && leaveData.rateHistory.length ? leaveData.rateHistory : [{ from: startDate, dailyRate: 0 }])
         : [] };
@@ -1964,35 +2021,80 @@ function EditEmpForm({ emp, leaveData, onSave, onClose }) {
         {noLeave && (
           <div style={{ ...styles.leaveSettingBox, borderColor: "#c5d8ff", background: "#f0f5ff", marginBottom: 14 }}>
             <p style={{ ...styles.leaveSettingTitle, color: C.primary }}>📄 인보이스 정보</p>
+
+            {/* Company selector - auto fills billTo */}
+            {companies && companies.length > 0 && (
+              <div style={styles.field}>
+                <label style={styles.label}>청구 회사 선택</label>
+                <select style={styles.input} value={ci.selectedCompanyId || ""} onChange={e => selectCompany(e.target.value)}>
+                  <option value="">직접 입력</option>
+                  {companies.map(co => <option key={co.id} value={co.id}>{co.name || "회사 " + (companies.indexOf(co)+1)}</option>)}
+                </select>
+              </div>
+            )}
+
             {[["nameEn","인보이스 표시 이름 (영문)","SEYEONG IM"],["address","주소","77 Magnolia Blvd, Dubbo NSW 2830"],["phone","전화번호","0422 924 607"],["abn","ABN","6010 6252 816"],["email","본인 이메일","lay824255@gmail.com"]].map(([k,l,ph]) => (
               <div key={k} style={styles.field}>
                 <label style={styles.label}>{l}</label>
-                <input style={styles.input} value={ci[k]} onChange={e => setC(k, e.target.value)} placeholder={ph} />
+                <input style={styles.input} value={ci[k] || ""} onChange={e => setC(k, e.target.value)} placeholder={ph} />
               </div>
             ))}
             <div style={styles.row2}>
               <div style={{ ...styles.field, flex: 1 }}>
                 <label style={styles.label}>일당 ($)</label>
-                <input type="number" style={styles.input} value={ci.dailyRate} onChange={e => setC("dailyRate", e.target.value)} placeholder="350" min={0} />
+                <input type="number" style={styles.input} value={ci.dailyRate || ""} onChange={e => setC("dailyRate", e.target.value)} placeholder="350" min={0} />
               </div>
               <div style={{ ...styles.field, flex: 1 }}>
                 <label style={styles.label}>인보이스 번호</label>
-                <input type="number" style={styles.input} value={ci.invoiceNum} onChange={e => setC("invoiceNum", e.target.value)} placeholder="10001" min={1} />
+                <input type="number" style={styles.input} value={ci.invoiceNum || ""} onChange={e => setC("invoiceNum", e.target.value)} placeholder="10001" min={1} />
               </div>
             </div>
             <div style={styles.field}>
               <label style={styles.label}>업무 내용 (영문)</label>
-              <input style={styles.input} value={ci.workDesc} onChange={e => setC("workDesc", e.target.value)} placeholder="Wall and Floor Tiling" />
+              <input style={styles.input} value={ci.workDesc || ""} onChange={e => setC("workDesc", e.target.value)} placeholder="Wall and Floor Tiling" />
             </div>
-            <p style={{ ...styles.leaveSettingTitle, color: C.primary, marginTop: 4 }}>🏢 Bill To (청구처)</p>
+            <p style={{ ...styles.leaveSettingTitle, color: C.primary, marginTop: 4 }}>🏢 Bill To (자동입력 또는 직접수정)</p>
             {[["billToName","회사명","K&M Tiling Bathurst Pty Ltd"],["billToAddress","주소","10/51 Hampden Park Rd, Kelso NSW 2795"],["billToEmail","이메일","accounts@example.com"]].map(([k,l,ph]) => (
               <div key={k} style={styles.field}>
                 <label style={styles.label}>{l}</label>
-                <input style={styles.input} value={ci[k]} onChange={e => setC(k, e.target.value)} placeholder={ph} />
+                <input style={styles.input} value={ci[k] || ""} onChange={e => setC(k, e.target.value)} placeholder={ph} />
               </div>
             ))}
           </div>
         )}
+
+        {/* Work History */}
+        <div style={{ ...styles.leaveSettingBox, borderColor: "#e0d6ff", background: "#f8f4ff", marginBottom: 14 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <p style={{ ...styles.leaveSettingTitle, color: "#5a3e9b", margin: 0 }}>🏢 근무 회사 이력</p>
+            <button style={{ ...styles.btnAdd, fontSize: 11, padding: "4px 10px" }} onClick={addWorkHistory}>+ 추가</button>
+          </div>
+          {workHistory.length === 0 && <p style={{ fontSize: 11, color: C.sub }}>회사 이력을 추가해주세요</p>}
+          {workHistory.map((wh, i) => (
+            <div key={i} style={{ background: "#fff", borderRadius: 8, padding: "8px 10px", marginBottom: 6, border: "1px solid #e0d6ff" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: "#5a3e9b" }}>이력 {i+1}</span>
+                <button style={{ ...styles.iconBtn, color: "#f77" }} onClick={() => delWH(i)}>{Icon.trash}</button>
+              </div>
+              <div style={styles.field}>
+                <label style={styles.label}>회사</label>
+                <select style={styles.input} value={wh.companyId || ""} onChange={e => setWH(i, "companyId", e.target.value)}>
+                  {companies && companies.map(co => <option key={co.id} value={co.id}>{co.name || "회사 " + (companies.indexOf(co)+1)}</option>)}
+                </select>
+              </div>
+              <div style={styles.row2}>
+                <div style={{ ...styles.field, flex: 1 }}>
+                  <label style={styles.label}>시작일</label>
+                  <input type="date" style={styles.input} value={wh.from || ""} onChange={e => setWH(i, "from", e.target.value)} />
+                </div>
+                <div style={{ ...styles.field, flex: 1 }}>
+                  <label style={styles.label}>종료일 (재직중이면 공백)</label>
+                  <input type="date" style={styles.input} value={wh.to || ""} onChange={e => setWH(i, "to", e.target.value)} />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
 
         <div style={styles.modalFooter}>
           <button style={styles.btnSecondary} onClick={onClose}>취소</button>
@@ -2478,6 +2580,62 @@ function PayStat({ emoji, label, val, color, logs = [], renderDetail }) {
   );
 }
 
+// ─── Company Tab ──────────────────────────────────────────────────────────
+function CompanyTab({ companies, persist }) {
+  const [editIdx, setEditIdx] = useState(null);
+  const [form, setForm]       = useState(null);
+
+  const startEdit = (i) => { setEditIdx(i); setForm({ ...companies[i] }); };
+  const save = () => {
+    const next = companies.map((c, i) => i === editIdx ? form : c);
+    persist(null, null, null, next);
+    setEditIdx(null);
+  };
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  return (
+    <div style={styles.page}>
+      <div style={styles.pageHeader}>
+        <h2 style={styles.pageTitle}>🏢 회사 정보</h2>
+      </div>
+      <p style={{ fontSize: 12, color: C.sub, marginBottom: 16 }}>
+        인보이스 발행 시 자동으로 청구처(Bill To)에 입력돼요.
+      </p>
+
+      {companies.map((co, i) => (
+        <div key={co.id} style={styles.payCard}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+            <p style={{ margin: 0, fontWeight: 700, fontSize: 15, color: C.text }}>회사 {i + 1}</p>
+            <button style={styles.iconBtn} onClick={() => startEdit(i)}>{Icon.edit}</button>
+          </div>
+          {editIdx === i ? (
+            <div>
+              {[["name","회사명"],["address","주소"],["email","이메일"],["abn","ABN"],["phone","전화번호"]].map(([k,l]) => (
+                <div key={k} style={styles.field}>
+                  <label style={styles.label}>{l}</label>
+                  <input style={styles.input} value={form[k] || ""} onChange={e => set(k, e.target.value)} />
+                </div>
+              ))}
+              <div style={styles.modalFooter}>
+                <button style={styles.btnSecondary} onClick={() => setEditIdx(null)}>취소</button>
+                <button style={styles.btnPrimary} onClick={save}>저장</button>
+              </div>
+            </div>
+          ) : (
+            <div style={{ fontSize: 13, color: C.text, lineHeight: 1.8 }}>
+              <p style={{ margin: 0, fontWeight: 600 }}>{co.name || <span style={{ color: "#aaa" }}>미설정</span>}</p>
+              {co.address && <p style={{ margin: 0, color: C.sub }}>{co.address}</p>}
+              {co.email   && <p style={{ margin: 0, color: C.sub }}>{co.email}</p>}
+              {co.abn     && <p style={{ margin: 0, color: C.sub }}>ABN: {co.abn}</p>}
+              {co.phone   && <p style={{ margin: 0, color: C.sub }}>전화: {co.phone}</p>}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function EmptyState({ msg }) {
   return <div style={styles.empty}><p style={{ margin: 0, color: "#aaa" }}>📭 {msg}</p></div>;
 }
@@ -2743,38 +2901,26 @@ const styles = {
   rateRow: { display: "flex", gap: 8, alignItems: "flex-start", marginBottom: 10 },
   addViaBtn2: { fontSize: 11, background: C.primary, color: "#fff", border: "none", borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontFamily: "inherit", fontWeight: 600 },
 };
-
-class ErrorBoundary extends React.Component {
-  constructor(p) { super(p); this.state = { err: null }; }
-  static getDerivedStateFromError(e) { return { err: e }; }
-  render() {
-    if (this.state.err) {
-      return React.createElement("pre", {
-        style: { color:"red", padding:"20px", fontSize:"11px", whiteSpace:"pre-wrap", fontFamily:"monospace" }
-      }, "렌더 오류: " + this.state.err.message + "\n" + (this.state.err.stack||""));
-    }
-    return this.props.children;
-  }
-}
 function App() {
-  const [ready, setReady]   = useState(false);
-  const [session, setSession] = useState(null);
-  const [users, setUsers]   = useState(SEED_USERS);
-  const [logs, setLogs]     = useState([]);
-  const [leaves, setLeaves] = useState(SEED_LEAVES);
-  const [tab, setTab]       = useState("home");
+  const [ready, setReady]       = useState(false);
+  const [session, setSession]   = useState(null);
+  const [users, setUsers]       = useState(SEED_USERS);
+  const [logs, setLogs]         = useState([]);
+  const [leaves, setLeaves]     = useState(SEED_LEAVES);
+  const [companies, setCompanies] = useState(SEED_COMPANIES);
+  const [tab, setTab]           = useState("home");
 
-  // Load all data from persistent storage on mount
   const [fbConfigured, setFbConfigured] = useState(false);
   const pollRef = useRef(null);
 
   const loadFromFb = async () => {
-    const [u, l, lv] = await Promise.all([
-      fbGet("users"), fbGet("logs"), fbGet("leaves"),
+    const [u, l, lv, co] = await Promise.all([
+      fbGet("users"), fbGet("logs"), fbGet("leaves"), fbGet("companies"),
     ]);
-    if (u) setUsers(Object.values(u).length ? Object.values(u) : u);
-    if (l) setLogs(Array.isArray(l) ? l : Object.values(l));
+    if (u)  setUsers(Array.isArray(u) ? u : Object.values(u));
+    if (l)  setLogs(Array.isArray(l) ? l : Object.values(l));
     if (lv) setLeaves(lv);
+    if (co) setCompanies(Array.isArray(co) ? co : Object.values(co));
     return !!(u || l || lv);
   };
 
@@ -2785,10 +2931,8 @@ function App() {
         _fbUrl = fbUrl;
         setFbConfigured(true);
         await loadFromFb();
-        // Poll every 30s for real-time feel
         pollRef.current = setInterval(loadFromFb, 30000);
       } else {
-        // No Firebase — load from legacy window.storage / local fallback
         const u  = await legacyGet("wm_users")  || SEED_USERS;
         const l  = await legacyGet("wm_logs")   || [];
         const lv = await legacyGet("wm_leaves") || SEED_LEAVES;
@@ -2800,18 +2944,20 @@ function App() {
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, []);
 
-  const saveFb = useCallback(async (u, l, lv) => {
+  const saveFb = useCallback(async (u, l, lv, co) => {
     const base = _fbUrl || getFbUrl();
     if (!base) return;
-    if (u)  fbSet("users",  u);
-    if (l)  fbSet("logs",   l);
-    if (lv) fbSet("leaves", lv);
+    if (u)  fbSet("users",    u);
+    if (l)  fbSet("logs",     l);
+    if (lv) fbSet("leaves",   lv);
+    if (co) fbSet("companies", co);
   }, []);
 
-  const persist = useCallback(async (u, l, lv) => {
-    if (u)  { setUsers(u);  saveFb(u, null, null); }
-    if (l)  { setLogs(l);   saveFb(null, l, null); }
-    if (lv) { setLeaves(lv); saveFb(null, null, lv); }
+  const persist = useCallback(async (u, l, lv, co) => {
+    if (u)  { setUsers(u);      saveFb(u, null, null, null); }
+    if (l)  { setLogs(l);       saveFb(null, l, null, null); }
+    if (lv) { setLeaves(lv);    saveFb(null, null, lv, null); }
+    if (co) { setCompanies(co); saveFb(null, null, null, co); }
   }, [saveFb]);
 
   const updateLeaveUsage = useCallback((userId, joinDate, records) => {
@@ -2874,13 +3020,26 @@ function App() {
       <div style={styles.content}>
         {tab === "home" && <HomeTab user={currentUser} users={users} logs={logs} leaves={leaves} isAdmin={isAdmin} />}
         {tab === "log" && <LogTab user={currentUser} users={users} logs={logs} leaves={leaves} isAdmin={isAdmin} persist={persist} />}
-        {tab === "leave" && <LeaveTab user={currentUser} users={users} leaves={leaves} isAdmin={isAdmin} persist={persist} updateLeaveUsage={updateLeaveUsage} />}
-        {isAdmin && tab === "team" && <TeamTab users={users} leaves={leaves} logs={logs} persist={persist} isSuperAdmin={isSuperAdmin} />}
-        {tab === "payroll" && <PayrollTab user={currentUser} users={users} logs={logs} leaves={leaves} isAdmin={isAdmin} persist={persist} />}
+        {tab === "leave"   && <LeaveTab user={currentUser} users={users} leaves={leaves} isAdmin={isAdmin} persist={persist} updateLeaveUsage={updateLeaveUsage} />}
+        {isAdmin && tab === "team" && <TeamTab users={users} leaves={leaves} logs={logs} persist={persist} isSuperAdmin={isSuperAdmin} companies={companies} />}
+        {tab === "payroll" && <PayrollTab user={currentUser} users={users} logs={logs} leaves={leaves} isAdmin={isAdmin} persist={persist} companies={companies} />}
+        {isSuperAdmin && tab === "company" && <CompanyTab companies={companies} persist={persist} />}
       </div>
       <BottomNav tab={tab} setTab={setTab} isAdmin={isAdmin} userHasLeave={isAdmin || !normLeave(leaves[currentUser.id], currentUser.joinDate).noLeave} />
     </div>
   );
+}
+
+class ErrorBoundary extends React.Component {
+  constructor(p) { super(p); this.state = { err: null }; }
+  static getDerivedStateFromError(e) { return { err: e }; }
+  render() {
+    if (this.state.err) {
+      return React.createElement("pre", {style:{color:"red",padding:"20px",fontSize:"11px",whiteSpace:"pre-wrap",fontFamily:"monospace"}},
+        "렌더 오류: " + this.state.err.message + "\n" + (this.state.err.stack||""));
+    }
+    return this.props.children;
+  }
 }
 ReactDOM.createRoot(document.getElementById("root")).render(
   React.createElement(ErrorBoundary, null, React.createElement(App))
@@ -2890,11 +3049,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
 var attempts = 0;
 function runApp() {
   attempts++;
-  if (attempts > 30) {
-    document.getElementById("loadmsg").style.color = "red";
-    document.getElementById("loadmsg").textContent = "로딩 실패 - 새로고침 해주세요";
-    return;
-  }
+  if (attempts > 30) { document.getElementById("loadmsg").style.color="red"; document.getElementById("loadmsg").textContent="로딩 실패 - 새로고침 해주세요"; return; }
   if (typeof Babel === "undefined") { setTimeout(runApp, 1000); return; }
   try {
     var src = document.getElementById("src").textContent;
