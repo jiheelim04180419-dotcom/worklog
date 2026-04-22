@@ -909,7 +909,7 @@ function OsrmLegBox({ from, to, autoKm, overrideVal, onOverride, onReset }) {
 }
 
 function GeocodeLegBox({ fromName, toName, overrideVal, onOverride, onReset }) {
-  const ref = React.useRef(null);
+  const ref = useRef(null);
   const mapsUrl = fromName && toName
     ? `https://www.google.com/maps/dir/${encodeURIComponent(fromName + ", NSW")}/${encodeURIComponent(toName + ", NSW")}`
     : null;
@@ -930,7 +930,7 @@ function GeocodeLegBox({ fromName, toName, overrideVal, onOverride, onReset }) {
           defaultValue={overrideVal || ""}
           placeholder="km 입력"
           onBlur={e => { if (e.target.value) onOverride(e.target.value); }}
-          onKeyDown={e => { if (e.key === "Enter" && ref.(current && current.value)) onOverride(ref.current.value); }}
+          onKeyDown={e => { if (e.key === "Enter" && ref.current && ref.current.value) onOverride(ref.current.value); }}
         />
         <span style={{ fontSize: 11, color: C.sub, whiteSpace: "nowrap" }}>km</span>
         {overrideVal !== undefined && <button style={styles.legKmReset} onClick={() => { if (ref.current) ref.current.value = ""; onReset(); }}>↺</button>}
@@ -1774,7 +1774,7 @@ function LeaveEditForm({ targetId, users, leaves, onSave, onClose }) {
       selId: id,
       leaveStartDate: lv.leaveStartDate || (u && u.joinDate) || today,
       usedDays: +(lv.usedDays) || 0,
-      rateHistory: lv.(rateHistory && rateHistory.length) ? lv.rateHistory : [{ from: lv.leaveStartDate || (u && u.joinDate) || today, dailyRate: 0 }],
+      rateHistory: lv.rateHistory && lv.rateHistory.length ? lv.rateHistory : [{ from: lv.leaveStartDate || (u && u.joinDate) || today, dailyRate: 0 }],
     };
   };
 
@@ -2519,7 +2519,7 @@ ${contactEmail?`<p style="text-align:center;margin-top:20px;font-size:10px;color
   };
 
   const html    = buildHTML();
-  const iframeRef = React.useRef(null);
+  const iframeRef = useRef(null);
 
   const splitAddr = (addr) => addr ? addr.split(",").map(l => l.trim()).filter(Boolean) : [];
 
@@ -2952,21 +2952,26 @@ try {
 
 </script>
 <script>
-// Manually transform and execute after Babel is loaded
-window.addEventListener('load', function() {
+function runApp() {
   try {
+    if (typeof Babel === 'undefined') {
+      setTimeout(runApp, 100);
+      return;
+    }
     var source = document.getElementById('app-source').textContent;
     var result = Babel.transform(source, {
-      presets: ['react', 'env'],
+      presets: [['react'], ['env', {targets: {browsers: ['last 2 versions']}}]],
       filename: 'app.jsx'
     });
-    var fn = new Function(result.code);
-    fn();
+    eval(result.code);
     document.getElementById('loading').style.display = 'none';
     document.getElementById('root').style.display = 'block';
   } catch(e) {
-    document.getElementById('loading').innerHTML = '<pre style="color:red;padding:20px;font-size:11px;white-space:pre-wrap;max-width:100%">오류: ' + e.message + '</pre>';
+    document.getElementById('loading').innerHTML = '<pre style="color:red;padding:20px;font-size:11px;white-space:pre-wrap;max-width:100%">오류: ' + e.message + '\n\n' + (e.stack||'') + '</pre>';
   }
+}
+document.addEventListener('DOMContentLoaded', function() {
+  setTimeout(runApp, 500);
 });
 </script>
 
