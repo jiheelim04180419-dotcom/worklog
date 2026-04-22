@@ -9,8 +9,20 @@
 <script src="https://unpkg.com/@babel/standalone@7.23.9/babel.min.js"></script>
 </head>
 <body style="margin:0;padding:0;background:#f4f6fb">
-<div id="root"></div>
-<script type="text/babel" data-presets="react,env" data-type="module">
+
+<div id="loading" style="display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:16px;background:#f4f6fb;font-family:sans-serif">
+  <div style="font-size:40px">📋</div>
+  <p style="color:#3b7ff5;font-weight:700;font-size:16px">WorkLog 로딩 중...</p>
+  <p style="color:#aaa;font-size:12px">처음 로딩은 10-20초 걸릴 수 있어요</p>
+</div>
+<div id="root" style="display:none"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7.23.9/babel.min.js"></script>
+<script id="app-source" type="text/plain">
+
+
+
 
 // localStorage polyfill for window.storage API
 if (!window.storage) {
@@ -945,8 +957,7 @@ function getWorkTypes(date, hasLeaveAccrual) {
   return types;
 }
 
-</script>
-<script type="text/babel" data-presets="react,env" data-type="module">
+
 
 function LogForm({ log, userId, users, leaves, isAdmin, onSave, onClose }) {
   // Detect existing workType from saved log
@@ -2169,8 +2180,7 @@ function EditEmpForm({ emp, leaveData, onSave, onClose }) {
   );
 }
 
-</script>
-<script type="text/babel" data-presets="react,env" data-type="module">
+
 
 function DataBackup({ users, leaves, logs, persist }) {
   const [expanded, setExpanded]         = useState(false);
@@ -2938,7 +2948,29 @@ try {
 }
 
 
+
+
 </script>
+<script>
+// Manually transform and execute after Babel is loaded
+window.addEventListener('load', function() {
+  try {
+    var source = document.getElementById('app-source').textContent;
+    var result = Babel.transform(source, {
+      presets: ['react', 'env'],
+      filename: 'app.jsx'
+    });
+    var fn = new Function(result.code);
+    fn();
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('root').style.display = 'block';
+  } catch(e) {
+    document.getElementById('loading').innerHTML = '<pre style="color:red;padding:20px;font-size:11px;white-space:pre-wrap;max-width:100%">오류: ' + e.message + '</pre>';
+  }
+});
+</script>
+
+
 
 </body>
 </html>
