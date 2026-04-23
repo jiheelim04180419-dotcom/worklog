@@ -2126,30 +2126,19 @@ function EditEmpForm({ emp, leaveData, onSave, onClose, companies }) {
   const setWH = (i, k, v) => setWorkHistory(h => h.map((r, idx) => idx === i ? { ...r, [k]: v } : r));
   const delWH = (i) => setWorkHistory(h => h.filter((_, idx) => idx !== i));
 
-  // Rate history for ALL employees
-  const [contractorRates, setContractorRates] = useState(
-    leaveData.contractorRateHistory || leaveData.rateHistory || []
-  );
-  const addRate    = () => setContractorRates(r => [...r, { from: today, dailyRate: "" }]);
-  const setRate    = (i, k, v) => setContractorRates(r => r.map((x, idx) => idx === i ? { ...x, [k]: v } : x));
-  const removeRate = (i) => setContractorRates(r => r.filter((_, idx) => idx !== i));
-
   const submit = () => {
     if (!form.name.trim()) return;
     const startDate = noLeave ? null : leaveStartDate;
-    // For noLeave employees, also save rateHistory using contractorRates
     const newLeave = {
       ...leaveData,
       leaveStartDate: startDate,
       noLeave,
       contractorInfo: noLeave ? { ...ci } : undefined,
-      contractorRateHistory: contractorRates,
       workHistory,
-      rateHistory: startDate
-        ? (leaveData.rateHistory && leaveData.rateHistory.length ? leaveData.rateHistory : [{ from: startDate, dailyRate: 0 }])
-        : [],
+      rateHistory: noLeave ? [] : (leaveData.rateHistory && leaveData.rateHistory.length > 0 ? leaveData.rateHistory : (startDate ? [{ from: startDate, dailyRate: 0 }] : [])),
+      contractorRateHistory: noLeave ? (leaveData.contractorRateHistory || []) : undefined,
     };
-    onSave({ ...emp, ...form, visa, role }, newLeave);
+    onSave({ ...emp, ...form, role }, newLeave);
   };
 
   return (
@@ -2258,31 +2247,6 @@ function EditEmpForm({ emp, leaveData, onSave, onClose, companies }) {
           </div>
         )}
 
-
-        {/* 일급 변동 이력 - ALL employees */}
-        <div style={{ ...styles.leaveSettingBox, borderColor: "#ffd699", background: "#fff8f0", marginBottom: 14 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-            <p style={{ ...styles.leaveSettingTitle, color: "#a05c00", margin: 0 }}>💰 일급 변동 이력</p>
-            <button style={{ ...styles.btnAdd, fontSize: 11, padding: "4px 10px", background: "#ffd699", color: "#a05c00", border: "none" }} onClick={addRate}>+ 추가</button>
-          </div>
-          <p style={{ fontSize: 11, color: C.sub, marginBottom: 8 }}>일급이 변경될 때마다 날짜와 금액을 추가하세요</p>
-          {contractorRates.length === 0 && <p style={{ fontSize: 11, color: "#aaa" }}>아직 없음 — + 추가 버튼으로 입력하세요</p>}
-          {contractorRates.map((r, i) => (
-            <div key={i} style={styles.row2}>
-              <div style={{ ...styles.field, flex: 1 }}>
-                <label style={styles.label}>{i === 0 ? "최초 시작일" : "변경일"}</label>
-                <input type="date" style={styles.input} value={r.from || ""} onChange={e => setRate(i, "from", e.target.value)} />
-              </div>
-              <div style={{ ...styles.field, flex: 1 }}>
-                <label style={styles.label}>일당 ($)</label>
-                <div style={{ display: "flex", gap: 4 }}>
-                  <input type="number" style={{ ...styles.input, flex: 1 }} value={r.dailyRate || ""} onChange={e => setRate(i, "dailyRate", e.target.value)} placeholder="350" min={0} />
-                  {i > 0 && <button style={{ ...styles.iconBtn, color: "#f77" }} onClick={() => removeRate(i)}>{Icon.trash}</button>}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
 
         {/* Work History */}
         <div style={{ ...styles.leaveSettingBox, borderColor: "#e0d6ff", background: "#f8f4ff", marginBottom: 14 }}>
