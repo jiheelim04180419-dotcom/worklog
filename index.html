@@ -2831,11 +2831,11 @@ function RateTab({ users, leaves, persist, isSuperAdmin }) {
       <p style={{ fontSize: 12, color: C.sub, marginBottom: 16 }}>직원별 일급 변동 이력을 관리해요. 일급이 바뀌면 그 날짜부터 연차 계산이 따로 나뉘어요.</p>
 
       {emps.map(u => {
-        const lv = leaves[u.id] || {};
+        const lv = normLeave(leaves[u.id] || {}, u.joinDate);
         const isContractor = lv.noLeave;
         const rates = isContractor
           ? (lv.contractorRateHistory || []).slice().sort((a,b) => (a.from||"") < (b.from||"") ? -1 : 1)
-          : (lv.rateHistory || []).slice().sort((a,b) => (a.from||"") < (b.from||"") ? -1 : 1);
+          : (lv.rateHistory || []).filter(r => r.dailyRate && +r.dailyRate > 0).slice().sort((a,b) => (a.from||"") < (b.from||"") ? -1 : 1);
 
         return (
           <RateCard
@@ -2853,8 +2853,9 @@ function RateTab({ users, leaves, persist, isSuperAdmin }) {
 }
 
 function RateCard({ user, rates, isContractor, isSuperAdmin, onSave }) {
-  const [editing, setEditing] = useState(false);
-  const [localRates, setLocalRates] = useState(rates);
+  const initRates = rates.length > 0 ? rates : [{ from: user.joinDate || today, dailyRate: "" }];
+  const [editing, setEditing]       = useState(false);
+  const [localRates, setLocalRates] = useState(initRates);
 
   const add    = () => setLocalRates(r => [...r, { from: today, dailyRate: "" }]);
   const setR   = (i, k, v) => setLocalRates(r => r.map((x, idx) => idx === i ? { ...x, [k]: v } : x));
@@ -2877,7 +2878,7 @@ function RateCard({ user, rates, isContractor, isSuperAdmin, onSave }) {
           </div>
         </div>
         {isSuperAdmin && !editing && (
-          <button style={styles.iconBtn} onClick={() => { setLocalRates(rates); setEditing(true); }}>{Icon.edit}</button>
+          <button style={styles.iconBtn} onClick={() => { setLocalRates(rates.length > 0 ? rates : [{ from: user.joinDate || today, dailyRate: "" }]); setEditing(true); }}>{Icon.edit}</button>
         )}
       </div>
 
