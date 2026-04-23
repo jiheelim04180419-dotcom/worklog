@@ -310,19 +310,22 @@ function leaveYearLabel(leaveStartDate) {
 // For ADMIN: how many days/hours have accrued under each rate period UP TO TODAY
 function getAccruedByPeriod(leaveStartDate, rateHistory) {
   const yr = getCurrentLeaveYear(leaveStartDate);
-  if (!yr || !rateHistory || rateHistory.length < 2) return [];
+  if (!yr || !rateHistory || rateHistory.length === 0) return [];
   const { start, end } = yr;
   const yearTotalMs = end - start;
   const now = new Date();
 
-  const sorted = [...rateHistory]
-    .sort((a, b) => a.from.localeCompare(b.from))
+  const validRates = rateHistory.filter(r => r.dailyRate && +r.dailyRate > 0);
+  if (validRates.length === 0) return [];
+
+  const sorted = [...validRates]
+    .sort((a, b) => (a.from||"").localeCompare(b.from||""))
     .filter((r, i, arr) => {
       const rEnd = i < arr.length - 1 ? new Date(arr[i+1].from + "T00:00:00") : end;
       return new Date(r.from + "T00:00:00") < end && rEnd > start;
     });
 
-  if (sorted.length < 2) return [];
+  if (sorted.length === 0) return [];
 
   return sorted.map((r, i) => {
     const pStart = new Date(Math.max(+new Date(r.from + "T00:00:00"), +start));
@@ -331,7 +334,6 @@ function getAccruedByPeriod(leaveStartDate, rateHistory) {
       : end;
     if (+pEnd <= +pStart) return null;
 
-    // Elapsed portion of this period up to today
     const todayCap     = now < pEnd ? now : pEnd;
     const elapsedMs    = Math.max(0, +todayCap - +pStart);
     const totalPeriodMs = +pEnd - +pStart;
@@ -1410,9 +1412,14 @@ function LeaveTab({ user, users, leaves, isAdmin, isSuperAdmin, persist, updateL
         const remHours     = Math.round(remDays * HOURS_PER_DAY * 10) / 10;
         const pct          = Math.min(100, (remDays / ANNUAL_LEAVE_DAYS) * 100);
         const color        = remDays < 4 ? "#f77" : remDays < 10 ? "#ffc347" : "#34c98b";
-        const rateHistory  = Array.isArray(lv.rateHistory) ? lv.rateHistory : [];
+        // For leave employees, use rateHistory; fall back to contractorRateHistory if rateHistory has no real rates
+        const rawRateHistory = Array.isArray(lv.rateHistory) ? lv.rateHistory : [];
+        const hasRealRates = rawRateHistory.some(r => r.dailyRate && +r.dailyRate > 0);
+        const rateHistory = hasRealRates
+          ? rawRateHistory
+          : (Array.isArray(lv.contractorRateHistory) ? lv.contractorRateHistory : []);
         const accruedByPeriod = isAdmin ? getAccruedByPeriod(lv.leaveStartDate, rateHistory) : [];
-        const hasRateHistory  = rateHistory.length > 0;
+        const hasRateHistory  = rateHistory.some(r => r.dailyRate && +r.dailyRate > 0);
 
         // Contractor rate history (noLeave employees)
         const contractorRates    = lv.contractorRateHistory || [];
