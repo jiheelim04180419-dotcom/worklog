@@ -3,7 +3,13 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
-<title>WorkLog</title>
+<title>K&M WorkLog</title>
+<link rel="manifest" href="/worklog/manifest.json"/>
+<link rel="apple-touch-icon" href="/worklog/icon.png"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+<meta name="apple-mobile-web-app-title" content="K&M"/>
+<meta name="theme-color" content="#3b7ff5"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
@@ -463,8 +469,8 @@ function LoginScreen({ users, onLogin }) {
       <div style={styles.loginBox}>
         <div style={styles.loginLogo}>
           <div style={styles.logoIcon}>📋</div>
-          <h1 style={styles.logoTitle}>WorkLog</h1>
-          <p style={styles.logoSub}>근무일지 & 연차 관리 시스템</p>
+          <h1 style={styles.logoTitle}>K&M</h1>
+          <p style={styles.logoSub}>K&M Tiling Pty Ltd</p>
         </div>
         <div style={styles.field}>
           <label style={styles.label}>아이디</label>
@@ -489,7 +495,7 @@ function Header({ user, onLogout }) {
     <div style={styles.header}>
       <div style={styles.headerLeft}>
         <span style={styles.headerLogo}>📋</span>
-        <span style={styles.headerTitle}>WorkLog</span>
+        <span style={styles.headerTitle}>K&M</span>
       </div>
       <div style={styles.headerRight}>
         <span style={styles.headerUser}>{user.name}
