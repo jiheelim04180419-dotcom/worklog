@@ -469,8 +469,8 @@ function LoginScreen({ users, onLogin }) {
       <div style={styles.loginBox}>
         <div style={styles.loginLogo}>
           <div style={styles.logoIcon}>📋</div>
-          <h1 style={styles.logoTitle}>K&M</h1>
-          <p style={styles.logoSub}>K&M Tiling Pty Ltd</p>
+          <h1 style={styles.logoTitle}>WorkLog</h1>
+          <p style={styles.logoSub}>근무일지 & 연차 관리 시스템</p>
         </div>
         <div style={styles.field}>
           <label style={styles.label}>아이디</label>
@@ -495,7 +495,7 @@ function Header({ user, onLogout }) {
     <div style={styles.header}>
       <div style={styles.headerLeft}>
         <span style={styles.headerLogo}>📋</span>
-        <span style={styles.headerTitle}>K&M</span>
+        <span style={styles.headerTitle}>WorkLog</span>
       </div>
       <div style={styles.headerRight}>
         <span style={styles.headerUser}>{user.name}
@@ -1492,7 +1492,7 @@ function LeaveTab({ user, users, leaves, isAdmin, isSuperAdmin, persist, updateL
                             {p.isActive ? "▶" : p.isComplete ? "✓" : i+1}
                           </span>
                           <div>
-                            <p style={styles.rateAccrualDates}>{p.from} ~ {p.isActive || !p.isComplete ? p.to : (() => { const d = new Date(p.to + "T00:00:00"); d.setDate(d.getDate()-1); return d.toISOString().slice(0,10); })()}</p>
+                            <p style={styles.rateAccrualDates}>{p.from} ~ {p.isActive || !p.isComplete ? p.to : (() => { const p2 = p.to.split("-"); const d = new Date(+p2[0], +p2[1]-1, +p2[2]-1); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); })()}</p>
                             <p style={styles.rateAccrualCalDays}>
                               {p.isComplete ? `${p.calDaysTotal}일 완료` : p.isActive ? `${p.calDaysElapsed}/${p.calDaysTotal}일 경과` : "미시작"}
                             </p>
@@ -2935,7 +2935,7 @@ function RateCard({ user, rates, isContractor, isSuperAdmin, onSave }) {
         <div>
           {sorted.map((r, i, arr) => (
             <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: i < arr.length-1 ? `1px solid ${C.border}` : "none" }}>
-              <span style={{ fontSize: 12, color: C.sub }}>{r.from} ~ {arr[i+1] ? (() => { const d = new Date(arr[i+1].from + "T00:00:00"); d.setDate(d.getDate()-1); return d.toISOString().slice(0,10); })() : "현재"}</span>
+              <span style={{ fontSize: 12, color: C.sub }}>{r.from} ~ {arr[i+1] ? (() => { const p = arr[i+1].from.split("-"); const d = new Date(+p[0], +p[1]-1, +p[2]-1); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); })() : "현재"}</span>
               <span style={{ fontSize: 15, fontWeight: 700, color: C.text }}>${parseFloat(r.dailyRate || 0).toFixed(2)}<span style={{ fontSize: 11, color: C.sub, fontWeight: 400 }}>/일</span></span>
             </div>
           ))}
