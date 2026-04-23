@@ -1375,7 +1375,7 @@ function LogForm({ log, userId, users, leaves, isAdmin, onSave, onClose }) {
 function LeaveTab({ user, users, leaves, isAdmin, isSuperAdmin, persist, updateLeaveUsage }) {
   const [showForm, setShowForm] = useState(false);
   const [editTarget, setEditTarget] = useState(null);
-  const empList = isAdmin ? users.filter(u => u.role === "employee" && !normLeave(leaves[u.id], u.joinDate).noLeave) : [user];
+  const empList = isAdmin ? users.filter(u => u.role === "employee") : [user];
 
   return (
     <div style={styles.page}>
@@ -1399,7 +1399,7 @@ function LeaveTab({ user, users, leaves, isAdmin, isSuperAdmin, persist, updateL
         const color        = remDays < 4 ? "#f77" : remDays < 10 ? "#ffc347" : "#34c98b";
         const rateHistory  = Array.isArray(lv.rateHistory) ? lv.rateHistory : [];
         const accruedByPeriod = isAdmin ? getAccruedByPeriod(lv.leaveStartDate, rateHistory) : [];
-        const hasRateSplit    = accruedByPeriod.length >= 2;
+        const hasRateHistory  = rateHistory.length > 0;
 
         // Contractor rate history (noLeave employees)
         const contractorRates    = lv.contractorRateHistory || [];
@@ -1452,7 +1452,7 @@ function LeaveTab({ user, users, leaves, isAdmin, isSuperAdmin, persist, updateL
               </div>
             ) : (
               /* Leave employees: accrual breakdown */
-              isAdmin && hasRateSplit ? (
+              isAdmin && hasRateHistory ? (
                 <div style={styles.rateAccrualBox}>
                   <p style={styles.rateAccrualTitle}>📅 오늘 기준 일급별 적립 현황</p>
                   {accruedByPeriod.map((p, i) => (
