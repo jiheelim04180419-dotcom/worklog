@@ -1532,27 +1532,46 @@ function LeaveTab({ user, users, leaves, isAdmin, isSuperAdmin, persist, updateL
                 </div>
 
                 {/* Rate period breakdown (admin only) */}
-                {isAdmin && hasRateHistory && accruedByPeriod.length > 0 && (
-                  <div style={{ borderTop: `1px solid ${remDays < 0 ? "#f7c0c0" : remDays < 4 ? "#ffd699" : "#b2e4c8"}`, paddingTop: 10 }}>
-                    {accruedByPeriod.map((p, i) => (
-                      <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 0", borderBottom: i < accruedByPeriod.length-1 ? `1px solid ${remDays < 0 ? "#f7e0e0" : remDays < 4 ? "#ffe8b0" : "#d4f0e2"}` : "none" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          <span style={{ width: 18, height: 18, borderRadius: "50%", background: p.isActive ? "#3b7ff5" : p.isComplete ? "#34c98b" : "#ccc", color: "#fff", fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                            {p.isActive ? "▶" : p.isComplete ? "✓" : i+1}
-                          </span>
-                          <div>
-                            <p style={{ margin: 0, fontSize: 10, color: C.sub }}>{p.from} ~ {p.isActive || !p.isComplete ? p.to : (() => { const p2 = p.to.split("-"); const d = new Date(+p2[0], +p2[1]-1, +p2[2]-1); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); })()}</p>
-                            <p style={{ margin: 0, fontSize: 10, color: C.sub }}>{p.isComplete ? `${p.calDaysTotal}일 완료` : `${p.calDaysElapsed}/${p.calDaysTotal}일 경과`}</p>
+                {isAdmin && hasRateHistory && accruedByPeriod.length > 0 && (() => {
+                  // FIFO: distribute net usage across periods oldest-first
+                  let toDistribute = Math.max(0, usedDays - grantDays);
+                  const periodsWithUsage = accruedByPeriod.map(p => {
+                    const usedHere = Math.min(toDistribute, p.accruedDays);
+                    toDistribute = Math.max(0, toDistribute - usedHere);
+                    const isFullyUsed = usedHere >= p.accruedDays - 0.01 && p.accruedDays > 0;
+                    return { ...p, usedHere, isFullyUsed };
+                  });
+                  const divColor = remDays < 0 ? "#f7c0c0" : remDays < 4 ? "#ffd699" : "#b2e4c8";
+                  const rowColor = remDays < 0 ? "#f7e0e0" : remDays < 4 ? "#ffe8b0" : "#d4f0e2";
+                  return (
+                    <div style={{ borderTop: `1px solid ${divColor}`, paddingTop: 10 }}>
+                      {periodsWithUsage.map((p, i) => (
+                        <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: i < periodsWithUsage.length-1 ? `1px solid ${rowColor}` : "none", opacity: p.isFullyUsed ? 0.65 : 1 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <span style={{ width: 18, height: 18, borderRadius: "50%", background: p.isFullyUsed ? "#95a5a6" : p.isActive ? "#3b7ff5" : p.isComplete ? "#34c98b" : "#ccc", color: "#fff", fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                              {p.isFullyUsed ? "✗" : p.isActive ? "▶" : p.isComplete ? "✓" : i+1}
+                            </span>
+                            <div>
+                              <p style={{ margin: 0, fontSize: 10, color: C.sub }}>{p.from} ~ {p.isActive || !p.isComplete ? p.to : (() => { const p2 = p.to.split("-"); const d = new Date(+p2[0], +p2[1]-1, +p2[2]-1); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); })()}</p>
+                              <p style={{ margin: 0, fontSize: 10, color: C.sub }}>{p.isComplete ? `${p.calDaysTotal}일 완료` : `${p.calDaysElapsed}/${p.calDaysTotal}일 경과`}</p>
+                            </div>
+                          </div>
+                          <div style={{ textAlign: "right" }}>
+                            <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: p.isFullyUsed ? "#95a5a6" : C.text }}>
+                              {p.accruedDays.toFixed(2)}일
+                              <span style={{ fontSize: 10, color: C.sub }}> / {p.totalDays.toFixed(2)}일</span>
+                            </p>
+                            <p style={{ margin: 0, fontSize: 10 }}>
+                              <span style={{ color: "#e74c3c" }}>-{p.usedHere.toFixed(2)}일 사용</span>
+                              {p.isFullyUsed && <span style={{ marginLeft: 4, background: "#e74c3c", color: "#fff", borderRadius: 3, padding: "0 4px", fontSize: 9, fontWeight: 700 }}>소진</span>}
+                              <span style={{ color: C.sub }}> · ${p.dailyRate}/일</span>
+                            </p>
                           </div>
                         </div>
-                        <div style={{ textAlign: "right" }}>
-                          <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: C.text }}>{p.accruedDays.toFixed(2)}일 <span style={{ fontSize: 10, color: C.sub }}>/ {p.totalDays.toFixed(2)}일</span></p>
-                          <p style={{ margin: 0, fontSize: 10, color: C.sub }}>${p.dailyRate}/일</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                      ))}
+                    </div>
+                  );
+                })()}
               </div>
             )}
 
