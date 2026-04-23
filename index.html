@@ -1388,9 +1388,11 @@ function LogForm({ log, userId, users, leaves, isAdmin, onSave, onClose }) {
 
 // ─── Leave Tab ─────────────────────────────────────────────────────────────
 function LeaveTab({ user, users, leaves, isAdmin, isSuperAdmin, persist, updateLeaveUsage }) {
-  const [showForm, setShowForm] = useState(false);
+  const [showForm, setShowForm]     = useState(false);
   const [editTarget, setEditTarget] = useState(null);
-  const empList = isAdmin ? users.filter(u => u.role === "employee") : [user];
+  const [filterUser, setFilterUser] = useState("all");
+  const allEmps = isAdmin ? users.filter(u => u.role === "employee") : [user];
+  const empList = (isAdmin && filterUser !== "all") ? allEmps.filter(u => u.id === filterUser) : allEmps;
 
   return (
     <div style={styles.page}>
@@ -1398,6 +1400,15 @@ function LeaveTab({ user, users, leaves, isAdmin, isSuperAdmin, persist, updateL
         <h2 style={styles.pageTitle}>연차 관리</h2>
         {isAdmin && <button style={styles.btnAdd} onClick={() => { setEditTarget(null); setShowForm(true); }}>{Icon.edit} 수정</button>}
       </div>
+
+      {isAdmin && (
+        <div style={styles.filterRow}>
+          <select style={styles.filterInput} value={filterUser} onChange={e => setFilterUser(e.target.value)}>
+            <option value="all">전체 직원</option>
+            {allEmps.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+          </select>
+        </div>
+      )}
 
       {empList.map(u => {
         const lv           = normLeave(leaves[u.id], u.joinDate);
@@ -1408,10 +1419,10 @@ function LeaveTab({ user, users, leaves, isAdmin, isSuperAdmin, persist, updateL
         const accHours     = Math.round(accDays * HOURS_PER_DAY * 10) / 10;
         const usedDays     = +(lv.usedDays) || 0;
         const grantDays    = +(lv.grantDays) || 0;
-        const remDays      = Math.max(0, accDays + grantDays - usedDays);
+        const remDays      = Math.round((accDays + grantDays - usedDays) * 10) / 10; // allow negative
         const remHours     = Math.round(remDays * HOURS_PER_DAY * 10) / 10;
-        const pct          = Math.min(100, (remDays / ANNUAL_LEAVE_DAYS) * 100);
-        const color        = remDays < 4 ? "#f77" : remDays < 10 ? "#ffc347" : "#34c98b";
+        const pct          = remDays >= 0 ? Math.min(100, (remDays / ANNUAL_LEAVE_DAYS) * 100) : 0;
+        const color        = remDays < 0 ? "#c0392b" : remDays < 4 ? "#f77" : remDays < 10 ? "#ffc347" : "#34c98b";
         // For leave employees, use rateHistory; fall back to contractorRateHistory if rateHistory has no real rates
         const rawRateHistory = Array.isArray(lv.rateHistory) ? lv.rateHistory : [];
         const hasRealRates = rawRateHistory.some(r => r.dailyRate && +r.dailyRate > 0);
@@ -1517,7 +1528,7 @@ function LeaveTab({ user, users, leaves, isAdmin, isSuperAdmin, persist, updateL
                   <div style={{ ...styles.leaveBarFill, width: pct + "%", background: color }} />
                 </div>
                 <div style={styles.leaveNums}>
-                  <span style={{ color }}>잔여 <strong>{remDays.toFixed(1)}일 ({remHours}h)</strong></span>
+                  <span style={{ color }}>{remDays < 0 ? "⚠️ 초과 " : "잔여 "}<strong>{remDays.toFixed(1)}일 ({Math.abs(remHours)}h)</strong></span>
                   <span>사용 <strong>{usedDays.toFixed(1)}일</strong></span>
                 </div>
               </div>
@@ -1529,7 +1540,7 @@ function LeaveTab({ user, users, leaves, isAdmin, isSuperAdmin, persist, updateL
                 <LeaveChip label="적립"  val={`${accDays.toFixed(1)}일`}  color="#4f8ef7" />
                 <LeaveChip label="사용"  val={`${usedDays.toFixed(1)}일`} color="#f7a440" />
                 <LeaveChip label="잔여"  val={`${remDays.toFixed(1)}일`}  color={color} />
-                <LeaveChip label="잔여h" val={`${remHours}h`}             color="#888" />
+                <LeaveChip label="잔여h" val={`${Math.abs(remHours)}h`}   color={remDays < 0 ? "#c0392b" : "#888"} />
               </div>
             )}
 
@@ -1859,12 +1870,12 @@ function LeaveEditForm({ targetId, users, leaves, onSave, onClose }) {
 
 // ─── Team Tab (Admin only) ─────────────────────────────────────────────────
 function TeamTab({ users, leaves, logs, persist, isSuperAdmin, companies }) {
-  const [showAdd, setShowAdd]     = useState(false);
-  const [editEmp, setEditEmp]     = useState(null);
-  const [confirmId, setConfirmId] = useState(null);
-  // Show all users except the original "admin" account
-  const emps = users.filter(u => u.id !== "admin");
-  // Separate by role for display
+  const [showAdd, setShowAdd]       = useState(false);
+  const [editEmp, setEditEmp]       = useState(null);
+  const [confirmId, setConfirmId]   = useState(null);
+  const [reordering, setReordering] = useState(false);
+
+  const emps      = users.filter(u => u.id !== "admin");
   const adminEmps = emps.filter(u => u.role === "superadmin" || u.role === "viewadmin");
   const staffEmps = emps.filter(u => u.role === "employee");
 
@@ -1875,11 +1886,24 @@ function TeamTab({ users, leaves, logs, persist, isSuperAdmin, companies }) {
     setEditEmp(null);
   };
 
+  const moveEmp = (id, dir) => {
+    const idx = users.findIndex(u => u.id === id);
+    if (idx < 0) return;
+    const newIdx = idx + dir;
+    if (newIdx < 0 || newIdx >= users.length) return;
+    const newUsers = [...users];
+    [newUsers[idx], newUsers[newIdx]] = [newUsers[newIdx], newUsers[idx]];
+    persist(newUsers, null, null);
+  };
+
   return (
     <div style={styles.page}>
       <div style={styles.pageHeader}>
         <h2 style={styles.pageTitle}>직원 관리</h2>
-        {isSuperAdmin && <button style={styles.btnAdd} onClick={() => setShowAdd(true)}>{Icon.plus} 추가</button>}
+        <div style={{ display: "flex", gap: 6 }}>
+          {isSuperAdmin && <button style={{ ...styles.btnSecondary, fontSize: 12, padding: "6px 10px" }} onClick={() => setReordering(r => !r)}>{reordering ? "✅ 완료" : "↕️ 순서변경"}</button>}
+          {isSuperAdmin && !reordering && <button style={styles.btnAdd} onClick={() => setShowAdd(true)}>{Icon.plus} 추가</button>}
+        </div>
       </div>
 
       {adminEmps.length > 0 && (
@@ -1937,16 +1961,25 @@ function TeamTab({ users, leaves, logs, persist, isSuperAdmin, companies }) {
               </div>
             </div>
             <div style={{ display: "flex", gap: 4, flexShrink: 0, alignItems: "center" }}>
-              {isSuperAdmin && <button style={styles.iconBtn} onClick={() => { setConfirmId(null); setEditEmp(u); }}>{Icon.edit}</button>}
-              {isSuperAdmin && (confirmId === u.id ? (
-                <div style={styles.confirmInline}>
-                  <span style={{ fontSize: 11, color: "#f77" }}>삭제?</span>
-                  <button style={styles.confirmYes} onClick={() => deleteEmp(u.id)}>예</button>
-                  <button style={styles.confirmNo} onClick={() => setConfirmId(null)}>아니오</button>
-                </div>
+              {reordering ? (
+                <>
+                  <button style={{ ...styles.iconBtn, fontSize: 16 }} onClick={() => moveEmp(u.id, -1)}>▲</button>
+                  <button style={{ ...styles.iconBtn, fontSize: 16 }} onClick={() => moveEmp(u.id, 1)}>▼</button>
+                </>
               ) : (
-                <button style={{ ...styles.iconBtn, color: "#f77" }} onClick={() => { setEditEmp(null); setConfirmId(u.id); }}>{Icon.trash}</button>
-              ))}
+                <>
+                  {isSuperAdmin && <button style={styles.iconBtn} onClick={() => { setConfirmId(null); setEditEmp(u); }}>{Icon.edit}</button>}
+                  {isSuperAdmin && (confirmId === u.id ? (
+                    <div style={styles.confirmInline}>
+                      <span style={{ fontSize: 11, color: "#f77" }}>삭제?</span>
+                      <button style={styles.confirmYes} onClick={() => deleteEmp(u.id)}>예</button>
+                      <button style={styles.confirmNo} onClick={() => setConfirmId(null)}>아니오</button>
+                    </div>
+                  ) : (
+                    <button style={{ ...styles.iconBtn, color: "#f77" }} onClick={() => { setEditEmp(null); setConfirmId(u.id); }}>{Icon.trash}</button>
+                  ))}
+                </>
+              )}
             </div>
           </div>
         );
@@ -2780,7 +2813,9 @@ function PayStat({ emoji, label, val, color, logs = [], renderDetail }) {
 
 // ─── Rate Tab (일급 관리) ──────────────────────────────────────────────────
 function RateTab({ users, leaves, persist, isSuperAdmin }) {
-  const emps = users.filter(u => u.role === "employee");
+  const [filterUser, setFilterUser] = useState("all");
+  const allEmps = users.filter(u => u.role === "employee");
+  const emps    = filterUser !== "all" ? allEmps.filter(u => u.id === filterUser) : allEmps;
 
   const saveRates = (userId, joinDate, newRates) => {
     const lv = leaves[userId] || {};
@@ -2801,6 +2836,13 @@ function RateTab({ users, leaves, persist, isSuperAdmin }) {
         <h2 style={styles.pageTitle}>💰 일급 관리</h2>
       </div>
       <p style={{ fontSize: 12, color: C.sub, marginBottom: 16 }}>직원별 일급 변동 이력을 관리해요. 일급이 바뀌면 그 날짜부터 연차 계산이 따로 나뉘어요.</p>
+
+      <div style={styles.filterRow}>
+        <select style={styles.filterInput} value={filterUser} onChange={e => setFilterUser(e.target.value)}>
+          <option value="all">전체 직원</option>
+          {allEmps.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+        </select>
+      </div>
 
       {emps.map(u => {
         const lv = normLeave(leaves[u.id] || {}, u.joinDate);
