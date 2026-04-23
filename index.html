@@ -17,7 +17,7 @@
 <body style="margin:0;padding:0;background:#f4f6fb">
 <div id="loading" style="display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:16px;background:#f4f6fb;font-family:sans-serif">
   <div style="font-size:40px">📋</div>
-  <p style="color:#3b7ff5;font-weight:700;font-size:16px" id="loadmsg">WorkLog 로딩 중...</p>
+  <p style="color:#3b7ff5;font-weight:700;font-size:16px" id="loadmsg">K&M WorkLog 로딩 중...</p>
 </div>
 <div id="root" style="display:none"></div>
 <script id="src" type="text/plain">
@@ -1544,26 +1544,38 @@ function LeaveTab({ user, users, leaves, isAdmin, isSuperAdmin, persist, updateL
               )
             )}
 
-            {/* Progress bar - only for leave employees */}
+            {/* Remaining days - HERO display */}
             {!lv.noLeave && (
-              <div style={styles.leaveBarWrap}>
-                <div style={styles.leaveBar}>
-                  <div style={{ ...styles.leaveBarFill, width: pct + "%", background: color }} />
+              <div style={{
+                background: remDays < 0 ? "#fff0f0" : remDays < 4 ? "#fff8f0" : "#f0faf5",
+                border: `2px solid ${remDays < 0 ? "#f77" : remDays < 4 ? "#ffc347" : "#34c98b"}`,
+                borderRadius: 14, padding: "14px 16px", marginBottom: 12,
+                display: "flex", alignItems: "center", justifyContent: "space-between"
+              }}>
+                <div>
+                  <p style={{ margin: 0, fontSize: 11, fontWeight: 600, color: C.sub, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>
+                    {remDays < 0 ? "⚠️ 초과 사용" : "현재 사용 가능"}
+                  </p>
+                  <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+                    <span style={{ fontSize: 32, fontWeight: 900, color: remDays < 0 ? "#c0392b" : remDays < 4 ? "#e67e22" : "#27ae60", lineHeight: 1 }}>
+                      {remDays.toFixed(1)}일
+                    </span>
+                    <span style={{ fontSize: 15, color: C.sub, fontWeight: 600 }}>{Math.abs(remHours)}h</span>
+                  </div>
                 </div>
-                <div style={styles.leaveNums}>
-                  <span style={{ color }}>{remDays < 0 ? "⚠️ 초과 " : "잔여 "}<strong>{remDays.toFixed(1)}일 ({Math.abs(remHours)}h)</strong></span>
-                  <span>사용 <strong>{usedDays.toFixed(1)}일</strong></span>
+                <div style={{ textAlign: "right", fontSize: 11, color: C.sub, lineHeight: 1.8 }}>
+                  <p style={{ margin: 0 }}>적립 {accDays.toFixed(1)}일</p>
+                  <p style={{ margin: 0 }}>사용 {usedDays.toFixed(1)}일</p>
                 </div>
               </div>
             )}
 
-            {/* Chips - only for leave employees */}
+            {/* Progress bar */}
             {!lv.noLeave && (
-              <div style={styles.leaveChips}>
-                <LeaveChip label="적립"  val={`${accDays.toFixed(1)}일`}  color="#4f8ef7" />
-                <LeaveChip label="사용"  val={`${usedDays.toFixed(1)}일`} color="#f7a440" />
-                <LeaveChip label="잔여"  val={`${remDays.toFixed(1)}일`}  color={color} />
-                <LeaveChip label="잔여h" val={`${Math.abs(remHours)}h`}   color={remDays < 0 ? "#c0392b" : "#888"} />
+              <div style={styles.leaveBarWrap}>
+                <div style={styles.leaveBar}>
+                  <div style={{ ...styles.leaveBarFill, width: Math.max(0, pct) + "%", background: color }} />
+                </div>
               </div>
             )}
 
@@ -3432,7 +3444,6 @@ ReactDOM.createRoot(document.getElementById("root")).render(
   React.createElement(ErrorBoundary, null, React.createElement(App))
 );
 </script>
-
 <script>
 var attempts = 0;
 function runApp() {
