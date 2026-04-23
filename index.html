@@ -2777,7 +2777,8 @@ function RateTab({ users, leaves, persist, isSuperAdmin }) {
 
   const saveRates = (userId, joinDate, newRates) => {
     const lv = leaves[userId] || {};
-    const updated = { ...leaves, [userId]: { ...lv, rateHistory: newRates } };
+    // Save to rateHistory and clear contractorRateHistory to avoid confusion
+    const updated = { ...leaves, [userId]: { ...lv, rateHistory: newRates, contractorRateHistory: undefined } };
     persist(null, null, updated);
   };
 
@@ -2797,9 +2798,15 @@ function RateTab({ users, leaves, persist, isSuperAdmin }) {
       {emps.map(u => {
         const lv = normLeave(leaves[u.id] || {}, u.joinDate);
         const isContractor = lv.noLeave;
-        const rates = isContractor
-          ? (lv.contractorRateHistory || []).slice().sort((a,b) => (a.from||"") < (b.from||"") ? -1 : 1)
-          : (lv.rateHistory || []).filter(r => r.dailyRate && +r.dailyRate > 0).slice().sort((a,b) => (a.from||"") < (b.from||"") ? -1 : 1);
+        // Leave employees may have data saved in either rateHistory or contractorRateHistory
+        const rawRates = isContractor
+          ? (lv.contractorRateHistory || [])
+          : ((lv.rateHistory && lv.rateHistory.some(r => r.dailyRate && +r.dailyRate > 0))
+              ? lv.rateHistory
+              : (lv.contractorRateHistory || []));
+        const rates = rawRates
+          .filter(r => r.dailyRate !== undefined && r.dailyRate !== "")
+          .slice().sort((a,b) => (a.from||"") < (b.from||"") ? -1 : 1);
 
         return (
           <RateCard
