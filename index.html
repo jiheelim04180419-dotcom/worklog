@@ -1500,76 +1500,53 @@ function LeaveTab({ user, users, leaves, isAdmin, isSuperAdmin, persist, updateL
                 <p style={{ margin: 0, fontSize: 13, color: "#a05c00" }}>연차 미적용 직원 — 일급 탭에서 이력 확인</p>
               </div>
             ) : (
-              /* Leave employees: accrual breakdown */
-              isAdmin && hasRateHistory ? (
-                <div style={styles.rateAccrualBox}>
-                  <p style={styles.rateAccrualTitle}>📅 오늘 기준 일급별 적립 현황</p>
-                  {accruedByPeriod.map((p, i) => (
-                    <div key={i} style={{ ...styles.rateAccrualRow, ...(p.isActive ? styles.rateAccrualActive : {}) }}>
-                      <div style={styles.rateAccrualLeft}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          <span style={{ ...styles.periodIdx, background: p.isActive ? "#3b7ff5" : p.isComplete ? "#34c98b" : "#ccc" }}>
-                            {p.isActive ? "▶" : p.isComplete ? "✓" : i+1}
-                          </span>
-                          <div>
-                            <p style={styles.rateAccrualDates}>{p.from} ~ {p.isActive || !p.isComplete ? p.to : (() => { const p2 = p.to.split("-"); const d = new Date(+p2[0], +p2[1]-1, +p2[2]-1); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); })()}</p>
-                            <p style={styles.rateAccrualCalDays}>
-                              {p.isComplete ? `${p.calDaysTotal}일 완료` : p.isActive ? `${p.calDaysElapsed}/${p.calDaysTotal}일 경과` : "미시작"}
-                            </p>
-                          </div>
-                        </div>
-                        <div style={styles.rateAccrualNums}>
-                          <span style={styles.rateAccrualDays}>{p.accruedDays.toFixed(2)}일</span>
-                          <span style={styles.rateAccrualHoursText}>{p.accruedHours.toFixed(1)}h</span>
-                          <span style={styles.rateAccrualOf}>/ {p.totalDays.toFixed(2)}일</span>
-                        </div>
-                      </div>
-                      <div style={styles.rateAccrualRateCol}>
-                        <span style={styles.rateAccrualRate}>${p.dailyRate}</span>
-                        <span style={styles.rateAccrualRateSub}>/일</span>
-                      </div>
-                    </div>
-                  ))}
-                  <div style={styles.rateAccrualTotal}>합계 <strong>{accDays.toFixed(2)}일 ({accHours.toFixed(1)}h)</strong> 적립</div>
-                </div>
-              ) : (
-                <div style={styles.todayAccrualBox}>
-                  <div style={styles.todayAccrualMain}>
-                    <span style={styles.todayAccrualLabel}>오늘까지 적립</span>
-                    <span style={styles.todayAccrualValue}>{accDays.toFixed(2)}일</span>
-                    <span style={styles.todayAccrualHours}>{accHours.toFixed(1)}h</span>
-                  </div>
-                  <div style={styles.todayAccrualSub}>
-                    <span>연차연도 {Math.floor(elapsedInYear)}일 경과</span>
-                    <span style={{ color: "#7b5ea7" }}>잔여 {Math.ceil(yearDays - elapsedInYear)}일</span>
-                  </div>
-                </div>
-              )
-            )}
-
-            {/* Remaining days - HERO display */}
-            {!lv.noLeave && (
+              /* Combined: remaining hero + rate breakdown */
               <div style={{
                 background: remDays < 0 ? "#fff0f0" : remDays < 4 ? "#fff8f0" : "#f0faf5",
                 border: `2px solid ${remDays < 0 ? "#f77" : remDays < 4 ? "#ffc347" : "#34c98b"}`,
                 borderRadius: 14, padding: "14px 16px", marginBottom: 12,
-                display: "flex", alignItems: "center", justifyContent: "space-between"
               }}>
-                <div>
-                  <p style={{ margin: 0, fontSize: 11, fontWeight: 600, color: C.sub, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>
-                    {remDays < 0 ? "⚠️ 초과 사용" : "현재 사용 가능"}
-                  </p>
-                  <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-                    <span style={{ fontSize: 32, fontWeight: 900, color: remDays < 0 ? "#c0392b" : remDays < 4 ? "#e67e22" : "#27ae60", lineHeight: 1 }}>
-                      {remDays.toFixed(1)}일
-                    </span>
-                    <span style={{ fontSize: 15, color: C.sub, fontWeight: 600 }}>{Math.abs(remHours)}h</span>
+                {/* Hero row */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: hasRateHistory ? 12 : 0 }}>
+                  <div>
+                    <p style={{ margin: 0, fontSize: 11, fontWeight: 600, color: C.sub, letterSpacing: 0.5, marginBottom: 4 }}>
+                      {remDays < 0 ? "⚠️ 초과 사용" : "현재 사용 가능"}
+                    </p>
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+                      <span style={{ fontSize: 32, fontWeight: 900, color: remDays < 0 ? "#c0392b" : remDays < 4 ? "#e67e22" : "#27ae60", lineHeight: 1 }}>
+                        {remDays.toFixed(1)}일
+                      </span>
+                      <span style={{ fontSize: 15, color: C.sub, fontWeight: 600 }}>{Math.abs(remHours)}h</span>
+                    </div>
+                  </div>
+                  <div style={{ textAlign: "right", fontSize: 11, color: C.sub, lineHeight: 1.8 }}>
+                    <p style={{ margin: 0 }}>적립 {accDays.toFixed(1)}일</p>
+                    <p style={{ margin: 0 }}>사용 {usedDays.toFixed(1)}일</p>
                   </div>
                 </div>
-                <div style={{ textAlign: "right", fontSize: 11, color: C.sub, lineHeight: 1.8 }}>
-                  <p style={{ margin: 0 }}>적립 {accDays.toFixed(1)}일</p>
-                  <p style={{ margin: 0 }}>사용 {usedDays.toFixed(1)}일</p>
-                </div>
+
+                {/* Rate period breakdown (admin only) */}
+                {isAdmin && hasRateHistory && accruedByPeriod.length > 0 && (
+                  <div style={{ borderTop: `1px solid ${remDays < 0 ? "#f7c0c0" : remDays < 4 ? "#ffd699" : "#b2e4c8"}`, paddingTop: 10 }}>
+                    {accruedByPeriod.map((p, i) => (
+                      <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 0", borderBottom: i < accruedByPeriod.length-1 ? `1px solid ${remDays < 0 ? "#f7e0e0" : remDays < 4 ? "#ffe8b0" : "#d4f0e2"}` : "none" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <span style={{ width: 18, height: 18, borderRadius: "50%", background: p.isActive ? "#3b7ff5" : p.isComplete ? "#34c98b" : "#ccc", color: "#fff", fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                            {p.isActive ? "▶" : p.isComplete ? "✓" : i+1}
+                          </span>
+                          <div>
+                            <p style={{ margin: 0, fontSize: 10, color: C.sub }}>{p.from} ~ {p.isActive || !p.isComplete ? p.to : (() => { const p2 = p.to.split("-"); const d = new Date(+p2[0], +p2[1]-1, +p2[2]-1); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); })()}</p>
+                            <p style={{ margin: 0, fontSize: 10, color: C.sub }}>{p.isComplete ? `${p.calDaysTotal}일 완료` : `${p.calDaysElapsed}/${p.calDaysTotal}일 경과`}</p>
+                          </div>
+                        </div>
+                        <div style={{ textAlign: "right" }}>
+                          <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: C.text }}>{p.accruedDays.toFixed(2)}일 <span style={{ fontSize: 10, color: C.sub }}>/ {p.totalDays.toFixed(2)}일</span></p>
+                          <p style={{ margin: 0, fontSize: 10, color: C.sub }}>${p.dailyRate}/일</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
@@ -1912,10 +1889,13 @@ function TeamTab({ users, leaves, logs, persist, isSuperAdmin, companies }) {
   const [editEmp, setEditEmp]       = useState(null);
   const [confirmId, setConfirmId]   = useState(null);
   const [reordering, setReordering] = useState(false);
+  const [showResigned, setShowResigned] = useState(false);
 
-  const emps      = users.filter(u => u.id !== "admin");
-  const adminEmps = emps.filter(u => u.role === "superadmin" || u.role === "viewadmin");
-  const staffEmps = emps.filter(u => u.role === "employee");
+  const emps         = users.filter(u => u.id !== "admin");
+  const activeEmps   = emps.filter(u => !u.resignedDate);
+  const resignedEmps = emps.filter(u => u.resignedDate);
+  const adminEmps    = (showResigned ? emps : activeEmps).filter(u => u.role === "superadmin" || u.role === "viewadmin");
+  const staffEmps    = (showResigned ? emps : activeEmps).filter(u => u.role === "employee");
 
   const deleteEmp = (id) => { persist(users.filter(u => u.id !== id), null, null); setConfirmId(null); };
 
@@ -1934,6 +1914,17 @@ function TeamTab({ users, leaves, logs, persist, isSuperAdmin, companies }) {
     persist(newUsers, null, null);
   };
 
+  const resignEmp = (id) => {
+    const updated = users.map(u => u.id === id ? { ...u, resignedDate: today } : u);
+    persist(updated, null, null);
+    setConfirmId(null);
+  };
+
+  const reinstateEmp = (id) => {
+    const updated = users.map(u => u.id === id ? { ...u, resignedDate: null } : u);
+    persist(updated, null, null);
+  };
+
   return (
     <div style={styles.page}>
       <div style={styles.pageHeader}>
@@ -1943,6 +1934,13 @@ function TeamTab({ users, leaves, logs, persist, isSuperAdmin, companies }) {
           {isSuperAdmin && !reordering && <button style={styles.btnAdd} onClick={() => setShowAdd(true)}>{Icon.plus} 추가</button>}
         </div>
       </div>
+
+      {resignedEmps.length > 0 && (
+        <button style={{ ...styles.btnSecondary, fontSize: 12, marginBottom: 12, width: "100%" }}
+          onClick={() => setShowResigned(v => !v)}>
+          {showResigned ? "▲ 퇴사 직원 숨기기" : `▼ 퇴사 직원 보기 (${resignedEmps.length}명)`}
+        </button>
+      )}
 
       {adminEmps.length > 0 && (
         <p style={{ fontSize: 11, fontWeight: 700, color: C.sub, margin: "0 0 8px", textTransform: "uppercase" }}>
@@ -1958,11 +1956,14 @@ function TeamTab({ users, leaves, logs, persist, isSuperAdmin, companies }) {
         return (
           <div key={u.id} style={{ ...styles.empCard, ...(roleLabel ? { borderLeft: "3px solid #3b7ff5" } : {}) }}>
             <div style={styles.empCardLeft}>
-              <div style={{ ...styles.logAvatar, width: 44, height: 44, fontSize: 18 }}>{u.name[0]}</div>
+              <div style={{ ...styles.logAvatar, width: 44, height: 44, fontSize: 18, opacity: u.resignedDate ? 0.5 : 1 }}>{u.name[0]}</div>
               <div>
-                <p style={styles.logName}>{u.name} <span style={styles.deptBadge}>{u.dept}</span></p>
+                <p style={styles.logName}>
+                  {u.name} <span style={styles.deptBadge}>{u.dept}</span>
+                  {u.resignedDate && <span style={{ marginLeft: 5, fontSize: 10, background: "#f77", color: "#fff", borderRadius: 4, padding: "1px 5px" }}>퇴사</span>}
+                </p>
                 <p style={styles.logContent}>
-                  ID: <strong>{u.id}</strong> &nbsp;|&nbsp; 입사: {u.joinDate}
+                  ID: <strong>{u.id}</strong> &nbsp;|&nbsp; {u.resignedDate ? `퇴사: ${u.resignedDate}` : `입사: ${u.joinDate}`}
                   {roleLabel && <span style={{ marginLeft: 6, fontSize: 10, color: "#3b7ff5", fontWeight: 700 }}>{roleLabel}</span>}
                 </p>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
@@ -2006,15 +2007,17 @@ function TeamTab({ users, leaves, logs, persist, isSuperAdmin, companies }) {
                 </>
               ) : (
                 <>
-                  {isSuperAdmin && <button style={styles.iconBtn} onClick={() => { setConfirmId(null); setEditEmp(u); }}>{Icon.edit}</button>}
+                  {isSuperAdmin && !u.resignedDate && <button style={styles.iconBtn} onClick={() => { setConfirmId(null); setEditEmp(u); }}>{Icon.edit}</button>}
                   {isSuperAdmin && (confirmId === u.id ? (
                     <div style={styles.confirmInline}>
-                      <span style={{ fontSize: 11, color: "#f77" }}>삭제?</span>
-                      <button style={styles.confirmYes} onClick={() => deleteEmp(u.id)}>예</button>
+                      <span style={{ fontSize: 11, color: "#f77" }}>퇴사 처리?</span>
+                      <button style={styles.confirmYes} onClick={() => resignEmp(u.id)}>예</button>
                       <button style={styles.confirmNo} onClick={() => setConfirmId(null)}>아니오</button>
                     </div>
+                  ) : u.resignedDate ? (
+                    <button style={{ ...styles.btnSecondary, fontSize: 11, padding: "4px 8px" }} onClick={() => reinstateEmp(u.id)}>복직</button>
                   ) : (
-                    <button style={{ ...styles.iconBtn, color: "#f77" }} onClick={() => { setEditEmp(null); setConfirmId(u.id); }}>{Icon.trash}</button>
+                    <button style={{ ...styles.iconBtn, color: "#f77", fontSize: 11 }} onClick={() => { setEditEmp(null); setConfirmId(u.id); }}>퇴사</button>
                   ))}
                 </>
               )}
@@ -3447,7 +3450,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
   React.createElement(ErrorBoundary, null, React.createElement(App))
 );
 </script>
-</script>
+
 <script>
 var attempts = 0;
 function runApp() {
