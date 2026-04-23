@@ -244,8 +244,8 @@ function normLeave(lv, joinDate) {
 
   // Only count current leave year records
   const yr = getCurrentLeaveYear(lv.leaveStartDate || base);
-  const yrStart = yr ? yr.localDate(start) : "0000-01-01";
-  const yrEnd   = yr ? yr.localDate(end)   : "9999-12-31";
+  const yrStart = yr ? localDate(yr.start) : "0000-01-01";
+  const yrEnd   = yr ? localDate(yr.end)   : "9999-12-31";
 
   const useRecs   = usageRecords.filter(r => (r.type||"use") === "use" && r.date >= yrStart && r.date <= yrEnd);
   const grantRecs = usageRecords.filter(r => r.type === "grant" && r.date >= yrStart && r.date <= yrEnd);
@@ -310,7 +310,7 @@ function getLeavePeriods(leaveStartDate, rateHistory) {
 function leaveYearLabel(leaveStartDate) {
   const yr = getCurrentLeaveYear(leaveStartDate);
   if (!yr) return "";
-  return `${yr.localDate(start)} ~ ${yr.localDate(end)}`;
+  return `${localDate(yr.start)} ~ ${localDate(yr.end)}`;
 }
 
 // For ADMIN: how many days/hours have accrued under each rate period UP TO TODAY
@@ -1419,8 +1419,8 @@ function LeaveTab({ user, users, leaves, isAdmin, isSuperAdmin, persist, updateL
       {empList.map(u => {
         const lv           = normLeave(leaves[u.id], u.joinDate);
         const yr           = getCurrentLeaveYear(lv.leaveStartDate);
-        const yrStart      = yr ? yr.localDate(start) : "0000-01-01";
-        const yrEnd        = yr ? yr.localDate(end)   : "9999-12-31";
+        const yrStart      = yr ? localDate(yr.start) : "0000-01-01";
+        const yrEnd        = yr ? localDate(yr.end)   : "9999-12-31";
         const accDays      = calcAccruedDays(lv.leaveStartDate);
         const accHours     = Math.round(accDays * HOURS_PER_DAY * 10) / 10;
         const usedDays     = +(lv.usedDays) || 0;
@@ -1466,7 +1466,7 @@ function LeaveTab({ user, users, leaves, isAdmin, isSuperAdmin, persist, updateL
                 <div style={{ ...styles.logAvatar, width: 40, height: 40, fontSize: 16 }}>{u.name[0]}</div>
                 <div>
                   <p style={styles.logName}>{u.name} <span style={styles.deptBadge}>{u.dept}</span></p>
-                  <p style={styles.logContent}>{yr ? `${yr.localDate(start)} ~ ${yr.localDate(end)}` : lv.leaveStartDate}</p>
+                  <p style={styles.logContent}>{yr ? `${localDate(yr.start)} ~ ${localDate(yr.end)}` : lv.leaveStartDate}</p>
                 </div>
               </div>
               {isAdmin && (
@@ -1608,8 +1608,8 @@ function LeaveUsageSection({ records, leaveStartDate, isAdmin, onUpdate }) {
 
   // Current year filter
   const yr       = getCurrentLeaveYear(leaveStartDate);
-  const yrStart  = yr ? yr.localDate(start) : "0000-01-01";
-  const yrEnd    = yr ? yr.localDate(end)   : "9999-12-31";
+  const yrStart  = yr ? localDate(yr.start) : "0000-01-01";
+  const yrEnd    = yr ? localDate(yr.end)   : "9999-12-31";
   const currYearRecords = records.filter(r => r.date >= yrStart && r.date <= yrEnd);
   const sorted   = [...records].sort((a, b) => b.date.localeCompare(a.date));
 
