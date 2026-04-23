@@ -1891,17 +1891,19 @@ function LeaveEditForm({ targetId, users, leaves, onSave, onClose }) {
 
 // ─── Team Tab (Admin only) ─────────────────────────────────────────────────
 function TeamTab({ users, leaves, logs, persist, isSuperAdmin, companies }) {
-  const [showAdd, setShowAdd]       = useState(false);
-  const [editEmp, setEditEmp]       = useState(null);
-  const [confirmId, setConfirmId]   = useState(null);
-  const [reordering, setReordering] = useState(false);
+  const [showAdd, setShowAdd]           = useState(false);
+  const [editEmp, setEditEmp]           = useState(null);
+  const [confirmId, setConfirmId]       = useState(null);
+  const [reordering, setReordering]     = useState(false);
   const [showResigned, setShowResigned] = useState(false);
+  const [search, setSearch]             = useState("");
 
   const emps         = users.filter(u => u.id !== "admin");
   const activeEmps   = emps.filter(u => !u.resignedDate);
   const resignedEmps = emps.filter(u => u.resignedDate);
-  const adminEmps    = activeEmps.filter(u => u.role === "superadmin" || u.role === "viewadmin");
-  const staffEmps    = activeEmps.filter(u => u.role === "employee");
+  const searchMatch  = u => !search || u.name.includes(search) || u.dept.includes(search);
+  const adminEmps    = activeEmps.filter(u => (u.role === "superadmin" || u.role === "viewadmin") && searchMatch(u));
+  const staffEmps    = activeEmps.filter(u => u.role === "employee" && searchMatch(u));
 
   const deleteEmp = (id) => { persist(users.filter(u => u.id !== id), null, null); setConfirmId(null); };
 
@@ -1939,6 +1941,25 @@ function TeamTab({ users, leaves, logs, persist, isSuperAdmin, companies }) {
           {isSuperAdmin && <button style={{ ...styles.btnSecondary, fontSize: 12, padding: "6px 10px" }} onClick={() => setReordering(r => !r)}>{reordering ? "✅ 완료" : "↕️ 순서변경"}</button>}
           {isSuperAdmin && !reordering && <button style={styles.btnAdd} onClick={() => setShowAdd(true)}>{Icon.plus} 추가</button>}
         </div>
+      </div>
+
+      <div style={{ marginBottom: 12 }}>
+        <input
+          style={{ ...styles.input, width: "100%", boxSizing: "border-box" }}
+          placeholder="🔍 이름 또는 부서로 검색..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
+        {search && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
+            {activeEmps.filter(u => u.name.includes(search) || u.dept.includes(search)).map(u => (
+              <button key={u.id} style={{ fontSize: 12, padding: "4px 10px", background: "#3b7ff5", color: "#fff", border: "none", borderRadius: 20, cursor: "pointer" }}
+                onClick={() => setSearch(u.name)}>
+                {u.name}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {adminEmps.length > 0 && (
