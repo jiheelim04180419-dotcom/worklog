@@ -618,7 +618,7 @@ function HomeTab({ user, users, logs, leaves, isAdmin }) {
       {isAdmin && (
         <div style={styles.section}>
           <h3 style={styles.sectionTitle}>연차 현황</h3>
-          {users.filter(u => u.role !== "admin").map(u => {
+          {users.filter(u => u.role === "employee" && !normLeave(leaves[u.id], u.joinDate).noLeave).map(u => {
             const lv   = normLeave(leaves[u.id], u.joinDate);
             const acc  = calcAccruedDays(lv.leaveStartDate);
             const rem  = Math.max(0, acc - (lv.usedDays || 0));
@@ -777,7 +777,7 @@ function LogTab({ user, users, logs, leaves, isAdmin, persist }) {
       {showForm && (
         <LogForm
           log={editLog}
-          userId={editLog ? editLog.userId : (isAdmin ? (filterUser === "all" ? users.find(u => u.role !== "admin")?.id || user.id : filterUser) : user.id)}
+          userId={editLog ? editLog.userId : (isAdmin ? (filterUser === "all" ? users.find(u => u.role === "employee") && users.find(u => u.role === "employee").id || user.id : filterUser) : user.id)}
           users={users}
           leaves={leaves}
           isAdmin={isAdmin}
@@ -1070,7 +1070,7 @@ function LogForm({ log, userId, users, leaves, isAdmin, onSave, onClose }) {
           <div style={styles.field}>
             <label style={styles.label}>직원</label>
             <select style={styles.input} value={form.userId} onChange={e => set("userId", e.target.value)}>
-              {users.filter(u => u.role !== "admin").map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+              {users.filter(u => u.role === "employee").map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
             </select>
           </div>
         )}
@@ -1391,7 +1391,7 @@ function LeaveTab({ user, users, leaves, isAdmin, isSuperAdmin, persist, updateL
   const [showForm, setShowForm]     = useState(false);
   const [editTarget, setEditTarget] = useState(null);
   const [filterUser, setFilterUser] = useState("all");
-  const allEmps = isAdmin ? users.filter(u => u.role === "employee") : [user];
+  const allEmps = isAdmin ? users.filter(u => u.role === "employee" && !normLeave(leaves[u.id], u.joinDate).noLeave) : (!normLeave(leaves[user.id], user.joinDate).noLeave ? [user] : []);
   const empList = (isAdmin && filterUser !== "all") ? allEmps.filter(u => u.id === filterUser) : allEmps;
 
   return (
@@ -1486,7 +1486,7 @@ function LeaveTab({ user, users, leaves, isAdmin, isSuperAdmin, persist, updateL
                             {p.isActive ? "▶" : p.isComplete ? "✓" : i+1}
                           </span>
                           <div>
-                            <p style={styles.rateAccrualDates}>{p.from} ~ {p.to}</p>
+                            <p style={styles.rateAccrualDates}>{p.from} ~ {p.isActive || !p.isComplete ? p.to : (() => { const d = new Date(p.to + "T00:00:00"); d.setDate(d.getDate()-1); return d.toISOString().slice(0,10); })()}</p>
                             <p style={styles.rateAccrualCalDays}>
                               {p.isComplete ? `${p.calDaysTotal}일 완료` : p.isActive ? `${p.calDaysElapsed}/${p.calDaysTotal}일 경과` : "미시작"}
                             </p>
@@ -2439,7 +2439,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, persist }) {
 
   // Admin sees all; employee sees only self
   const emps = isAdmin
-    ? users.filter(u => u.role !== "admin")
+    ? users.filter(u => u.role === "employee")
     : users.filter(u => u.id === user.id);
 
   const getPeriodLogs = (userId) =>
@@ -2929,7 +2929,7 @@ function RateCard({ user, rates, isContractor, isSuperAdmin, onSave }) {
         <div>
           {sorted.map((r, i, arr) => (
             <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: i < arr.length-1 ? `1px solid ${C.border}` : "none" }}>
-              <span style={{ fontSize: 12, color: C.sub }}>{r.from} ~ {arr[i+1] ? arr[i+1].from : "현재"}</span>
+              <span style={{ fontSize: 12, color: C.sub }}>{r.from} ~ {arr[i+1] ? (() => { const d = new Date(arr[i+1].from + "T00:00:00"); d.setDate(d.getDate()-1); return d.toISOString().slice(0,10); })() : "현재"}</span>
               <span style={{ fontSize: 15, fontWeight: 700, color: C.text }}>${parseFloat(r.dailyRate || 0).toFixed(2)}<span style={{ fontSize: 11, color: C.sub, fontWeight: 400 }}>/일</span></span>
             </div>
           ))}
