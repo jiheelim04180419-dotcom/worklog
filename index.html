@@ -116,6 +116,8 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, persist, companies }) 
   const [selId, setSelId] = useState(isAdmin ? null : user.id);
   const [subView, setSubView] = useState("calc");
   const [cashMode, setCashMode] = useState(false);
+  const [deductions, setDeductions] = useState([]);
+  const [partialCash, setPartialCash] = useState("");
   const [periodStart, setPeriodStart] = useState(() => {
     const BASE = new Date("2026-04-13T00:00:00");
     const diff = Math.floor((Date.now() - BASE.getTime()) / (1000*60*60*24*14));
@@ -221,6 +223,11 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, persist, companies }) 
 
   const wage = selId ? calcWage(selId) : null;
   const carry = selId ? getCarryover(selId) : null;
+
+  const addDeduction = () => setDeductions(d => [...d, { id: Date.now(), desc: "", amount: "" }]);
+  const updateDeduction = (id, field, val) => setDeductions(d => d.map(x => x.id === id ? { ...x, [field]: val } : x));
+  const removeDeduction = (id) => setDeductions(d => d.filter(x => x.id !== id));
+  const totalDeductions = deductions.reduce((s, d) => s + (parseFloat(d.amount) || 0), 0);
 
   const prevPeriod = () => { const d = new Date(periodStart+"T00:00:00"); d.setDate(d.getDate()-14); setPeriodStart(localDateStr(d)); };
   const nextPeriod = () => { const d = new Date(periodStart+"T00:00:00"); d.setDate(d.getDate()+14); setPeriodStart(localDateStr(d)); };
