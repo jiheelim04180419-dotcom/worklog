@@ -313,7 +313,8 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, persist, companies }) 
             <div style={{ textAlign:"right" }}>
               {wage && wage.dailyRate > 0 ? (<>
                 <p style={{ margin:0,fontSize:14,fontWeight:700,color:C.text }}>{fA(wage.dailyRate)}<span style={{ fontSize:11,color:C.sub,fontWeight:400 }}>/일</span></p>
-                <p style={{ margin:"2px 0 0",fontSize:11,color:C.sub }}>기준 {wage.reqDays}일 · 시급 {fA(wage.dailyRate/8)}</p>
+                {!wage.isContractor && <p style={{ margin:"2px 0 0",fontSize:11,color:C.sub }}>기준 {wage.reqDays}일 · 시급 {fA(wage.dailyRate/8)}</p>}
+                {wage.isContractor && <p style={{ margin:"2px 0 0",fontSize:11,color:C.sub }}>시급 {fA(wage.dailyRate/8)} · 인보이스</p>}
               </>) : <p style={{ margin:0,fontSize:12,color:"#f77" }}>일급 미설정</p>}
             </div>
           </div>
@@ -370,7 +371,6 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, persist, companies }) 
                   <span style={{ fontSize:12,color:C.sub }}>기준 ({wage.reqDays}일 × 9h)</span>
                   <span style={{ fontSize:13,fontWeight:700 }}>{wage.reqH}h</span>
                 </div>
-                </>)}
                 <div style={{ height:1,background:"#E5E7EB",margin:"6px 0" }} />
                 <div style={S.row}>
                   <span style={{ fontSize:12,color:C.sub }}>차이 (이월 예정)</span>
@@ -378,6 +378,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, persist, companies }) 
                     {wage.diffH>=0?"+":""}{wage.diffH.toFixed(1)}h
                   </span>
                 </div>
+                </>)}
               </div>
             </div>
 
