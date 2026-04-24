@@ -66,8 +66,37 @@ const FULLTIME_END="16:30";
 const FULLTIME_HOURS=calcHours(FULLTIME_START,FULLTIME_END)-0.5;
 
 // ─── ATO 2025-26 Tax Calculation ─────────────────────────────────────────────
-function calcAnnualTaxATO(annual){let tax=0;if(annual<=18200)tax=0;else if(annual<=45000)tax=(annual-18200)*0.19;else if(annual<=120000)tax=5092+(annual-45000)*0.325;else if(annual<=180000)tax=29467+(annual-120000)*0.37;else tax=51667+(annual-180000)*0.45;let lito=0;if(annual<=37500)lito=700;else if(annual<=45000)lito=700-(annual-37500)*0.05;else if(annual<=66667)lito=325-(annual-45000)*0.015;tax=Math.max(0,tax-lito);const medicare=annual>26000?annual*0.02:0;return tax+medicare;}
-function calcFortnightlyTax(gross){return calcAnnualTaxATO(gross*26)/26;}
+// 일반 거주자 세율 (ATO 2025-26)
+function calcAnnualTaxResident(annual){
+  let tax=0;
+  if(annual<=18200)tax=0;
+  else if(annual<=45000)tax=(annual-18200)*0.19;
+  else if(annual<=120000)tax=5092+(annual-45000)*0.325;
+  else if(annual<=180000)tax=29467+(annual-120000)*0.37;
+  else tax=51667+(annual-180000)*0.45;
+  let lito=0;
+  if(annual<=37500)lito=700;
+  else if(annual<=45000)lito=700-(annual-37500)*0.05;
+  else if(annual<=66667)lito=325-(annual-45000)*0.015;
+  tax=Math.max(0,tax-lito);
+  const medicare=annual>26000?annual*0.02:0;
+  return tax+medicare;
+}
+// WHV (Working Holiday Maker: WHV1/WHV2/WHV3) 세율 - 한도 없음, 메디케어 없음
+function calcAnnualTaxWHV(annual){
+  let tax=0;
+  if(annual<=45000)tax=annual*0.15;
+  else if(annual<=120000)tax=6750+(annual-45000)*0.325;
+  else if(annual<=180000)tax=31125+(annual-120000)*0.37;
+  else tax=53325+(annual-180000)*0.45;
+  return tax;
+}
+function calcFortnightlyTax(gross, visaType){
+  const isWHV = visaType && (visaType.startsWith('WHV') || visaType==='417' || visaType==='462');
+  const annual = gross * 26;
+  const annualTax = isWHV ? calcAnnualTaxWHV(annual) : calcAnnualTaxResident(annual);
+  return annualTax / 26;
+}
 const EMP_COLORS=["#3B82F6","#10B981","#F59E0B","#EF4444","#8B5CF6","#EC4899","#06B6D4","#84CC16","#F97316","#6366F1"];
 
 // ─── Icons (SVG inline) ────────────────────────────────────────────────────
@@ -159,6 +188,21 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, persist, companies }) 
   const getReqExtraHours = (userId) => (leaves[userId] || {}).reqExtraHours || 0;
   const getCarryover = (userId) => (leaves[userId] || {}).wageCarryover || { fullDays: 0, partHours: 0, otHours: 0 };
 
+  // 급여기간별 기준 조회 (이력 기반 - 기간 변경해도 과거 기준 유지)
+  const getReqForPeriod = (userId, pStart) => {
+    const lv = leaves[userId] || {};
+    const history = lv.reqHistory || [];
+    if (history.length > 0) {
+      const sorted = [...history].sort((a, b) => b.from.localeCompare(a.from));
+      const match = sorted.find(h => h.from <= pStart);
+      if (match) return { days: match.days || 0, hours: match.hours || 0 };
+      const earliest = sorted[sorted.length - 1];
+      return { days: earliest.days || 0, hours: earliest.hours || 0 };
+    }
+    // 이력 없으면 현재 설정값 사용
+    return { days: lv.reqDays || 8, hours: lv.reqExtraHours || 0 };
+  };
+
   const getPeriodLogs = (userId) =>
     logs.filter(l => l.userId === userId && l.date >= periodStart && l.date <= periodEnd)
         .sort((a, b) => a.date.localeCompare(b.date));
@@ -178,8 +222,9 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, persist, companies }) 
   const calcWage = (userId) => {
     const lv = leaves[userId] || {};
     const isContractor = !!lv.noLeave;
+    const fixedPayment = (!isContractor && lv.fixedPayment) ? parseFloat(lv.fixedPayment) : 0;
     const dailyRate = getDailyRate(userId);
-    const reqDays = getReqDays(userId);
+    const { days: reqDays, hours: reqExtraHours } = getReqForPeriod(userId, periodStart);
     const carry = getCarryover(userId);
     if (!dailyRate) return null;
     const periodLogs = getPeriodLogs(userId);
@@ -194,8 +239,9 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, persist, companies }) 
     const travel = stats.travelTotal;
     const gross = basePay + partPay + otPay + travel;
     let tax = 0, superAmt = 0, net = gross;
-    if (!isContractor) { tax = calcFortnightlyTax(gross); superAmt = gross * 0.115; net = gross - tax - superAmt; }
-    const reqExtraHours = getReqExtraHours(userId);
+    const empUser = (users||[]).find(u => u.id === userId);
+    const visaType = empUser && empUser.visa ? empUser.visa.type : null;
+    if (!isContractor) { tax = calcFortnightlyTax(grossAfterDeductions, visaType); superAmt = grossAfterDeductions * 0.12; net = grossAfterDeductions - tax - superAmt; }
     const workedH = stats.fullDays * 9 + stats.partHours + stats.otHours;
     const reqH = reqDays * 9 + reqExtraHours;
     const diffH = workedH - reqH;
@@ -203,7 +249,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, persist, companies }) 
     const lvPart = diffH - lvDays * 9;
     return { dailyRate, reqDays, hourlyRate, stats, carry, totalFull, totalPart, totalOt,
              basePay, partPay, otPay, travel, gross, tax, superAmt, net, cashOut: net * 0.75,
-             workedH, reqH, diffH, lvDays, lvPart, isContractor, periodLogs, reqExtraHours };
+             workedH, reqH, diffH, lvDays, lvPart, isContractor, periodLogs, reqExtraHours, fixedPayment, visaType };
   };
 
   const saveCarryover = (userId) => {
@@ -313,8 +359,8 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, persist, companies }) 
             <div style={{ textAlign:"right" }}>
               {wage && wage.dailyRate > 0 ? (<>
                 <p style={{ margin:0,fontSize:14,fontWeight:700,color:C.text }}>{fA(wage.dailyRate)}<span style={{ fontSize:11,color:C.sub,fontWeight:400 }}>/일</span></p>
-                {!wage.isContractor && <p style={{ margin:"2px 0 0",fontSize:11,color:C.sub }}>기준 {wage.reqDays}일 · 시급 {fA(wage.dailyRate/8)}</p>}
-                {wage.isContractor && <p style={{ margin:"2px 0 0",fontSize:11,color:C.sub }}>시급 {fA(wage.dailyRate/8)} · 인보이스</p>}
+                {!wage.isContractor && <p style={{ margin:"2px 0 0",fontSize:11,color:C.sub }}>기준 {wage.reqDays}일 {wage.reqExtraHours>0?`${wage.reqExtraHours}h`:""}</p>}
+                {wage.isContractor && <p style={{ margin:"2px 0 0",fontSize:11,color:C.sub }}>인보이스</p>}
               </>) : <p style={{ margin:0,fontSize:12,color:"#f77" }}>일급 미설정</p>}
             </div>
           </div>
@@ -368,7 +414,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, persist, companies }) 
                   <span style={{ fontSize:13,fontWeight:700 }}>{wage.workedH.toFixed(1)}h</span>
                 </div>
                 <div style={S.row}>
-                  <span style={{ fontSize:12,color:C.sub }}>기준 ({wage.reqDays}일 × 9h)</span>
+                  <span style={{ fontSize:12,color:C.sub }}>기준 ({wage.reqDays}일{wage.reqExtraHours>0?` ${wage.reqExtraHours}h`:""})</span>
                   <span style={{ fontSize:13,fontWeight:700 }}>{wage.reqH}h</span>
                 </div>
                 <div style={{ height:1,background:"#E5E7EB",margin:"6px 0" }} />
@@ -453,7 +499,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, persist, companies }) 
                   <span style={{ fontSize:13,fontWeight:700,color:"#EF4444" }}>− {fA(wage.tax)}</span>
                 </div>
                 <div style={S.row}>
-                  <span style={{ fontSize:13,color:C.text }}>Super (11.5%)</span>
+                  <span style={{ fontSize:13,color:C.text }}>Super (12%)</span>
                   <span style={{ fontSize:13,fontWeight:700,color:"#F59E0B" }}>− {fA(wage.superAmt)}</span>
                 </div>
                 <div style={{ height:1,background:"#F0F0F0",margin:"10px 0" }} />
@@ -461,6 +507,18 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, persist, companies }) 
                   <span style={{ fontSize:15,fontWeight:700 }}>Net Pay</span>
                   <span style={{ fontSize:20,fontWeight:900,color:"#10B981" }}>{fA(wage.net)}</span>
                 </div>
+                {wage.fixedPayment > 0 && (
+                  <div style={{ marginTop:8,borderTop:"1px solid #F0F0F0",paddingTop:8 }}>
+                    <div style={{ display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:4 }}>
+                      <span style={{ color:"#555" }}>고정 지급액</span>
+                      <span style={{ fontWeight:600,color:"#EF4444" }}>− {fA(wage.fixedPayment)}</span>
+                    </div>
+                    <div style={{ display:"flex",justifyContent:"space-between",fontSize:14,fontWeight:700 }}>
+                      <span>변동분 (Keep/Cash 대상)</span>
+                      <span style={{ color:"#3B82F6" }}>{fA(wage.net - wage.fixedPayment)}</span>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -481,12 +539,21 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, persist, companies }) 
               <div style={{ background:cashMode?"#FEF2F2":"#F0FDF4",borderRadius:14,padding:"18px 20px",marginBottom:10,
                 border:"2px solid "+(cashMode?"#FECACA":"#BBF7D0"),boxShadow:"0 2px 8px #0000000a" }}>
                 <p style={{ margin:"0 0 6px",fontSize:12,fontWeight:700,color:cashMode?"#EF4444":"#10B981" }}>
-                  {cashMode?"💵 Cash 지급액 (Net × 75%)":"🏦 Keep 금액"}
+                  {cashMode ? "💵 Cash 지급액" : "🏦 Keep 금액"}
                 </p>
-                <p style={{ margin:0,fontSize:32,fontWeight:900,color:cashMode?"#EF4444":"#10B981" }}>
-                  {fA(cashMode ? wage.cashOut : wage.net)}
-                </p>
-                {cashMode && <p style={{ margin:"6px 0 0",fontSize:12,color:"#888" }}>25% 공제분: {fA(wage.net - wage.cashOut)}</p>}
+                {(() => {
+                  const base = wage.fixedPayment > 0 ? wage.net - wage.fixedPayment : wage.net;
+                  const cashAmt = base * 0.75;
+                  return cashMode ? (<>
+                    <p style={{ margin:0,fontSize:30,fontWeight:900,color:"#EF4444" }}>{fA(cashAmt)}</p>
+                    <p style={{ margin:"4px 0 0",fontSize:12,color:"#888" }}>변동분 {fA(base)} × 75%</p>
+                    <p style={{ margin:"2px 0 0",fontSize:12,color:"#888" }}>25% 공제: {fA(base * 0.25)}</p>
+                    {wage.fixedPayment > 0 && <p style={{ margin:"4px 0 0",fontSize:11,fontWeight:600,color:"#555" }}>고정 {fA(wage.fixedPayment)} + 캐시 {fA(cashAmt)} = 실수령 {fA(wage.fixedPayment + cashAmt)}</p>}
+                  </>) : (<>
+                    <p style={{ margin:0,fontSize:30,fontWeight:900,color:"#10B981" }}>{fA(wage.net)}</p>
+                    {wage.fixedPayment > 0 && <p style={{ margin:"4px 0 0",fontSize:12,color:"#888" }}>고정 {fA(wage.fixedPayment)} + 킵 변동분 {fA(base)}</p>}
+                  </>);
+                })()}
               </div>
             </>)}
 
@@ -579,27 +646,27 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, persist, companies }) 
           <div style={{ background:"#fff",borderRadius:14,padding:"16px",marginBottom:10,boxShadow:"0 1px 4px #0000000a" }}>
             <p style={{ margin:"0 0 16px",fontSize:15,fontWeight:700,color:C.text }}>⚙️ {selEmp.name} 급여 설정</p>
             {!(leaves[selId] || {}).noLeave && (
-              <div style={styles.field}>
-                <label style={styles.label}>격주 기준 (일 + 시간)</label>
-                <div style={{ display:"flex",gap:8,alignItems:"center" }}>
-                  <div style={{ flex:1 }}>
-                    <input type="number" style={styles.input} defaultValue={getReqDays(selId)} min={0} max={14} placeholder="일수"
-                      onChange={e => saveReqDays(selId, e.target.value)} />
-                    <p style={{ margin:"4px 0 0",fontSize:10,color:C.sub,textAlign:"center" }}>일 (days)</p>
-                  </div>
-                  <span style={{ fontSize:18,color:C.sub,paddingBottom:20 }}>+</span>
-                  <div style={{ flex:1 }}>
-                    <input type="number" style={styles.input} defaultValue={getReqExtraHours(selId)} min={0} max={8} step={0.5} placeholder="시간"
-                      onChange={e => saveReqExtraHours(selId, e.target.value)} />
-                    <p style={{ margin:"4px 0 0",fontSize:10,color:C.sub,textAlign:"center" }}>시간 (hours)</p>
-                  </div>
-                </div>
-                <p style={{ margin:"8px 0 0",fontSize:11,color:C.sub }}>총 기준: {getReqDays(selId)}일 {getReqExtraHours(selId)>0?`${getReqExtraHours(selId)}h`:""} = {getReqDays(selId)*9 + getReqExtraHours(selId)}h 필요</p>
-              </div>
+              <ReqHistoryEditor selId={selId} leaves={leaves} persist={persist} periodStart={periodStart} />
             )}
             {(leaves[selId] || {}).noLeave && (
               <div style={{ background:"#FEF3C7",borderRadius:10,padding:"10px 12px",marginBottom:14 }}>
                 <p style={{ margin:0,fontSize:12,color:"#92400E" }}>📄 인보이스 직원 — 기준일 설정 없음</p>
+              </div>
+            )}
+            {!(leaves[selId] || {}).noLeave && (
+              <div style={styles.field}>
+                <label style={styles.label}>고정 지급액 (매 격주 고정 이체액)</label>
+                <div style={{ position:"relative" }}>
+                  <span style={{ position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",color:"#888",fontSize:13 }}>$</span>
+                  <input type="number" style={{ ...styles.input,paddingLeft:22 }} min={0} step={0.01}
+                    defaultValue={(leaves[selId]||{}).fixedPayment||""}
+                    placeholder="예: 2000.00"
+                    onBlur={e => {
+                      const lv = leaves[selId]||{};
+                      persist(null,null,{...leaves,[selId]:{...lv,fixedPayment:parseFloat(e.target.value)||0}});
+                    }} />
+                </div>
+                <p style={{ margin:"4px 0 0",fontSize:11,color:C.sub }}>Keep/Cash는 Net Pay에서 이 금액을 뺀 변동분에 적용돼요</p>
               </div>
             )}
             {carry && (carry.fullDays !== 0 || carry.partHours !== 0) && (
@@ -941,6 +1008,102 @@ function CompanyTab({ companies, persist }) {
           )}
         </div>
       ))}
+    </div>
+  );
+}
+
+
+// ─── ReqHistoryEditor: 기준일/시간 이력 관리 ─────────────────────────────
+function ReqHistoryEditor({ selId, leaves, persist, periodStart }) {
+  const lv = leaves[selId] || {};
+  const history = lv.reqHistory || [];
+  const [newFrom, setNewFrom] = useState(periodStart || today);
+  const [newDays, setNewDays] = useState("");
+  const [newHours, setNewHours] = useState("");
+  const [confirmDel, setConfirmDel] = useState(null);
+
+  const sorted = [...history].sort((a, b) => b.from.localeCompare(a.from));
+
+  const addEntry = () => {
+    if (!newFrom || (!newDays && !newHours)) return;
+    const entry = { from: newFrom, days: parseInt(newDays) || 0, hours: parseFloat(newHours) || 0 };
+    const updated = [...history.filter(h => h.from !== newFrom), entry];
+    persist(null, null, { ...leaves, [selId]: { ...lv, reqHistory: updated } });
+    setNewDays(""); setNewHours("");
+  };
+
+  const delEntry = (from) => {
+    persist(null, null, { ...leaves, [selId]: { ...lv, reqHistory: history.filter(h => h.from !== from) } });
+    setConfirmDel(null);
+  };
+
+  // 현재 기간에 해당하는 기준
+  const current = sorted.find(h => h.from <= (periodStart || today)) || sorted[sorted.length - 1];
+
+  return (
+    <div>
+      <div style={{ marginBottom:14 }}>
+        <label style={styles.label}>기준일 이력 (급여기간별 고정)</label>
+        {current && (
+          <div style={{ background:"#EFF6FF",border:"1px solid #BFDBFE",borderRadius:10,padding:"10px 12px",marginBottom:10 }}>
+            <p style={{ margin:0,fontSize:12,color:"#1D4ED8",fontWeight:600 }}>
+              📌 현재 기간({periodStart}) 적용 기준: <strong>{current.days}일 {current.hours > 0 ? `${current.hours}h ` : ""}= {current.days * 9 + current.hours}h</strong>
+            </p>
+          </div>
+        )}
+        {sorted.length === 0 && (
+          <p style={{ fontSize:12,color:"#aaa",textAlign:"center",margin:"8px 0" }}>등록된 기준 이력이 없어요</p>
+        )}
+        {sorted.map(h => (
+          <div key={h.from} style={{ display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 10px",background:h===current?"#F0FDF4":"#F9FAFB",borderRadius:8,marginBottom:6,border:h===current?"1px solid #BBF7D0":"1px solid #E5E7EB" }}>
+            <div>
+              <p style={{ margin:0,fontSize:12,fontWeight:600,color:"#111" }}>{h.from} ~</p>
+              <p style={{ margin:"2px 0 0",fontSize:13,fontWeight:700,color:h===current?"#10B981":"#555" }}>
+                {h.days}일 {h.hours > 0 ? `${h.hours}h ` : ""}= {h.days * 9 + h.hours}h
+              </p>
+            </div>
+            {confirmDel === h.from ? (
+              <div style={{ display:"flex",gap:6,alignItems:"center" }}>
+                <span style={{ fontSize:11,color:"#f77" }}>삭제?</span>
+                <button onClick={() => delEntry(h.from)} style={{ fontSize:11,background:"#f77",color:"#fff",border:"none",borderRadius:6,padding:"3px 8px",cursor:"pointer",fontFamily:"inherit" }}>예</button>
+                <button onClick={() => setConfirmDel(null)} style={{ fontSize:11,background:"#eee",color:"#555",border:"none",borderRadius:6,padding:"3px 8px",cursor:"pointer",fontFamily:"inherit" }}>아니오</button>
+              </div>
+            ) : (
+              <button onClick={() => setConfirmDel(h.from)} style={{ background:"none",border:"none",cursor:"pointer",color:"#f77",fontSize:16,padding:"4px" }}>×</button>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <div style={{ background:"#F9FAFB",borderRadius:10,padding:"12px 14px",border:"1px dashed #D1D5DB" }}>
+        <p style={{ margin:"0 0 10px",fontSize:12,fontWeight:600,color:"#555" }}>+ 새 기준 추가</p>
+        <div style={{ ...styles.field,marginBottom:10 }}>
+          <label style={styles.label}>적용 시작일</label>
+          <input type="date" style={styles.input} value={newFrom} onChange={e => setNewFrom(e.target.value)} />
+        </div>
+        <div style={{ display:"flex",gap:8,alignItems:"flex-end",marginBottom:10 }}>
+          <div style={{ flex:1 }}>
+            <label style={{ ...styles.label,fontSize:10 }}>일 (days)</label>
+            <input type="number" style={styles.input} value={newDays} min={0} max={14} placeholder="0"
+              onChange={e => setNewDays(e.target.value)} />
+          </div>
+          <span style={{ fontSize:18,color:"#aaa",paddingBottom:12 }}>+</span>
+          <div style={{ flex:1 }}>
+            <label style={{ ...styles.label,fontSize:10 }}>시간 (hours)</label>
+            <input type="number" style={styles.input} value={newHours} min={0} max={8} step={0.5} placeholder="0"
+              onChange={e => setNewHours(e.target.value)} />
+          </div>
+        </div>
+        {(newDays || newHours) && (
+          <p style={{ margin:"0 0 8px",fontSize:12,color:"#555" }}>
+            → {parseInt(newDays)||0}일 {parseFloat(newHours)||0 > 0 ? `${parseFloat(newHours)}h ` : ""}= {(parseInt(newDays)||0)*9 + (parseFloat(newHours)||0)}h
+          </p>
+        )}
+        <button onClick={addEntry}
+          style={{ width:"100%",background:C.primary,color:"#fff",border:"none",borderRadius:10,padding:"11px 0",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit" }}>
+          저장
+        </button>
+      </div>
     </div>
   );
 }
