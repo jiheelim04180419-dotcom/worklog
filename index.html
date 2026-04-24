@@ -66,36 +66,26 @@ const FULLTIME_END="16:30";
 const FULLTIME_HOURS=calcHours(FULLTIME_START,FULLTIME_END)-0.5;
 
 // ─── ATO 2025-26 Tax Calculation ─────────────────────────────────────────────
-// 일반 거주자 세율 (ATO 2025-26)
+// 세금 원천징수 계산 (기본 구간세율 - LITO/Medicare는 세금신고 때 처리)
 function calcAnnualTaxResident(annual){
-  let tax=0;
-  if(annual<=18200)tax=0;
-  else if(annual<=45000)tax=(annual-18200)*0.19;
-  else if(annual<=120000)tax=5092+(annual-45000)*0.325;
-  else if(annual<=180000)tax=29467+(annual-120000)*0.37;
-  else tax=51667+(annual-180000)*0.45;
-  let lito=0;
-  if(annual<=37500)lito=700;
-  else if(annual<=45000)lito=700-(annual-37500)*0.05;
-  else if(annual<=66667)lito=325-(annual-45000)*0.015;
-  tax=Math.max(0,tax-lito);
-  const medicare=annual>26000?annual*0.02:0;
-  return tax+medicare;
+  // 일반 거주자: ATO 기본 구간세율만 적용
+  if(annual<=18200) return 0;
+  if(annual<=45000) return (annual-18200)*0.19;
+  if(annual<=120000) return 5092+(annual-45000)*0.325;
+  if(annual<=180000) return 29467+(annual-120000)*0.37;
+  return 51667+(annual-180000)*0.45;
 }
-// WHV (Working Holiday Maker: WHV1/WHV2/WHV3) 세율 - 한도 없음, 메디케어 없음
 function calcAnnualTaxWHV(annual){
-  let tax=0;
-  if(annual<=45000)tax=annual*0.15;
-  else if(annual<=120000)tax=6750+(annual-45000)*0.325;
-  else if(annual<=180000)tax=31125+(annual-120000)*0.37;
-  else tax=53325+(annual-180000)*0.45;
-  return tax;
+  // WHV (417/462/WHV1-3): 15% 고정율로 원천징수
+  if(annual<=45000) return annual*0.15;
+  if(annual<=120000) return 6750+(annual-45000)*0.325;
+  if(annual<=180000) return 31125+(annual-120000)*0.37;
+  return 53325+(annual-180000)*0.45;
 }
 function calcFortnightlyTax(gross, visaType){
   const isWHV = visaType && (visaType.startsWith('WHV') || visaType==='417' || visaType==='462');
   const annual = gross * 26;
-  const annualTax = isWHV ? calcAnnualTaxWHV(annual) : calcAnnualTaxResident(annual);
-  return annualTax / 26;
+  return (isWHV ? calcAnnualTaxWHV(annual) : calcAnnualTaxResident(annual)) / 26;
 }
 const EMP_COLORS=["#3B82F6","#10B981","#F59E0B","#EF4444","#8B5CF6","#EC4899","#06B6D4","#84CC16","#F97316","#6366F1"];
 
@@ -241,7 +231,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, persist, companies }) 
     let tax = 0, superAmt = 0, net = gross;
     const empUser = (users||[]).find(u => u.id === userId);
     const visaType = empUser && empUser.visa ? empUser.visa.type : null;
-    if (!isContractor) { tax = calcFortnightlyTax(grossAfterDeductions, visaType); superAmt = grossAfterDeductions * 0.12; net = grossAfterDeductions - tax - superAmt; }
+    if (!isContractor) { tax = calcFortnightlyTax(gross, visaType); superAmt = gross * 0.12; net = gross - tax - superAmt; }
     const workedH = stats.fullDays * 9 + stats.partHours + stats.otHours;
     const reqH = reqDays * 9 + reqExtraHours;
     const diffH = workedH - reqH;
@@ -249,7 +239,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, persist, companies }) 
     const lvPart = diffH - lvDays * 9;
     return { dailyRate, reqDays, hourlyRate, stats, carry, totalFull, totalPart, totalOt,
              basePay, partPay, otPay, travel, gross, tax, superAmt, net, cashOut: net * 0.75,
-             workedH, reqH, diffH, lvDays, lvPart, isContractor, periodLogs, reqExtraHours, fixedPayment, visaType };
+             workedH, reqH, diffH, lvDays, lvPart, isContractor, periodLogs, reqExtraHours, fixedPayment, visaType, gross };
   };
 
   const saveCarryover = (userId) => {
@@ -484,7 +474,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, persist, companies }) 
                   </div>
                   <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",background:"#F9FAFB",borderRadius:10,padding:"10px 12px" }}>
                     <span style={{ fontSize:14,fontWeight:700,color:C.text }}>공제 후 금액</span>
-                    <span style={{ fontSize:18,fontWeight:900,color:C.text }}>{fA(wage.grossAfterDeductions)}</span>
+                    <span style={{ fontSize:18,fontWeight:900,color:C.text }}>{fA(Math.max(0, wage.gross - totalDeductions))}</span>
                   </div>
                 </div>
               )}
@@ -583,8 +573,8 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, persist, companies }) 
 
             {/* Carryover box */}
             <div style={{ background:"#fff",borderRadius:14,padding:"14px 16px",marginBottom:10,boxShadow:"0 1px 4px #0000000a" }}>
-              <p style={S.sectionTitle}>📤 다음 기간 이월 예정</p>
-              <div style={{ display:"flex",gap:16,marginBottom:12 }}>
+              {!wage.isContractor && <p style={S.sectionTitle}>📤 다음 기간 이월 예정</p>}
+              {!wage.isContractor && <div style={{ display:"flex",gap:16,marginBottom:12 }}>
                 <div style={{ flex:1,background:wage.lvDays>=0?"#F0FDF4":"#FEF2F2",borderRadius:10,padding:"10px 12px",textAlign:"center" }}>
                   <p style={{ margin:"0 0 4px",fontSize:11,color:C.sub }}>Full Days</p>
                   <p style={{ margin:0,fontSize:18,fontWeight:800,color:wage.lvDays>=0?"#10B981":"#EF4444" }}>{wage.lvDays>=0?"+":""}{wage.lvDays}일</p>
@@ -593,8 +583,8 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, persist, companies }) 
                   <p style={{ margin:"0 0 4px",fontSize:11,color:C.sub }}>Part Hours</p>
                   <p style={{ margin:0,fontSize:18,fontWeight:800,color:"#8B5CF6" }}>{Math.abs(wage.lvPart).toFixed(1)}h</p>
                 </div>
-              </div>
-              {isAdmin && (
+              </div>}
+              {!wage.isContractor && isAdmin && (
                 <button onClick={() => saveCarryover(selId)}
                   style={{ width:"100%",background:"#111",color:"#fff",border:"none",borderRadius:12,padding:14,fontSize:14,fontWeight:700,cursor:"pointer",fontFamily:"inherit" }}>
                   💾 이월 저장 & 정산 완료
