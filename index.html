@@ -224,9 +224,10 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
     const periodLogs = getPeriodLogs(userId);
     const stats = calcWorkStats(periodLogs);
     const hourlyRate = dailyRate / 8;
-    const totalFull = stats.fullDays + (carry.fullDays || 0);
-    const totalPart = stats.partHours + (carry.partHours || 0);
-    const totalOt = stats.otHours + (carry.otHours || 0);
+    // 급여는 실제 일한 것만 계산 (이월은 시간 추적용, 급여 계산에서 제외)
+    const totalFull = stats.fullDays;
+    const totalPart = stats.partHours;
+    const totalOt = stats.otHours;
     const basePay = Math.max(0, totalFull) * dailyRate;
     const partPay = Math.max(0, totalPart) * hourlyRate;
     const otPay = Math.max(0, totalOt) * hourlyRate;
