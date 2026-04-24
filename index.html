@@ -537,19 +537,10 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                 const cashAmt = isNaN(rawCash) ? 0 : Math.min(rawCash, variable);
                 const cashOut = cashAmt * 0.75;
                 const keepAmt = variable - cashAmt;
-                const prevKeep = wage.keepBalance || 0;
-                const totalAvail = variable + prevKeep;
                 return (
                   <div style={{ background:"#fff",borderRadius:14,padding:"16px",marginBottom:10,boxShadow:"0 1px 4px #0000000a" }}>
-                    {/* 킵 잔액 (이전 기간) */}
-                    {prevKeep > 0 && (
-                      <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",background:"#F0FDF4",borderRadius:10,padding:"8px 12px",marginBottom:10 }}>
-                        <span style={{ fontSize:12,color:"#166534",fontWeight:600 }}>🏦 킵 잔액 (이전 기간)</span>
-                        <span style={{ fontSize:14,fontWeight:800,color:"#10B981" }}>{fA(prevKeep)}</span>
-                      </div>
-                    )}
                     {/* 변동분 */}
-                    <p style={{ ...S.sectionTitle,marginBottom:4 }}>이번 기간 변동분</p>
+                    <p style={{ ...S.sectionTitle,marginBottom:4 }}>변동분</p>
                     <p style={{ margin:"0 0 14px",fontSize:30,fontWeight:900,color:"#3B82F6" }}>{fA(variable)}</p>
 
                     {/* 출금 금액 입력 */}
