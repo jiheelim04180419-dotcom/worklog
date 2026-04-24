@@ -212,7 +212,10 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, persist, companies }) 
   const calcWage = (userId) => {
     const lv = leaves[userId] || {};
     const isContractor = !!lv.noLeave;
-    const fixedPayment = (!isContractor && lv.fixedPayment) ? parseFloat(lv.fixedPayment) : 0;
+    const fixedNet   = (!isContractor && lv.fixedNet)   ? parseFloat(lv.fixedNet)   : 0;
+    const fixedTax   = (!isContractor && lv.fixedTax)   ? parseFloat(lv.fixedTax)   : 0;
+    const fixedSuper = (!isContractor && lv.fixedSuper) ? parseFloat(lv.fixedSuper) : 0;
+    const fixedTotal = fixedNet + fixedTax + fixedSuper;
     const dailyRate = getDailyRate(userId);
     const { days: reqDays, hours: reqExtraHours } = getReqForPeriod(userId, periodStart);
     const carry = getCarryover(userId);
@@ -239,7 +242,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, persist, companies }) 
     const lvPart = diffH - lvDays * 9;
     return { dailyRate, reqDays, hourlyRate, stats, carry, totalFull, totalPart, totalOt,
              basePay, partPay, otPay, travel, gross, tax, superAmt, net, cashOut: net * 0.75,
-             workedH, reqH, diffH, lvDays, lvPart, isContractor, periodLogs, reqExtraHours, fixedPayment, visaType, gross };
+             workedH, reqH, diffH, lvDays, lvPart, isContractor, periodLogs, reqExtraHours, fixedNet, fixedTax, fixedSuper, fixedTotal, visaType, gross };
   };
 
   const saveCarryover = (userId) => {
@@ -497,80 +500,90 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, persist, companies }) 
                   <span style={{ fontSize:15,fontWeight:700 }}>Net Pay</span>
                   <span style={{ fontSize:20,fontWeight:900,color:"#10B981" }}>{fA(wage.net)}</span>
                 </div>
-                {wage.fixedPayment > 0 && (
-                  <div style={{ marginTop:8,borderTop:"1px solid #F0F0F0",paddingTop:8 }}>
-                    <div style={{ display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:4 }}>
-                      <span style={{ color:"#555" }}>고정 지급액</span>
-                      <span style={{ fontWeight:600,color:"#EF4444" }}>− {fA(wage.fixedPayment)}</span>
+                {wage.fixedTotal > 0 && (() => {
+                  const variable = wage.gross - totalDeductions - wage.fixedTotal;
+                  return (
+                    <div style={{ marginTop:10,borderTop:"1px solid #F0F0F0",paddingTop:10 }}>
+                      <div style={{ display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:4,color:"#555" }}>
+                        <span>고정 Net Pay</span><span style={{ fontWeight:600,color:"#10B981" }}>{fA(wage.fixedNet)}</span>
+                      </div>
+                      <div style={{ display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:4,color:"#555" }}>
+                        <span>고정 Tax</span><span style={{ fontWeight:600,color:"#EF4444" }}>{fA(wage.fixedTax)}</span>
+                      </div>
+                      <div style={{ display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:8,color:"#555" }}>
+                        <span>고정 Super</span><span style={{ fontWeight:600,color:"#F59E0B" }}>{fA(wage.fixedSuper)}</span>
+                      </div>
+                      <div style={{ display:"flex",justifyContent:"space-between",fontSize:14,fontWeight:700,background:variable>=0?"#EFF6FF":"#FEF2F2",borderRadius:8,padding:"8px 10px" }}>
+                        <span>변동분 (Keep/Cash 대상)</span>
+                        <span style={{ color:variable>=0?"#3B82F6":"#EF4444" }}>{fA(variable)}</span>
+                      </div>
                     </div>
-                    <div style={{ display:"flex",justifyContent:"space-between",fontSize:14,fontWeight:700 }}>
-                      <span>변동분 (Keep/Cash 대상)</span>
-                      <span style={{ color:"#3B82F6" }}>{fA(wage.net - wage.fixedPayment)}</span>
-                    </div>
-                  </div>
-                )}
+                  );
+                })()}
               </div>
             )}
 
             {/* Cash / Keep (non-contractor) */}
             {!wage.isContractor && (<>
-              <div style={{ background:"#fff",borderRadius:14,padding:"12px 14px",marginBottom:10,boxShadow:"0 1px 4px #0000000a" }}>
-                <p style={{ ...S.sectionTitle,marginBottom:10 }}>지급 방식 선택</p>
-                <div style={{ display:"flex",gap:8 }}>
-                  {[[false,"🏦 Keep (유지)","#10B981"],[true,"💵 Cash (−25%)","#EF4444"]].map(([isCash, label, color]) => (
-                    <button key={String(isCash)} onClick={() => setCashMode(isCash)}
-                      style={{ flex:1,padding:"11px 0",borderRadius:10,border:"none",cursor:"pointer",fontSize:13,fontWeight:700,fontFamily:"inherit",
-                        background:cashMode===isCash?color:"#F3F4F6",color:cashMode===isCash?"#fff":"#888",transition:"all .15s" }}>
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div style={{ background:cashMode?"#FEF2F2":"#F0FDF4",borderRadius:14,padding:"18px 20px",marginBottom:10,
-                border:"2px solid "+(cashMode?"#FECACA":"#BBF7D0"),boxShadow:"0 2px 8px #0000000a" }}>
-                <p style={{ margin:"0 0 6px",fontSize:12,fontWeight:700,color:cashMode?"#EF4444":"#10B981" }}>
-                  {cashMode ? "💵 Cash 지급액" : "🏦 Keep 금액"}
-                </p>
-                {(() => {
-                  const base = wage.fixedPayment > 0 ? wage.net - wage.fixedPayment : wage.net;
-                  const cashAmt = base * 0.75;
-                  return cashMode ? (<>
-                    <p style={{ margin:0,fontSize:30,fontWeight:900,color:"#EF4444" }}>{fA(cashAmt)}</p>
-                    <p style={{ margin:"4px 0 0",fontSize:12,color:"#888" }}>변동분 {fA(base)} × 75%</p>
-                    <p style={{ margin:"2px 0 0",fontSize:12,color:"#888" }}>25% 공제: {fA(base * 0.25)}</p>
-                    {wage.fixedPayment > 0 && <p style={{ margin:"4px 0 0",fontSize:11,fontWeight:600,color:"#555" }}>고정 {fA(wage.fixedPayment)} + 캐시 {fA(cashAmt)} = 실수령 {fA(wage.fixedPayment + cashAmt)}</p>}
-                  </>) : (<>
-                    <p style={{ margin:0,fontSize:30,fontWeight:900,color:"#10B981" }}>{fA(wage.net)}</p>
-                    {wage.fixedPayment > 0 && <p style={{ margin:"4px 0 0",fontSize:12,color:"#888" }}>고정 {fA(wage.fixedPayment)} + 킵 변동분 {fA(base)}</p>}
-                  </>);
-                })()}
-              </div>
-            </>)}
+              {/* Keep / Cash - 변동분 관리 */}
+              {(() => {
+                const variable = Math.max(0, wage.fixedTotal > 0
+                  ? wage.gross - totalDeductions - wage.fixedTotal
+                  : wage.gross - totalDeductions - wage.tax - wage.superAmt);
+                const rawCash = parseFloat(partialCash);
+                const cashAmt = isNaN(rawCash) ? 0 : Math.min(rawCash, variable);
+                const cashOut = cashAmt * 0.75;
+                const keepAmt = variable - cashAmt;
+                return (
+                  <div style={{ background:"#fff",borderRadius:14,padding:"16px",marginBottom:10,boxShadow:"0 1px 4px #0000000a" }}>
+                    {/* 변동분 */}
+                    <p style={{ ...S.sectionTitle,marginBottom:6 }}>💼 변동분 (관리 금액)</p>
+                    <p style={{ margin:"0 0 14px",fontSize:30,fontWeight:900,color:"#3B82F6" }}>{fA(variable)}</p>
 
-            {/* Contractor invoice */}
-            {wage.isContractor && (
-              <div style={{ background:"#fff",borderRadius:14,padding:"14px 16px",marginBottom:10,boxShadow:"0 1px 4px #0000000a" }}>
-                <p style={S.sectionTitle}>📄 인보이스 발행</p>
-                <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10 }}>
-                  <div>
-                    <p style={{ margin:0,fontSize:13,fontWeight:700,color:C.text }}>Total: {fA(wage.gross)}</p>
-                    <p style={{ margin:"2px 0 0",fontSize:11,color:C.sub }}>{periodStart} ~ {periodEnd}</p>
+                    {/* 출금 금액 입력 */}
+                    <p style={{ margin:"0 0 8px",fontSize:12,fontWeight:600,color:"#555" }}>💵 캐시 출금 금액 (0이면 전액 킵)</p>
+                    <div style={{ display:"flex",gap:6,marginBottom:12 }}>
+                      <div style={{ flex:1,position:"relative" }}>
+                        <span style={{ position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",color:"#888",fontSize:13,pointerEvents:"none" }}>$</span>
+                        <input type="number" placeholder="0.00 (전액 킵)" value={partialCash} min={0} step={0.01}
+                          onChange={e => setPartialCash(e.target.value)}
+                          style={{ ...styles.input,paddingLeft:22,fontSize:14,fontWeight:700 }}/>
+                      </div>
+                      <button onClick={() => setPartialCash(String(variable.toFixed(2)))}
+                        style={{ padding:"0 12px",borderRadius:10,border:"1.5px solid #E5E7EB",background:"#F3F4F6",color:"#555",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit" }}>
+                        전액
+                      </button>
+                      <button onClick={() => setPartialCash("")}
+                        style={{ padding:"0 12px",borderRadius:10,border:"1.5px solid #E5E7EB",background:"#F3F4F6",color:"#555",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit" }}>
+                        전액킵
+                      </button>
+                    </div>
+
+                    {/* 결과 */}
+                    <div style={{ background:"#F9FAFB",borderRadius:10,padding:"12px 14px" }}>
+                      {cashAmt > 0 && (<>
+                        <div style={{ display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:5 }}>
+                          <span style={{ color:"#555" }}>캐시 출금 ({fA(cashAmt)} × 75%)</span>
+                          <span style={{ fontWeight:800,color:"#EF4444" }}>{fA(cashOut)}</span>
+                        </div>
+                        <div style={{ display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:cashAmt < variable ? 8 : 0,color:"#aaa" }}>
+                          <span>25% 공제</span>
+                          <span>- {fA(cashAmt * 0.25)}</span>
+                        </div>
+                      </>)}
+                      {keepAmt > 0 && (
+                        <div style={{ display:"flex",justifyContent:"space-between",fontSize:13,borderTop:cashAmt>0?"1px solid #E5E7EB":"none",paddingTop:cashAmt>0?8:0 }}>
+                          <span style={{ color:"#555" }}>🏦 킵 잔액</span>
+                          <span style={{ fontWeight:800,color:"#10B981" }}>{fA(keepAmt)}</span>
+                        </div>
+                      )}
+                      {cashAmt === 0 && keepAmt === 0 && (
+                        <p style={{ margin:0,fontSize:12,color:"#aaa",textAlign:"center" }}>변동분이 없어요</p>
+                      )}
+                    </div>
                   </div>
-                  <InvoiceButton
-                    u={selEmp}
-                    s={{ fulltimeDays:wage.stats.fullDays, overtimeHours:wage.stats.otHours, parttimeHours:wage.stats.partHours, travelTotal:wage.stats.travelTotal }}
-                    periodLogs={wage.periodLogs} startDate={periodStart} endDate={periodEnd}
-                    leaveData={leaves[selId]||{}}
-                    onInvoiceSent={() => {
-                      const ci = (leaves[selId]||{}).contractorInfo||{};
-                      const lv = leaves[selId]||{};
-                      persist(null,null,{...leaves,[selId]:{...lv,contractorInfo:{...ci,invoiceNum:(parseInt(ci.invoiceNum)||10000)+1}}});
-                    }}
-                  />
-                </div>
-              </div>
-            )}
-
+                );
+              })()}
             {/* Carryover box */}
             <div style={{ background:"#fff",borderRadius:14,padding:"14px 16px",marginBottom:10,boxShadow:"0 1px 4px #0000000a" }}>
               {!wage.isContractor && <p style={S.sectionTitle}>📤 다음 기간 이월 예정</p>}
@@ -592,6 +605,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, persist, companies }) 
               )}
             </div>
 
+        </>)}
           </>)}
         </>)}
 
@@ -644,19 +658,36 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, persist, companies }) 
               </div>
             )}
             {!(leaves[selId] || {}).noLeave && (
-              <div style={styles.field}>
-                <label style={styles.label}>고정 지급액 (매 격주 고정 이체액)</label>
-                <div style={{ position:"relative" }}>
-                  <span style={{ position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",color:"#888",fontSize:13 }}>$</span>
-                  <input type="number" style={{ ...styles.input,paddingLeft:22 }} min={0} step={0.01}
-                    defaultValue={(leaves[selId]||{}).fixedPayment||""}
-                    placeholder="예: 2000.00"
-                    onBlur={e => {
-                      const lv = leaves[selId]||{};
-                      persist(null,null,{...leaves,[selId]:{...lv,fixedPayment:parseFloat(e.target.value)||0}});
-                    }} />
-                </div>
-                <p style={{ margin:"4px 0 0",fontSize:11,color:C.sub }}>Keep/Cash는 Net Pay에서 이 금액을 뺀 변동분에 적용돼요</p>
+              <div>
+                <label style={styles.label}>고정 지급액 (매 격주 고정)</label>
+                <p style={{ margin:"-8px 0 10px",fontSize:11,color:C.sub,lineHeight:1.5 }}>
+                  며칠을 일하든 고정으로 지급되는 금액이에요.<br/>
+                  Gross - 고정(Net+Tax+Super) - 공제 = Keep/Cash 변동분
+                </p>
+                {[["fixedNet","Net Pay","#10B981"],["fixedTax","Tax","#EF4444"],["fixedSuper","Super","#F59E0B"]].map(([key,label,color]) => (
+                  <div key={key} style={{ display:"flex",alignItems:"center",gap:10,marginBottom:10 }}>
+                    <div style={{ width:52,fontSize:12,fontWeight:700,color }}>{label}</div>
+                    <div style={{ flex:1,position:"relative" }}>
+                      <span style={{ position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",color:"#888",fontSize:12,pointerEvents:"none" }}>$</span>
+                      <input type="number" style={{ ...styles.input,paddingLeft:22,fontSize:13 }} min={0} step={0.01}
+                        defaultValue={(leaves[selId]||{})[key]||""}
+                        placeholder="0.00"
+                        onBlur={e => {
+                          const lv = leaves[selId]||{};
+                          persist(null,null,{...leaves,[selId]:{...lv,[key]:parseFloat(e.target.value)||0}});
+                        }} />
+                    </div>
+                  </div>
+                ))}
+                {(() => {
+                  const lv = leaves[selId]||{};
+                  const total = (lv.fixedNet||0) + (lv.fixedTax||0) + (lv.fixedSuper||0);
+                  return total > 0 ? (
+                    <div style={{ background:"#F9FAFB",borderRadius:10,padding:"10px 12px",fontSize:12,color:"#555" }}>
+                      고정 합계: Net {new Intl.NumberFormat("en-AU",{style:"currency",currency:"AUD"}).format(lv.fixedNet||0)} + Tax {new Intl.NumberFormat("en-AU",{style:"currency",currency:"AUD"}).format(lv.fixedTax||0)} + Super {new Intl.NumberFormat("en-AU",{style:"currency",currency:"AUD"}).format(lv.fixedSuper||0)} = <strong>{new Intl.NumberFormat("en-AU",{style:"currency",currency:"AUD"}).format(total)}</strong>
+                    </div>
+                  ) : null;
+                })()}
               </div>
             )}
             {carry && (carry.fullDays !== 0 || carry.partHours !== 0) && (
