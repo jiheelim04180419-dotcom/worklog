@@ -2003,8 +2003,6 @@ function TeamTab({ users, leaves, logs, persist, isSuperAdmin, companies }) {
 
       {[...adminEmps, ...staffEmps].map(u => {
         const lv  = normLeave(leaves[u.id], u.joinDate);
-        const acc = calcAccruedDays(lv.leaveStartDate);
-        const rem = Math.max(0, acc - (+(lv.usedDays) || 0));
         const roleLabel = u.role === "superadmin" ? "🔑 슈퍼관리자" : u.role === "viewadmin" ? "👁️ 관리자" : null;
         return (
           <div key={u.id} style={{ ...styles.empCard, ...(roleLabel ? { borderLeft: "3px solid #3b7ff5" } : {}) }}>
@@ -2020,12 +2018,7 @@ function TeamTab({ users, leaves, logs, persist, isSuperAdmin, companies }) {
                   {roleLabel && <span style={{ marginLeft: 6, fontSize: 10, color: "#3b7ff5", fontWeight: 700 }}>{roleLabel}</span>}
                 </p>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
-                  {lv.noLeave
-                    ? <span style={styles.noLeaveBadge}>연차 미적용</span>
-                    : <span style={styles.leaveBadge}>잔여 {rem.toFixed(1)}일
-                        {lv.leaveStartDate && <span style={{ fontWeight: 400, opacity: 0.7 }}> · {lv.leaveStartDate}~</span>}
-                      </span>
-                  }
+                  {lv.noLeave && <span style={styles.noLeaveBadge}>연차 미적용</span>}
                 </div>
                 {/* Visa info */}
                 {u.visa && u.visa.type && (
