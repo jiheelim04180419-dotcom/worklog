@@ -1,8 +1,6 @@
 <!DOCTYPE html>
-<html lang="ko">
-<head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+<html lang="ko"><head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
 <title>K&M WorkLog</title>
 <link rel="manifest" href="/worklog/manifest.json"/>
 <link rel="apple-touch-icon" href="/worklog/icon.png"/>
@@ -13,8 +11,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
-</head>
-<body style="margin:0;padding:0;background:#f4f6fb">
+</head><body style="margin:0;padding:0;background:#f4f6fb">
 <div id="loading" style="display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:16px;background:#f4f6fb;font-family:sans-serif">
   <div style="font-size:40px">📋</div>
   <p style="color:#3b7ff5;font-weight:700;font-size:16px" id="loadmsg">K&M WorkLog 로딩 중...</p>
@@ -1546,8 +1543,9 @@ function LeaveTab({ user, users, leaves, isAdmin, isSuperAdmin, isViewAdmin, per
                     const periodGrant = Math.round(allRecords
                       .filter(r => r.type === "grant" && r.date >= p.from && r.date <= periodEnd)
                       .reduce((s, r) => s + (+(r.days)||0), 0) * 100) / 100;
+                    const periodRem = Math.round((p.accruedDays + periodGrant - usedHere) * 100) / 100;
                     const isFullyUsed = usedHere >= (p.accruedDays + periodGrant) - 0.01 && p.accruedDays > 0;
-                    return { ...p, usedHere, periodGrant, isFullyUsed };
+                    return { ...p, usedHere, periodGrant, periodRem, isFullyUsed };
                   });
                   const divColor = remDays < 0 ? "#f7c0c0" : remDays < 4 ? "#ffd699" : "#b2e4c8";
                   const rowColor = remDays < 0 ? "#f7e0e0" : remDays < 4 ? "#ffe8b0" : "#d4f0e2";
@@ -1579,6 +1577,9 @@ function LeaveTab({ user, users, leaves, isAdmin, isSuperAdmin, isViewAdmin, per
                                 {p.isFullyUsed && <span style={{ marginLeft: 4, background: "#e74c3c", color: "#fff", borderRadius: 3, padding: "0 4px", fontSize: 9, fontWeight: 700 }}>소진</span>}
                               </p>
                             )}
+                            <p style={{ margin: "3px 0 0", fontSize: 11, fontWeight: 800, color: p.periodRem <= 0 ? "#95a5a6" : p.periodRem < 1 ? "#e67e22" : "#27ae60", borderTop: "1px solid rgba(0,0,0,0.08)", paddingTop: 3 }}>
+                              잔여 {p.periodRem.toFixed(1)}일
+                            </p>
                           </div>
                         </div>
                       ))}
@@ -3542,16 +3543,11 @@ class ErrorBoundary extends React.Component {
   constructor(p) { super(p); this.state = { err: null }; }
   static getDerivedStateFromError(e) { return { err: e }; }
   render() {
-    if (this.state.err) {
-      return React.createElement("pre", {style:{color:"red",padding:"20px",fontSize:"11px",whiteSpace:"pre-wrap",fontFamily:"monospace"}},
-        "렌더 오류: " + this.state.err.message + "\n" + (this.state.err.stack||""));
-    }
+    if (this.state.err) return React.createElement("pre", {style:{color:"red",padding:"20px",fontSize:"11px",whiteSpace:"pre-wrap"}}, "렌더 오류: " + this.state.err.message + "\n" + (this.state.err.stack||""));
     return this.props.children;
   }
 }
-ReactDOM.createRoot(document.getElementById("root")).render(
-  React.createElement(ErrorBoundary, null, React.createElement(App))
-);
+ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(ErrorBoundary, null, React.createElement(App)));
 </script>
 <script>
 var attempts = 0;
@@ -3572,6 +3568,4 @@ function runApp() {
   }
 }
 window.onload = function() { setTimeout(runApp, 500); };
-</script>
-</body>
-</html>
+</script></body></html>
