@@ -149,6 +149,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, persist, companies }) 
   };
 
   const getReqDays = (userId) => (leaves[userId] || {}).reqDays || 8;
+  const getReqExtraHours = (userId) => (leaves[userId] || {}).reqExtraHours || 0;
   const getCarryover = (userId) => (leaves[userId] || {}).wageCarryover || { fullDays: 0, partHours: 0, otHours: 0 };
 
   const getPeriodLogs = (userId) =>
@@ -187,14 +188,15 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, persist, companies }) 
     const gross = basePay + partPay + otPay + travel;
     let tax = 0, superAmt = 0, net = gross;
     if (!isContractor) { tax = calcFortnightlyTax(gross); superAmt = gross * 0.115; net = gross - tax - superAmt; }
+    const reqExtraHours = getReqExtraHours(userId);
     const workedH = stats.fullDays * 9 + stats.partHours + stats.otHours;
-    const reqH = reqDays * 9;
+    const reqH = reqDays * 9 + reqExtraHours;
     const diffH = workedH - reqH;
     const lvDays = Math.floor(diffH / 9);
     const lvPart = diffH - lvDays * 9;
     return { dailyRate, reqDays, hourlyRate, stats, carry, totalFull, totalPart, totalOt,
              basePay, partPay, otPay, travel, gross, tax, superAmt, net, cashOut: net * 0.75,
-             workedH, reqH, diffH, lvDays, lvPart, isContractor, periodLogs };
+             workedH, reqH, diffH, lvDays, lvPart, isContractor, periodLogs, reqExtraHours };
   };
 
   const saveCarryover = (userId) => {
@@ -208,6 +210,10 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, persist, companies }) 
   const saveReqDays = (userId, val) => {
     const lv = leaves[userId] || {};
     persist(null, null, { ...leaves, [userId]: { ...lv, reqDays: parseInt(val) || 8 } });
+  };
+  const saveReqExtraHours = (userId, val) => {
+    const lv = leaves[userId] || {};
+    persist(null, null, { ...leaves, [userId]: { ...lv, reqExtraHours: parseFloat(val) || 0 } });
   };
 
   const fD = (s) => { const d = new Date(s+"T00:00:00"); return (d.getMonth()+1)+"/"+d.getDate(); };
@@ -517,10 +523,21 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, persist, companies }) 
           <div style={{ background:"#fff",borderRadius:14,padding:"16px",marginBottom:10,boxShadow:"0 1px 4px #0000000a" }}>
             <p style={{ margin:"0 0 16px",fontSize:15,fontWeight:700,color:C.text }}>⚙️ {selEmp.name} 급여 설정</p>
             <div style={styles.field}>
-              <label style={styles.label}>격주 기준 Full Days</label>
-              <input type="number" style={styles.input} defaultValue={getReqDays(selId)} min={1} max={14}
-                onChange={e => saveReqDays(selId, e.target.value)} />
-              <p style={{ margin:"4px 0 0",fontSize:11,color:C.sub }}>현재: {getReqDays(selId)}일 × 9h = {getReqDays(selId)*9}h 필요</p>
+              <label style={styles.label}>격주 기준 (일 + 시간)</label>
+              <div style={{ display:"flex",gap:8,alignItems:"center" }}>
+                <div style={{ flex:1 }}>
+                  <input type="number" style={styles.input} defaultValue={getReqDays(selId)} min={0} max={14} placeholder="일수"
+                    onChange={e => saveReqDays(selId, e.target.value)} />
+                  <p style={{ margin:"4px 0 0",fontSize:10,color:C.sub,textAlign:"center" }}>일 (days)</p>
+                </div>
+                <span style={{ fontSize:18,color:C.sub,paddingBottom:20 }}>+</span>
+                <div style={{ flex:1 }}>
+                  <input type="number" style={styles.input} defaultValue={getReqExtraHours(selId)} min={0} max={8} step={0.5} placeholder="시간"
+                    onChange={e => saveReqExtraHours(selId, e.target.value)} />
+                  <p style={{ margin:"4px 0 0",fontSize:10,color:C.sub,textAlign:"center" }}>시간 (hours)</p>
+                </div>
+              </div>
+              <p style={{ margin:"8px 0 0",fontSize:11,color:C.sub }}>총 기준: {getReqDays(selId)}일 {getReqExtraHours(selId)>0?`${getReqExtraHours(selId)}h`:""} = {getReqDays(selId)*9 + getReqExtraHours(selId)}h 필요</p>
             </div>
             {carry && (carry.fullDays !== 0 || carry.partHours !== 0) && (
               <div>
