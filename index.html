@@ -412,7 +412,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, persist, companies }) 
                 </div>
                 <div style={{ height:1,background:"#E5E7EB",margin:"6px 0" }} />
                 <div style={S.row}>
-                  <span style={{ fontSize:12,color:C.sub }}>차이 (이월 예정)</span>
+                  <span style={{ fontSize:12,color:C.sub }}>차이</span>
                   <span style={{ fontSize:14,fontWeight:800,color:wage.diffH>=0?"#10B981":"#EF4444" }}>
                     {wage.diffH>=0?"+":""}{wage.diffH.toFixed(1)}h
                   </span>
@@ -486,40 +486,25 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, persist, companies }) 
             {/* Tax + Super (non-contractor) */}
             {!wage.isContractor && (
               <div style={{ background:"#fff",borderRadius:14,padding:"14px 16px",marginBottom:10,boxShadow:"0 1px 4px #0000000a" }}>
-                <p style={S.sectionTitle}>🇦🇺 공제 (ATO 2025-26 자동)</p>
-                <div style={S.row}>
-                  <span style={{ fontSize:13,color:C.text }}>Tax (ATO · {((wage.tax/Math.max(wage.gross,1))*100).toFixed(1)}%)</span>
-                  <span style={{ fontSize:13,fontWeight:700,color:"#EF4444" }}>− {fA(wage.tax)}</span>
-                </div>
-                <div style={S.row}>
-                  <span style={{ fontSize:13,color:C.text }}>Super (12%)</span>
-                  <span style={{ fontSize:13,fontWeight:700,color:"#F59E0B" }}>− {fA(wage.superAmt)}</span>
-                </div>
-                <div style={{ height:1,background:"#F0F0F0",margin:"10px 0" }} />
-                <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center" }}>
-                  <span style={{ fontSize:15,fontWeight:700 }}>Net Pay</span>
-                  <span style={{ fontSize:20,fontWeight:900,color:"#10B981" }}>{fA(wage.net)}</span>
-                </div>
-                {wage.fixedTotal > 0 && (() => {
-                  const variable = wage.gross - totalDeductions - wage.fixedTotal;
-                  return (
-                    <div style={{ marginTop:10,borderTop:"1px solid #F0F0F0",paddingTop:10 }}>
-                      <div style={{ display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:4,color:"#555" }}>
-                        <span>고정 Net Pay</span><span style={{ fontWeight:600,color:"#10B981" }}>{fA(wage.fixedNet)}</span>
-                      </div>
-                      <div style={{ display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:4,color:"#555" }}>
-                        <span>고정 Tax</span><span style={{ fontWeight:600,color:"#EF4444" }}>{fA(wage.fixedTax)}</span>
-                      </div>
-                      <div style={{ display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:8,color:"#555" }}>
-                        <span>고정 Super</span><span style={{ fontWeight:600,color:"#F59E0B" }}>{fA(wage.fixedSuper)}</span>
-                      </div>
-                      <div style={{ display:"flex",justifyContent:"space-between",fontSize:14,fontWeight:700,background:variable>=0?"#EFF6FF":"#FEF2F2",borderRadius:8,padding:"8px 10px" }}>
-                        <span>변동분 (Keep/Cash 대상)</span>
-                        <span style={{ color:variable>=0?"#3B82F6":"#EF4444" }}>{fA(variable)}</span>
-                      </div>
-                    </div>
-                  );
-                })()}
+                {wage.fixedTotal > 0 ? (<>
+                  <p style={S.sectionTitle}>📌 지급액</p>
+                  <div style={S.row}><span style={{ fontSize:13,color:C.text }}>Net Pay</span><span style={{ fontSize:13,fontWeight:700,color:"#10B981" }}>{fA(wage.fixedNet)}</span></div>
+                  <div style={S.row}><span style={{ fontSize:13,color:C.text }}>Tax</span><span style={{ fontSize:13,fontWeight:700,color:"#EF4444" }}>{fA(wage.fixedTax)}</span></div>
+                  <div style={S.row}><span style={{ fontSize:13,color:C.text }}>Super</span><span style={{ fontSize:13,fontWeight:700,color:"#F59E0B" }}>{fA(wage.fixedSuper)}</span></div>
+                  <div style={{ height:1,background:"#F0F0F0",margin:"8px 0" }} />
+                  <div style={{ display:"flex",justifyContent:"space-between",fontSize:14,fontWeight:700 }}>
+                    <span>합계</span><span>{fA(wage.fixedTotal)}</span>
+                  </div>
+                </>) : (<>
+                  <p style={S.sectionTitle}>🇦🇺 공제 (ATO 자동)</p>
+                  <div style={S.row}><span style={{ fontSize:13,color:C.text }}>Tax ({((wage.tax/Math.max(wage.gross,1))*100).toFixed(1)}%)</span><span style={{ fontSize:13,fontWeight:700,color:"#EF4444" }}>− {fA(wage.tax)}</span></div>
+                  <div style={S.row}><span style={{ fontSize:13,color:C.text }}>Super (12%)</span><span style={{ fontSize:13,fontWeight:700,color:"#F59E0B" }}>− {fA(wage.superAmt)}</span></div>
+                  <div style={{ height:1,background:"#F0F0F0",margin:"8px 0" }} />
+                  <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center" }}>
+                    <span style={{ fontSize:14,fontWeight:700 }}>Net Pay</span>
+                    <span style={{ fontSize:18,fontWeight:900,color:"#10B981" }}>{fA(wage.net)}</span>
+                  </div>
+                </>)}
               </div>
             )}
 
@@ -537,7 +522,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, persist, companies }) 
                 return (
                   <div style={{ background:"#fff",borderRadius:14,padding:"16px",marginBottom:10,boxShadow:"0 1px 4px #0000000a" }}>
                     {/* 변동분 */}
-                    <p style={{ ...S.sectionTitle,marginBottom:6 }}>💼 변동분 (관리 금액)</p>
+                    <p style={{ ...S.sectionTitle,marginBottom:6 }}>변동분</p>
                     <p style={{ margin:"0 0 14px",fontSize:30,fontWeight:900,color:"#3B82F6" }}>{fA(variable)}</p>
 
                     {/* 출금 금액 입력 */}
@@ -586,7 +571,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, persist, companies }) 
               })()}
             {/* Carryover box */}
             <div style={{ background:"#fff",borderRadius:14,padding:"14px 16px",marginBottom:10,boxShadow:"0 1px 4px #0000000a" }}>
-              {!wage.isContractor && <p style={S.sectionTitle}>📤 다음 기간 이월 예정</p>}
+              {!wage.isContractor && <p style={S.sectionTitle}>📤 다음 기간 차이</p>}
               {!wage.isContractor && <div style={{ display:"flex",gap:16,marginBottom:12 }}>
                 <div style={{ flex:1,background:wage.lvDays>=0?"#F0FDF4":"#FEF2F2",borderRadius:10,padding:"10px 12px",textAlign:"center" }}>
                   <p style={{ margin:"0 0 4px",fontSize:11,color:C.sub }}>Full Days</p>
@@ -684,7 +669,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, persist, companies }) 
                   const total = (lv.fixedNet||0) + (lv.fixedTax||0) + (lv.fixedSuper||0);
                   return total > 0 ? (
                     <div style={{ background:"#F9FAFB",borderRadius:10,padding:"10px 12px",fontSize:12,color:"#555" }}>
-                      고정 합계: Net {new Intl.NumberFormat("en-AU",{style:"currency",currency:"AUD"}).format(lv.fixedNet||0)} + Tax {new Intl.NumberFormat("en-AU",{style:"currency",currency:"AUD"}).format(lv.fixedTax||0)} + Super {new Intl.NumberFormat("en-AU",{style:"currency",currency:"AUD"}).format(lv.fixedSuper||0)} = <strong>{new Intl.NumberFormat("en-AU",{style:"currency",currency:"AUD"}).format(total)}</strong>
+                      합계: Net {new Intl.NumberFormat("en-AU",{style:"currency",currency:"AUD"}).format(lv.fixedNet||0)} + Tax {new Intl.NumberFormat("en-AU",{style:"currency",currency:"AUD"}).format(lv.fixedTax||0)} + Super {new Intl.NumberFormat("en-AU",{style:"currency",currency:"AUD"}).format(lv.fixedSuper||0)} = <strong>{new Intl.NumberFormat("en-AU",{style:"currency",currency:"AUD"}).format(total)}</strong>
                     </div>
                   ) : null;
                 })()}
