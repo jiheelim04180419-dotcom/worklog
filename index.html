@@ -8,6 +8,11 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
 <meta name="apple-mobile-web-app-title" content="K&M"/>
 <meta name="theme-color" content="#3b7ff5"/>
+<meta name="color-scheme" content="light"/>
+<style>
+  html, body { background-color: #f4f6fb !important; color-scheme: light; }
+  * { -webkit-tap-highlight-color: transparent; }
+</style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
@@ -903,7 +908,12 @@ function CompanyTab({ companies, persist }) {
     <div style={styles.page}>
       <div style={styles.pageHeader}><h2 style={styles.pageTitle}>🏢 회사 정보</h2></div>
       <p style={{ fontSize:12,color:C.sub,marginBottom:16 }}>인보이스 발행 시 자동으로 청구처(Bill To)에 입력돼요.</p>
-      {companies.map((co,i) => (
+      {(!companies || companies.length === 0) && (
+        <div style={{ textAlign:"center", padding:40, color:"#aaa" }}>
+          <p>회사 정보를 불러오는 중이에요...</p>
+        </div>
+      )}
+      {(companies||[]).map((co,i) => (
         <div key={co.id} style={styles.payCard}>
           <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10 }}>
             <p style={{ margin:0,fontWeight:700,fontSize:15,color:C.text }}>회사 {i+1}</p>
@@ -1078,12 +1088,12 @@ function StatCard({label,value,sub,color,emoji}){return(<div style={{ ...styles.
 const C = { primary: "#3b7ff5", bg: "#f4f6fb", card: "#fff", border: "#eaecf3", text: "#1a1d2e", sub: "#8891a8", success: "#34c98b", danger: "#f76f6f" };
 
 const styles = {
-  app: { fontFamily: "'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif", background: C.bg, minHeight: "100dvh", display: "flex", flexDirection: "column", maxWidth: 480, margin: "0 auto", position: "relative" },
+  app: { fontFamily: "'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif", background: C.bg, backgroundColor: "#f4f6fb", minHeight: "100vh", minHeight: "100dvh", display: "flex", flexDirection: "column", maxWidth: 480, margin: "0 auto", position: "relative" },
   content: { flex: 1, overflowY: "auto", paddingBottom: 72 },
   page: { padding: "16px 16px 0" },
   pageHeader: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 },
   pageTitle: { margin: 0, fontSize: 20, fontWeight: 700, color: "#1a1d2e" },
-  loginWrap: { minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(135deg, #e8efff 0%, #f4f6fb 100%)", padding: 20 },
+  loginWrap: { minHeight: "100vh", minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(135deg, #e8efff 0%, #f4f6fb 100%)", padding: 20, backgroundColor: "#f4f6fb" },
   loginBox: { background: "#fff", borderRadius: 20, padding: "32px 24px", width: "100%", maxWidth: 380, boxShadow: "0 8px 40px #3b7ff520" },
   loginLogo: { textAlign: "center", marginBottom: 28 },
   logoIcon: { fontSize: 44, marginBottom: 8 },
