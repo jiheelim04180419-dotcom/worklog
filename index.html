@@ -349,6 +349,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, persist, companies }) 
               </div>
               {/* Hours progress */}
               <div style={{ background:"#F9FAFB",borderRadius:10,padding:"10px 12px" }}>
+                {!wage.isContractor && (<>
                 <div style={S.row}>
                   <span style={{ fontSize:12,color:C.sub }}>실제 근무시간</span>
                   <span style={{ fontSize:13,fontWeight:700 }}>{wage.workedH.toFixed(1)}h</span>
@@ -357,6 +358,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, persist, companies }) 
                   <span style={{ fontSize:12,color:C.sub }}>기준 ({wage.reqDays}일 × 9h)</span>
                   <span style={{ fontSize:13,fontWeight:700 }}>{wage.reqH}h</span>
                 </div>
+                </>)}
                 <div style={{ height:1,background:"#E5E7EB",margin:"6px 0" }} />
                 <div style={S.row}>
                   <span style={{ fontSize:12,color:C.sub }}>차이 (이월 예정)</span>
@@ -386,6 +388,47 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, persist, companies }) 
                 <span style={{ fontSize:15,fontWeight:700,color:C.text }}>Gross</span>
                 <span style={{ fontSize:20,fontWeight:900,color:C.text }}>{fA(wage.gross)}</span>
               </div>
+            </div>
+
+            {/* ── 디덕션 섹션 ── */}
+            <div style={{ background:"#fff",borderRadius:14,padding:"14px 16px",marginBottom:10,boxShadow:"0 1px 4px #0000000a" }}>
+              <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:deductions.length>0?12:0 }}>
+                <p style={{ margin:0,fontSize:11,fontWeight:700,color:"#EF4444",textTransform:"uppercase",letterSpacing:1 }}>➖ 공제 항목 (Deductions)</p>
+                <button onClick={addDeduction}
+                  style={{ fontSize:12,fontWeight:700,background:"#FEF2F2",color:"#EF4444",border:"1.5px solid #FECACA",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontFamily:"inherit" }}>
+                  + 추가
+                </button>
+              </div>
+              {deductions.length === 0 && (
+                <p style={{ fontSize:12,color:"#ccc",textAlign:"center",margin:"8px 0 0",fontStyle:"italic" }}>회사카드 개인결제 등 공제할 항목을 추가하세요</p>
+              )}
+              {deductions.map(d => (
+                <div key={d.id} style={{ display:"flex",gap:6,alignItems:"center",marginBottom:8 }}>
+                  <input placeholder="항목명 (예: 회사카드 개인결제)" value={d.desc}
+                    onChange={e => updateDeduction(d.id, "desc", e.target.value)}
+                    style={{ ...styles.input,flex:2,fontSize:12,padding:"8px 10px" }} />
+                  <div style={{ flex:1,position:"relative" }}>
+                    <span style={{ position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",fontSize:12,color:"#888",pointerEvents:"none" }}>$</span>
+                    <input type="number" placeholder="0.00" value={d.amount} min={0} step={0.01}
+                      onChange={e => updateDeduction(d.id, "amount", e.target.value)}
+                      style={{ ...styles.input,fontSize:12,padding:"8px 10px 8px 22px",width:"100%",boxSizing:"border-box" }} />
+                  </div>
+                  <button onClick={() => removeDeduction(d.id)}
+                    style={{ background:"#FEF2F2",border:"1px solid #FECACA",borderRadius:8,cursor:"pointer",color:"#EF4444",fontSize:16,width:32,height:32,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontFamily:"inherit" }}>×</button>
+                </div>
+              ))}
+              {totalDeductions > 0 && (
+                <div style={{ borderTop:"1.5px dashed #FECACA",paddingTop:10,marginTop:4 }}>
+                  <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6 }}>
+                    <span style={{ fontSize:13,fontWeight:600,color:"#EF4444" }}>총 공제액</span>
+                    <span style={{ fontSize:14,fontWeight:800,color:"#EF4444" }}>− {fA(totalDeductions)}</span>
+                  </div>
+                  <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",background:"#F9FAFB",borderRadius:10,padding:"10px 12px" }}>
+                    <span style={{ fontSize:14,fontWeight:700,color:C.text }}>공제 후 금액</span>
+                    <span style={{ fontSize:18,fontWeight:900,color:C.text }}>{fA(wage.grossAfterDeductions)}</span>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Tax + Super (non-contractor) */}
@@ -474,7 +517,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, persist, companies }) 
               {isAdmin && (
                 <button onClick={() => saveCarryover(selId)}
                   style={{ width:"100%",background:"#111",color:"#fff",border:"none",borderRadius:12,padding:14,fontSize:14,fontWeight:700,cursor:"pointer",fontFamily:"inherit" }}>
-                  💾 이월 저장 & 이번 기간 정산 완료
+                  💾 이월 저장 & 정산 완료
                 </button>
               )}
             </div>
