@@ -223,14 +223,15 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
     if (!dailyRate) return null;
     const periodLogs = getPeriodLogs(userId);
     const stats = calcWorkStats(periodLogs);
-    const hourlyRate = dailyRate / 8;
+    const partHourlyRate = dailyRate / 9;  // 파트타임: 일당 ÷ 9
+    const otHourlyRate   = dailyRate / 8;  // 오버타임: 일당 ÷ 8
     // 급여는 실제 일한 것만 계산 (이월은 시간 추적용, 급여 계산에서 제외)
     const totalFull = stats.fullDays;
     const totalPart = stats.partHours;
     const totalOt = stats.otHours;
     const basePay = Math.max(0, totalFull) * dailyRate;
-    const partPay = Math.max(0, totalPart) * hourlyRate;
-    const otPay = Math.max(0, totalOt) * hourlyRate;
+    const partPay = Math.max(0, totalPart) * partHourlyRate;
+    const otPay   = Math.max(0, totalOt)   * otHourlyRate;
     const travel = stats.travelTotal;
     const gross = basePay + partPay + otPay + travel;
     let tax = 0, superAmt = 0, net = gross;
@@ -243,7 +244,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
     const lvDays = Math.floor(diffH / 9);
     const lvPart = diffH - lvDays * 9;
     return { dailyRate, reqDays, hourlyRate, stats, carry, totalFull, totalPart, totalOt,
-             basePay, partPay, otPay, travel, gross, tax, superAmt, net, cashOut: net * 0.75,
+             basePay, partPay, otPay, travel, gross, tax, superAmt, net, cashOut: net * 0.75, partHourlyRate, otHourlyRate,
              workedH, reqH, diffH, lvDays, lvPart, isContractor, periodLogs, reqExtraHours, fixedNet, fixedTax, fixedSuper, fixedTotal, visaType, gross, keepBalance: getKeepBalance(userId) };
   };
 
@@ -445,8 +446,8 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
               <p style={S.sectionTitle}>💵 Gross 내역</p>
               {[
                 ["기본급","("+wage.totalFull+"일 × "+fA(wage.dailyRate)+")",wage.basePay,"#10B981"],
-                ["Part Hours","("+wage.totalPart.toFixed(1)+"h × "+fA(wage.hourlyRate)+")",wage.partPay,"#8B5CF6"],
-                ["Overtime","("+wage.totalOt.toFixed(1)+"h × "+fA(wage.hourlyRate)+")",wage.otPay,"#F59E0B"],
+                ["Part Hours","("+wage.totalPart.toFixed(1)+"h × "+fA(wage.partHourlyRate)+")",wage.partPay,"#8B5CF6"],
+                ["Overtime","("+wage.totalOt.toFixed(1)+"h × "+fA(wage.otHourlyRate)+")",wage.otPay,"#F59E0B"],
                 ["Travel Allowance","",wage.travel,"#3B82F6"],
               ].filter(([,,v]) => v > 0).map(([label, sub, val, color]) => (
                 <div key={label} style={S.row}>
