@@ -351,17 +351,20 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
     const keepAmt = variable < 0
       ? variable + directKeepInput   // 변동분(음수) + 직접입력
       : Math.max(0, variable) - cashAmt; // 변동분 - 캐시출금
-    // 기존 킵잔액에 누적 추가
-    const prevKeep = getKeepBalance(userId);
+    // 기존 킵잔액에 누적 추가 - 현재 조회 기간 기준 잔액 사용
+    const prevKeep = getKeepBalanceAtPeriod(userId, periodStart);
     const newKeep  = prevKeep + keepAmt;
     // keepBalance 히스토리 저장 (기간별 잔액 추적)
     const histEntry = { periodStart, balance: newKeep, savedAt: new Date().toISOString() };
     const prevHist = lv.keepBalanceHistory || [];
     // 같은 기간 이미 있으면 덮어쓰기
-    const newHist = [...prevHist.filter(h => h.periodStart !== periodStart), histEntry];
+    const filtered = prevHist.filter(h => h.periodStart !== periodStart);
+    const newHist = [...filtered, histEntry].sort((a,b) => a.periodStart.localeCompare(b.periodStart));
+    // 가장 마지막 기간의 balance가 전체 keepBalance
+    const latestBalance = newHist.length > 0 ? newHist[newHist.length-1].balance : newKeep;
     persist(null, null, { ...leaves, [userId]: {
       ...lv,
-      keepBalance: newKeep,
+      keepBalance: latestBalance,
       keepBalanceHistory: newHist,
     }});
     alert(`정산 완료!
