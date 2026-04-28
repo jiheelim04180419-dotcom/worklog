@@ -654,12 +654,12 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                 // 변동분 계산
                 const allDeductions = totalDeductions + savedTotal(selId);
                 const variable = wage.hasFlatPay
-                  ? wage.gross - wage.fixedTotal - allDeductions  // 기준일 없음: Gross - 고정지급액 - 공제
+                  ? wage.gross - wage.fixedTotal - allDeductions
                   : wage.excessPartH * wage.partHourlyRate
                   + wage.excessOtH   * wage.otHourlyRate
                   - wage.deficitH    * wage.partHourlyRate
                   + wage.travel
-                  - totalDeductions;
+                  - allDeductions;
                 const rawCash = parseFloat(partialCash);
                 const cashAmt = isNaN(rawCash) || rawCash < 0 ? 0 : Math.min(rawCash, Math.max(0, variable));
                 const cashOut = cashAmt * 0.75;
@@ -689,7 +689,13 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                       {wage.excessOtH > 0 && <div style={{ display:"flex",justifyContent:"space-between",marginBottom:4 }}><span style={{ color:"#555" }}>초과 OT {wage.excessOtH.toFixed(1)}h</span><span style={{ fontWeight:600,color:"#10B981" }}>+{fA(wage.excessOtH*wage.otHourlyRate)}</span></div>}
                       {wage.deficitH > 0 && <div style={{ display:"flex",justifyContent:"space-between",marginBottom:4 }}><span style={{ color:"#555" }}>부족 {wage.deficitH.toFixed(1)}h</span><span style={{ fontWeight:600,color:"#EF4444" }}>-{fA(wage.deficitH*wage.partHourlyRate)}</span></div>}
                       {wage.travel > 0 && <div style={{ display:"flex",justifyContent:"space-between",marginBottom:4 }}><span style={{ color:"#555" }}>트래블 얼라운스</span><span style={{ fontWeight:600,color:"#10B981" }}>+{fA(wage.travel)}</span></div>}
-                      {totalDeductions !== 0 && <div style={{ display:"flex",justifyContent:"space-between",marginBottom:4 }}><span style={{ color:"#555" }}>공제 합계</span><span style={{ fontWeight:600,color:"#EF4444" }}>-{fA(totalDeductions)}</span></div>}
+                      {getSavedDeductions(selId).map(d => (
+                      <div key={d.id} style={{ display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:4 }}>
+                        <span style={{ color:"#555" }}>{d.date} · {d.desc}</span>
+                        <span style={{ fontWeight:600,color:"#EF4444" }}>-{fA(d.amount)}</span>
+                      </div>
+                    ))}
+                    {totalDeductions !== 0 && <div style={{ display:"flex",justifyContent:"space-between",marginBottom:4 }}><span style={{ color:"#555" }}>기타 공제</span><span style={{ fontWeight:600,color:"#EF4444" }}>-{fA(totalDeductions)}</span></div>}
                       <div style={{ borderTop:"1px solid #E5E7EB",paddingTop:6,marginTop:4,display:"flex",justifyContent:"space-between",fontWeight:700 }}>
                         <span style={{ color:"#111" }}>변동분</span>
                         <span style={{ color:variable>=0?"#10B981":"#EF4444" }}>{variable>=0?"+":""}{fA(variable)}</span>
