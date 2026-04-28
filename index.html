@@ -331,7 +331,6 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
     const newKeep  = prevKeep + keepAmt;
     persist(null, null, { ...leaves, [userId]: {
       ...lv,
-      wageCarryover: { fullDays: w.lvDays, partHours: Math.max(0, w.lvPart), otHours: 0 },
       keepBalance: newKeep,
     }});
     alert(`정산 완료!
@@ -560,8 +559,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
             {emps.map((e, i) => {
               const color = EMP_COLORS[i % EMP_COLORS.length];
               const pLogs = getPeriodLogs(e.id);
-              const cr = getCarryover(e.id);
-              const hasCarry = cr.fullDays !== 0 || cr.partHours !== 0;
+
               return (
                 <button key={e.id} onClick={() => { setSelId(e.id); setSubView("calc"); }} style={S.chip(selId === e.id, color)}>
                   <span style={{ width:20,height:20,borderRadius:"50%",background:selId===e.id?"rgba(255,255,255,.3)":color,color:"#fff",fontSize:10,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700 }}>{e.name[0]}</span>
@@ -606,11 +604,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
               </>) : <p style={{ margin:0,fontSize:12,color:"#f77" }}>일급 미설정</p>}
             </div>
           </div>
-{isSuperAdmin && carry && (carry.fullDays !== 0 || carry.partHours !== 0) && (
-            <div style={{ marginTop:10,background:"#FEF3C7",borderRadius:8,padding:"6px 10px",fontSize:12,color:"#92400E" }}>
-              ⚡ 이전 기간 이월: Full {carry.fullDays >= 0 ? "+" : ""}{carry.fullDays}일 · Part {(carry.partHours||0).toFixed(1)}h
-            </div>
-          )}
+
         </div>
 
         {/* Sub-tabs */}
