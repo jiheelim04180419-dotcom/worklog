@@ -2342,7 +2342,7 @@ function App() {
         {isAdmin&&tab==="rate"&&<RateTab users={users} leaves={leaves} persist={persist} isSuperAdmin={isSuperAdmin}/>}
         {isAdmin&&tab==="team"&&<TeamTab users={users} leaves={leaves} logs={logs} persist={persist} isSuperAdmin={isSuperAdmin} companies={companies}/>}
         {tab==="payroll"&&<PayrollTab user={currentUser} users={users} logs={logs} leaves={leaves} isAdmin={isAdmin} isSuperAdmin={isSuperAdmin} persist={persist} companies={companies}/>}
-        {isSuperAdmin&&tab==="company"&&<CompanyTab companies={companies} persist={persist}/>}
+        {isAdmin&&tab==="company"&&<CompanyTab companies={companies} persist={persist} isSuperAdmin={isSuperAdmin}/>}
       </div>
       {showChangePw && (
         <div style={styles.modal}>
