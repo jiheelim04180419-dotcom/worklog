@@ -344,13 +344,13 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
     const cur = Math.floor((Date.now()-BASE)/(14*24*60*60*1000));
     const s = new Date(BASE); s.setDate(s.getDate()+(cur+offset)*14);
     const e = new Date(s); e.setDate(e.getDate()+13);
-    return {start:s.toISOString().slice(0,10), end:e.toISOString().slice(0,10)};
+    return {start:s.getFullYear()+"-"+String(s.getMonth()+1).padStart(2,"0")+"-"+String(s.getDate()).padStart(2,"0"), end:e.getFullYear()+"-"+String(e.getMonth()+1).padStart(2,"0")+"-"+String(e.getDate()).padStart(2,"0")};
   };
-  // periodStart로부터 구간 종료일 계산
+  // periodStart로부터 구간 종료일 계산 (로컬 날짜 기준)
   const wpStart = periodStart;
   const wpEnd = (() => {
     const d = new Date(periodStart+"T00:00:00"); d.setDate(d.getDate()+13);
-    return d.toISOString().slice(0,10);
+    return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
   })();
 
   const addDeduction = () => setDeductions(d => [...d, { id: Date.now(), desc: "", amount: "" }]);
@@ -2003,7 +2003,8 @@ function LogTab({user,users,logs,leaves,isAdmin,isSuperAdmin,isViewAdmin,persist
     const cur=Math.floor((Date.now()-BASE)/(14*24*60*60*1000));
     const s=new Date(BASE); s.setDate(s.getDate()+(cur+offset)*14);
     const e=new Date(s); e.setDate(e.getDate()+13);
-    return{start:s.toISOString().slice(0,10),end:e.toISOString().slice(0,10)};
+    const fmt=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+    return{start:fmt(s),end:fmt(e)};
   };
   const wp=getWagePeriod(wagePeriodOffset);
   const wpStart=wp.start; const wpEnd=wp.end;
