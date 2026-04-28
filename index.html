@@ -165,6 +165,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
   const [cashMode, setCashMode] = useState(false);
   const [deductions, setDeductions] = useState([]);
   const [partialCash, setPartialCash] = useState("");
+  const [directKeep, setDirectKeep] = useState("");
   const [periodStart, setPeriodStart] = useState(() => {
     const BASE = new Date("2026-04-13T00:00:00");
     const diff = Math.floor((Date.now() - BASE.getTime()) / (1000*60*60*24*14));
@@ -304,10 +305,11 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
       - w.deficitH    * w.partHourlyRate
       + w.travel
       - totalDeductions;
-    const cashInput = parseFloat(partialCash) || 0; // 음수 입력 시 킵에서 차감
-    // 변동분이 음수면 partialCash를 킵으로 직접 추가
+    const cashInput = parseFloat(partialCash) || 0;
+    const directKeepInput = parseFloat(directKeep) || 0;
+    // 변동분이 음수면 directKeep을 킵에 직접 추가/차감
     const cashAmt = variable < 0 ? 0 : Math.min(cashInput, Math.max(0, variable));
-    const keepAmt = variable < 0 ? cashInput : Math.max(0, variable) - cashAmt;
+    const keepAmt = variable < 0 ? directKeepInput : Math.max(0, variable) - cashAmt;
     // 기존 킵잔액에 누적 추가
     const prevKeep = getKeepBalance(userId);
     const newKeep  = prevKeep + keepAmt;
@@ -336,10 +338,42 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
   const wage = selId ? calcWage(selId) : null;
   const carry = selId ? getCarryover(selId) : null;
 
+  // 현재 급여 구간
+  const getWP = (offset=0) => {
+    const BASE = new Date("2026-04-13T00:00:00");
+    const cur = Math.floor((Date.now()-BASE)/(14*24*60*60*1000));
+    const s = new Date(BASE); s.setDate(s.getDate()+(cur+offset)*14);
+    const e = new Date(s); e.setDate(e.getDate()+13);
+    return {start:s.toISOString().slice(0,10), end:e.toISOString().slice(0,10)};
+  };
+  // periodStart로부터 구간 종료일 계산
+  const wpStart = periodStart;
+  const wpEnd = (() => {
+    const d = new Date(periodStart+"T00:00:00"); d.setDate(d.getDate()+13);
+    return d.toISOString().slice(0,10);
+  })();
+
   const addDeduction = () => setDeductions(d => [...d, { id: Date.now(), desc: "", amount: "" }]);
   const updateDeduction = (id, field, val) => setDeductions(d => d.map(x => x.id === id ? { ...x, [field]: val } : x));
   const removeDeduction = (id) => setDeductions(d => d.filter(x => x.id !== id));
   const totalDeductions = deductions.reduce((s, d) => s + (parseFloat(d.amount) || 0), 0);
+
+  // Firebase 저장 디덕션 (날짜 기반 필터)
+  const getSavedDeductions = (userId) => {
+    const all = (leaves[userId] || {}).savedDeductions || [];
+    return all.filter(d => d.date >= wpStart && d.date <= wpEnd);
+  };
+  const savedTotal = (userId) => getSavedDeductions(userId).reduce((s,d) => s + (parseFloat(d.amount)||0), 0);
+  const addSavedDeduction = (userId, entry) => {
+    const lv = leaves[userId] || {};
+    const all = [...(lv.savedDeductions || []), entry];
+    persist(null, null, {...leaves, [userId]: {...lv, savedDeductions: all}});
+  };
+  const removeSavedDeduction = (userId, id) => {
+    const lv = leaves[userId] || {};
+    const all = (lv.savedDeductions || []).filter(d => d.id !== id);
+    persist(null, null, {...leaves, [userId]: {...lv, savedDeductions: all}});
+  };
 
   const prevPeriod = () => { const d = new Date(periodStart+"T00:00:00"); d.setDate(d.getDate()-14); setPeriodStart(localDateStr(d)); };
   const nextPeriod = () => { const d = new Date(periodStart+"T00:00:00"); d.setDate(d.getDate()+14); setPeriodStart(localDateStr(d)); };
@@ -553,6 +587,17 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                     style={{ background:"#FEF2F2",border:"1px solid #FECACA",borderRadius:8,cursor:"pointer",color:"#EF4444",fontSize:16,width:32,height:32,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontFamily:"inherit" }}>×</button>
                 </div>
               ))}
+              {/* Firebase 저장 공제 항목 */}
+              {getSavedDeductions(selId).map(d => (
+                <div key={d.id} style={{ display:"flex",gap:6,alignItems:"center",marginBottom:8,background:"#FFF7F7",borderRadius:8,padding:"6px 10px" }}>
+                  <div style={{ flex:1 }}>
+                    <p style={{ margin:0,fontSize:11,color:"#555" }}>{d.date} · {d.desc}</p>
+                  </div>
+                  <span style={{ fontSize:13,fontWeight:700,color:"#EF4444" }}>{fA(d.amount)}</span>
+                  <button onClick={()=>removeSavedDeduction(selId,d.id)}
+                    style={{ background:"none",border:"none",cursor:"pointer",color:"#f77",fontSize:14,padding:"2px",fontFamily:"inherit" }}>×</button>
+                </div>
+              ))}
               {totalDeductions > 0 && (
                 <div style={{ borderTop:"1.5px dashed #FECACA",paddingTop:10,marginTop:4 }}>
                   <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6 }}>
@@ -587,8 +632,9 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
               {/* Keep / Cash - 변동분 관리 */}
               {(() => {
                 // 변동분 계산
+                const allDeductions = totalDeductions + savedTotal(selId);
                 const variable = wage.hasFlatPay
-                  ? wage.gross - wage.fixedTotal - totalDeductions  // 기준일 없음: Gross - 고정지급액 - 공제
+                  ? wage.gross - wage.fixedTotal - allDeductions  // 기준일 없음: Gross - 고정지급액 - 공제
                   : wage.excessPartH * wage.partHourlyRate
                   + wage.excessOtH   * wage.otHourlyRate
                   - wage.deficitH    * wage.partHourlyRate
@@ -676,8 +722,8 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                           <p style={{ margin:"0 0 6px",fontSize:12,fontWeight:600,color:"#166534" }}>🏦 이번 기간 킵으로 추가할 금액</p>
                           <div style={{ position:"relative" }}>
                             <span style={{ position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",color:"#888",fontSize:13,pointerEvents:"none" }}>$</span>
-                            <input type="number" placeholder="0.00" step={0.01} value={partialCash}
-                              onChange={e=>setPartialCash(e.target.value)}
+                            <input type="number" placeholder="0.00" step={0.01} value={directKeep}
+                              onChange={e=>setDirectKeep(e.target.value)}
                               style={{ ...styles.input,paddingLeft:22,fontSize:14,fontWeight:700,background:"#fff",width:"100%",boxSizing:"border-box" }}/>
                           </div>
                           <p style={{ margin:"4px 0 0",fontSize:11,color:"#555" }}>기존 킵 잔액에 더해져요 (음수 입력 시 차감)</p>
@@ -685,7 +731,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                       )}
                       <button onClick={() => saveCarryover(selId)}
                         style={{ width:"100%",background:"#111",color:"#fff",border:"none",borderRadius:12,padding:13,fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit",marginTop:12 }}>
-                        💾 정산 완료 {variable < 0 && parseFloat(partialCash) > 0 ? `(킵 +${fA(parseFloat(partialCash))})` : keepAmt > 0 ? `(킵 +${fA(keepAmt)})` : ""}{cashAmt > 0 ? ` (캐시 ${fA(cashOut)})` : ""}
+                        💾 정산 완료 {variable < 0 && parseFloat(directKeep) !== 0 ? `(킵 ${parseFloat(directKeep)>0?"+":""}${fA(parseFloat(directKeep))})` : keepAmt > 0 ? `(킵 +${fA(keepAmt)})` : ""}{cashAmt > 0 ? ` (캐시 ${fA(cashOut)})` : ""}
                       </button>
                     </>)}
                   </div>
@@ -694,6 +740,15 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
         </>)}
       </>)}
     </>)}
+
+        {/* ── DEDUCT VIEW ── */}
+        {subView === "deduct" && isSuperAdmin && (
+          <DeductTab users={users.filter(u=>!u.resignedDate&&u.role==="employee")}
+            leaves={leaves} wpStart={wpStart} wpEnd={wpEnd}
+            addSavedDeduction={addSavedDeduction}
+            removeSavedDeduction={removeSavedDeduction}
+            getSavedDeductions={getSavedDeductions} />
+        )}
 
         {/* ── LOG VIEW ── */}
         {subView === "log" && (
@@ -1264,6 +1319,108 @@ function getMissingLogs(users, logs, periodStart, periodEnd) {
     if (missing.length > 0) results.push({ emp, missing });
   }
   return results;
+}
+
+
+// ─── DeductTab: 일괄 공제 입력 ───────────────────────────────────────────
+function DeductTab({ users, leaves, wpStart, wpEnd, addSavedDeduction, removeSavedDeduction, getSavedDeductions }) {
+  const [newRows, setNewRows] = React.useState([{ id: Date.now(), userId:"", date: wpStart, desc:"", amount:"" }]);
+
+  const addRow = () => setNewRows(r => [...r, { id: Date.now()+Math.random(), userId:"", date: wpStart, desc:"", amount:"" }]);
+  const updateRow = (id, field, val) => setNewRows(r => r.map(x => x.id===id ? {...x,[field]:val} : x));
+  const removeRow = (id) => setNewRows(r => r.filter(x => x.id!==id));
+
+  const saveAll = () => {
+    const valid = newRows.filter(r => r.userId && r.date && r.desc && r.amount);
+    if (valid.length === 0) return alert("입력된 항목이 없어요");
+    valid.forEach(r => addSavedDeduction(r.userId, { id: Date.now()+Math.random(), date: r.date, desc: r.desc, amount: parseFloat(r.amount) }));
+    setNewRows([{ id: Date.now(), userId:"", date: wpStart, desc:"", amount:"" }]);
+    alert(`✅ ${valid.length}건 저장됐어요`);
+  };
+
+  // 현재 구간 전체 저장 항목
+  const allSaved = users.flatMap(u => (getSavedDeductions(u.id)||[]).map(d => ({...d, userName: u.name, userId: u.id})))
+    .sort((a,b) => a.date.localeCompare(b.date));
+
+  return (
+    <div style={{ padding:"0 0 20px" }}>
+      {/* 기간 표시 */}
+      <div style={{ background:"#EFF6FF",borderRadius:10,padding:"8px 14px",marginBottom:14,fontSize:12,color:"#1D4ED8",fontWeight:600 }}>
+        📅 {wpStart} ~ {wpEnd} 구간 공제 항목
+      </div>
+
+      {/* 입력 폼 */}
+      <div style={{ background:"#fff",borderRadius:14,padding:"14px 16px",marginBottom:12,boxShadow:"0 1px 4px #0000000a" }}>
+        <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12 }}>
+          <p style={{ margin:0,fontSize:13,fontWeight:700,color:"#111" }}>➕ 공제 항목 입력</p>
+          <button onClick={addRow}
+            style={{ fontSize:12,fontWeight:700,background:"#F3F4F6",color:"#555",border:"1px solid #E5E7EB",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontFamily:"inherit" }}>
+            + 행 추가
+          </button>
+        </div>
+
+        {/* 헤더 */}
+        <div style={{ display:"grid",gridTemplateColumns:"2fr 1.2fr 2fr 1.2fr 32px",gap:4,marginBottom:6 }}>
+          {["직원","날짜","항목명","금액",""].map((h,i) => (
+            <p key={i} style={{ margin:0,fontSize:10,fontWeight:600,color:"#888",textAlign:i===3?"right":"left" }}>{h}</p>
+          ))}
+        </div>
+
+        {newRows.map(row => (
+          <div key={row.id} style={{ display:"grid",gridTemplateColumns:"2fr 1.2fr 2fr 1.2fr 32px",gap:4,marginBottom:6,alignItems:"center" }}>
+            <select value={row.userId} onChange={e=>updateRow(row.id,"userId",e.target.value)}
+              style={{ ...styles.input,fontSize:12,padding:"6px 8px" }}>
+              <option value="">직원 선택</option>
+              {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+            </select>
+            <input type="date" value={row.date} min={wpStart} max={wpEnd}
+              onChange={e=>updateRow(row.id,"date",e.target.value)}
+              style={{ ...styles.input,fontSize:11,padding:"6px 6px" }}/>
+            <input placeholder="항목명" value={row.desc}
+              onChange={e=>updateRow(row.id,"desc",e.target.value)}
+              style={{ ...styles.input,fontSize:12,padding:"6px 8px" }}/>
+            <input type="number" placeholder="0.00" value={row.amount} step={0.01}
+              onChange={e=>updateRow(row.id,"amount",e.target.value)}
+              style={{ ...styles.input,fontSize:12,padding:"6px 8px",textAlign:"right" }}/>
+            <button onClick={()=>removeRow(row.id)}
+              style={{ background:"none",border:"none",cursor:"pointer",color:"#f77",fontSize:16,padding:0,fontFamily:"inherit" }}>×</button>
+          </div>
+        ))}
+
+        <button onClick={saveAll}
+          style={{ width:"100%",marginTop:8,background:C.primary,color:"#fff",border:"none",borderRadius:10,padding:"11px 0",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit" }}>
+          💾 저장
+        </button>
+      </div>
+
+      {/* 저장된 항목 목록 */}
+      {allSaved.length > 0 && (
+        <div style={{ background:"#fff",borderRadius:14,padding:"14px 16px",boxShadow:"0 1px 4px #0000000a" }}>
+          <p style={{ margin:"0 0 10px",fontSize:13,fontWeight:700,color:"#111" }}>📋 저장된 공제 항목 ({allSaved.length}건)</p>
+          {allSaved.map(d => (
+            <div key={d.id} style={{ display:"flex",alignItems:"center",gap:8,padding:"8px 0",borderBottom:"1px solid #F3F4F6" }}>
+              <div style={{ flex:1 }}>
+                <p style={{ margin:0,fontSize:12,fontWeight:600 }}>{d.userName} · {d.date}</p>
+                <p style={{ margin:0,fontSize:12,color:"#555" }}>{d.desc}</p>
+              </div>
+              <span style={{ fontSize:13,fontWeight:700,color:parseFloat(d.amount)<0?"#10B981":"#EF4444" }}>
+                {parseFloat(d.amount)<0?"+":"-"}{fA(Math.abs(parseFloat(d.amount)))}
+              </span>
+              <button onClick={()=>removeSavedDeduction(d.userId, d.id)}
+                style={{ background:"none",border:"none",cursor:"pointer",color:"#f77",fontSize:16,padding:"0 4px",fontFamily:"inherit" }}>×</button>
+            </div>
+          ))}
+          <div style={{ marginTop:10,display:"flex",justifyContent:"space-between",fontSize:13,fontWeight:700 }}>
+            <span>합계</span>
+            <span style={{ color:"#EF4444" }}>{fA(allSaved.reduce((s,d)=>s+(parseFloat(d.amount)||0),0))}</span>
+          </div>
+        </div>
+      )}
+      {allSaved.length === 0 && (
+        <p style={{ textAlign:"center",color:"#aaa",fontSize:12,marginTop:20 }}>이 구간에 저장된 공제 항목이 없어요</p>
+      )}
+    </div>
+  );
 }
 
 function EmptyState({ msg }) {
