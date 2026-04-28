@@ -251,12 +251,28 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
     const partHourlyRate = dailyRate / 9;  // 파트타임: 일당 ÷ 9
     const otHourlyRate   = dailyRate / 8;  // 오버타임: 일당 ÷ 8
     // ── 기준 채우기 알고리즘 ────────────────────────────────────────────
+    // 연차 사용일을 풀타임으로 계산
+    const usageRecs = (lv.usageRecords || []);
+    const leaveHoursInPeriod = usageRecs.reduce((sum, r) => {
+      // r.date 시작일, r.days 일수
+      const rStart = new Date(r.date + "T00:00:00");
+      const pStart = new Date(periodStart + "T00:00:00");
+      const pEnd   = new Date(periodStart + "T00:00:00");
+      pEnd.setDate(pEnd.getDate() + 13);
+      // 겹치는 날 계산
+      const overlapStart = Math.max(rStart.getTime(), pStart.getTime());
+      const rEnd = new Date(rStart); rEnd.setDate(rEnd.getDate() + (r.days || 1));
+      const overlapEnd = Math.min(rEnd.getTime(), pEnd.getTime() + 24*60*60*1000);
+      const overlapDays = Math.max(0, (overlapEnd - overlapStart) / (24*60*60*1000));
+      return sum + overlapDays * 9;
+    }, 0);
+
     // 순서: 풀타임 → 파트타임 → 오버타임(파트시급으로 채움) → 초과분은 각 시급으로
     const reqH = reqDays * 9 + reqExtraHours;
     const fullH  = stats.fullDays * 9;   // 풀타임을 시간으로
     const partH  = stats.partHours;
     const otH    = stats.otHours;
-    const allPartH = fullH + partH;       // 풀+파트 합산 (파트시급 적용)
+    const allPartH = fullH + partH + leaveHoursInPeriod; // 풀+파트+연차 합산
 
     // 기준을 파트로 채우기
     const partForBase  = Math.min(allPartH, reqH);
@@ -279,7 +295,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
     const empUser = (users||[]).find(u => u.id === userId);
     const visaType = empUser && empUser.visa ? empUser.visa.type : null;
     if (!isContractor) { tax = calcFortnightlyTax(gross, visaType); superAmt = gross * 0.12; net = gross - tax - superAmt; }
-    const workedH = stats.fullDays * 9 + stats.partHours + stats.otHours;
+    const workedH = stats.fullDays * 9 + stats.partHours + stats.otHours + leaveHoursInPeriod;
     const diffH = workedH - reqH;
     const lvDays = Math.floor(diffH / 9);
     const lvPart = diffH - lvDays * 9;
@@ -571,6 +587,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                   ["⏰","Overtime", fmt(wage.stats.otHours)+"h","#F59E0B"],
                   ["🕐","Part Time", fmt(wage.stats.partHours)+"h","#8B5CF6"],
                   ["🚗","Travel", fA(wage.stats.travelTotal),"#3B82F6"],
+                  ...(wage.leaveHoursInPeriod > 0 ? [["🏖️","연차", (wage.leaveHoursInPeriod/9).toFixed(1)+"일","#F59E0B"]] : []),
                 ].map(([emoji, label, val, color]) => (
                   <div key={label} style={S.statBox(color)}>
                     <div style={{ display:"flex",alignItems:"center",gap:5,marginBottom:6 }}>
