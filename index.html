@@ -1680,8 +1680,8 @@ function getWorkTypes(date,hasLeaveAccrual){const types=[...WORK_TYPES_BASE];if(
 function LogTab({user,users,logs,leaves,isAdmin,isSuperAdmin,isViewAdmin,persist,jumpDate,onJumpConsumed}){
   const[showForm,setShowForm]=useState(false);
   const[filterUser,setFilterUser]=useState(isAdmin?"all":user.id);
-  const[filterDate,setFilterDate]=useState(today);
-  const[viewMode,setViewMode]=useState("period");
+  const[filterDate,setFilterDate]=useState(jumpDate||today);
+  const[viewMode,setViewMode]=useState(jumpDate?"date":"period");
   const[wagePeriodOffset,setWagePeriodOffset]=useState(0);
   const getWagePeriod=(offset=0)=>{
     const BASE=new Date("2026-04-13T00:00:00");
@@ -1698,7 +1698,7 @@ function LogTab({user,users,logs,leaves,isAdmin,isSuperAdmin,isViewAdmin,persist
       setViewMode("date");
       if(onJumpConsumed) onJumpConsumed();
     }
-  },[jumpDate]);
+  },[]);
   const[editLog,setEditLog]=useState(null);const[confirmDeleteId,setConfirmDeleteId]=useState(null);const filtered=logs.filter(l=>(filterUser==="all"?true:l.userId===filterUser)).filter(l=>viewMode==="date"?l.date===filterDate:viewMode==="period"?(l.date>=wpStart&&l.date<=wpEnd):true);const deleteLog=(id)=>{persist(null,logs.filter(l=>l.id!==id),null);setConfirmDeleteId(null);};return(<div style={styles.page}><div style={styles.pageHeader}><h2 style={styles.pageTitle}>근무일지</h2><button style={styles.btnAdd} onClick={()=>{setEditLog(null);setShowForm(true);}}>{Icon.plus} 등록</button></div><div style={{ display:"flex",gap:6,marginBottom:10 }}><button onClick={()=>setViewMode("period")} style={{ ...styles.filterInput,cursor:"pointer",background:viewMode==="period"?C.primary:"#fff",color:viewMode==="period"?"#fff":C.text,border:`1.5px solid ${C.primary}`,fontWeight:600,flex:1 }}>📅 구간별</button><button onClick={()=>setViewMode("date")} style={{ ...styles.filterInput,cursor:"pointer",background:viewMode==="date"?C.primary:"#fff",color:viewMode==="date"?"#fff":C.text,border:`1.5px solid ${C.primary}`,fontWeight:600,flex:1 }}>📆 날짜별</button></div><div style={styles.filterRow}>{viewMode==="period"&&<div style={{ display:"flex",alignItems:"center",gap:8,padding:"4px 0" }}>
         <button style={styles.navArrow} onClick={()=>setWagePeriodOffset(o=>o-1)}>‹</button>
         <div style={{ flex:1,textAlign:"center" }}>
