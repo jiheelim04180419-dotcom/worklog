@@ -452,7 +452,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                         <p style={{ margin:0,fontSize:16,fontWeight:800,color:"#10B981" }}>{fA(netPay)}</p>
                       </div>}
                       {keepBal !== 0 && <div style={{ flex:1,background:keepBal>0?"#EFF6FF":"#FEF2F2",borderRadius:10,padding:"10px 12px",textAlign:"center" }}>
-                        <p style={{ margin:"0 0 2px",fontSize:10,fontWeight:600,color:keepBal>0?"#1D4ED8":"#DC2626" }}>킵 잔액</p>
+                        <p style={{ margin:"0 0 2px",fontSize:10,fontWeight:600,color:keepBal>0?"#1D4ED8":"#DC2626" }}>킵 잔액 (정산 후)</p>
                         <p style={{ margin:0,fontSize:16,fontWeight:800,color:keepBal>0?"#3B82F6":"#EF4444" }}>{fA(keepBal)}</p>
                       </div>}
                     </div>
@@ -472,7 +472,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                         <p style={{ margin:0,fontSize:18,fontWeight:900,color:"#10B981" }}>{fA(totalNet)}</p>
                       </div>
                       <div style={{ flex:1,textAlign:"center" }}>
-                        <p style={{ margin:"0 0 2px",fontSize:10,color:"#aaa" }}>총 킵 잔액</p>
+                        <p style={{ margin:"0 0 2px",fontSize:10,color:"#aaa" }}>총 킵 잔액 (정산 후)</p>
                         <p style={{ margin:0,fontSize:18,fontWeight:900,color:totalKeep>=0?"#3B82F6":"#EF4444" }}>{fA(totalKeep)}</p>
                       </div>
                     </div>
@@ -791,8 +791,8 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
               </div>
             )}
 
-            {/* Cash / Keep (non-contractor) */}
-            {!wage.isContractor && (<>
+            {/* Cash / Keep */}
+            {(!wage.isContractor || wage.hasFlatPay) && (<>
               {/* Keep / Cash - 변동분 관리 */}
               {(() => {
                 // 변동분 계산
