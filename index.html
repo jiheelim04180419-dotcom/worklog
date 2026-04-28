@@ -319,7 +319,9 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
     if (!w) return;
     const lv = leaves[userId] || {};
     // 변동분 계산
-    const variable = w.hasFlatPay
+    const variable = (w.isContractor && !w.hasFlatPay)
+      ? 0
+      : w.hasFlatPay
       ? w.gross - w.fixedTotal - totalDeductions
       : w.excessPartH * w.partHourlyRate
       + w.excessOtH   * w.otHourlyRate
@@ -708,7 +710,9 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
               {(() => {
                 // 변동분 계산
                 const allDeductions = totalDeductions + savedTotal(selId);
-                const variable = wage.hasFlatPay
+                const variable = (wage.isContractor && !wage.hasFlatPay)
+                  ? 0  // 순수 인보이스: 고정급여 없음, 변동분 없음
+                  : wage.hasFlatPay
                   ? wage.gross - wage.fixedTotal - allDeductions
                   : wage.excessPartH * wage.partHourlyRate
                   + wage.excessOtH   * wage.otHourlyRate
@@ -1573,6 +1577,34 @@ function SummarySection({users, leaves, periodStart, calcWage, getSavedDeduction
           </div>
         );
       })}
+      {/* 합계 행 */}
+      {activeEmps.length > 0 && (() => {
+        const totNet   = activeEmps.reduce((s,u)=>s+(parseFloat((leaves[u.id]||{}).fixedNet)||0),0);
+        const totTax   = activeEmps.reduce((s,u)=>s+(parseFloat((leaves[u.id]||{}).fixedTax)||0),0);
+        const totSuper = activeEmps.reduce((s,u)=>s+(parseFloat((leaves[u.id]||{}).fixedSuper)||0),0);
+        const totKeep  = activeEmps.reduce((s,u,ei) => {
+          const lv = leaves[u.id]||{};
+          const keep = getKeepBalance(u.id);
+          const sd2 = getSavedDeductions(u.id).reduce((s,d)=>s+(parseFloat(d.amount)||0),0);
+          const w2 = calcWage(u.id);
+          const isContractor = !!(lv.noLeave);
+          const hasFlatPay = !!(lv.noLeave && lv.hasFlatPay);
+          const v2 = w2 ? (w2.hasFlatPay ? w2.gross-w2.fixedTotal-sd2 : w2.excessPartH*w2.partHourlyRate+w2.excessOtH*w2.otHourlyRate-w2.deficitH*w2.partHourlyRate+w2.travel-sd2) : 0;
+          return s + keep + v2;
+        }, 0);
+        const cell = (v, color) => <p style={{ margin:0,fontSize:12,fontWeight:800,color:v?color:"#ccc",textAlign:"center" }}>{v?fA(v):"—"}</p>;
+        return (
+          <div style={{ display:"grid",gridTemplateColumns:"90px 1fr 1fr 1fr 1fr",gap:4,
+            background:"#F8FAFF",borderRadius:10,padding:"10px",marginTop:4,
+            borderTop:"2px solid #E5E7EB" }}>
+            <p style={{ margin:0,fontSize:11,fontWeight:700,color:"#555",display:"flex",alignItems:"center" }}>합계</p>
+            {cell(totNet,"#10B981")}
+            {cell(totTax,"#EF4444")}
+            {cell(totSuper,"#8B5CF6")}
+            <p style={{ margin:0,fontSize:12,fontWeight:800,color:totKeep>0?"#3B82F6":totKeep<0?"#EF4444":"#ccc",textAlign:"center" }}>{totKeep!==0?fA(totKeep):"—"}</p>
+          </div>
+        );
+      })()}
     </div>
   );
 }
