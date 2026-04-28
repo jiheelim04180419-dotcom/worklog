@@ -606,9 +606,9 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
               </>) : <p style={{ margin:0,fontSize:12,color:"#f77" }}>일급 미설정</p>}
             </div>
           </div>
-          {carry && (carry.fullDays !== 0 || carry.partHours !== 0) && (
+{isSuperAdmin && carry && (carry.fullDays !== 0 || carry.partHours !== 0) && (
             <div style={{ marginTop:10,background:"#FEF3C7",borderRadius:8,padding:"6px 10px",fontSize:12,color:"#92400E" }}>
-              ⚡ 이월 적용중: Full {carry.fullDays >= 0 ? "+" : ""}{carry.fullDays}일 · Part {(carry.partHours||0).toFixed(1)}h
+              ⚡ 이전 기간 이월: Full {carry.fullDays >= 0 ? "+" : ""}{carry.fullDays}일 · Part {(carry.partHours||0).toFixed(1)}h
             </div>
           )}
         </div>
@@ -728,10 +728,10 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
             <div style={{ background:"#fff",borderRadius:14,padding:"14px 16px",marginBottom:10,boxShadow:"0 1px 4px #0000000a" }}>
               <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:deductions.length>0?12:0 }}>
                 <p style={{ margin:0,fontSize:11,fontWeight:700,color:"#EF4444",textTransform:"uppercase",letterSpacing:1 }}>➖ 공제 항목 (Deductions)</p>
-                <button onClick={addDeduction}
+                {isSuperAdmin && <button onClick={addDeduction}
                   style={{ fontSize:12,fontWeight:700,background:"#FEF2F2",color:"#EF4444",border:"1.5px solid #FECACA",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontFamily:"inherit" }}>
                   + 추가
-                </button>
+                </button>}
               </div>
               {deductions.length === 0 && (
                 <p style={{ fontSize:12,color:"#ccc",textAlign:"center",margin:"8px 0 0",fontStyle:"italic" }}>회사카드 개인결제 등 공제할 항목을 추가하세요</p>
@@ -747,8 +747,8 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                       onChange={e => updateDeduction(d.id, "amount", e.target.value)}
                       style={{ ...styles.input,fontSize:12,padding:"8px 10px 8px 22px",width:"100%",boxSizing:"border-box" }} />
                   </div>
-                  <button onClick={() => removeDeduction(d.id)}
-                    style={{ background:"#FEF2F2",border:"1px solid #FECACA",borderRadius:8,cursor:"pointer",color:"#EF4444",fontSize:16,width:32,height:32,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontFamily:"inherit" }}>×</button>
+                  {isSuperAdmin && <button onClick={() => removeDeduction(d.id)}
+                    style={{ background:"#FEF2F2",border:"1px solid #FECACA",borderRadius:8,cursor:"pointer",color:"#EF4444",fontSize:16,width:32,height:32,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontFamily:"inherit" }}>×</button>}
                 </div>
               ))}
               {/* Firebase 저장 공제 항목 */}
@@ -865,11 +865,11 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                         </div>
                       </div>
                     )}
-                    {/* 출금 금액 입력 */}
-                    <p style={{ margin:"0 0 6px",fontSize:12,fontWeight:600,color:"#555" }}>
+                    {/* 출금 금액 입력 - 슈퍼관리자만 */}
+                    {isSuperAdmin && <p style={{ margin:"0 0 6px",fontSize:12,fontWeight:600,color:"#555" }}>
                       💵 {variable > 0 ? "캐시 출금 금액 (0이면 전액 킵)" : "킵 잔액에서 캐시 출금"}
-                    </p>
-                    <div style={{ display:"flex",gap:6,marginBottom:12 }}>
+                    </p>}
+                    {isSuperAdmin && (<div style={{ display:"flex",gap:6,marginBottom:12 }}>
                       <div style={{ flex:1,position:"relative" }}>
                         <span style={{ position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",color:"#888",fontSize:13,pointerEvents:"none" }}>$</span>
                         <input type="number" placeholder="0.00 (전액 킵)" value={partialCash} min={0} step={0.01}
@@ -884,7 +884,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                         style={{ padding:"0 12px",borderRadius:10,border:"1.5px solid #E5E7EB",background:"#F3F4F6",color:"#555",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit" }}>
                         전액킵
                       </button>
-                    </div>
+                    </div>)}
 
                     {/* 결과 */}
                     <div style={{ background:"#F9FAFB",borderRadius:10,padding:"12px 14px" }}>
