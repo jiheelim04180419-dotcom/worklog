@@ -274,18 +274,16 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
     // ── 기준 채우기 알고리즘 ────────────────────────────────────────────
     // 연차 사용일을 풀타임으로 계산
     const usageRecs = (lv.usageRecords || []);
+    // 연차 날짜(r.date)가 기간 안에 있으면 r.days 전체를 반영
+    const pStartStr = periodStart;
+    const pEndDate = new Date(periodStart + "T00:00:00"); pEndDate.setDate(pEndDate.getDate() + 13);
+    const pEndStr = pEndDate.getFullYear()+"-"+String(pEndDate.getMonth()+1).padStart(2,"0")+"-"+String(pEndDate.getDate()).padStart(2,"0");
     const leaveHoursInPeriod = usageRecs.reduce((sum, r) => {
-      // r.date 시작일, r.days 일수
-      const rStart = new Date(r.date + "T00:00:00");
-      const pStart = new Date(periodStart + "T00:00:00");
-      const pEnd   = new Date(periodStart + "T00:00:00");
-      pEnd.setDate(pEnd.getDate() + 13);
-      // 겹치는 날 계산
-      const overlapStart = Math.max(rStart.getTime(), pStart.getTime());
-      const rEnd = new Date(rStart); rEnd.setDate(rEnd.getDate() + (r.days || 1));
-      const overlapEnd = Math.min(rEnd.getTime(), pEnd.getTime() + 24*60*60*1000);
-      const overlapDays = Math.max(0, (overlapEnd - overlapStart) / (24*60*60*1000));
-      return sum + overlapDays * 9;
+      // 날짜가 기간 내에 있으면 일수 전체 반영 (달력 겹침 계산 없이)
+      if (r.date >= pStartStr && r.date <= pEndStr) {
+        return sum + (r.days || 1) * 9;
+      }
+      return sum;
     }, 0);
 
     // 순서: 풀타임 → 파트타임 → 오버타임(파트시급으로 채움) → 초과분은 각 시급으로
