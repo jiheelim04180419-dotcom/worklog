@@ -518,7 +518,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
             </button>
           </div>
           {subView === "summary" && isSuperAdmin && (
-            <SummarySection users={users} leaves={leaves} periodStart={periodStart} calcWage={calcWage} getSavedDeductions={getSavedDeductions} getKeepBalance={getKeepBalance} EMP_COLORS={EMP_COLORS} fA={fA} C={C} selId={selId} setSelId={setSelId} setSubView={setSubView}/>
+            <SummarySection users={users} leaves={leaves} periodStart={periodStart} calcWage={calcWage} getSavedDeductions={getSavedDeductions} getKeepBalance={getKeepBalance} getKeepBalanceAtPeriod={getKeepBalanceAtPeriod} getPeriodDeposits={getPeriodDeposits} EMP_COLORS={EMP_COLORS} fA={fA} C={C} selId={selId} setSelId={setSelId} setSubView={setSubView}/>
           )}
           {subView === "deduct" && (
             <DeductTab users={users.filter(u=>!u.resignedDate&&u.role==="employee")}
@@ -1604,7 +1604,7 @@ function DeductTab({ users, leaves, wpStart, wpEnd, persist, removeSavedDeductio
 
 
 
-function SummarySection({users, leaves, periodStart, calcWage, getSavedDeductions, getKeepBalance, EMP_COLORS, fA, C, selId, setSelId, setSubView}) {
+function SummarySection({users, leaves, periodStart, calcWage, getSavedDeductions, getKeepBalance, getKeepBalanceAtPeriod, getPeriodDeposits, EMP_COLORS, fA, C, selId, setSelId, setSubView}) {
   const activeEmps = users.filter(u => !u.resignedDate && u.role === "employee");
   const fmtD = (ps) => { const d=new Date(ps+"T00:00:00"); d.setDate(d.getDate()+13); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); };
   const fmt = (v, color) => <p style={{ margin:0,fontSize:12,fontWeight:700,color:v?color:"#ccc",textAlign:"center" }}>{v?fA(v):"—"}</p>;
@@ -1664,7 +1664,7 @@ function SummarySection({users, leaves, periodStart, calcWage, getSavedDeduction
         const totSuper = activeEmps.reduce((s,u)=>s+(parseFloat((leaves[u.id]||{}).fixedSuper)||0),0);
         const totKeep  = activeEmps.reduce((s,u,ei) => {
           const lv = leaves[u.id]||{};
-          const keep = getKeepBalance(u.id);
+          const keep = getKeepBalanceAtPeriod(u.id, periodStart) + getPeriodDeposits(u.id, periodStart);
           const sd2 = getSavedDeductions(u.id).reduce((s,d)=>s+(parseFloat(d.amount)||0),0);
           const w2 = calcWage(u.id);
           const isContractor = !!(lv.noLeave);
