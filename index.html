@@ -677,7 +677,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                           <div style={{ position:"relative" }}>
                             <span style={{ position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",color:"#888",fontSize:13,pointerEvents:"none" }}>$</span>
                             <input type="number" placeholder="0.00" step={0.01} value={partialCash}
-                              onChange={e=>setPartialCash(String(Math.abs(parseFloat(e.target.value)||0)||""))}
+                              onChange={e=>setPartialCash(e.target.value)}
                               style={{ ...styles.input,paddingLeft:22,fontSize:14,fontWeight:700,background:"#fff",width:"100%",boxSizing:"border-box" }}/>
                           </div>
                           <p style={{ margin:"4px 0 0",fontSize:11,color:"#555" }}>기존 킵 잔액에 더해져요 (음수 입력 시 차감)</p>
