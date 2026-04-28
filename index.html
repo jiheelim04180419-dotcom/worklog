@@ -265,7 +265,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
     const diffH = workedH - reqH;
     const lvDays = Math.floor(diffH / 9);
     const lvPart = diffH - lvDays * 9;
-    return { dailyRate, reqDays, hourlyRate, stats, carry, totalFull, totalPart, totalOt,
+    return { dailyRate, reqDays, partHourlyRate, otHourlyRate, stats, carry, totalFull, totalPart, totalOt,
              basePay, partPay, otPay, travel, gross, tax, superAmt, net, cashOut: net * 0.75, partHourlyRate, otHourlyRate,
              workedH, reqH, diffH, lvDays, lvPart, isContractor, periodLogs, reqExtraHours, fixedNet, fixedTax, fixedSuper, fixedTotal, visaType, gross, keepBalance: getKeepBalance(userId) };
   };
