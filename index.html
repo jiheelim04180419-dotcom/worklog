@@ -703,6 +703,23 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                     </div>
                     {variable < 0 && <p style={{ margin:"0 0 12px",fontSize:11,color:"#EF4444" }}>⚠️ 고정 지급액이 Gross를 초과해요</p>}
 
+                    {/* 킵 합산 표시 - 전액킵일 때 */}
+                    {cashAmt === 0 && wage.keepBalance !== 0 && (
+                      <div style={{ background:"#F0FDF4",border:"1px solid #BBF7D0",borderRadius:10,padding:"10px 12px",marginBottom:10 }}>
+                        <div style={{ display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:4 }}>
+                          <span style={{ color:"#555" }}>기존 킵 잔액</span>
+                          <span style={{ fontWeight:600,color:wage.keepBalance>0?"#10B981":"#EF4444" }}>{fA(wage.keepBalance)}</span>
+                        </div>
+                        <div style={{ display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:6 }}>
+                          <span style={{ color:"#555" }}>이번 변동분</span>
+                          <span style={{ fontWeight:600,color:variable>=0?"#10B981":"#EF4444" }}>{variable>=0?"+":""}{fA(variable)}</span>
+                        </div>
+                        <div style={{ display:"flex",justifyContent:"space-between",fontSize:14,fontWeight:800,borderTop:"1px solid #BBF7D0",paddingTop:6 }}>
+                          <span>정산 후 총 킵 잔액</span>
+                          <span style={{ color:(wage.keepBalance+Math.max(0,variable))>=0?"#10B981":"#EF4444" }}>{fA(wage.keepBalance+Math.max(0,variable))}</span>
+                        </div>
+                      </div>
+                    )}
                     {/* 출금 금액 입력 */}
                     {variable > 0 && <p style={{ margin:"0 0 8px",fontSize:12,fontWeight:600,color:"#555" }}>💵 캐시 출금 금액 (0이면 전액 킵)</p>}
                     <div style={{ display:"flex",gap:6,marginBottom:12 }}>
@@ -760,7 +777,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                       )}
                       <button onClick={() => saveCarryover(selId)}
                         style={{ width:"100%",background:"#111",color:"#fff",border:"none",borderRadius:12,padding:13,fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit",marginTop:12 }}>
-                        💾 정산 완료 {variable < 0 && parseFloat(directKeep) !== 0 ? `(킵 ${parseFloat(directKeep)>0?"+":""}${fA(parseFloat(directKeep))})` : keepAmt > 0 ? `(킵 +${fA(keepAmt)})` : ""}{cashAmt > 0 ? ` (캐시 ${fA(cashOut)})` : ""}
+                        💾 정산 완료 {variable < 0 && parseFloat(directKeep) ? `(킵 ${parseFloat(directKeep)>0?"+":""}${fA(parseFloat(directKeep)||0)})` : (keepAmt > 0 && isFinite(keepAmt)) ? `(킵 +${fA(keepAmt)})` : ""}{cashAmt > 0 ? ` (캐시 ${fA(cashOut)})` : ""}
                       </button>
                     </>)}
                   </div>
