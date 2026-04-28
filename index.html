@@ -846,7 +846,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                         </div>
                         <div style={{ display:"flex",justifyContent:"space-between",fontSize:14,fontWeight:800,borderTop:"1px solid #BBF7D0",paddingTop:6 }}>
                           <span>정산 후 총 킵 잔액</span>
-                          <span style={{ color:(wage.keepBalance+variable)>=0?"#10B981":"#EF4444" }}>{fA(wage.keepBalance + (skipVariable ? 0 : variable))}</span>
+                          <span style={{ color:(wage.keepBalance+variable)>=0?"#10B981":"#EF4444" }}>{fA(wage.keepBalance + (skipVariable ? (parseFloat(directKeep)||0) : variable))}</span>
                         </div>
                       </div>
                     )}
@@ -905,7 +905,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                           <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6 }}>
                           <p style={{ margin:0,fontSize:12,fontWeight:600,color:"#166534" }}>🏦 이번 기간 킵으로 추가할 금액</p>
                           <label style={{ display:"flex",alignItems:"center",gap:4,fontSize:11,cursor:"pointer" }}>
-                            <input type="checkbox" checked={skipVariable} onChange={e=>setSkipVariable(e.target.checked)} style={{ accentColor:"#166534" }}/>
+                            <input type="checkbox" checked={skipVariable} onChange={e=>{ setSkipVariable(e.target.checked); setDirectKeep(""); }} style={{ accentColor:"#166534" }}/>
                             <span style={{ color:skipVariable?"#166534":"#888",fontWeight:skipVariable?700:400 }}>변동분 제외</span>
                           </label>
                         </div>
