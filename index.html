@@ -588,6 +588,21 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                   </div>
                 ))}
               </div>
+              {/* 연차 사용 내역 */}
+              {!wage.isContractor && wage.leaveHoursInPeriod > 0 && (()=>{
+                const lv2 = leaves[selId]||{};
+                const pE2 = new Date(periodStart+"T00:00:00"); pE2.setDate(pE2.getDate()+13);
+                const pe2 = pE2.getFullYear()+"-"+String(pE2.getMonth()+1).padStart(2,"0")+"-"+String(pE2.getDate()).padStart(2,"0");
+                const recs2 = (lv2.usageRecords||[]).filter(r=>r.date>=periodStart&&r.date<=pe2);
+                if(!recs2.length) return null;
+                return <div style={{background:"#FFFBEB",border:"1px solid #FDE68A",borderRadius:10,padding:"10px 14px",marginTop:10}}>
+                  <p style={{margin:"0 0 8px",fontSize:11,fontWeight:700,color:"#92400E"}}>🏖️ 이번 구간 연차 내역</p>
+                  {recs2.map(r=><div key={r.id||r.date} style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:4}}>
+                    <span style={{color:"#555"}}>{r.date}{r.note?" · "+r.note:""}</span>
+                    <span style={{fontWeight:700,color:"#F59E0B"}}>{r.days}일 ({r.days*9}h) → 풀타임</span>
+                  </div>)}
+                </div>;
+              })()}
               {/* Hours progress */}
               <div style={{ background:"#F9FAFB",borderRadius:10,padding:"10px 12px" }}>
                 {wage.isContractor && (
@@ -624,7 +639,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                     const hrs  = Math.round((absH % 9) * 10) / 10;
                     return (<>
                       <p style={{ margin:0,fontSize:20,fontWeight:900,color:wage.diffH>=0?"#10B981":"#EF4444" }}>
-                        {sign}{wage.diffH.toFixed(1)}<span style={{ fontSize:12,fontWeight:500 }}>h</span>
+                        {sign}{absH.toFixed(1)}<span style={{ fontSize:12,fontWeight:500 }}>h</span>
                       </p>
                       <p style={{ margin:0,fontSize:10,color:wage.diffH>=0?"#166534":"#DC2626",fontWeight:600 }}>
                         {sign}{days>0?`${days}일 `:""}{hrs>0?`${hrs}h`:""}{days===0&&hrs===0?"0h":""}
