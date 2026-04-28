@@ -610,7 +610,20 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                   {/* 차이 */}
                   <div style={{ flex:1,background:wage.diffH>=0?"#F0FDF4":"#FEF2F2",borderRadius:10,padding:"10px 12px",textAlign:"center",border:`1.5px solid ${wage.diffH>=0?"#BBF7D0":"#FECACA"}` }}>
                     <p style={{ margin:"0 0 2px",fontSize:10,color:wage.diffH>=0?"#166534":"#DC2626",fontWeight:600,textTransform:"uppercase",letterSpacing:.5 }}>차이</p>
-                    <p style={{ margin:0,fontSize:20,fontWeight:900,color:wage.diffH>=0?"#10B981":"#EF4444" }}>{wage.diffH>=0?"+":""}{wage.diffH.toFixed(1)}<span style={{ fontSize:12,fontWeight:500 }}>h</span></p>
+                    {(() => {
+                    const absH = Math.abs(wage.diffH);
+                    const sign = wage.diffH >= 0 ? "+" : "-";
+                    const days = Math.floor(absH / 9);
+                    const hrs  = Math.round((absH % 9) * 10) / 10;
+                    return (<>
+                      <p style={{ margin:0,fontSize:20,fontWeight:900,color:wage.diffH>=0?"#10B981":"#EF4444" }}>
+                        {sign}{wage.diffH.toFixed(1)}<span style={{ fontSize:12,fontWeight:500 }}>h</span>
+                      </p>
+                      <p style={{ margin:0,fontSize:10,color:wage.diffH>=0?"#166534":"#DC2626",fontWeight:600 }}>
+                        {sign}{days>0?`${days}일 `:""}{hrs>0?`${hrs}h`:""}{days===0&&hrs===0?"0h":""}
+                      </p>
+                    </>);
+                  })()}
                   </div>
                 </div>
 
