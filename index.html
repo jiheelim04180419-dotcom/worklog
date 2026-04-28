@@ -470,7 +470,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
 
         {/* Sub-tabs */}
         <div style={{ display:"flex",background:"#fff",borderRadius:12,padding:4,gap:2,marginBottom:10,boxShadow:"0 1px 4px #0000000a" }}>
-          {[["calc","📊 급여 계산"],["log","📋 근무 내역"],...(isAdmin ? [["settings","⚙️ 설정"]] : [])].map(([v, label]) => (
+          {[["calc","📊 급여 계산"],["log","📋 근무 내역"],...(isSuperAdmin ? [["deduct","💳 공제"],["settings","⚙️ 설정"]] : isAdmin ? [["settings","⚙️ 설정"]] : [])].map(([v, label]) => (
             <button key={v} onClick={() => setSubView(v)} style={S.subTab(subView===v, selColor)}>{label}</button>
           ))}
         </div>
