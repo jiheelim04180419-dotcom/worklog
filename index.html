@@ -589,19 +589,22 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                 ))}
               </div>
               {/* 연차 사용 내역 */}
-              {!wage.isContractor && wage.leaveHoursInPeriod > 0 && (()=>{
-                const lv2 = leaves[selId]||{};
-                const pE2 = new Date(periodStart+"T00:00:00"); pE2.setDate(pE2.getDate()+13);
-                const pe2 = pE2.getFullYear()+"-"+String(pE2.getMonth()+1).padStart(2,"0")+"-"+String(pE2.getDate()).padStart(2,"0");
-                const recs2 = (lv2.usageRecords||[]).filter(r=>r.date>=periodStart&&r.date<=pe2);
-                if(!recs2.length) return null;
-                return <div style={{background:"#FFFBEB",border:"1px solid #FDE68A",borderRadius:10,padding:"10px 14px",marginTop:10}}>
-                  <p style={{margin:"0 0 8px",fontSize:11,fontWeight:700,color:"#92400E"}}>🏖️ 이번 구간 연차 내역</p>
-                  {recs2.map(r=><div key={r.id||r.date} style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:4}}>
-                    <span style={{color:"#555"}}>{r.date}{r.note?" · "+r.note:""}</span>
-                    <span style={{fontWeight:700,color:"#F59E0B"}}>{r.days}일 ({r.days*9}h) → 풀타임</span>
-                  </div>)}
-                </div>;
+              {!wage.isContractor && wage.leaveHoursInPeriod > 0 && (() => {
+                const pE2s = new Date(periodStart+"T00:00:00"); pE2s.setDate(pE2s.getDate()+13);
+                const pe2s = pE2s.getFullYear()+"-"+String(pE2s.getMonth()+1).padStart(2,"0")+"-"+String(pE2s.getDate()).padStart(2,"0");
+                const recs2 = ((leaves[selId]||{}).usageRecords||[]).filter(r=>r.date>=periodStart&&r.date<=pe2s);
+                if (!recs2.length) return null;
+                return (
+                  <div style={{background:"#FFFBEB",border:"1px solid #FDE68A",borderRadius:10,padding:"10px 14px",marginTop:10}}>
+                    <p style={{margin:"0 0 8px",fontSize:11,fontWeight:700,color:"#92400E"}}>🏖️ 이번 구간 연차 내역</p>
+                    {recs2.map(r=>(
+                      <div key={r.id||r.date} style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:4}}>
+                        <span style={{color:"#555"}}>{r.date}{r.note?" · "+r.note:""}</span>
+                        <span style={{fontWeight:700,color:"#F59E0B"}}>{r.days}일 ({r.days*9}h) → 풀타임</span>
+                      </div>
+                    ))}
+                  </div>
+                );
               })()}
               {/* Hours progress */}
               <div style={{ background:"#F9FAFB",borderRadius:10,padding:"10px 12px" }}>
@@ -793,7 +796,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                       {getSavedDeductions(selId).map(d => (
                       <div key={d.id} style={{ display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:4 }}>
                         <span style={{ color:"#555" }}>{d.date} · {d.desc}</span>
-                        <span style={{ fontWeight:600,color:"#EF4444" }}>-{fA(d.amount)}</span>
+                        <span style={{ fontWeight:600,color:parseFloat(d.amount)<0?"#10B981":"#EF4444" }}>{parseFloat(d.amount)<0?"+":"-"}{fA(Math.abs(parseFloat(d.amount)))}</span>
                       </div>
                     ))}
                     {totalDeductions !== 0 && <div style={{ display:"flex",justifyContent:"space-between",marginBottom:4 }}><span style={{ color:"#555" }}>기타 공제</span><span style={{ fontWeight:600,color:"#EF4444" }}>-{fA(totalDeductions)}</span></div>}
