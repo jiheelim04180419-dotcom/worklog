@@ -707,7 +707,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                         <span style={{ color:variable>=0?"#10B981":"#EF4444" }}>{variable>=0?"+":""}{fA(variable)}</span>
                       </div>
                     </div>
-                    {variable < 0 && <p style={{ margin:"0 0 12px",fontSize:11,color:"#EF4444" }}>⚠️ 고정 지급액이 Gross를 초과해요</p>}
+                    
 
                     {/* 킵 합산 표시 - 전액킵일 때 */}
                     {cashAmt === 0 && wage.keepBalance !== 0 && (
@@ -722,7 +722,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                         </div>
                         <div style={{ display:"flex",justifyContent:"space-between",fontSize:14,fontWeight:800,borderTop:"1px solid #BBF7D0",paddingTop:6 }}>
                           <span>정산 후 총 킵 잔액</span>
-                          <span style={{ color:(wage.keepBalance+Math.max(0,variable))>=0?"#10B981":"#EF4444" }}>{fA(wage.keepBalance+Math.max(0,variable))}</span>
+                          <span style={{ color:(wage.keepBalance+variable)>=0?"#10B981":"#EF4444" }}>{fA(wage.keepBalance + variable)}</span>
                         </div>
                       </div>
                     )}
