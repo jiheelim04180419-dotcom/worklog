@@ -431,6 +431,57 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
       {/* Employee chips (admin) */}
       {isAdmin && (
         <div style={{ marginBottom:12 }}>
+          {/* ── SUMMARY VIEW ── */}
+          {subView === "summary" && (
+            <div>
+              {users.filter(u => !u.resignedDate && u.role === "employee").map((u,i) => {
+                const lv = leaves[u.id] || {};
+                const netPay = lv.fixedNet || 0;
+                const keepBal = getKeepBalance(u.id);
+                if (!netPay && !keepBal) return null;
+                const color = EMP_COLORS[i % EMP_COLORS.length];
+                return (
+                  <div key={u.id} style={{ background:"#fff",borderRadius:14,padding:"14px 16px",marginBottom:10,boxShadow:"0 1px 4px #0000000a" }}>
+                    <div style={{ display:"flex",alignItems:"center",gap:10,marginBottom:10 }}>
+                      <div style={{ width:34,height:34,borderRadius:"50%",background:color,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:700,fontSize:14 }}>{u.name[0]}</div>
+                      <span style={{ fontWeight:700,fontSize:15 }}>{u.name}</span>
+                    </div>
+                    <div style={{ display:"flex",gap:8 }}>
+                      {netPay > 0 && <div style={{ flex:1,background:"#F0FDF4",borderRadius:10,padding:"10px 12px",textAlign:"center" }}>
+                        <p style={{ margin:"0 0 2px",fontSize:10,fontWeight:600,color:"#166534" }}>NET PAY</p>
+                        <p style={{ margin:0,fontSize:16,fontWeight:800,color:"#10B981" }}>{fA(netPay)}</p>
+                      </div>}
+                      {keepBal !== 0 && <div style={{ flex:1,background:keepBal>0?"#EFF6FF":"#FEF2F2",borderRadius:10,padding:"10px 12px",textAlign:"center" }}>
+                        <p style={{ margin:"0 0 2px",fontSize:10,fontWeight:600,color:keepBal>0?"#1D4ED8":"#DC2626" }}>킵 잔액</p>
+                        <p style={{ margin:0,fontSize:16,fontWeight:800,color:keepBal>0?"#3B82F6":"#EF4444" }}>{fA(keepBal)}</p>
+                      </div>}
+                    </div>
+                  </div>
+                );
+              })}
+              {(() => {
+                const emps = users.filter(u=>!u.resignedDate&&u.role==="employee");
+                const totalNet  = emps.reduce((s,u)=>s+((leaves[u.id]||{}).fixedNet||0),0);
+                const totalKeep = emps.reduce((s,u)=>s+getKeepBalance(u.id),0);
+                return (
+                  <div style={{ background:"#111",borderRadius:14,padding:"14px 16px",color:"#fff" }}>
+                    <p style={{ margin:"0 0 10px",fontSize:11,fontWeight:700,color:"#aaa",textTransform:"uppercase",letterSpacing:1 }}>합계</p>
+                    <div style={{ display:"flex",gap:8 }}>
+                      <div style={{ flex:1,textAlign:"center" }}>
+                        <p style={{ margin:"0 0 2px",fontSize:10,color:"#aaa" }}>총 NET PAY</p>
+                        <p style={{ margin:0,fontSize:18,fontWeight:900,color:"#10B981" }}>{fA(totalNet)}</p>
+                      </div>
+                      <div style={{ flex:1,textAlign:"center" }}>
+                        <p style={{ margin:"0 0 2px",fontSize:10,color:"#aaa" }}>총 킵 잔액</p>
+                        <p style={{ margin:0,fontSize:18,fontWeight:900,color:totalKeep>=0?"#3B82F6":"#EF4444" }}>{fA(totalKeep)}</p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+
           {isSuperAdmin && (<>
           <div style={{ display:"flex",gap:8,marginBottom:12 }}>
             <button onClick={() => setSubView(subView==="summary" ? "calc" : "summary")}
@@ -564,7 +615,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
 
         {/* Sub-tabs */}
         <div style={{ display:"flex",background:"#fff",borderRadius:12,padding:4,gap:2,marginBottom:10,boxShadow:"0 1px 4px #0000000a" }}>
-          {[["calc","📊 급여 계산"],["log","📋 근무 내역"],...(isAdmin ? [["settings","⚙️ 설정"]] : [])].map(([v, label]) => (
+          {[["calc","📊 급여 계산"],["log","📋 근무 내역"],["summary","📋 지급 요약"],...(isAdmin ? [["settings","⚙️ 설정"]] : [])].map(([v, label]) => (
             <button key={v} onClick={() => setSubView(v)} style={S.subTab(subView===v, selColor)}>{label}</button>
           ))}
         </div>
