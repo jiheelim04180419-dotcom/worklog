@@ -1286,7 +1286,7 @@ function BottomNav({ tab, setTab, isAdmin, userHasLeave, user, logs }) {
   );
 }
 
-function HomeTab({ user, users, logs, leaves, isAdmin }) {
+function HomeTab({ user, users, logs, leaves, isAdmin, onJumpToLog }) {
   const myLogs=isAdmin?logs:logs.filter(l=>l.userId===user.id);
   const myLv=normLeave(leaves[user.id],user.joinDate);
   const myAccDays=calcAccruedDays(myLv.leaveStartDate);
@@ -1370,7 +1370,8 @@ function HomeTab({ user, users, logs, leaves, isAdmin }) {
                     const dt = new Date(d+"T00:00:00");
                     const label = `${dt.getMonth()+1}/${dt.getDate()}`;
                     return (
-                      <span key={d} style={{ fontSize:11,fontWeight:600,background:"#FEE2E2",color:"#DC2626",borderRadius:6,padding:"2px 8px" }}>
+                      <span key={d} onClick={()=>onJumpToLog&&onJumpToLog(d)}
+                        style={{ fontSize:11,fontWeight:600,background:"#FEE2E2",color:"#DC2626",borderRadius:6,padding:"2px 8px",cursor:"pointer",textDecoration:"underline" }}>
                         {label}
                       </span>
                     );
@@ -1675,7 +1676,7 @@ const WORK_TYPES_BASE=[{key:"fulltime",label:"풀타임",emoji:"✅"},{key:"over
 function getWorkTypes(date,hasLeaveAccrual){const types=[...WORK_TYPES_BASE];if(hasLeaveAccrual){const day=new Date((date||today)+"T00:00:00").getDay();if(day>=1&&day<=5)types.push({key:"publicholiday",label:"퍼블릭홀리데이",emoji:"🎉"});}return types;}
 
 // ─── LogTab ────────────────────────────────────────────────────────────────
-function LogTab({user,users,logs,leaves,isAdmin,isSuperAdmin,isViewAdmin,persist}){
+function LogTab({user,users,logs,leaves,isAdmin,isSuperAdmin,isViewAdmin,persist,jumpDate,onJumpConsumed}){
   const[showForm,setShowForm]=useState(false);
   const[filterUser,setFilterUser]=useState(isAdmin?"all":user.id);
   const[filterDate,setFilterDate]=useState(today);
@@ -1690,6 +1691,13 @@ function LogTab({user,users,logs,leaves,isAdmin,isSuperAdmin,isViewAdmin,persist
   };
   const wp=getWagePeriod(wagePeriodOffset);
   const wpStart=wp.start; const wpEnd=wp.end;
+  React.useEffect(()=>{
+    if(jumpDate){
+      setFilterDate(jumpDate);
+      setViewMode("date");
+      if(onJumpConsumed) onJumpConsumed();
+    }
+  },[jumpDate]);
   const[editLog,setEditLog]=useState(null);const[confirmDeleteId,setConfirmDeleteId]=useState(null);const filtered=logs.filter(l=>(filterUser==="all"?true:l.userId===filterUser)).filter(l=>viewMode==="date"?l.date===filterDate:viewMode==="period"?(l.date>=wpStart&&l.date<=wpEnd):true);const deleteLog=(id)=>{persist(null,logs.filter(l=>l.id!==id),null);setConfirmDeleteId(null);};return(<div style={styles.page}><div style={styles.pageHeader}><h2 style={styles.pageTitle}>근무일지</h2><button style={styles.btnAdd} onClick={()=>{setEditLog(null);setShowForm(true);}}>{Icon.plus} 등록</button></div><div style={{ display:"flex",gap:6,marginBottom:10 }}><button onClick={()=>setViewMode("period")} style={{ ...styles.filterInput,cursor:"pointer",background:viewMode==="period"?C.primary:"#fff",color:viewMode==="period"?"#fff":C.text,border:`1.5px solid ${C.primary}`,fontWeight:600,flex:1 }}>📅 구간별</button><button onClick={()=>setViewMode("date")} style={{ ...styles.filterInput,cursor:"pointer",background:viewMode==="date"?C.primary:"#fff",color:viewMode==="date"?"#fff":C.text,border:`1.5px solid ${C.primary}`,fontWeight:600,flex:1 }}>📆 날짜별</button></div><div style={styles.filterRow}>{viewMode==="period"&&<div style={{ display:"flex",alignItems:"center",gap:8,padding:"4px 0" }}>
         <button style={styles.navArrow} onClick={()=>setWagePeriodOffset(o=>o-1)}>‹</button>
         <div style={{ flex:1,textAlign:"center" }}>
@@ -1813,6 +1821,7 @@ function App() {
   const [leaves,setLeaves]=useState(SEED_LEAVES);
   const [companies,setCompanies]=useState(SEED_COMPANIES);
   const [tab,setTab]=useState("home");
+  const [jumpDate,setJumpDate]=useState(null);
   const [showChangePw,setShowChangePw]=useState(false);
   const [pwForm,setPwForm]=useState({cur:"",next:"",confirm:""});
   const [pwErr,setPwErr]=useState("");
@@ -1867,8 +1876,8 @@ function App() {
     <div style={styles.app}>
       <Header user={currentUser} onLogout={logout} onChangePw={()=>{setPwForm({cur:"",next:"",confirm:""});setPwErr("");setShowChangePw(true);}}/>
       <div style={styles.content}>
-        {tab==="home"&&<HomeTab user={currentUser} users={users} logs={logs} leaves={leaves} isAdmin={isAdmin}/>}
-        {tab==="log"&&<LogTab user={currentUser} users={users} logs={logs} leaves={leaves} isAdmin={isAdmin} isSuperAdmin={isSuperAdmin} isViewAdmin={isViewAdmin} persist={persist}/>}
+        {tab==="home"&&<HomeTab user={currentUser} users={users} logs={logs} leaves={leaves} isAdmin={isAdmin} onJumpToLog={(date)=>{setJumpDate(date);setTab("log");}}/> }
+        {tab==="log"&&<LogTab user={currentUser} users={users} logs={logs} leaves={leaves} isAdmin={isAdmin} isSuperAdmin={isSuperAdmin} isViewAdmin={isViewAdmin} persist={persist} jumpDate={jumpDate} onJumpConsumed={()=>setJumpDate(null)}/>}
         {tab==="leave"&&<LeaveTab user={currentUser} users={users} leaves={leaves} isAdmin={isAdmin} isSuperAdmin={isSuperAdmin} isViewAdmin={isViewAdmin} persist={persist} updateLeaveUsage={updateLeaveUsage}/>}
         {isAdmin&&tab==="rate"&&<RateTab users={users} leaves={leaves} persist={persist} isSuperAdmin={isSuperAdmin}/>}
         {isAdmin&&tab==="team"&&<TeamTab users={users} leaves={leaves} logs={logs} persist={persist} isSuperAdmin={isSuperAdmin} companies={companies}/>}
