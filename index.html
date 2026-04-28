@@ -269,7 +269,9 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
       const entry = sorted.find(h => h.from <= periodStart) || sorted[sorted.length-1];
       return { net: parseFloat(entry.net)||0, tax: parseFloat(entry.tax)||0, sup: parseFloat(entry.sup)||0 };
     };
-    const fp = (!isContractor || hasFlatPay) ? getFixedPayForPeriod() : {net:0,tax:0,sup:0};
+    // fixedPayHistory가 있거나 hasFlatPay면 기간별 고정지급 조회
+    const hasFixedHist = (lv.fixedPayHistory||[]).length > 0;
+    const fp = (!isContractor || hasFlatPay || hasFixedHist) ? getFixedPayForPeriod() : {net:0,tax:0,sup:0};
     const fixedNet   = fp.net;
     const fixedTax   = fp.tax;
     const fixedSuper = fp.sup;
@@ -745,7 +747,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
             </div>
 
             {/* Tax + Super */}
-            {(!wage.isContractor || wage.hasFlatPay) && (wage.fixedNet > 0 || wage.fixedTax > 0 || wage.fixedSuper > 0) && (
+            {(wage.fixedNet > 0 || wage.fixedTax > 0 || wage.fixedSuper > 0) && (
               <div style={{ background:"#fff",borderRadius:14,padding:"14px 16px",marginBottom:10,boxShadow:"0 1px 4px #0000000a" }}>
                 <>
                   <p style={S.sectionTitle}>📌 지급액</p>
