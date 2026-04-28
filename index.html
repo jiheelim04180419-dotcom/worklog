@@ -1185,8 +1185,9 @@ function getMissingLogs(users, logs, periodStart, periodEnd) {
 
   // 활성 직원만
   const activeEmps = users.filter(u =>
-    u.role === "employee" && !u.resignedDate &&
-    new Date(u.joinDate + "T00:00:00") <= end
+    !u.resignedDate &&
+    (u.role === "employee" || u.role === "admin" || u.role === "viewadmin") &&
+    u.joinDate && new Date(u.joinDate + "T00:00:00") <= end
   );
 
   for (const emp of activeEmps) {
@@ -1310,6 +1311,34 @@ function HomeTab({ user, users, logs, leaves, isAdmin, onJumpToLog }) {
       </div>
       <div style={styles.statsGrid}>
         {!isAdmin&&<><StatCard label="연차 잔여" value={`${myRemDays.toFixed(1)}일`} sub={`적립 ${myAccDays.toFixed(1)}일 / 20일`} color="#4f8ef7" emoji="🏖️"/><StatCard label="이번 달 근무" value={`${fmt(monthHours)}h`} sub={`${monthLogs.length}일 출근`} color="#34c98b" emoji="💼"/></>}
+      {!isAdmin && (() => {
+        const myMissing = getMissingLogs([user], logs, APP_START_DATE, today);
+        const missDays = myMissing.length > 0 ? myMissing[0].missing : [];
+        if (missDays.length === 0) return null;
+        return (
+          <div style={{ background:"#FEF2F2",border:"1.5px solid #FECACA",borderRadius:14,padding:"12px 14px",marginBottom:14 }}>
+            <div style={{ display:"flex",alignItems:"center",gap:8,marginBottom:8 }}>
+              <span style={{ fontSize:16 }}>⚠️</span>
+              <div>
+                <p style={{ margin:0,fontSize:13,fontWeight:700,color:"#DC2626" }}>미제출 근무일지 {missDays.length}일</p>
+                <p style={{ margin:0,fontSize:11,color:"#888" }}>근무일지를 등록해주세요</p>
+              </div>
+            </div>
+            <div style={{ display:"flex",flexWrap:"wrap",gap:4 }}>
+              {missDays.map(d => {
+                const dt = new Date(d+"T00:00:00");
+                const label = `${dt.getMonth()+1}/${dt.getDate()}`;
+                return (
+                  <span key={d} onClick={()=>onJumpToLog&&onJumpToLog(d,user.id,Math.floor((new Date(d+"T00:00:00")-new Date("2026-04-13T00:00:00"))/(14*24*60*60*1000)))}
+                    style={{ fontSize:11,fontWeight:600,background:"#FEE2E2",color:"#DC2626",borderRadius:6,padding:"2px 8px",cursor:"pointer",textDecoration:"underline" }}>
+                    {label}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
       {!isAdmin && (() => {
         const reviewLogs = logs.filter(l => l.userId === user.id && l.needsReview && !l.reviewedByEmp);
         return reviewLogs.length > 0 ? (
@@ -1687,7 +1716,7 @@ function LogTab({user,users,logs,leaves,isAdmin,isSuperAdmin,isViewAdmin,persist
   const[showForm,setShowForm]=useState(false);
   
   const[filterDate,setFilterDate]=useState(jumpInfo?jumpInfo.date:today);
-  const[viewMode,setViewMode]=useState(jumpInfo?"date":"period");
+  const[viewMode,setViewMode]=useState("period");
   const[wagePeriodOffset,setWagePeriodOffset]=useState(jumpInfo?jumpInfo.periodOffset:0);
   const[filterUser,setFilterUser]=useState(jumpInfo?jumpInfo.userId:(isAdmin?"all":user.id));
   const getWagePeriod=(offset=0)=>{
@@ -1702,7 +1731,7 @@ function LogTab({user,users,logs,leaves,isAdmin,isSuperAdmin,isViewAdmin,persist
   React.useEffect(()=>{
     if(jumpInfo){
       setFilterDate(jumpInfo.date);
-      setViewMode("date");
+      setViewMode("period");
       setWagePeriodOffset(jumpInfo.periodOffset||0);
       if(isAdmin) setFilterUser(jumpInfo.userId);
       if(onJumpConsumed) onJumpConsumed();
