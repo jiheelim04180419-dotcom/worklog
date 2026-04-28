@@ -416,12 +416,70 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
       {isAdmin && (
         <div style={{ marginBottom:12 }}>
           {isSuperAdmin && (<>
-          <button onClick={() => setSubView(subView==="deduct" ? "calc" : "deduct")}
-            style={{ width:"100%",marginBottom:12,padding:"11px 0",borderRadius:12,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:13,fontWeight:700,
-              background:subView==="deduct"?"#111":"#F3F4F6",
-              color:subView==="deduct"?"#fff":"#555" }}>
-            💳 공제 항목 관리 {subView==="deduct"?"▲":"▼"}
-          </button>
+          <div style={{ display:"flex",gap:8,marginBottom:12 }}>
+            <button onClick={() => setSubView(subView==="summary" ? "calc" : "summary")}
+              style={{ flex:1,padding:"11px 0",borderRadius:12,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:13,fontWeight:700,
+                background:subView==="summary"?"#111":"#F3F4F6",
+                color:subView==="summary"?"#fff":"#555" }}>
+              📋 정산 요약 {subView==="summary"?"▲":"▼"}
+            </button>
+            <button onClick={() => setSubView(subView==="deduct" ? "calc" : "deduct")}
+              style={{ flex:1,padding:"11px 0",borderRadius:12,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:13,fontWeight:700,
+                background:subView==="deduct"?"#111":"#F3F4F6",
+                color:subView==="deduct"?"#fff":"#555" }}>
+              💳 공제 항목 관리 {subView==="deduct"?"▲":"▼"}
+            </button>
+          </div>
+          {subView === "summary" && isSuperAdmin && (() => {
+            const activeEmps = users.filter(u => !u.resignedDate && u.role === "employee");
+            const fmtD = (ps) => { const d=new Date(ps+"T00:00:00"); d.setDate(d.getDate()+13); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); };
+            return (
+              <div>
+                <div style={{ background:"#EFF6FF",borderRadius:10,padding:"8px 14px",marginBottom:14,fontSize:12,color:"#1D4ED8",fontWeight:600 }}>
+                  📅 {periodStart} ~ {fmtD(periodStart)} 정산 요약
+                </div>
+                {activeEmps.map((emp,ei) => {
+                  const lv = leaves[emp.id] || {};
+                  const w = calcWage(emp.id);
+                  if (!w) return null;
+                  const keep = getKeepBalance(emp.id);
+                  const sd = getSavedDeductions(emp.id);
+                  const sdTotal = sd.reduce((s,d)=>s+(parseFloat(d.amount)||0),0);
+                  const variable = w.hasFlatPay
+                    ? w.gross - w.fixedTotal - sdTotal
+                    : w.excessPartH*w.partHourlyRate + w.excessOtH*w.otHourlyRate - w.deficitH*w.partHourlyRate + w.travel - sdTotal;
+                  const col = EMP_COLORS[ei % EMP_COLORS.length];
+                  return (
+                    <div key={emp.id} style={{ background:"#fff",borderRadius:14,padding:"14px 16px",marginBottom:10,boxShadow:"0 1px 4px #0000000a",borderLeft:`4px solid ${col}` }}>
+                      <div style={{ display:"flex",alignItems:"center",gap:8,marginBottom:8 }}>
+                        <div style={{ width:28,height:28,borderRadius:"50%",background:col,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:12,fontWeight:700 }}>{emp.name[0]}</div>
+                        <div style={{ flex:1 }}>
+                          <p style={{ margin:0,fontSize:14,fontWeight:700 }}>{emp.name}</p>
+                          <p style={{ margin:0,fontSize:11,color:"#888" }}>{w.isContractor?(w.hasFlatPay?"인보이스+킵":"인보이스"):`기준 ${w.reqDays}일${w.reqExtraHours>0?` ${w.reqExtraHours}h`:""}`}</p>
+                        </div>
+                        <div style={{ textAlign:"right" }}>
+                          <p style={{ margin:0,fontSize:10,color:"#888" }}>Gross</p>
+                          <p style={{ margin:0,fontSize:13,fontWeight:700 }}>{fA(w.gross)}</p>
+                        </div>
+                      </div>
+                      {(w.fixedNet>0||w.fixedTax>0||w.fixedSuper>0) && (
+                        <div style={{ display:"flex",gap:4,marginBottom:8,background:"#F9FAFB",borderRadius:8,padding:"6px 10px" }}>
+                          {w.fixedNet>0&&<div style={{ flex:1,textAlign:"center" }}><p style={{ margin:0,fontSize:9,color:"#888" }}>Net Pay</p><p style={{ margin:0,fontSize:12,fontWeight:700,color:"#10B981" }}>{fA(w.fixedNet)}</p></div>}
+                          {w.fixedTax>0&&<div style={{ flex:1,textAlign:"center" }}><p style={{ margin:0,fontSize:9,color:"#888" }}>Tax</p><p style={{ margin:0,fontSize:12,fontWeight:700,color:"#EF4444" }}>{fA(w.fixedTax)}</p></div>}
+                          {w.fixedSuper>0&&<div style={{ flex:1,textAlign:"center" }}><p style={{ margin:0,fontSize:9,color:"#888" }}>Super</p><p style={{ margin:0,fontSize:12,fontWeight:700,color:"#F59E0B" }}>{fA(w.fixedSuper)}</p></div>}
+                        </div>
+                      )}
+                      <div style={{ display:"flex",gap:6 }}>
+                        {sdTotal!==0&&<div style={{ flex:1,background:"#FEF2F2",borderRadius:8,padding:"6px 10px",textAlign:"center" }}><p style={{ margin:0,fontSize:9,color:"#888" }}>공제</p><p style={{ margin:0,fontSize:12,fontWeight:700,color:"#EF4444" }}>-{fA(sdTotal)}</p></div>}
+                        {(!w.isContractor||w.hasFlatPay)&&<div style={{ flex:1,background:variable>=0?"#EFF6FF":"#FEF2F2",borderRadius:8,padding:"6px 10px",textAlign:"center" }}><p style={{ margin:0,fontSize:9,color:"#888" }}>변동분</p><p style={{ margin:0,fontSize:12,fontWeight:700,color:variable>=0?"#3B82F6":"#EF4444" }}>{variable>=0?"+":""}{fA(variable)}</p></div>}
+                        {keep!==0&&<div style={{ flex:1,background:keep>=0?"#F0FDF4":"#FEF2F2",borderRadius:8,padding:"6px 10px",textAlign:"center" }}><p style={{ margin:0,fontSize:9,color:"#888" }}>킵 잔액</p><p style={{ margin:0,fontSize:12,fontWeight:700,color:keep>=0?"#10B981":"#EF4444" }}>{fA(keep)}</p></div>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
           {subView === "deduct" && (
             <DeductTab users={users.filter(u=>!u.resignedDate&&u.role==="employee")}
               leaves={leaves} wpStart={wpStart} wpEnd={wpEnd}
