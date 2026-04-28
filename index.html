@@ -247,26 +247,41 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
     const stats = calcWorkStats(periodLogs);
     const partHourlyRate = dailyRate / 9;  // 파트타임: 일당 ÷ 9
     const otHourlyRate   = dailyRate / 8;  // 오버타임: 일당 ÷ 8
-    // 급여는 실제 일한 것만 계산 (이월은 시간 추적용, 급여 계산에서 제외)
-    const totalFull = stats.fullDays;
-    const totalPart = stats.partHours;
-    const totalOt = stats.otHours;
-    const basePay = Math.max(0, totalFull) * dailyRate;
-    const partPay = Math.max(0, totalPart) * partHourlyRate;
-    const otPay   = Math.max(0, totalOt)   * otHourlyRate;
-    const travel = stats.travelTotal;
-    const gross = basePay + partPay + otPay + travel;
+    // ── 기준 채우기 알고리즘 ────────────────────────────────────────────
+    // 순서: 풀타임 → 파트타임 → 오버타임(파트시급으로 채움) → 초과분은 각 시급으로
+    const reqH = reqDays * 9 + reqExtraHours;
+    const fullH  = stats.fullDays * 9;   // 풀타임을 시간으로
+    const partH  = stats.partHours;
+    const otH    = stats.otHours;
+    const allPartH = fullH + partH;       // 풀+파트 합산 (파트시급 적용)
+
+    // 기준을 파트로 채우기
+    const partForBase  = Math.min(allPartH, reqH);
+    const excessPartH  = allPartH - partForBase;
+    const remainBase   = reqH - partForBase;
+
+    // 부족분을 OT로 채우기 (파트시급)
+    const otForBase  = Math.min(otH, remainBase);
+    const excessOtH  = otH - otForBase;
+    const deficitH   = remainBase - otForBase;
+
+    // 그로스 계산
+    const basePay  = (partForBase + deficitH > 0 ? 0 : 0); // 기준분은 지급액으로 처리
+    const partPay  = excessPartH * partHourlyRate;
+    const otPay    = excessOtH   * otHourlyRate;
+    const deficitPay = -deficitH * partHourlyRate;
+    const travel   = stats.travelTotal;
+    const gross    = stats.fullDays * dailyRate + partH * partHourlyRate + otH * otHourlyRate + travel;
     let tax = 0, superAmt = 0, net = gross;
     const empUser = (users||[]).find(u => u.id === userId);
     const visaType = empUser && empUser.visa ? empUser.visa.type : null;
     if (!isContractor) { tax = calcFortnightlyTax(gross, visaType); superAmt = gross * 0.12; net = gross - tax - superAmt; }
     const workedH = stats.fullDays * 9 + stats.partHours + stats.otHours;
-    const reqH = reqDays * 9 + reqExtraHours;
     const diffH = workedH - reqH;
     const lvDays = Math.floor(diffH / 9);
     const lvPart = diffH - lvDays * 9;
     return { dailyRate, reqDays, partHourlyRate, otHourlyRate, stats, carry, totalFull, totalPart, totalOt,
-             basePay, partPay, otPay, travel, gross, tax, superAmt, net, cashOut: net * 0.75, partHourlyRate, otHourlyRate,
+             basePay, partPay, otPay, travel, gross, tax, superAmt, net, cashOut: net * 0.75, partHourlyRate, otHourlyRate, excessPartH, excessOtH, deficitH, reqH,
              workedH, reqH, diffH, lvDays, lvPart, isContractor, periodLogs, reqExtraHours, fixedNet, fixedTax, fixedSuper, fixedTotal, visaType, gross, keepBalance: getKeepBalance(userId) };
   };
 
@@ -275,8 +290,11 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
     if (!w) return;
     const lv = leaves[userId] || {};
     // 변동분 계산
-    const baselineGross = w.reqDays * w.dailyRate + w.reqExtraHours * w.partHourlyRate;
-    const variable = w.gross - baselineGross - totalDeductions;
+    const variable = w.excessPartH * w.partHourlyRate
+                   + w.excessOtH   * w.otHourlyRate
+                   - w.deficitH    * w.partHourlyRate
+                   + w.travel
+                   - totalDeductions;
     const cashInput = parseFloat(partialCash) || 0;
     const cashAmt   = Math.min(cashInput, variable);
     const keepAmt   = variable - cashAmt;
@@ -459,11 +477,17 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                   </span>
                 </div>
                 {(() => {
-                  const bg = wage.reqDays * wage.dailyRate + wage.reqExtraHours * wage.partHourlyRate;
-                  const dm = wage.gross - bg;
+                  const baselinePay = wage.reqDays * wage.dailyRate + wage.reqExtraHours * wage.partHourlyRate;
+                  const variableMoney = wage.excessPartH * wage.partHourlyRate
+                                     + wage.excessOtH   * wage.otHourlyRate
+                                     - wage.deficitH    * wage.partHourlyRate
+                                     + wage.travel;
                   return (<div style={{ marginTop:6,borderTop:"1px solid #E5E7EB",paddingTop:6 }}>
-                    <div style={S.row}><span style={{ fontSize:12,color:C.sub }}>기준 금액</span><span style={{ fontSize:12,color:"#555" }}>{fA(bg)}</span></div>
-                    <div style={S.row}><span style={{ fontSize:12,color:C.sub }}>차이 금액</span><span style={{ fontSize:13,fontWeight:700,color:dm>=0?"#10B981":"#EF4444" }}>{dm>=0?"+":""}{fA(dm)}</span></div>
+                    <div style={S.row}><span style={{ fontSize:12,color:C.sub }}>기준 금액</span><span style={{ fontSize:12,color:"#555" }}>{fA(baselinePay)}</span></div>
+                    {wage.excessPartH > 0 && <div style={S.row}><span style={{ fontSize:11,color:C.sub }}>초과 파트 {wage.excessPartH.toFixed(1)}h</span><span style={{ fontSize:11,color:"#10B981" }}>+{fA(wage.excessPartH*wage.partHourlyRate)}</span></div>}
+                    {wage.excessOtH > 0 && <div style={S.row}><span style={{ fontSize:11,color:C.sub }}>초과 OT {wage.excessOtH.toFixed(1)}h</span><span style={{ fontSize:11,color:"#10B981" }}>+{fA(wage.excessOtH*wage.otHourlyRate)}</span></div>}
+                    {wage.deficitH > 0 && <div style={S.row}><span style={{ fontSize:11,color:C.sub }}>부족 {wage.deficitH.toFixed(1)}h</span><span style={{ fontSize:11,color:"#EF4444" }}>-{fA(wage.deficitH*wage.partHourlyRate)}</span></div>}
+                    <div style={S.row}><span style={{ fontSize:12,color:C.sub,fontWeight:600 }}>차이 금액</span><span style={{ fontSize:13,fontWeight:700,color:variableMoney>=0?"#10B981":"#EF4444" }}>{variableMoney>=0?"+":""}{fA(variableMoney)}</span></div>
                   </div>);
                 })()}
                 </>)}
@@ -532,9 +556,12 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
             {!wage.isContractor && (<>
               {/* Keep / Cash - 변동분 관리 */}
               {(() => {
-                // 기준에 해당하는 금액 = reqDays × dailyRate + reqExtraHours × (dailyRate/9)
-                const baselineGross = wage.reqDays * wage.dailyRate + wage.reqExtraHours * wage.partHourlyRate;
-                const variable = wage.gross - baselineGross - totalDeductions;
+                // 변동분 = 파트초과 × 파트시급 + OT초과 × OT시급 - 부족분 × 파트시급 - 공제
+                const variable = wage.excessPartH * wage.partHourlyRate
+                               + wage.excessOtH   * wage.otHourlyRate
+                               - wage.deficitH    * wage.partHourlyRate
+                               + wage.travel
+                               - totalDeductions;
                 const rawCash = parseFloat(partialCash);
                 const cashAmt = isNaN(rawCash) ? 0 : Math.min(rawCash, Math.max(0, variable));
                 const cashOut = cashAmt * 0.75;
