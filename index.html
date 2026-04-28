@@ -219,6 +219,13 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
     return (lv.keepDeposits||[]).filter(d=>d.date>=ps&&d.date<=pe).reduce((s,d)=>s+(parseFloat(d.amount)||0),0);
   };
 
+  // 이 기간 정산 완료 여부 및 결과 확인
+  const getSettledBalance = (userId, ps) => {
+    const hist = (leaves[userId] || {}).keepBalanceHistory || [];
+    const entry = hist.find(h => h.periodStart === ps);
+    return entry ? parseFloat(entry.balance || 0) : null;
+  };
+
   const getKeepBalanceAtPeriod = (userId, ps) => {
     const lv = leaves[userId] || {};
     const hist = lv.keepBalanceHistory || [];
@@ -708,8 +715,10 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
             </div>
 
             {/* Gross breakdown */}
+          </>)}
 
-            {/* ── 디덕션 섹션 ── */}
+          {/* ── 디덕션 섹션 ── (인보이스 포함 항상 표시) */}
+          {selId && (<>
             <div style={{ background:"#fff",borderRadius:14,padding:"14px 16px",marginBottom:10,boxShadow:"0 1px 4px #0000000a" }}>
               <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:deductions.length>0?12:0 }}>
                 <p style={{ margin:0,fontSize:11,fontWeight:700,color:"#EF4444",textTransform:"uppercase",letterSpacing:1 }}>➖ 공제 항목 (Deductions)</p>
@@ -761,18 +770,19 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
               )}
             </div>
 
+          </>)}
+
+          {wage && wage.dailyRate > 0 && (<>
             {/* Tax + Super */}
             {(wage.fixedNet > 0 || wage.fixedTax > 0 || wage.fixedSuper > 0) && (
               <div style={{ background:"#fff",borderRadius:14,padding:"14px 16px",marginBottom:10,boxShadow:"0 1px 4px #0000000a" }}>
-                <>
-                  <p style={S.sectionTitle}>📌 지급액</p>
-                  {wage.fixedNet > 0 && <div style={S.row}><span style={{ fontSize:13,color:C.text }}>Net Pay</span><span style={{ fontSize:13,fontWeight:700,color:"#10B981" }}>{fA(wage.fixedNet)}</span></div>}
-                  {wage.fixedTax > 0 && <div style={S.row}><span style={{ fontSize:13,color:C.text }}>Tax</span><span style={{ fontSize:13,fontWeight:700,color:"#EF4444" }}>{fA(wage.fixedTax)}</span></div>}
-                  {wage.fixedSuper > 0 && <div style={S.row}><span style={{ fontSize:13,color:C.text }}>Super</span><span style={{ fontSize:13,fontWeight:700,color:"#F59E0B" }}>{fA(wage.fixedSuper)}</span></div>}
-                  {!wage.fixedNet && !wage.fixedTax && !wage.fixedSuper && (
-                    <p style={{ fontSize:12,color:"#aaa",textAlign:"center",margin:"4px 0" }}>⚙️ 설정 탭에서 지급액을 입력하세요</p>
-                  )}
-                </>
+                <p style={S.sectionTitle}>📌 지급액</p>
+                {wage.fixedNet > 0 && <div style={S.row}><span style={{ fontSize:13,color:C.text }}>Net Pay</span><span style={{ fontSize:13,fontWeight:700,color:"#10B981" }}>{fA(wage.fixedNet)}</span></div>}
+                {wage.fixedTax > 0 && <div style={S.row}><span style={{ fontSize:13,color:C.text }}>Tax</span><span style={{ fontSize:13,fontWeight:700,color:"#EF4444" }}>{fA(wage.fixedTax)}</span></div>}
+                {wage.fixedSuper > 0 && <div style={S.row}><span style={{ fontSize:13,color:C.text }}>Super</span><span style={{ fontSize:13,fontWeight:700,color:"#F59E0B" }}>{fA(wage.fixedSuper)}</span></div>}
+                {!wage.fixedNet && !wage.fixedTax && !wage.fixedSuper && (
+                  <p style={{ fontSize:12,color:"#aaa",textAlign:"center",margin:"4px 0" }}>⚙️ 설정 탭에서 지급액을 입력하세요</p>
+                )}
               </div>
             )}
 
@@ -810,7 +820,8 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                         borderRadius:10,padding:"8px 12px",marginBottom:10 }}>
                         <div>
                           <p style={{ margin:0,fontSize:11,fontWeight:600,color:wage.keepBalance>0?"#166534":"#DC2626" }}>🏦 현재 킵 잔액</p>
-                          <p style={{ margin:0,fontSize:10,color:"#555" }}>정산 완료 시 이번 킵 금액이 누적돼요</p>
+                          {getSettledBalance(selId, periodStart) !== null && <p style={{ margin:"2px 0 0",fontSize:10,color:"#888" }}>✅ 정산완료: {fA(getSettledBalance(selId,periodStart))}</p>}
+                          {getSettledBalance(selId, periodStart) === null && <p style={{ margin:0,fontSize:10,color:"#555" }}>정산 완료 시 이번 킵 금액이 누적돼요</p>}
                         </div>
                         <span style={{ fontSize:16,fontWeight:800,color:wage.keepBalance>0?"#10B981":"#EF4444" }}>{fA(wage.keepBalance)}</span>
                       </div>
