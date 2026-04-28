@@ -364,11 +364,16 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
     return all.filter(d => d.date >= wpStart && d.date <= wpEnd);
   };
   const savedTotal = (userId) => getSavedDeductions(userId).reduce((s,d) => s + (parseFloat(d.amount)||0), 0);
-  const addSavedDeduction = (userId, entry) => {
-    const lv = leaves[userId] || {};
-    const all = [...(lv.savedDeductions || []), entry];
-    persist(null, null, {...leaves, [userId]: {...lv, savedDeductions: all}});
+  const addSavedDeductions = (entries) => {
+    // entries: [{userId, entry}] 배열을 한 번에 저장
+    const newLeaves = {...leaves};
+    entries.forEach(({userId, entry}) => {
+      const lv = newLeaves[userId] || {};
+      newLeaves[userId] = {...lv, savedDeductions: [...(lv.savedDeductions||[]), entry]};
+    });
+    persist(null, null, newLeaves);
   };
+  const addSavedDeduction = (userId, entry) => addSavedDeductions([{userId, entry}]);
   const removeSavedDeduction = (userId, id) => {
     const lv = leaves[userId] || {};
     const all = (lv.savedDeductions || []).filter(d => d.id !== id);
@@ -420,7 +425,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
           {subView === "deduct" && (
             <DeductTab users={users.filter(u=>!u.resignedDate&&u.role==="employee")}
               leaves={leaves} wpStart={wpStart} wpEnd={wpEnd}
-              addSavedDeduction={addSavedDeduction}
+              addSavedDeductions={addSavedDeductions}
               removeSavedDeduction={removeSavedDeduction}
               getSavedDeductions={getSavedDeductions} />
           )}
@@ -1333,7 +1338,7 @@ function getMissingLogs(users, logs, periodStart, periodEnd) {
 
 
 // ─── DeductTab: 일괄 공제 입력 ───────────────────────────────────────────
-function DeductTab({ users, leaves, wpStart, wpEnd, addSavedDeduction, removeSavedDeduction, getSavedDeductions }) {
+function DeductTab({ users, leaves, wpStart, wpEnd, addSavedDeductions, removeSavedDeduction, getSavedDeductions }) {
   const fA = (n) => new Intl.NumberFormat("en-AU",{style:"currency",currency:"AUD"}).format(n||0);
   const inp = { width:"100%",border:"1.5px solid #e0e6f0",borderRadius:10,padding:"8px 10px",fontSize:13,fontFamily:"inherit",outline:"none",boxSizing:"border-box",background:"#fff" };
   const [newRows, setNewRows] = React.useState([{ id: Date.now(), userId:"", date: wpStart, desc:"", amount:"" }]);
@@ -1345,7 +1350,12 @@ function DeductTab({ users, leaves, wpStart, wpEnd, addSavedDeduction, removeSav
   const saveAll = () => {
     const valid = newRows.filter(r => r.userId && r.date && r.desc && r.amount);
     if (valid.length === 0) return alert("입력된 항목이 없어요");
-    valid.forEach(r => addSavedDeduction(r.userId, { id: Date.now()+Math.random(), date: r.date, desc: r.desc, amount: parseFloat(r.amount) }));
+    // 한 번에 배치 저장
+    const entries = valid.map(r => ({
+      userId: r.userId,
+      entry: { id: Date.now()+Math.random(), date: r.date, desc: r.desc, amount: parseFloat(r.amount) }
+    }));
+    addSavedDeductions(entries);
     setNewRows([{ id: Date.now(), userId:"", date: wpStart, desc:"", amount:"" }]);
     alert(`✅ ${valid.length}건 저장됐어요`);
   };
