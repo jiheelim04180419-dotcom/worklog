@@ -410,14 +410,21 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
       {/* Employee chips (admin) */}
       {isAdmin && (
         <div style={{ marginBottom:12 }}>
-          {isSuperAdmin && (
+          {isSuperAdmin && (<>
           <button onClick={() => setSubView(subView==="deduct" ? "calc" : "deduct")}
             style={{ width:"100%",marginBottom:12,padding:"11px 0",borderRadius:12,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:13,fontWeight:700,
               background:subView==="deduct"?"#111":"#F3F4F6",
               color:subView==="deduct"?"#fff":"#555" }}>
             💳 공제 항목 관리 {subView==="deduct"?"▲":"▼"}
           </button>
-        )}
+          {subView === "deduct" && (
+            <DeductTab users={users.filter(u=>!u.resignedDate&&u.role==="employee")}
+              leaves={leaves} wpStart={wpStart} wpEnd={wpEnd}
+              addSavedDeduction={addSavedDeduction}
+              removeSavedDeduction={removeSavedDeduction}
+              getSavedDeductions={getSavedDeductions} />
+          )}
+        </>)}
         <p style={{ fontSize:11,fontWeight:700,color:C.sub,margin:"0 0 8px",textTransform:"uppercase",letterSpacing:1 }}>직원 선택</p>
           <div style={{ display:"flex",gap:6,flexWrap:"wrap" }}>
             {emps.map((e, i) => {
@@ -752,14 +759,6 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
       </>)}
     </>)}
 
-        {/* ── DEDUCT VIEW ── */}
-        {subView === "deduct" && isSuperAdmin && (
-          <DeductTab users={users.filter(u=>!u.resignedDate&&u.role==="employee")}
-            leaves={leaves} wpStart={wpStart} wpEnd={wpEnd}
-            addSavedDeduction={addSavedDeduction}
-            removeSavedDeduction={removeSavedDeduction}
-            getSavedDeductions={getSavedDeductions} />
-        )}
 
         {/* ── LOG VIEW ── */}
         {subView === "log" && (
