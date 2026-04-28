@@ -55,8 +55,8 @@ async function legacyGet(key){try{const r=await window.storage.get(key);return r
 const SEED_COMPANIES=[{id:"co1",name:"K&M Tiling Bathurst Pty Ltd",address:"10/51 Hampden Park Rd, Kelso NSW 2795",email:"accounts@knmtilingbathurst.com",abn:"",phone:""},{id:"co2",name:"회사 2",address:"",email:"",abn:"",phone:""}];
 const SEED_USERS=[{id:"admin",name:"관리자",role:"admin",pw:"admin123",dept:"경영지원",joinDate:"2022-01-01"},{id:"emp1",name:"김민준",role:"employee",pw:"1234",dept:"개발팀",joinDate:"2023-03-15"},{id:"emp2",name:"이서연",role:"employee",pw:"1234",dept:"마케팅팀",joinDate:"2022-07-01"},{id:"emp3",name:"박도현",role:"employee",pw:"1234",dept:"영업팀",joinDate:"2024-01-10"}];
 const SEED_LEAVES={emp1:{leaveStartDate:"2023-03-15",usedDays:4.5,rateHistory:[{from:"2023-03-15",dailyRate:200}],usageRecords:[{id:"ur1",date:"2023-12-22",days:2,note:"크리스마스 연휴"},{id:"ur2",date:"2024-01-26",days:1,note:"Australia Day"},{id:"ur3",date:"2024-04-05",days:1.5,note:"개인 사유"}]},emp2:{leaveStartDate:"2022-07-01",usedDays:7,rateHistory:[{from:"2022-07-01",dailyRate:180},{from:"2023-01-15",dailyRate:215}],usageRecords:[{id:"ur4",date:"2025-08-12",days:3,note:"연름 휴가"},{id:"ur5",date:"2025-10-06",days:2,note:"Labour Day 연휴"},{id:"ur6",date:"2026-01-27",days:2,note:"Australia Day"}]},emp3:{leaveStartDate:"2024-01-10",usedDays:1,rateHistory:[{from:"2024-01-10",dailyRate:195}],usageRecords:[{id:"ur7",date:"2024-04-19",days:1,note:"Good Friday"}]}};
-const today=(()=>{const d=new Date();
-const APP_START_DATE = "2026-04-13";const y=d.getFullYear();const m=String(d.getMonth()+1).padStart(2,"0");const dd=String(d.getDate()).padStart(2,"0");return y+"-"+m+"-"+dd;})();
+const today=(()=>{const d=new Date();const y=d.getFullYear();const m=String(d.getMonth()+1).padStart(2,"0");const dd=String(d.getDate()).padStart(2,"0");return y+"-"+m+"-"+dd;})();
+const APP_START_DATE = "2026-04-13";
 
 function calcHours(s,e){if(!s||!e)return 0;const[sh,sm]=s.split(":").map(Number);const[eh,em]=e.split(":").map(Number);return Math.max(0,(eh*60+em-sh*60-sm)/60);}
 function fmt(n){return n%1===0?n:n.toFixed(1);}
