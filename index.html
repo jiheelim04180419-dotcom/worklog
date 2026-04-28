@@ -280,9 +280,14 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
     const diffH = workedH - reqH;
     const lvDays = Math.floor(diffH / 9);
     const lvPart = diffH - lvDays * 9;
-    return { dailyRate, reqDays, partHourlyRate, otHourlyRate, stats, carry, totalFull, totalPart, totalOt,
-             basePay, partPay, otPay, travel, gross, tax, superAmt, net, cashOut: net * 0.75, partHourlyRate, otHourlyRate, excessPartH, excessOtH, deficitH, reqH,
-             workedH, reqH, diffH, lvDays, lvPart, isContractor, periodLogs, reqExtraHours, fixedNet, fixedTax, fixedSuper, fixedTotal, visaType, gross, keepBalance: getKeepBalance(userId) };
+    return { dailyRate, reqDays, reqH, reqExtraHours, partHourlyRate, otHourlyRate,
+             stats, carry, basePay, partPay, otPay, travel, gross,
+             tax, superAmt, net, cashOut: net * 0.75,
+             excessPartH, excessOtH, deficitH,
+             workedH, diffH, lvDays, lvPart,
+             isContractor, periodLogs,
+             fixedNet, fixedTax, fixedSuper, fixedTotal, visaType,
+             keepBalance: getKeepBalance(userId) };
   };
 
   const saveCarryover = (userId) => {
@@ -1168,6 +1173,36 @@ function ReqHistoryEditor({ selId, leaves, persist, periodStart, isSuperAdmin })
   );
 }
 
+
+// ── 미제출 근무일지 계산 ─────────────────────────────────────────────────
+function getMissingLogs(users, logs, periodStart, periodEnd) {
+  const results = [];
+  const start = new Date(periodStart + "T00:00:00");
+  const end   = new Date(periodEnd   + "T00:00:00");
+  const today = new Date();
+  today.setHours(0,0,0,0);
+
+  // 활성 직원만
+  const activeEmps = users.filter(u =>
+    u.role === "employee" && !u.resignedDate &&
+    new Date(u.joinDate + "T00:00:00") <= end
+  );
+
+  for (const emp of activeEmps) {
+    const empStart = new Date(Math.max(start, new Date(emp.joinDate + "T00:00:00")));
+    const missing = [];
+    for (let d = new Date(empStart); d <= end && d <= today; d.setDate(d.getDate()+1)) {
+      const dow = d.getDay();
+      if (dow === 0 || dow === 6) continue; // 주말 제외
+      const ds = d.toISOString().slice(0,10);
+      const hasLog = logs.some(l => l.userId === emp.id && l.date === ds);
+      if (!hasLog) missing.push(ds);
+    }
+    if (missing.length > 0) results.push({ emp, missing });
+  }
+  return results;
+}
+
 function EmptyState({ msg }) {
   return <div style={styles.empty}><p style={{ margin:0,color:"#aaa" }}>📭 {msg}</p></div>;
 }
@@ -1306,6 +1341,50 @@ function HomeTab({ user, users, logs, leaves, isAdmin }) {
           return(<div key={l.id} style={styles.logCard}><div style={styles.logCardLeft}><div style={styles.logAvatar}>{((emp&&emp.name)||"?")[0]}</div><div><p style={styles.logName}>{isAdmin?((emp&&emp.name)||l.userId):korDate(l.date)}</p><p style={styles.logContent}>{l.content}</p></div></div><div style={styles.logHours}>{l.startTime}~{l.endTime}<br/><span style={styles.logHoursBig}>{fmt(l.hours)}h</span></div></div>);
         })}
       </div>
+      {isAdmin && (() => {
+        // 현재 웨이지 구간 계산
+        const BASE = new Date("2026-04-13T00:00:00");
+        const diff = Math.floor((Date.now() - BASE) / (14*24*60*60*1000));
+        const pStart = new Date(BASE); pStart.setDate(pStart.getDate() + diff*14);
+        const pEnd   = new Date(pStart); pEnd.setDate(pEnd.getDate() + 13);
+        const ps = pStart.toISOString().slice(0,10);
+        const pe = pEnd.toISOString().slice(0,10);
+        const missing = getMissingLogs(users, logs, ps, pe);
+        if (missing.length === 0) return null;
+        const [open, setOpen] = React.useState(true);
+        const totalDays = missing.reduce((s,r)=>s+r.missing.length,0);
+        return (
+          <div style={{ background:"#FEF2F2",border:"1.5px solid #FECACA",borderRadius:14,padding:"12px 14px",marginBottom:14 }}>
+            <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",marginBottom:open?10:0 }}
+              onClick={()=>setOpen(p=>!p)}>
+              <div style={{ display:"flex",alignItems:"center",gap:8 }}>
+                <span style={{ fontSize:16 }}>⚠️</span>
+                <div>
+                  <p style={{ margin:0,fontSize:13,fontWeight:700,color:"#DC2626" }}>미제출 근무일지</p>
+                  <p style={{ margin:0,fontSize:11,color:"#888" }}>{ps} ~ {pe} · {missing.length}명 · {totalDays}일</p>
+                </div>
+              </div>
+              <span style={{ color:"#DC2626",fontSize:12 }}>{open?"▲":"▼"}</span>
+            </div>
+            {open && missing.map(({emp, missing:days}) => (
+              <div key={emp.id} style={{ background:"#fff",borderRadius:10,padding:"8px 12px",marginBottom:6 }}>
+                <p style={{ margin:"0 0 6px",fontSize:13,fontWeight:700,color:"#111" }}>{emp.name}</p>
+                <div style={{ display:"flex",flexWrap:"wrap",gap:4 }}>
+                  {days.map(d => {
+                    const dt = new Date(d+"T00:00:00");
+                    const label = `${dt.getMonth()+1}/${dt.getDate()}`;
+                    return (
+                      <span key={d} style={{ fontSize:11,fontWeight:600,background:"#FEE2E2",color:"#DC2626",borderRadius:6,padding:"2px 8px" }}>
+                        {label}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
       {isAdmin && (() => {
         // 최근 7일 이내 직원이 수정한 로그
         const sevenDaysAgo = new Date();
@@ -1600,7 +1679,30 @@ const WORK_TYPES_BASE=[{key:"fulltime",label:"풀타임",emoji:"✅"},{key:"over
 function getWorkTypes(date,hasLeaveAccrual){const types=[...WORK_TYPES_BASE];if(hasLeaveAccrual){const day=new Date((date||today)+"T00:00:00").getDay();if(day>=1&&day<=5)types.push({key:"publicholiday",label:"퍼블릭홀리데이",emoji:"🎉"});}return types;}
 
 // ─── LogTab ────────────────────────────────────────────────────────────────
-function LogTab({user,users,logs,leaves,isAdmin,isSuperAdmin,isViewAdmin,persist}){const[showForm,setShowForm]=useState(false);const[filterUser,setFilterUser]=useState(isAdmin?"all":user.id);const[filterMonth,setFilterMonth]=useState(new Date().toISOString().slice(0,7));const[filterDate,setFilterDate]=useState(today);const[viewMode,setViewMode]=useState("month");const[editLog,setEditLog]=useState(null);const[confirmDeleteId,setConfirmDeleteId]=useState(null);const filtered=logs.filter(l=>(filterUser==="all"?true:l.userId===filterUser)).filter(l=>viewMode==="date"?l.date===filterDate:l.date.startsWith(filterMonth)).sort((a,b)=>b.date.localeCompare(a.date));const deleteLog=(id)=>{persist(null,logs.filter(l=>l.id!==id),null);setConfirmDeleteId(null);};return(<div style={styles.page}><div style={styles.pageHeader}><h2 style={styles.pageTitle}>근무일지</h2><button style={styles.btnAdd} onClick={()=>{setEditLog(null);setShowForm(true);}}>{Icon.plus} 등록</button></div><div style={{ display:"flex",gap:6,marginBottom:10 }}><button onClick={()=>setViewMode("month")} style={{ ...styles.filterInput,cursor:"pointer",background:viewMode==="month"?C.primary:"#fff",color:viewMode==="month"?"#fff":C.text,border:`1.5px solid ${C.primary}`,fontWeight:600,flex:1 }}>📅 월별</button><button onClick={()=>setViewMode("date")} style={{ ...styles.filterInput,cursor:"pointer",background:viewMode==="date"?C.primary:"#fff",color:viewMode==="date"?"#fff":C.text,border:`1.5px solid ${C.primary}`,fontWeight:600,flex:1 }}>📆 날짜별</button></div><div style={styles.filterRow}>{viewMode==="month"?<input type="month" style={styles.filterInput} value={filterMonth} onChange={e=>setFilterMonth(e.target.value)}/>:<input type="date" style={styles.filterInput} value={filterDate} onChange={e=>setFilterDate(e.target.value)}/>}{isAdmin&&<select style={styles.filterInput} value={filterUser} onChange={e=>setFilterUser(e.target.value)}><option value="all">전체 직원</option>{users.filter(u=>u.role==="employee").map(u=><option key={u.id} value={u.id}>{u.name}</option>)}</select>}</div><div style={styles.logSummary}><span>총 {filtered.length}건 &nbsp;|&nbsp; {fmt(filtered.reduce((s,l)=>s+(l.hours||0),0))}시간</span></div>{filtered.length===0?<EmptyState msg="해당 기간 근무일지가 없습니다."/>:filtered.map(l=>{const emp=users.find(u=>u.id===l.userId);return(<div key={l.id} style={styles.logItem}><div style={styles.logItemDate}>{l.date.slice(5)} ({["일","월","화","수","목","금","토"][new Date(l.date+"T00:00:00").getDay()]})</div><div style={styles.logItemBody}>{isAdmin&&<span style={styles.empName}>{(emp&&emp.name)||l.userId}</span>}<p style={styles.logItemContent}>{l.content}</p><div style={styles.logItemMeta}>{(()=>{if(l.workType==="dayoff")return<span style={{ color:"#888" }}>🌴 휴무</span>;if(l.workType==="publicholiday")return<span style={{ color:"#e07000" }}>🎉 퍼블릭홀리데이 <strong>{fmt(FULLTIME_HOURS)}h</strong></span>;if(l.workType==="overtime"){const otH=calcHours(l.otStart,l.otEnd);return<><strong>{fmt(FULLTIME_HOURS)}h</strong><span style={{ color:"#f7a440",fontWeight:700 }}>+ {fmt(otH)}h OT</span></>;}return<strong>{fmt(l.hours)}h</strong>;})()}<span style={{ ...styles.statusBadge,background:l.workType==="overtime"?"#f7a44022":l.workType==="parttime"?"#7b5ea722":l.workType==="dayoff"?"#88888822":l.workType==="publicholiday"?"#e0700022":"#4f8ef722",color:l.workType==="overtime"?"#c87800":l.workType==="parttime"?"#7b5ea7":l.workType==="dayoff"?"#888":l.workType==="publicholiday"?"#e07000":"#3b7ff5" }}>{l.workType==="fulltime"?"풀타임":l.workType==="overtime"?"오버타임":l.workType==="parttime"?"파트타임":l.workType==="dayoff"?"휴무":l.workType==="publicholiday"?"퍼블릭홀리데이":l.status}</span></div>{l.needsReview && !l.reviewedByEmp && !isAdmin && (
+function LogTab({user,users,logs,leaves,isAdmin,isSuperAdmin,isViewAdmin,persist}){
+  const[showForm,setShowForm]=useState(false);
+  const[filterUser,setFilterUser]=useState(isAdmin?"all":user.id);
+  const[filterDate,setFilterDate]=useState(today);
+  const[viewMode,setViewMode]=useState("period");
+  const[wagePeriodOffset,setWagePeriodOffset]=useState(0);
+  const getWagePeriod=(offset=0)=>{
+    const BASE=new Date("2026-04-13T00:00:00");
+    const cur=Math.floor((Date.now()-BASE)/(14*24*60*60*1000));
+    const s=new Date(BASE); s.setDate(s.getDate()+(cur+offset)*14);
+    const e=new Date(s); e.setDate(e.getDate()+13);
+    return{start:s.toISOString().slice(0,10),end:e.toISOString().slice(0,10)};
+  };
+  const wp=getWagePeriod(wagePeriodOffset);
+  const wpStart=wp.start; const wpEnd=wp.end;
+  const[editLog,setEditLog]=useState(null);const[confirmDeleteId,setConfirmDeleteId]=useState(null);const filtered=logs.filter(l=>(filterUser==="all"?true:l.userId===filterUser)).filter(l=>viewMode==="date"?l.date===filterDate:viewMode==="period"?(l.date>=wpStart&&l.date<=wpEnd):true);const deleteLog=(id)=>{persist(null,logs.filter(l=>l.id!==id),null);setConfirmDeleteId(null);};return(<div style={styles.page}><div style={styles.pageHeader}><h2 style={styles.pageTitle}>근무일지</h2><button style={styles.btnAdd} onClick={()=>{setEditLog(null);setShowForm(true);}}>{Icon.plus} 등록</button></div><div style={{ display:"flex",gap:6,marginBottom:10 }}><button onClick={()=>setViewMode("period")} style={{ ...styles.filterInput,cursor:"pointer",background:viewMode==="period"?C.primary:"#fff",color:viewMode==="period"?"#fff":C.text,border:`1.5px solid ${C.primary}`,fontWeight:600,flex:1 }}>📅 구간별</button><button onClick={()=>setViewMode("date")} style={{ ...styles.filterInput,cursor:"pointer",background:viewMode==="date"?C.primary:"#fff",color:viewMode==="date"?"#fff":C.text,border:`1.5px solid ${C.primary}`,fontWeight:600,flex:1 }}>📆 날짜별</button></div><div style={styles.filterRow}>{viewMode==="period"&&<div style={{ display:"flex",alignItems:"center",gap:8,padding:"4px 0" }}>
+        <button style={styles.navArrow} onClick={()=>setWagePeriodOffset(o=>o-1)}>‹</button>
+        <div style={{ flex:1,textAlign:"center" }}>
+          <p style={{ margin:0,fontSize:12,fontWeight:700 }}>{wpStart} ~ {wpEnd}</p>
+          {wagePeriodOffset===0&&<span style={{ fontSize:10,color:C.primary }}>현재 구간</span>}
+        </div>
+        <button style={styles.navArrow} onClick={()=>setWagePeriodOffset(o=>o+1)}>›</button>
+      </div>}
+      {viewMode==="date"&&<input type="date" style={styles.filterInput} value={filterDate} onChange={e=>setFilterDate(e.target.value)}/>}{isAdmin&&<select style={styles.filterInput} value={filterUser} onChange={e=>setFilterUser(e.target.value)}><option value="all">전체 직원</option>{users.filter(u=>u.role==="employee").map(u=><option key={u.id} value={u.id}>{u.name}</option>)}</select>}</div><div style={styles.logSummary}><span>총 {filtered.length}건 &nbsp;|&nbsp; {fmt(filtered.reduce((s,l)=>s+(l.hours||0),0))}시간</span></div>{filtered.length===0?<EmptyState msg="해당 기간 근무일지가 없습니다."/>:filtered.map(l=>{const emp=users.find(u=>u.id===l.userId);return(<div key={l.id} style={styles.logItem}><div style={styles.logItemDate}>{l.date.slice(5)} ({["일","월","화","수","목","금","토"][new Date(l.date+"T00:00:00").getDay()]})</div><div style={styles.logItemBody}>{isAdmin&&<span style={styles.empName}>{(emp&&emp.name)||l.userId}</span>}<p style={styles.logItemContent}>{l.content}</p><div style={styles.logItemMeta}>{(()=>{if(l.workType==="dayoff")return<span style={{ color:"#888" }}>🌴 휴무</span>;if(l.workType==="publicholiday")return<span style={{ color:"#e07000" }}>🎉 퍼블릭홀리데이 <strong>{fmt(FULLTIME_HOURS)}h</strong></span>;if(l.workType==="overtime"){const otH=calcHours(l.otStart,l.otEnd);return<><strong>{fmt(FULLTIME_HOURS)}h</strong><span style={{ color:"#f7a440",fontWeight:700 }}>+ {fmt(otH)}h OT</span></>;}return<strong>{fmt(l.hours)}h</strong>;})()}<span style={{ ...styles.statusBadge,background:l.workType==="overtime"?"#f7a44022":l.workType==="parttime"?"#7b5ea722":l.workType==="dayoff"?"#88888822":l.workType==="publicholiday"?"#e0700022":"#4f8ef722",color:l.workType==="overtime"?"#c87800":l.workType==="parttime"?"#7b5ea7":l.workType==="dayoff"?"#888":l.workType==="publicholiday"?"#e07000":"#3b7ff5" }}>{l.workType==="fulltime"?"풀타임":l.workType==="overtime"?"오버타임":l.workType==="parttime"?"파트타임":l.workType==="dayoff"?"휴무":l.workType==="publicholiday"?"퍼블릭홀리데이":l.status}</span></div>{l.needsReview && !l.reviewedByEmp && !isAdmin && (
                   <div style={{ marginTop:6,display:"flex",alignItems:"center",justifyContent:"space-between",background:"#FEF2F2",border:"1px solid #FECACA",borderRadius:8,padding:"6px 10px" }}>
                     <span style={{ fontSize:11,fontWeight:700,color:"#DC2626" }}>📢 관리자 확인 요청</span>
                     <button style={{ fontSize:11,fontWeight:700,background:"#DC2626",color:"#fff",border:"none",borderRadius:6,padding:"3px 10px",cursor:"pointer",fontFamily:"inherit" }}
