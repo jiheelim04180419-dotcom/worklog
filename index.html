@@ -802,10 +802,19 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                     )}
                     {/* 내역 */}
                     <div style={{ background:"#F9FAFB",borderRadius:10,padding:"10px 12px",marginBottom:10,fontSize:12 }}>
-                      {wage.excessPartH > 0 && <div style={{ display:"flex",justifyContent:"space-between",marginBottom:4 }}><span style={{ color:"#555" }}>초과 파트 {wage.excessPartH.toFixed(1)}h</span><span style={{ fontWeight:600,color:"#10B981" }}>+{fA(wage.excessPartH*wage.partHourlyRate)}</span></div>}
-                      {wage.excessOtH > 0 && <div style={{ display:"flex",justifyContent:"space-between",marginBottom:4 }}><span style={{ color:"#555" }}>초과 OT {wage.excessOtH.toFixed(1)}h</span><span style={{ fontWeight:600,color:"#10B981" }}>+{fA(wage.excessOtH*wage.otHourlyRate)}</span></div>}
-                      {wage.deficitH > 0 && <div style={{ display:"flex",justifyContent:"space-between",marginBottom:4 }}><span style={{ color:"#555" }}>부족 {wage.deficitH.toFixed(1)}h</span><span style={{ fontWeight:600,color:"#EF4444" }}>-{fA(wage.deficitH*wage.partHourlyRate)}</span></div>}
-                      {wage.travel > 0 && <div style={{ display:"flex",justifyContent:"space-between",marginBottom:4 }}><span style={{ color:"#555" }}>트래블 얼라운스</span><span style={{ fontWeight:600,color:"#10B981" }}>+{fA(wage.travel)}</span></div>}
+                      {wage.hasFlatPay ? (<>
+                        {/* hasFlatPay: Gross - 고정지급액 */}
+                        <div style={{ display:"flex",justifyContent:"space-between",marginBottom:4 }}><span style={{ color:"#555" }}>Gross</span><span style={{ fontWeight:600,color:"#10B981" }}>+{fA(wage.gross)}</span></div>
+                        {wage.fixedNet > 0 && <div style={{ display:"flex",justifyContent:"space-between",marginBottom:4 }}><span style={{ color:"#555" }}>고정 Net Pay</span><span style={{ fontWeight:600,color:"#EF4444" }}>-{fA(wage.fixedNet)}</span></div>}
+                        {wage.fixedTax > 0 && <div style={{ display:"flex",justifyContent:"space-between",marginBottom:4 }}><span style={{ color:"#555" }}>고정 Tax</span><span style={{ fontWeight:600,color:"#EF4444" }}>-{fA(wage.fixedTax)}</span></div>}
+                        {wage.fixedSuper > 0 && <div style={{ display:"flex",justifyContent:"space-between",marginBottom:4 }}><span style={{ color:"#555" }}>고정 Super</span><span style={{ fontWeight:600,color:"#EF4444" }}>-{fA(wage.fixedSuper)}</span></div>}
+                      </>) : (<>
+                        {/* 연차직원: 초과/부족/트래블 */}
+                        {wage.excessPartH > 0 && <div style={{ display:"flex",justifyContent:"space-between",marginBottom:4 }}><span style={{ color:"#555" }}>초과 파트 {wage.excessPartH.toFixed(1)}h</span><span style={{ fontWeight:600,color:"#10B981" }}>+{fA(wage.excessPartH*wage.partHourlyRate)}</span></div>}
+                        {wage.excessOtH > 0 && <div style={{ display:"flex",justifyContent:"space-between",marginBottom:4 }}><span style={{ color:"#555" }}>초과 OT {wage.excessOtH.toFixed(1)}h</span><span style={{ fontWeight:600,color:"#10B981" }}>+{fA(wage.excessOtH*wage.otHourlyRate)}</span></div>}
+                        {wage.deficitH > 0 && <div style={{ display:"flex",justifyContent:"space-between",marginBottom:4 }}><span style={{ color:"#555" }}>부족 {wage.deficitH.toFixed(1)}h</span><span style={{ fontWeight:600,color:"#EF4444" }}>-{fA(wage.deficitH*wage.partHourlyRate)}</span></div>}
+                        {wage.travel > 0 && <div style={{ display:"flex",justifyContent:"space-between",marginBottom:4 }}><span style={{ color:"#555" }}>트래블 얼라운스</span><span style={{ fontWeight:600,color:"#10B981" }}>+{fA(wage.travel)}</span></div>}
+                      </>)}
                       {getSavedDeductions(selId).map(d => (
                       <div key={d.id} style={{ display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:4 }}>
                         <span style={{ color:"#555" }}>{d.date} · {d.desc}</span>
