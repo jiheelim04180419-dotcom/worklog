@@ -849,8 +849,12 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                       <div style={{ background:"#F0FDF4",border:"1px solid #BBF7D0",borderRadius:10,padding:"10px 12px",marginBottom:10 }}>
                         <div style={{ display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:4 }}>
                           <span style={{ color:"#555" }}>기존 킵 잔액</span>
-                          <span style={{ fontWeight:600,color:wage.keepBalance>0?"#10B981":"#EF4444" }}>{fA(wage.keepBalance)}</span>
+                          <span style={{ fontWeight:600,color:(wage.keepBalance-getPeriodDeposits(selId,periodStart))>0?"#10B981":"#EF4444" }}>{fA(wage.keepBalance-getPeriodDeposits(selId,periodStart))}</span>
                         </div>
+                        {getPeriodDeposits(selId,periodStart)!==0 && <div style={{ display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:4 }}>
+                          <span style={{ color:"#555" }}>💰 이번 기간 입금</span>
+                          <span style={{ fontWeight:600,color:"#10B981" }}>+{fA(getPeriodDeposits(selId,periodStart))}</span>
+                        </div>}
                         <div style={{ display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:6 }}>
                           <span style={{ color:"#555" }}>이번 변동분</span>
                           <span style={{ fontWeight:600,color:variable>=0?"#10B981":"#EF4444" }}>{variable>=0?"+":""}{fA(variable)}</span>
