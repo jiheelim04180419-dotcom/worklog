@@ -464,25 +464,6 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
             </div>
 
             {/* Gross breakdown */}
-            <div style={{ background:"#fff",borderRadius:14,padding:"14px 16px",marginBottom:10,boxShadow:"0 1px 4px #0000000a" }}>
-              <p style={S.sectionTitle}>💵 Gross 내역</p>
-              {[
-                ["기본급","("+wage.totalFull+"일 × "+fA(wage.dailyRate)+")",wage.basePay,"#10B981"],
-                ["Part Hours","("+wage.totalPart.toFixed(1)+"h × "+fA(wage.partHourlyRate)+")",wage.partPay,"#8B5CF6"],
-                ["Overtime","("+wage.totalOt.toFixed(1)+"h × "+fA(wage.otHourlyRate)+")",wage.otPay,"#F59E0B"],
-                ["Travel Allowance","",wage.travel,"#3B82F6"],
-              ].filter(([,,v]) => v > 0).map(([label, sub, val, color]) => (
-                <div key={label} style={S.row}>
-                  <div><span style={{ fontSize:13,color:C.text }}>{label}</span>{sub&&<span style={{ fontSize:11,color:C.sub,marginLeft:4 }}>{sub}</span>}</div>
-                  <span style={{ fontSize:13,fontWeight:700,color }}>{fA(val)}</span>
-                </div>
-              ))}
-              <div style={{ height:1,background:"#F0F0F0",margin:"10px 0" }} />
-              <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center" }}>
-                <span style={{ fontSize:15,fontWeight:700,color:C.text }}>Gross</span>
-                <span style={{ fontSize:20,fontWeight:900,color:C.text }}>{fA(wage.gross)}</span>
-              </div>
-            </div>
 
             {/* ── 디덕션 섹션 ── */}
             <div style={{ background:"#fff",borderRadius:14,padding:"14px 16px",marginBottom:10,boxShadow:"0 1px 4px #0000000a" }}>
@@ -534,17 +515,15 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                   <div style={S.row}><span style={{ fontSize:13,color:C.text }}>Tax</span><span style={{ fontSize:13,fontWeight:700,color:"#EF4444" }}>{fA(wage.fixedTax)}</span></div>
                   <div style={S.row}><span style={{ fontSize:13,color:C.text }}>Super</span><span style={{ fontSize:13,fontWeight:700,color:"#F59E0B" }}>{fA(wage.fixedSuper)}</span></div>
                   <div style={{ height:1,background:"#F0F0F0",margin:"8px 0" }} />
-                  <div style={{ display:"flex",justifyContent:"space-between",fontSize:14,fontWeight:700 }}>
-                    <span>합계</span><span>{fA(wage.fixedTotal)}</span>
-                  </div>
+
                 </>) : (<>
                   <p style={S.sectionTitle}>🇦🇺 공제 (ATO 자동)</p>
                   <div style={S.row}><span style={{ fontSize:13,color:C.text }}>Tax ({((wage.tax/Math.max(wage.gross,1))*100).toFixed(1)}%)</span><span style={{ fontSize:13,fontWeight:700,color:"#EF4444" }}>− {fA(wage.tax)}</span></div>
                   <div style={S.row}><span style={{ fontSize:13,color:C.text }}>Super (12%)</span><span style={{ fontSize:13,fontWeight:700,color:"#F59E0B" }}>− {fA(wage.superAmt)}</span></div>
                   <div style={{ height:1,background:"#F0F0F0",margin:"8px 0" }} />
                   <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center" }}>
-                    <span style={{ fontSize:14,fontWeight:700 }}>Net Pay</span>
-                    <span style={{ fontSize:18,fontWeight:900,color:"#10B981" }}>{fA(wage.net)}</span>
+                    <span style={{ fontSize:13,color:C.text }}>Net Pay</span>
+                    <span style={{ fontSize:13,fontWeight:700,color:"#10B981" }}>{fA(wage.net)}</span>
                   </div>
                 </>)}
               </div>
