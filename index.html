@@ -211,18 +211,18 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
   const getKeepBalanceAtPeriod = (userId, ps) => {
     const lv = leaves[userId] || {};
     const hist = lv.keepBalanceHistory || [];
-    const entry = hist.find(h => h.periodStart === ps);
-    if (entry) return parseFloat(entry.balance || 0);
-    // 현재 구간 이후면 현재 keepBalance
-    const BASE = new Date("2026-04-13T00:00:00");
-    const cur = Math.floor((Date.now()-BASE)/(14*24*60*60*1000));
-    const csDate = new Date(BASE); csDate.setDate(csDate.getDate()+cur*14);
-    const csStr = csDate.getFullYear()+"-"+String(csDate.getMonth()+1).padStart(2,"0")+"-"+String(csDate.getDate()).padStart(2,"0");
-    if (ps >= csStr) return parseFloat(lv.keepBalance || 0);
-    // 과거 기간 - 그 이전 가장 최근 히스토리
+    // 이 기간 시작 잔액 = 직전 기간 정산 후 잔액
+    // h.periodStart < ps 인 것 중 가장 최신값
     const sorted = [...hist].sort((a,b) => b.periodStart.localeCompare(a.periodStart));
-    const before = sorted.find(h => h.periodStart <= ps);
-    return before ? parseFloat(before.balance || 0) : parseFloat(lv.keepBalance || 0);
+    const prevEntry = sorted.find(h => h.periodStart < ps);
+    if (prevEntry) return parseFloat(prevEntry.balance || 0);
+    // 히스토리가 없거나 ps가 첫 번째 정산보다 앞이면
+    // 현재 keepBalance가 최신이므로 → 아직 정산 안 됐으면 현재 keepBalance
+    // 단, ps보다 미래 정산 기록이 있으면 히스토리가 더 정확
+    const futureEntry = sorted.find(h => h.periodStart >= ps);
+    if (!futureEntry) return parseFloat(lv.keepBalance || 0);
+    // 미래 정산은 있지만 현재 기간 이전 기록이 없으면 0
+    return 0;
   };
 
   // 급여기간별 기준 조회 (이력 기반 - 기간 변경해도 과거 기준 유지)
