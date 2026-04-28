@@ -423,7 +423,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                   {e.name}
                   {pLogs.length > 0 && <span style={{ fontSize:10,background:"rgba(255,255,255,.25)",borderRadius:8,padding:"1px 5px" }}>{pLogs.length}일</span>}
                   
-                  {getKeepBalance(e.id) > 0 && (!(leaves[e.id]||{}).noLeave || (leaves[e.id]||{}).hasFlatPay) && <span style={{ fontSize:10,background:"rgba(16,185,129,.25)",color:selId===e.id?"#fff":"#059669",borderRadius:8,padding:"1px 5px" }}>킵{getKeepBalance(e.id)>999?"+":""}</span>}
+                  {getKeepBalance(e.id) !== 0 && (!(leaves[e.id]||{}).noLeave || (leaves[e.id]||{}).hasFlatPay) && <span style={{ fontSize:10,background:"rgba(16,185,129,.25)",color:selId===e.id?"#fff":"#059669",borderRadius:8,padding:"1px 5px" }}>킵{getKeepBalance(e.id)>999?"+":""}</span>}
                 </button>
               );
             })}
@@ -651,13 +651,16 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                       <p style={{ ...S.sectionTitle,margin:0 }}>변동분</p>
                       <p style={{ margin:0,fontSize:24,fontWeight:900,color:variable>=0?"#3B82F6":"#EF4444" }}>{fA(variable)}</p>
                     </div>
-                    {wage.keepBalance > 0 && (
-                      <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",background:"#F0FDF4",border:"1px solid #BBF7D0",borderRadius:10,padding:"8px 12px",marginBottom:10 }}>
+                    {wage.keepBalance !== 0 && (
+                      <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",
+                        background:wage.keepBalance>0?"#F0FDF4":"#FEF2F2",
+                        border:`1px solid ${wage.keepBalance>0?"#BBF7D0":"#FECACA"}`,
+                        borderRadius:10,padding:"8px 12px",marginBottom:10 }}>
                         <div>
-                          <p style={{ margin:0,fontSize:11,fontWeight:600,color:"#166534" }}>🏦 현재 킵 잔액</p>
+                          <p style={{ margin:0,fontSize:11,fontWeight:600,color:wage.keepBalance>0?"#166534":"#DC2626" }}>🏦 현재 킵 잔액</p>
                           <p style={{ margin:0,fontSize:10,color:"#555" }}>정산 완료 시 이번 킵 금액이 누적돼요</p>
                         </div>
-                        <span style={{ fontSize:16,fontWeight:800,color:"#10B981" }}>{fA(wage.keepBalance)}</span>
+                        <span style={{ fontSize:16,fontWeight:800,color:wage.keepBalance>0?"#10B981":"#EF4444" }}>{fA(wage.keepBalance)}</span>
                       </div>
                     )}
                     {/* 내역 */}
@@ -849,12 +852,12 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
             <div style={{ background:"#EFF6FF",border:"1px solid #BFDBFE",borderRadius:10,padding:"10px 12px",marginTop:14 }}>
               <p style={{ margin:0,fontSize:12,color:"#1D4ED8" }}>💡 일당은 <strong>일급 탭</strong>에서 변경하세요</p>
             </div>
-            {getKeepBalance(selId) > 0 && (
-              <div style={{ background:"#F0FDF4",border:"1px solid #BBF7D0",borderRadius:10,padding:"10px 12px",marginTop:10 }}>
+            {getKeepBalance(selId) !== 0 && (
+              <div style={{ background:getKeepBalance(selId)>0?"#F0FDF4":"#FEF2F2",border:`1px solid ${getKeepBalance(selId)>0?"#BBF7D0":"#FECACA"}`,borderRadius:10,padding:"10px 12px",marginTop:10 }}>
                 <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center" }}>
                   <div>
-                    <p style={{ margin:0,fontSize:12,fontWeight:700,color:"#166534" }}>🏦 현재 킵 잔액</p>
-                    <p style={{ margin:"2px 0 0",fontSize:18,fontWeight:800,color:"#10B981" }}>{fA(getKeepBalance(selId))}</p>
+                    <p style={{ margin:0,fontSize:12,fontWeight:700,color:getKeepBalance(selId)>0?"#166534":"#DC2626" }}>🏦 현재 킵 잔액</p>
+                    <p style={{ margin:"2px 0 0",fontSize:18,fontWeight:800,color:getKeepBalance(selId)>0?"#10B981":"#EF4444" }}>{fA(getKeepBalance(selId))}</p>
                   </div>
                   <button onClick={() => {
                     const lv = leaves[selId]||{};
