@@ -1371,7 +1371,13 @@ function HomeTab({ user, users, logs, leaves, isAdmin, onJumpToLog }) {
                     const dt = new Date(d+"T00:00:00");
                     const label = `${dt.getMonth()+1}/${dt.getDate()}`;
                     return (
-                      <span key={d} onClick={()=>onJumpToLog&&onJumpToLog(d)}
+                      <span key={d} onClick={()=>{
+                          if(!onJumpToLog) return;
+                          const BASE=new Date("2026-04-13T00:00:00");
+                          const dDate=new Date(d+"T00:00:00");
+                          const offset=Math.floor((dDate-BASE)/(14*24*60*60*1000));
+                          onJumpToLog(d, emp.id, offset);
+                        }}
                         style={{ fontSize:11,fontWeight:600,background:"#FEE2E2",color:"#DC2626",borderRadius:6,padding:"2px 8px",cursor:"pointer",textDecoration:"underline" }}>
                         {label}
                       </span>
@@ -1677,12 +1683,13 @@ const WORK_TYPES_BASE=[{key:"fulltime",label:"풀타임",emoji:"✅"},{key:"over
 function getWorkTypes(date,hasLeaveAccrual){const types=[...WORK_TYPES_BASE];if(hasLeaveAccrual){const day=new Date((date||today)+"T00:00:00").getDay();if(day>=1&&day<=5)types.push({key:"publicholiday",label:"퍼블릭홀리데이",emoji:"🎉"});}return types;}
 
 // ─── LogTab ────────────────────────────────────────────────────────────────
-function LogTab({user,users,logs,leaves,isAdmin,isSuperAdmin,isViewAdmin,persist,jumpDate,onJumpConsumed}){
+function LogTab({user,users,logs,leaves,isAdmin,isSuperAdmin,isViewAdmin,persist,jumpInfo,onJumpConsumed}){
   const[showForm,setShowForm]=useState(false);
-  const[filterUser,setFilterUser]=useState(isAdmin?"all":user.id);
-  const[filterDate,setFilterDate]=useState(jumpDate||today);
-  const[viewMode,setViewMode]=useState(jumpDate?"date":"period");
-  const[wagePeriodOffset,setWagePeriodOffset]=useState(0);
+  
+  const[filterDate,setFilterDate]=useState(jumpInfo?jumpInfo.date:today);
+  const[viewMode,setViewMode]=useState(jumpInfo?"date":"period");
+  const[wagePeriodOffset,setWagePeriodOffset]=useState(jumpInfo?jumpInfo.periodOffset:0);
+  const[filterUser,setFilterUser]=useState(jumpInfo?jumpInfo.userId:(isAdmin?"all":user.id));
   const getWagePeriod=(offset=0)=>{
     const BASE=new Date("2026-04-13T00:00:00");
     const cur=Math.floor((Date.now()-BASE)/(14*24*60*60*1000));
@@ -1693,9 +1700,11 @@ function LogTab({user,users,logs,leaves,isAdmin,isSuperAdmin,isViewAdmin,persist
   const wp=getWagePeriod(wagePeriodOffset);
   const wpStart=wp.start; const wpEnd=wp.end;
   React.useEffect(()=>{
-    if(jumpDate){
-      setFilterDate(jumpDate);
+    if(jumpInfo){
+      setFilterDate(jumpInfo.date);
       setViewMode("date");
+      setWagePeriodOffset(jumpInfo.periodOffset||0);
+      if(isAdmin) setFilterUser(jumpInfo.userId);
       if(onJumpConsumed) onJumpConsumed();
     }
   },[]);
@@ -1822,7 +1831,7 @@ function App() {
   const [leaves,setLeaves]=useState(SEED_LEAVES);
   const [companies,setCompanies]=useState(SEED_COMPANIES);
   const [tab,setTab]=useState("home");
-  const [jumpDate,setJumpDate]=useState(null);
+  const [jumpInfo,setJumpInfo]=useState(null);
   const [showChangePw,setShowChangePw]=useState(false);
   const [pwForm,setPwForm]=useState({cur:"",next:"",confirm:""});
   const [pwErr,setPwErr]=useState("");
@@ -1877,8 +1886,8 @@ function App() {
     <div style={styles.app}>
       <Header user={currentUser} onLogout={logout} onChangePw={()=>{setPwForm({cur:"",next:"",confirm:""});setPwErr("");setShowChangePw(true);}}/>
       <div style={styles.content}>
-        {tab==="home"&&<HomeTab user={currentUser} users={users} logs={logs} leaves={leaves} isAdmin={isAdmin} onJumpToLog={(date)=>{setJumpDate(date);setTab("log");}}/> }
-        {tab==="log"&&<LogTab user={currentUser} users={users} logs={logs} leaves={leaves} isAdmin={isAdmin} isSuperAdmin={isSuperAdmin} isViewAdmin={isViewAdmin} persist={persist} jumpDate={jumpDate} onJumpConsumed={()=>setJumpDate(null)}/>}
+        {tab==="home"&&<HomeTab user={currentUser} users={users} logs={logs} leaves={leaves} isAdmin={isAdmin} onJumpToLog={(date,userId,periodOffset)=>{setJumpInfo({date,userId,periodOffset});setTab("log");}}/> }
+        {tab==="log"&&<LogTab user={currentUser} users={users} logs={logs} leaves={leaves} isAdmin={isAdmin} isSuperAdmin={isSuperAdmin} isViewAdmin={isViewAdmin} persist={persist} jumpInfo={jumpInfo} onJumpConsumed={()=>setJumpInfo(null)}/>}
         {tab==="leave"&&<LeaveTab user={currentUser} users={users} leaves={leaves} isAdmin={isAdmin} isSuperAdmin={isSuperAdmin} isViewAdmin={isViewAdmin} persist={persist} updateLeaveUsage={updateLeaveUsage}/>}
         {isAdmin&&tab==="rate"&&<RateTab users={users} leaves={leaves} persist={persist} isSuperAdmin={isSuperAdmin}/>}
         {isAdmin&&tab==="team"&&<TeamTab users={users} leaves={leaves} logs={logs} persist={persist} isSuperAdmin={isSuperAdmin} companies={companies}/>}
