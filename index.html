@@ -1195,7 +1195,7 @@ function getMissingLogs(users, logs, periodStart, periodEnd) {
     for (let d = new Date(empStart); d <= end && d <= today; d.setDate(d.getDate()+1)) {
       const dow = d.getDay();
       if (dow === 0 || dow === 6) continue; // 주말 제외
-      const ds = d.toISOString().slice(0,10);
+      const ds = d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
       const hasLog = logs.some(l => l.userId === emp.id && l.date === ds);
       if (!hasLog) missing.push(ds);
     }
