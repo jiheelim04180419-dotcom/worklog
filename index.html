@@ -259,9 +259,20 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
     const lv = leaves[userId] || {};
     const isContractor = !!lv.noLeave;
     const hasFlatPay = !!(lv.noLeave && lv.hasFlatPay);
-    const fixedNet   = ((!isContractor || hasFlatPay) && lv.fixedNet)   ? parseFloat(lv.fixedNet)   : 0;
-    const fixedTax   = ((!isContractor || hasFlatPay) && lv.fixedTax)   ? parseFloat(lv.fixedTax)   : 0;
-    const fixedSuper = ((!isContractor || hasFlatPay) && lv.fixedSuper) ? parseFloat(lv.fixedSuper) : 0;
+    // fixedPay 기간별 조회 (fixedPayHistory 우선, 없으면 현재값)
+    const getFixedPayForPeriod = () => {
+      const hist = lv.fixedPayHistory || [];
+      if (hist.length === 0) {
+        return { net: parseFloat(lv.fixedNet)||0, tax: parseFloat(lv.fixedTax)||0, sup: parseFloat(lv.fixedSuper)||0 };
+      }
+      const sorted = [...hist].sort((a,b) => b.from.localeCompare(a.from));
+      const entry = sorted.find(h => h.from <= periodStart) || sorted[sorted.length-1];
+      return { net: parseFloat(entry.net)||0, tax: parseFloat(entry.tax)||0, sup: parseFloat(entry.sup)||0 };
+    };
+    const fp = (!isContractor || hasFlatPay) ? getFixedPayForPeriod() : {net:0,tax:0,sup:0};
+    const fixedNet   = fp.net;
+    const fixedTax   = fp.tax;
+    const fixedSuper = fp.sup;
     const fixedTotal = fixedNet + fixedTax + fixedSuper;
     const dailyRate = getDailyRate(userId);
     const { days: reqDays, hours: reqExtraHours } = getReqForPeriod(userId, periodStart);
@@ -944,30 +955,13 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
             )}
             {(!(leaves[selId] || {}).noLeave || (leaves[selId] || {}).hasFlatPay) && (
               <div>
-                <label style={styles.label}>고정 지급액 (매 격주 고정)</label>
+                <label style={styles.label}>고정 지급액 이력 (기간별)</label>
                 <p style={{ margin:"-8px 0 10px",fontSize:11,color:C.sub,lineHeight:1.5 }}>
-                  며칠을 일하든 고정으로 지급되는 금액이에요.<br/>
+                  기간마다 다른 고정지급액을 설정할 수 있어요.<br/>
                   Gross - 고정(Net+Tax+Super) - 공제 = Keep/Cash 변동분
                 </p>
-                {[["fixedNet","Net Pay","#10B981"],["fixedTax","Tax","#EF4444"],["fixedSuper","Super","#F59E0B"]].map(([key,label,color]) => (
-                  <div key={key} style={{ display:"flex",alignItems:"center",gap:8,marginBottom:10 }}>
-                    <div style={{ width:48,fontSize:12,fontWeight:700,color }}>{label}</div>
-                    <div style={{ flex:1,position:"relative" }}>
-                      <span style={{ position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",color:"#888",fontSize:12,pointerEvents:"none" }}>$</span>
-                      <input type="number" style={{ ...styles.input,paddingLeft:22,fontSize:13 }} min={0} step={0.01}
-                        defaultValue={(leaves[selId]||{})[key]||""}
-                        placeholder="0.00"
-                        onBlur={e => {
-                          const lv = leaves[selId]||{};
-                          persist(null,null,{...leaves,[selId]:{...lv,[key]:parseFloat(e.target.value)||0}});
-                        }} />
-                    </div>
-                    <button onClick={() => {
-                      const lv = leaves[selId]||{};
-                      persist(null,null,{...leaves,[selId]:{...lv,[key]:0}});
-                    }} style={{ width:28,height:28,borderRadius:8,border:"1px solid #FECACA",background:"#FEF2F2",color:"#EF4444",fontSize:14,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontFamily:"inherit" }}>×</button>
-                  </div>
-                ))}
+                <FixedPayHistoryEditor lv={leaves[selId]||{}} selId={selId} persist={persist} leaves={leaves} isSuperAdmin={isSuperAdmin}/>
+                
                 {((leaves[selId]||{}).fixedNet||0) + ((leaves[selId]||{}).fixedTax||0) + ((leaves[selId]||{}).fixedSuper||0) > 0 && (
                   <div style={{ background:"#F9FAFB",borderRadius:10,padding:"10px 12px",fontSize:12,color:"#555" }}>
                     합계: {fA(((leaves[selId]||{}).fixedNet||0) + ((leaves[selId]||{}).fixedTax||0) + ((leaves[selId]||{}).fixedSuper||0))}
@@ -1655,6 +1649,69 @@ function SummarySection({users, leaves, periodStart, calcWage, getSavedDeduction
           </div>
         );
       })()}
+    </div>
+  );
+}
+
+
+function FixedPayHistoryEditor({ lv, selId, persist, leaves, isSuperAdmin }) {
+  const hist = (lv.fixedPayHistory || []).sort((a,b) => a.from.localeCompare(b.from));
+  const fA = (n) => new Intl.NumberFormat("en-AU",{style:"currency",currency:"AUD"}).format(n||0);
+  const [newFrom, setNewFrom] = React.useState(today);
+  const [newNet,  setNewNet]  = React.useState("");
+  const [newTax,  setNewTax]  = React.useState("");
+  const [newSup,  setNewSup]  = React.useState("");
+
+  const save = () => {
+    if (!newFrom) return;
+    const entry = { from: newFrom, net: parseFloat(newNet)||0, tax: parseFloat(newTax)||0, sup: parseFloat(newSup)||0 };
+    const newHist = [...hist.filter(h=>h.from!==newFrom), entry].sort((a,b)=>a.from.localeCompare(b.from));
+    const latest = newHist[newHist.length-1];
+    const lv2 = leaves[selId]||{};
+    persist(null,null,{...leaves,[selId]:{...lv2,fixedPayHistory:newHist,fixedNet:latest.net,fixedTax:latest.tax,fixedSuper:latest.sup}});
+    setNewNet(""); setNewTax(""); setNewSup("");
+  };
+
+  const remove = (from) => {
+    const newHist = hist.filter(h=>h.from!==from);
+    const latest = newHist.length>0 ? newHist[newHist.length-1] : {net:0,tax:0,sup:0};
+    const lv2 = leaves[selId]||{};
+    persist(null,null,{...leaves,[selId]:{...lv2,fixedPayHistory:newHist,fixedNet:latest.net,fixedTax:latest.tax,fixedSuper:latest.sup}});
+  };
+
+  return (
+    <div>
+      {/* 이력 목록 */}
+      {hist.length > 0 && (
+        <div style={{marginBottom:10}}>
+          {hist.map((h,i) => (
+            <div key={h.from} style={{display:"flex",alignItems:"center",gap:6,padding:"8px 10px",background:i===hist.length-1?"#F0FDF4":"#F9FAFB",borderRadius:8,marginBottom:6,border:"1px solid "+(i===hist.length-1?"#BBF7D0":"#E5E7EB")}}>
+              <div style={{flex:1}}>
+                <p style={{margin:0,fontSize:11,fontWeight:700,color:"#555"}}>{h.from} {i===hist.length-1?"(현재)":""}</p>
+                <p style={{margin:0,fontSize:12}}>
+                  <span style={{color:"#10B981"}}>Net {fA(h.net)}</span>
+                  {" · "}<span style={{color:"#EF4444"}}>Tax {fA(h.tax)}</span>
+                  {" · "}<span style={{color:"#F59E0B"}}>Super {fA(h.sup)}</span>
+                </p>
+              </div>
+              {isSuperAdmin && <button onClick={()=>remove(h.from)} style={{background:"none",border:"none",color:"#f77",fontSize:16,cursor:"pointer",fontFamily:"inherit"}}>×</button>}
+            </div>
+          ))}
+        </div>
+      )}
+      {/* 새 항목 추가 */}
+      {isSuperAdmin && (
+        <div style={{background:"#EFF6FF",borderRadius:10,padding:"10px 12px"}}>
+          <p style={{margin:"0 0 8px",fontSize:11,fontWeight:700,color:"#1D4ED8"}}>+ 새 고정지급 기간 추가</p>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:6,marginBottom:8}}>
+            <div><p style={{margin:"0 0 3px",fontSize:10,color:"#888"}}>시작일</p><input type="date" value={newFrom} onChange={e=>setNewFrom(e.target.value)} style={{width:"100%",border:"1px solid #BFDBFE",borderRadius:6,padding:"5px 6px",fontSize:12,fontFamily:"inherit",boxSizing:"border-box"}}/></div>
+            <div><p style={{margin:"0 0 3px",fontSize:10,color:"#10B981"}}>Net Pay</p><input type="number" value={newNet} onChange={e=>setNewNet(e.target.value)} placeholder="0.00" style={{width:"100%",border:"1px solid #BBF7D0",borderRadius:6,padding:"5px 6px",fontSize:12,fontFamily:"inherit",boxSizing:"border-box"}}/></div>
+            <div><p style={{margin:"0 0 3px",fontSize:10,color:"#EF4444"}}>Tax</p><input type="number" value={newTax} onChange={e=>setNewTax(e.target.value)} placeholder="0.00" style={{width:"100%",border:"1px solid #FECACA",borderRadius:6,padding:"5px 6px",fontSize:12,fontFamily:"inherit",boxSizing:"border-box"}}/></div>
+            <div><p style={{margin:"0 0 3px",fontSize:10,color:"#F59E0B"}}>Super</p><input type="number" value={newSup} onChange={e=>setNewSup(e.target.value)} placeholder="0.00" style={{width:"100%",border:"1px solid #FDE68A",borderRadius:6,padding:"5px 6px",fontSize:12,fontFamily:"inherit",boxSizing:"border-box"}}/></div>
+          </div>
+          <button onClick={save} style={{width:"100%",background:"#3B82F6",color:"#fff",border:"none",borderRadius:8,padding:"8px 0",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>💾 저장</button>
+        </div>
+      )}
     </div>
   );
 }
