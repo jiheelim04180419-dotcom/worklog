@@ -208,6 +208,17 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
   const getReqExtraHours = (userId) => (leaves[userId] || {}).reqExtraHours || 0;
   const getCarryover = (userId) => (leaves[userId] || {}).wageCarryover || { fullDays: 0, partHours: 0, otHours: 0 };
   const getKeepBalance = (userId) => parseFloat((leaves[userId] || {}).keepBalance) || 0;
+  // 해당 기간 입금 합계
+  const getPeriodDeposits = (userId, ps) => {
+    const lv = leaves[userId] || {};
+    const BASE = new Date("2026-04-13T00:00:00");
+    const psDate = new Date(ps+"T00:00:00");
+    const idx = Math.floor((psDate-BASE)/(14*24*60*60*1000));
+    const peDate = new Date(BASE); peDate.setDate(peDate.getDate()+(idx+1)*14-1);
+    const pe = peDate.getFullYear()+"-"+String(peDate.getMonth()+1).padStart(2,"0")+"-"+String(peDate.getDate()).padStart(2,"0");
+    return (lv.keepDeposits||[]).filter(d=>d.date>=ps&&d.date<=pe).reduce((s,d)=>s+(parseFloat(d.amount)||0),0);
+  };
+
   const getKeepBalanceAtPeriod = (userId, ps) => {
     const lv = leaves[userId] || {};
     const hist = lv.keepBalanceHistory || [];
@@ -340,7 +351,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
              isContractor, hasFlatPay, periodLogs,
              fixedNet, fixedTax, fixedSuper, fixedTotal, visaType,
              leaveHoursInPeriod,
-             keepBalance: getKeepBalanceAtPeriod(userId, periodStart) };
+             keepBalance: getKeepBalanceAtPeriod(userId, periodStart) + getPeriodDeposits(userId, periodStart) };
   };
 
   const saveCarryover = (userId) => {
@@ -366,8 +377,8 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
       : variable < 0
       ? variable + directKeepInput   // 변동분(음수) + 직접입력
       : Math.max(0, variable) - cashAmt;
-    // 기존 킵잔액에 누적 추가 - 현재 조회 기간 기준 잔액 사용
-    const prevKeep = getKeepBalanceAtPeriod(userId, periodStart);
+    // 기존 킵잔액에 누적 추가 - 현재 조회 기간 기준 잔액 + 당기 입금
+    const prevKeep = getKeepBalanceAtPeriod(userId, periodStart) + getPeriodDeposits(userId, periodStart);
     const newKeep  = prevKeep + keepAmt;
     // keepBalance 히스토리 저장 (기간별 잔액 추적)
     const histEntry = { periodStart, balance: newKeep, savedAt: new Date().toISOString() };
