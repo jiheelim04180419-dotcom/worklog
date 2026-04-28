@@ -792,7 +792,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                   + wage.travel
                   - allDeductions;
                 const rawCash = parseFloat(partialCash);
-                const availForCash = variable > 0 ? variable : Math.max(0, wage.keepBalance);
+                const availForCash = Math.max(0, wage.keepBalance);
                 const cashAmt = isNaN(rawCash) || rawCash < 0 ? 0 : Math.min(rawCash, availForCash);
                 const cashOut = cashAmt * 0.75;
                 const keepAmt = Math.max(0, variable) - cashAmt;
@@ -867,21 +867,21 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                     )}
                     {/* 출금 금액 입력 - 슈퍼관리자만 */}
                     {isSuperAdmin && <p style={{ margin:"0 0 6px",fontSize:12,fontWeight:600,color:"#555" }}>
-                      💵 {variable > 0 ? "캐시 출금 금액 (0이면 전액 킵)" : "킵 잔액에서 캐시 출금"}
+                      💵 캐시 출금 금액 (킵 잔액에서 차감)
                     </p>}
                     {isSuperAdmin && wage.keepBalance < 0 && (
                       <KeepDepositLog selId={selId} leaves={leaves} persist={persist}
                         getKeepBalance={getKeepBalance} fA={fA}
                         wpStart={wpStart} wpEnd={wpEnd}/>
                     )}
-                    {isSuperAdmin && variable > 0 && wage.keepBalance >= 0 && (<div style={{ display:"flex",gap:6,marginBottom:12 }}>
+                    {isSuperAdmin && wage.keepBalance > 0 && (<div style={{ display:"flex",gap:6,marginBottom:12 }}>
                       <div style={{ flex:1,position:"relative" }}>
                         <span style={{ position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",color:"#888",fontSize:13,pointerEvents:"none" }}>$</span>
                         <input type="number" placeholder="0.00 (전액 킵)" value={partialCash} min={0} step={0.01}
                           onChange={e => setPartialCash(e.target.value)}
                           style={{ ...styles.input,paddingLeft:22,fontSize:14,fontWeight:700 }}/>
                       </div>
-                      <button onClick={() => setPartialCash(String(Math.max(0, variable > 0 ? variable : wage.keepBalance).toFixed(2)))}
+                      <button onClick={() => setPartialCash(String(Math.max(0, wage.keepBalance).toFixed(2)))}
                         style={{ padding:"0 12px",borderRadius:10,border:"1.5px solid #E5E7EB",background:"#F3F4F6",color:"#555",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit" }}>
                         전액
                       </button>
