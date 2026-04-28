@@ -714,8 +714,8 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
               )}
             </div>
 
-            {/* Tax + Super (non-contractor) */}
-            {!wage.isContractor && (
+            {/* Tax + Super */}
+            {(!wage.isContractor || wage.hasFlatPay) && (wage.fixedNet > 0 || wage.fixedTax > 0 || wage.fixedSuper > 0) && (
               <div style={{ background:"#fff",borderRadius:14,padding:"14px 16px",marginBottom:10,boxShadow:"0 1px 4px #0000000a" }}>
                 <>
                   <p style={S.sectionTitle}>📌 지급액</p>
