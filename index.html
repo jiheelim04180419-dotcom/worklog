@@ -108,8 +108,30 @@ const Icon = {
 
 const LOCATION_COORDS={"Bathurst":[-33.4193,149.5777],"Orange":[-33.2837,149.1001],"Black Springs":[-33.8500,149.8200],"Blayney":[-33.5327,149.2593],"Browns Creek":[-33.5800,149.8500],"Caloola":[-33.6200,149.4000],"Canowindra":[-33.5680,148.6609],"Capertee":[-33.1300,150.0100],"Cargo":[-33.4300,148.7400],"Cowra":[-33.8303,148.6838],"Cumnock":[-32.9300,148.7600],"Dubbo":[-32.2569,148.6011],"Eugowra":[-33.4322,148.3800],"Forbes":[-33.3838,148.0022],"Gilgandra":[-31.7194,148.6630],"Gooloogong":[-33.5700,148.4600],"Hobbys Yards":[-33.7300,149.6300],"Hill End":[-33.0300,149.4200],"Jenolan":[-33.8200,150.0200],"Kandos / Rylstone":[-32.8700,149.9600],"Killongbutta":[-33.1800,149.5200],"Lidsdale":[-33.2800,150.0700],"Lithgow":[-33.4826,150.1578],"Marrangaroo":[-33.4500,150.1100],"Millthorpe":[-33.4497,149.1758],"Molong":[-33.0996,148.8699],"Moorbel":[-33.5000,149.0000],"Mudgee / Cudgegong":[-32.5935,149.5871],"Oberon":[-33.7056,149.8594],"Parkes":[-33.1311,148.1726],"Tarana":[-33.5200,149.7800],"Trunkey":[-33.7200,149.3700],"Wallerawang":[-33.4100,150.0700],"Wellington":[-32.5537,148.9437]};
 const ALL_LOCATIONS=Object.keys(LOCATION_COORDS).sort();
-function geoKm(a,b){const c1=LOCATION_COORDS[a],c2=LOCATION_COORDS[b];if(!c1||!c2)return null;const R=6371,toR=Math.PI/180;const dLat=(c2[0]-c1[0])*toR;const dLon=(c2[1]-c1[1])*toR;const h=Math.sin(dLat/2)**2+Math.cos(c1[0]*toR)*Math.cos(c2[0]*toR)*Math.sin(dLon/2)**2;return Math.round(2*R*Math.asin(Math.sqrt(h))*1.28);}
-function calcTravelAllowance(km){if(!km||km<=0)return 0;const deducted=Math.max(0,km-50);const m=deducted/50;const dec=m%1;const units=Math.floor(m)+(dec<0.4?0:dec<0.8?0.5:1);const before=units*16;return Math.max(before,before>0?10:0);}
+// 스프레드시트 기준 Bathurst 편도 실제 도로거리 (왕복km/2)
+const BATHURST_ONE_WAY_KM = {
+  "Orange":62,"Black Springs":64,"Blayney":42,"Browns Creek":54,
+  "Caloola":37,"Canowindra":109,"Capertee":75,"Cargo":97,
+  "Cowra":111,"Cumnock":119,"Dubbo":204,"Eugowra":72,
+  "Forbes":129,"Gilgandra":268,"Gooloogong":138,"Hobbys Yards":50,
+  "Hill End":79,"Jenolan":71,"Kandos / Rylstone":95,"Killongbutta":46,
+  "Lidsdale":61,"Lithgow":62,"Marrangaroo":52,"Millthorpe":46,
+  "Molong":96,"Moorbel":106,"Mudgee / Cudgegong":129,"Oberon":43,
+  "Parkes":161,"Tarana":36,"Trunkey":60,"Wallerawang":51,"Wellington":155,
+};
+function geoKm(a,b){
+  // Bathurst 기준 정확한 도로거리 우선 사용
+  if(a==="Bathurst"&&BATHURST_ONE_WAY_KM[b])return BATHURST_ONE_WAY_KM[b];
+  if(b==="Bathurst"&&BATHURST_ONE_WAY_KM[a])return BATHURST_ONE_WAY_KM[a];
+  // 그 외는 Haversine 근사값 사용
+  const c1=LOCATION_COORDS[a],c2=LOCATION_COORDS[b];
+  if(!c1||!c2)return null;
+  const R=6371,toR=Math.PI/180;
+  const dLat=(c2[0]-c1[0])*toR;const dLon=(c2[1]-c1[1])*toR;
+  const h=Math.sin(dLat/2)**2+Math.cos(c1[0]*toR)*Math.cos(c2[0]*toR)*Math.sin(dLon/2)**2;
+  return Math.round(2*R*Math.asin(Math.sqrt(h))*1.28);
+}
+function calcTravelAllowance(km){if(!km||km<=0)return 0;const deducted=Math.max(0,km-50);const m=deducted/50;const dec=Math.round(m%1*1000)/1000;const units=Math.floor(m)+(dec<0.4?0:dec<0.8?0.5:1);const before=units*16;return Math.max(before,before>0?10:0);}
 
 const ANNUAL_LEAVE_DAYS=20;
 const HOURS_PER_DAY=7.6;
