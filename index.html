@@ -305,8 +305,9 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
       + w.travel
       - totalDeductions;
     const cashInput = parseFloat(partialCash) || 0;
-    const cashAmt   = Math.min(cashInput, variable);
-    const keepAmt   = variable - cashAmt;
+    // 변동분이 음수면 partialCash를 킵으로 직접 추가
+    const cashAmt = variable < 0 ? 0 : Math.min(cashInput, variable);
+    const keepAmt = variable < 0 ? cashInput : variable - cashAmt;
     // 기존 킵잔액 + 이번 킵 금액
     const prevKeep  = getKeepBalance(userId);
     const newKeep   = prevKeep + keepAmt;
@@ -492,20 +493,13 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                     {wage.diffH>=0?"+":""}{wage.diffH.toFixed(1)}h
                   </span>
                 </div>
-                {(() => {
-                  const baselinePay = wage.reqDays * wage.dailyRate + wage.reqExtraHours * wage.partHourlyRate;
-                  const variableMoney = wage.excessPartH * wage.partHourlyRate
-                                     + wage.excessOtH   * wage.otHourlyRate
-                                     - wage.deficitH    * wage.partHourlyRate
-                                     + wage.travel;
-                  return (<div style={{ marginTop:6,borderTop:"1px solid #E5E7EB",paddingTop:6 }}>
-                    <div style={S.row}><span style={{ fontSize:12,color:C.sub }}>기준 금액</span><span style={{ fontSize:12,color:"#555" }}>{fA(baselinePay)}</span></div>
+                {(wage.excessPartH > 0 || wage.excessOtH > 0 || wage.deficitH > 0) && (
+                  <div style={{ marginTop:6,borderTop:"1px solid #E5E7EB",paddingTop:6 }}>
                     {wage.excessPartH > 0 && <div style={S.row}><span style={{ fontSize:11,color:C.sub }}>초과 파트 {wage.excessPartH.toFixed(1)}h</span><span style={{ fontSize:11,color:"#10B981" }}>+{fA(wage.excessPartH*wage.partHourlyRate)}</span></div>}
                     {wage.excessOtH > 0 && <div style={S.row}><span style={{ fontSize:11,color:C.sub }}>초과 OT {wage.excessOtH.toFixed(1)}h</span><span style={{ fontSize:11,color:"#10B981" }}>+{fA(wage.excessOtH*wage.otHourlyRate)}</span></div>}
                     {wage.deficitH > 0 && <div style={S.row}><span style={{ fontSize:11,color:C.sub }}>부족 {wage.deficitH.toFixed(1)}h</span><span style={{ fontSize:11,color:"#EF4444" }}>-{fA(wage.deficitH*wage.partHourlyRate)}</span></div>}
-                    <div style={S.row}><span style={{ fontSize:12,color:C.sub,fontWeight:600 }}>차이 금액</span><span style={{ fontSize:13,fontWeight:700,color:variableMoney>=0?"#10B981":"#EF4444" }}>{variableMoney>=0?"+":""}{fA(variableMoney)}</span></div>
-                  </div>);
-                })()}
+                  </div>
+                )}
                 </>)}
               </div>
             </div>
@@ -633,12 +627,24 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                       )}
                     </div>
                     {/* 정산완료 */}
-                    {isSuperAdmin && (
+                    {isSuperAdmin && (<>
+                      {variable < 0 && (
+                        <div style={{ marginTop:12,background:"#F0FDF4",border:"1px solid #BBF7D0",borderRadius:10,padding:"10px 12px" }}>
+                          <p style={{ margin:"0 0 6px",fontSize:12,fontWeight:600,color:"#166534" }}>🏦 킵으로 저장할 금액 직접 입력</p>
+                          <div style={{ position:"relative" }}>
+                            <span style={{ position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",color:"#888",fontSize:13,pointerEvents:"none" }}>$</span>
+                            <input type="number" placeholder="0.00" min={0} step={0.01} value={partialCash}
+                              onChange={e=>setPartialCash(e.target.value)}
+                              style={{ ...styles.input,paddingLeft:22,fontSize:14,fontWeight:700,background:"#fff",width:"100%",boxSizing:"border-box" }}/>
+                          </div>
+                          <p style={{ margin:"4px 0 0",fontSize:11,color:"#555" }}>변동분 계산과 별개로 킵 잔액에 직접 추가돼요</p>
+                        </div>
+                      )}
                       <button onClick={() => saveCarryover(selId)}
                         style={{ width:"100%",background:"#111",color:"#fff",border:"none",borderRadius:12,padding:13,fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit",marginTop:12 }}>
-                        💾 정산 완료 {keepAmt > 0 ? `(킵 +${fA(keepAmt)})` : ""}{cashAmt > 0 ? ` (캐시 ${fA(cashOut)})` : ""}
+                        💾 정산 완료 {variable < 0 && parseFloat(partialCash) > 0 ? `(킵 +${fA(parseFloat(partialCash))})` : keepAmt > 0 ? `(킵 +${fA(keepAmt)})` : ""}{cashAmt > 0 ? ` (캐시 ${fA(cashOut)})` : ""}
                       </button>
-                    )}
+                    </>)}
                   </div>
                 );
               })()}
