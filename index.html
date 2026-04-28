@@ -346,9 +346,11 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
       - totalDeductions;
     const cashInput = parseFloat(partialCash) || 0;
     const directKeepInput = parseFloat(directKeep) || 0;
-    // 변동분이 음수면 directKeep을 킵에 직접 추가/차감
+    // variable < 0 이면 그 금액도 keepBalance에 자동 반영 + directKeep 추가분
     const cashAmt = variable < 0 ? 0 : Math.min(cashInput, Math.max(0, variable));
-    const keepAmt = variable < 0 ? directKeepInput : Math.max(0, variable) - cashAmt;
+    const keepAmt = variable < 0
+      ? variable + directKeepInput   // 변동분(음수) + 직접입력
+      : Math.max(0, variable) - cashAmt; // 변동분 - 캐시출금
     // 기존 킵잔액에 누적 추가
     const prevKeep = getKeepBalance(userId);
     const newKeep  = prevKeep + keepAmt;
@@ -857,12 +859,12 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                               onChange={e=>setDirectKeep(e.target.value)}
                               style={{ ...styles.input,paddingLeft:22,fontSize:14,fontWeight:700,background:"#fff",width:"100%",boxSizing:"border-box" }}/>
                           </div>
-                          <p style={{ margin:"4px 0 0",fontSize:11,color:"#555" }}>기존 킵 잔액에 더해져요 (음수 입력 시 차감)</p>
+                          <p style={{ margin:"4px 0 0",fontSize:11,color:"#555" }}>변동분은 자동 반영 + 추가 조정 금액 (선택사항)</p>
                         </div>
                       )}
                       <button onClick={() => saveCarryover(selId)}
                         style={{ width:"100%",background:"#111",color:"#fff",border:"none",borderRadius:12,padding:13,fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit",marginTop:12 }}>
-                        💾 정산 완료 {variable < 0 && parseFloat(directKeep) ? `(킵 ${parseFloat(directKeep)>0?"+":""}${fA(parseFloat(directKeep)||0)})` : (keepAmt > 0 && isFinite(keepAmt)) ? `(킵 +${fA(keepAmt)})` : ""}{cashAmt > 0 ? ` (캐시 ${fA(cashOut)})` : ""}
+                        💾 정산 완료 {(() => { const tot = wage.keepBalance + (variable < 0 ? variable + (parseFloat(directKeep)||0) : Math.max(0,variable) - Math.min(parseFloat(partialCash)||0, Math.max(0,variable))); return tot !== wage.keepBalance ? `→ 킵 ${fA(tot)}` : ""; })()}{cashAmt > 0 ? ` (캐시 ${fA(cashOut)})` : ""}
                       </button>
                     </>)}
                   </div>
