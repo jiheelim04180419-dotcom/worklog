@@ -275,9 +275,8 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
     if (!w) return;
     const lv = leaves[userId] || {};
     // 변동분 계산
-    const variable = Math.max(0, w.fixedTotal > 0
-      ? w.gross - totalDeductions - w.fixedTotal
-      : w.gross - totalDeductions - w.tax - w.superAmt);
+    const baselineGross = w.reqDays * w.dailyRate + w.reqExtraHours * w.partHourlyRate;
+    const variable = w.gross - baselineGross - totalDeductions;
     const cashInput = parseFloat(partialCash) || 0;
     const cashAmt   = Math.min(cashInput, variable);
     const keepAmt   = variable - cashAmt;
@@ -459,6 +458,14 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                     {wage.diffH>=0?"+":""}{wage.diffH.toFixed(1)}h
                   </span>
                 </div>
+                {(() => {
+                  const bg = wage.reqDays * wage.dailyRate + wage.reqExtraHours * wage.partHourlyRate;
+                  const dm = wage.gross - bg;
+                  return (<div style={{ marginTop:6,borderTop:"1px solid #E5E7EB",paddingTop:6 }}>
+                    <div style={S.row}><span style={{ fontSize:12,color:C.sub }}>기준 금액</span><span style={{ fontSize:12,color:"#555" }}>{fA(bg)}</span></div>
+                    <div style={S.row}><span style={{ fontSize:12,color:C.sub }}>차이 금액</span><span style={{ fontSize:13,fontWeight:700,color:dm>=0?"#10B981":"#EF4444" }}>{dm>=0?"+":""}{fA(dm)}</span></div>
+                  </div>);
+                })()}
                 </>)}
               </div>
             </div>
@@ -509,23 +516,15 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
             {/* Tax + Super (non-contractor) */}
             {!wage.isContractor && (
               <div style={{ background:"#fff",borderRadius:14,padding:"14px 16px",marginBottom:10,boxShadow:"0 1px 4px #0000000a" }}>
-                {wage.fixedTotal > 0 ? (<>
+                <>
                   <p style={S.sectionTitle}>📌 지급액</p>
-                  <div style={S.row}><span style={{ fontSize:13,color:C.text }}>Net Pay</span><span style={{ fontSize:13,fontWeight:700,color:"#10B981" }}>{fA(wage.fixedNet)}</span></div>
-                  <div style={S.row}><span style={{ fontSize:13,color:C.text }}>Tax</span><span style={{ fontSize:13,fontWeight:700,color:"#EF4444" }}>{fA(wage.fixedTax)}</span></div>
-                  <div style={S.row}><span style={{ fontSize:13,color:C.text }}>Super</span><span style={{ fontSize:13,fontWeight:700,color:"#F59E0B" }}>{fA(wage.fixedSuper)}</span></div>
-                  <div style={{ height:1,background:"#F0F0F0",margin:"8px 0" }} />
-
-                </>) : (<>
-                  <p style={S.sectionTitle}>🇦🇺 공제 (ATO 자동)</p>
-                  <div style={S.row}><span style={{ fontSize:13,color:C.text }}>Tax ({((wage.tax/Math.max(wage.gross,1))*100).toFixed(1)}%)</span><span style={{ fontSize:13,fontWeight:700,color:"#EF4444" }}>− {fA(wage.tax)}</span></div>
-                  <div style={S.row}><span style={{ fontSize:13,color:C.text }}>Super (12%)</span><span style={{ fontSize:13,fontWeight:700,color:"#F59E0B" }}>− {fA(wage.superAmt)}</span></div>
-                  <div style={{ height:1,background:"#F0F0F0",margin:"8px 0" }} />
-                  <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center" }}>
-                    <span style={{ fontSize:13,color:C.text }}>Net Pay</span>
-                    <span style={{ fontSize:13,fontWeight:700,color:"#10B981" }}>{fA(wage.net)}</span>
-                  </div>
-                </>)}
+                  {wage.fixedNet > 0 && <div style={S.row}><span style={{ fontSize:13,color:C.text }}>Net Pay</span><span style={{ fontSize:13,fontWeight:700,color:"#10B981" }}>{fA(wage.fixedNet)}</span></div>}
+                  {wage.fixedTax > 0 && <div style={S.row}><span style={{ fontSize:13,color:C.text }}>Tax</span><span style={{ fontSize:13,fontWeight:700,color:"#EF4444" }}>{fA(wage.fixedTax)}</span></div>}
+                  {wage.fixedSuper > 0 && <div style={S.row}><span style={{ fontSize:13,color:C.text }}>Super</span><span style={{ fontSize:13,fontWeight:700,color:"#F59E0B" }}>{fA(wage.fixedSuper)}</span></div>}
+                  {!wage.fixedNet && !wage.fixedTax && !wage.fixedSuper && (
+                    <p style={{ fontSize:12,color:"#aaa",textAlign:"center",margin:"4px 0" }}>⚙️ 설정 탭에서 지급액을 입력하세요</p>
+                  )}
+                </>
               </div>
             )}
 
@@ -533,9 +532,9 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
             {!wage.isContractor && (<>
               {/* Keep / Cash - 변동분 관리 */}
               {(() => {
-                const variable = wage.fixedTotal > 0
-                  ? wage.gross - totalDeductions - wage.fixedTotal
-                  : wage.gross - totalDeductions - wage.tax - wage.superAmt;
+                // 기준에 해당하는 금액 = reqDays × dailyRate + reqExtraHours × (dailyRate/9)
+                const baselineGross = wage.reqDays * wage.dailyRate + wage.reqExtraHours * wage.partHourlyRate;
+                const variable = wage.gross - baselineGross - totalDeductions;
                 const rawCash = parseFloat(partialCash);
                 const cashAmt = isNaN(rawCash) ? 0 : Math.min(rawCash, Math.max(0, variable));
                 const cashOut = cashAmt * 0.75;
