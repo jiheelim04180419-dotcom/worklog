@@ -478,26 +478,57 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                 </div>
               )}
               {!wage.isContractor && (<>
-                <div style={S.row}>
-                  <span style={{ fontSize:12,color:C.sub }}>실제 근무시간</span>
-                  <span style={{ fontSize:13,fontWeight:700 }}>{wage.workedH.toFixed(1)}h</span>
+                {/* ── 근무 vs 기준 비교 ── */}
+                <div style={{ display:"flex",gap:8,marginBottom:10 }}>
+                  {/* 실제 */}
+                  <div style={{ flex:1,background:"#F0FDF4",borderRadius:10,padding:"10px 12px",textAlign:"center" }}>
+                    <p style={{ margin:"0 0 2px",fontSize:10,color:"#166534",fontWeight:600,textTransform:"uppercase",letterSpacing:.5 }}>실제 근무</p>
+                    <p style={{ margin:0,fontSize:20,fontWeight:900,color:"#10B981" }}>{wage.workedH.toFixed(1)}<span style={{ fontSize:12,fontWeight:500 }}>h</span></p>
+                  </div>
+                  {/* 기준 */}
+                  <div style={{ flex:1,background:"#EFF6FF",borderRadius:10,padding:"10px 12px",textAlign:"center" }}>
+                    <p style={{ margin:"0 0 2px",fontSize:10,color:"#1D4ED8",fontWeight:600,textTransform:"uppercase",letterSpacing:.5 }}>기준 ({wage.reqDays}일{wage.reqExtraHours>0?` ${wage.reqExtraHours}h`:""})</p>
+                    <p style={{ margin:0,fontSize:20,fontWeight:900,color:"#3B82F6" }}>{wage.reqH}<span style={{ fontSize:12,fontWeight:500 }}>h</span></p>
+                  </div>
+                  {/* 차이 */}
+                  <div style={{ flex:1,background:wage.diffH>=0?"#F0FDF4":"#FEF2F2",borderRadius:10,padding:"10px 12px",textAlign:"center",border:`1.5px solid ${wage.diffH>=0?"#BBF7D0":"#FECACA"}` }}>
+                    <p style={{ margin:"0 0 2px",fontSize:10,color:wage.diffH>=0?"#166534":"#DC2626",fontWeight:600,textTransform:"uppercase",letterSpacing:.5 }}>차이</p>
+                    <p style={{ margin:0,fontSize:20,fontWeight:900,color:wage.diffH>=0?"#10B981":"#EF4444" }}>{wage.diffH>=0?"+":""}{wage.diffH.toFixed(1)}<span style={{ fontSize:12,fontWeight:500 }}>h</span></p>
+                  </div>
                 </div>
-                <div style={S.row}>
-                  <span style={{ fontSize:12,color:C.sub }}>기준 ({wage.reqDays}일{wage.reqExtraHours>0?` ${wage.reqExtraHours}h`:""})</span>
-                  <span style={{ fontSize:13,fontWeight:700 }}>{wage.reqH}h</span>
-                </div>
-                <div style={{ height:1,background:"#E5E7EB",margin:"6px 0" }} />
-                <div style={S.row}>
-                  <span style={{ fontSize:12,color:C.sub }}>차이</span>
-                  <span style={{ fontSize:14,fontWeight:800,color:wage.diffH>=0?"#10B981":"#EF4444" }}>
-                    {wage.diffH>=0?"+":""}{wage.diffH.toFixed(1)}h
-                  </span>
-                </div>
+                {/* 프로그레스 바 */}
+                {(() => {
+                  const pct = wage.reqH > 0 ? Math.min(100, (wage.workedH / wage.reqH) * 100) : 0;
+                  return (
+                    <div style={{ marginBottom:10 }}>
+                      <div style={{ height:8,background:"#E5E7EB",borderRadius:4,overflow:"hidden" }}>
+                        <div style={{ height:"100%",width:`${pct}%`,background:pct>=100?"#10B981":"#3B82F6",borderRadius:4,transition:"width .4s" }}/>
+                      </div>
+                      <p style={{ margin:"3px 0 0",fontSize:10,color:C.sub,textAlign:"right" }}>{pct.toFixed(0)}% 달성</p>
+                    </div>
+                  );
+                })()}
+                {/* 초과/부족 금액 내역 */}
                 {(wage.excessPartH > 0 || wage.excessOtH > 0 || wage.deficitH > 0) && (
-                  <div style={{ marginTop:6,borderTop:"1px solid #E5E7EB",paddingTop:6 }}>
-                    {wage.excessPartH > 0 && <div style={S.row}><span style={{ fontSize:11,color:C.sub }}>초과 파트 {wage.excessPartH.toFixed(1)}h</span><span style={{ fontSize:11,color:"#10B981" }}>+{fA(wage.excessPartH*wage.partHourlyRate)}</span></div>}
-                    {wage.excessOtH > 0 && <div style={S.row}><span style={{ fontSize:11,color:C.sub }}>초과 OT {wage.excessOtH.toFixed(1)}h</span><span style={{ fontSize:11,color:"#10B981" }}>+{fA(wage.excessOtH*wage.otHourlyRate)}</span></div>}
-                    {wage.deficitH > 0 && <div style={S.row}><span style={{ fontSize:11,color:C.sub }}>부족 {wage.deficitH.toFixed(1)}h</span><span style={{ fontSize:11,color:"#EF4444" }}>-{fA(wage.deficitH*wage.partHourlyRate)}</span></div>}
+                  <div style={{ background:wage.diffH>=0?"#F0FDF4":"#FEF2F2",borderRadius:10,padding:"8px 12px" }}>
+                    {wage.excessPartH > 0 && (
+                      <div style={{ display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:2 }}>
+                        <span style={{ color:"#555" }}>초과 파트 {wage.excessPartH.toFixed(1)}h</span>
+                        <span style={{ fontWeight:700,color:"#10B981" }}>+{fA(wage.excessPartH*wage.partHourlyRate)}</span>
+                      </div>
+                    )}
+                    {wage.excessOtH > 0 && (
+                      <div style={{ display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:2 }}>
+                        <span style={{ color:"#555" }}>초과 OT {wage.excessOtH.toFixed(1)}h</span>
+                        <span style={{ fontWeight:700,color:"#10B981" }}>+{fA(wage.excessOtH*wage.otHourlyRate)}</span>
+                      </div>
+                    )}
+                    {wage.deficitH > 0 && (
+                      <div style={{ display:"flex",justifyContent:"space-between",fontSize:12 }}>
+                        <span style={{ color:"#555" }}>부족 {wage.deficitH.toFixed(1)}h</span>
+                        <span style={{ fontWeight:700,color:"#EF4444" }}>-{fA(wage.deficitH*wage.partHourlyRate)}</span>
+                      </div>
+                    )}
                   </div>
                 )}
                 </>)}
