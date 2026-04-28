@@ -304,7 +304,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
       - w.deficitH    * w.partHourlyRate
       + w.travel
       - totalDeductions;
-    const cashInput = Math.abs(parseFloat(partialCash) || 0); // 항상 양수
+    const cashInput = parseFloat(partialCash) || 0; // 음수 입력 시 킵에서 차감
     // 변동분이 음수면 partialCash를 킵으로 직접 추가
     const cashAmt = variable < 0 ? 0 : Math.min(cashInput, Math.max(0, variable));
     const keepAmt = variable < 0 ? cashInput : Math.max(0, variable) - cashAmt;
@@ -676,11 +676,11 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                           <p style={{ margin:"0 0 6px",fontSize:12,fontWeight:600,color:"#166534" }}>🏦 이번 기간 킵으로 추가할 금액</p>
                           <div style={{ position:"relative" }}>
                             <span style={{ position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",color:"#888",fontSize:13,pointerEvents:"none" }}>$</span>
-                            <input type="number" placeholder="0.00" min={0} step={0.01} value={partialCash}
+                            <input type="number" placeholder="0.00" step={0.01} value={partialCash}
                               onChange={e=>setPartialCash(String(Math.abs(parseFloat(e.target.value)||0)||""))}
                               style={{ ...styles.input,paddingLeft:22,fontSize:14,fontWeight:700,background:"#fff",width:"100%",boxSizing:"border-box" }}/>
                           </div>
-                          <p style={{ margin:"4px 0 0",fontSize:11,color:"#555" }}>기존 킵 잔액에 누적으로 더해져요 (양수만 입력)</p>
+                          <p style={{ margin:"4px 0 0",fontSize:11,color:"#555" }}>기존 킵 잔액에 더해져요 (음수 입력 시 차감)</p>
                         </div>
                       )}
                       <button onClick={() => saveCarryover(selId)}
