@@ -557,12 +557,13 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
 
         {/* ── CALC VIEW ── */}
         {subView === "calc" && (<>
-          {(!wage || wage.dailyRate === 0) ? (
+          {(!wage || wage.dailyRate === 0) && (
             <div style={{ background:"#fff",borderRadius:14,padding:24,textAlign:"center",boxShadow:"0 1px 4px #0000000a" }}>
               <p style={{ fontSize:14,color:"#f77",margin:"0 0 12px" }}>⚠️ 일급이 설정되지 않았어요</p>
               {isAdmin && <button onClick={() => setSubView("settings")} style={{ ...styles.btnAdd,margin:"0 auto" }}>⚙️ 설정하기</button>}
             </div>
-          ) : (<>
+          )}
+          {wage && wage.dailyRate > 0 && (<>
 
             {/* Work summary grid */}
             <div style={{ background:"#fff",borderRadius:14,padding:"14px 16px",marginBottom:10,boxShadow:"0 1px 4px #0000000a" }}>
