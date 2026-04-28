@@ -1292,7 +1292,7 @@ function ReqHistoryEditor({ selId, leaves, persist, periodStart, isSuperAdmin })
           </p>
         )}
         <button onClick={addEntry}
-          style={{ width:"100%",background:C.primary,color:"#fff",border:"none",borderRadius:10,padding:"11px 0",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit" }}>
+          style={{ width:"100%",background:"#3b7ff5",color:"#fff",border:"none",borderRadius:10,padding:"11px 0",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit" }}>
           저장
         </button>
       </div>
@@ -1334,6 +1334,8 @@ function getMissingLogs(users, logs, periodStart, periodEnd) {
 
 // ─── DeductTab: 일괄 공제 입력 ───────────────────────────────────────────
 function DeductTab({ users, leaves, wpStart, wpEnd, addSavedDeduction, removeSavedDeduction, getSavedDeductions }) {
+  const fA = (n) => new Intl.NumberFormat("en-AU",{style:"currency",currency:"AUD"}).format(n||0);
+  const inp = { width:"100%",border:"1.5px solid #e0e6f0",borderRadius:10,padding:"8px 10px",fontSize:13,fontFamily:"inherit",outline:"none",boxSizing:"border-box",background:"#fff" };
   const [newRows, setNewRows] = React.useState([{ id: Date.now(), userId:"", date: wpStart, desc:"", amount:"" }]);
 
   const addRow = () => setNewRows(r => [...r, { id: Date.now()+Math.random(), userId:"", date: wpStart, desc:"", amount:"" }]);
@@ -1379,26 +1381,26 @@ function DeductTab({ users, leaves, wpStart, wpEnd, addSavedDeduction, removeSav
         {newRows.map(row => (
           <div key={row.id} style={{ display:"grid",gridTemplateColumns:"2fr 1.2fr 2fr 1.2fr 32px",gap:4,marginBottom:6,alignItems:"center" }}>
             <select value={row.userId} onChange={e=>updateRow(row.id,"userId",e.target.value)}
-              style={{ ...styles.input,fontSize:12,padding:"6px 8px" }}>
+              style={inp}>
               <option value="">직원 선택</option>
               {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
             </select>
             <input type="date" value={row.date} min={wpStart} max={wpEnd}
               onChange={e=>updateRow(row.id,"date",e.target.value)}
-              style={{ ...styles.input,fontSize:11,padding:"6px 6px" }}/>
+              style={{...inp,fontSize:11,padding:"6px 6px"}}/>
             <input placeholder="항목명" value={row.desc}
               onChange={e=>updateRow(row.id,"desc",e.target.value)}
-              style={{ ...styles.input,fontSize:12,padding:"6px 8px" }}/>
+              style={inp}/>
             <input type="number" placeholder="0.00" value={row.amount} step={0.01}
               onChange={e=>updateRow(row.id,"amount",e.target.value)}
-              style={{ ...styles.input,fontSize:12,padding:"6px 8px",textAlign:"right" }}/>
+              style={{...inp,fontSize:12,textAlign:"right"}}/>
             <button onClick={()=>removeRow(row.id)}
               style={{ background:"none",border:"none",cursor:"pointer",color:"#f77",fontSize:16,padding:0,fontFamily:"inherit" }}>×</button>
           </div>
         ))}
 
         <button onClick={saveAll}
-          style={{ width:"100%",marginTop:8,background:C.primary,color:"#fff",border:"none",borderRadius:10,padding:"11px 0",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit" }}>
+          style={{ width:"100%",marginTop:8,background:"#3b7ff5",color:"#fff",border:"none",borderRadius:10,padding:"11px 0",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit" }}>
           💾 저장
         </button>
       </div>
