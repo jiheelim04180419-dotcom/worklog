@@ -1341,7 +1341,12 @@ function HomeTab({ user, users, logs, leaves, isAdmin, onJumpToLog }) {
                 const dt = new Date(d+"T00:00:00");
                 const label = `${dt.getMonth()+1}/${dt.getDate()}`;
                 return (
-                  <span key={d} onClick={()=>onJumpToLog&&onJumpToLog(d,user.id,Math.floor((new Date(d+"T00:00:00")-new Date("2026-04-13T00:00:00"))/(14*24*60*60*1000)))}
+                  <span key={d} onClick={()=>{
+                      const BASE=new Date("2026-04-13T00:00:00");
+                      const absIdx=Math.floor((new Date(d+"T00:00:00")-BASE)/(14*24*60*60*1000));
+                      const curIdx=Math.floor((Date.now()-BASE)/(14*24*60*60*1000));
+                      onJumpToLog&&onJumpToLog(d,user.id,absIdx-curIdx);
+                    }}
                     style={{ fontSize:11,fontWeight:600,background:"#FEE2E2",color:"#DC2626",borderRadius:6,padding:"2px 8px",cursor:"pointer",textDecoration:"underline" }}>
                     {label}
                   </span>
@@ -1416,8 +1421,9 @@ function HomeTab({ user, users, logs, leaves, isAdmin, onJumpToLog }) {
                           if(!onJumpToLog) return;
                           const BASE=new Date("2026-04-13T00:00:00");
                           const dDate=new Date(d+"T00:00:00");
-                          const offset=Math.floor((dDate-BASE)/(14*24*60*60*1000));
-                          onJumpToLog(d, emp.id, offset);
+                          const absIdx=Math.floor((dDate-BASE)/(14*24*60*60*1000));
+                          const curIdx=Math.floor((Date.now()-BASE)/(14*24*60*60*1000));
+                          onJumpToLog(d, emp.id, absIdx-curIdx);
                         }}
                         style={{ fontSize:11,fontWeight:600,background:"#FEE2E2",color:"#DC2626",borderRadius:6,padding:"2px 8px",cursor:"pointer",textDecoration:"underline" }}>
                         {label}
