@@ -511,7 +511,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
       {/* Employee chips (admin) */}
       {isAdmin && (
         <div style={{ marginBottom:12 }}>
-          {isSuperAdmin && (<>
+          {isAdmin && (<>
           <div style={{ display:"flex",gap:8,marginBottom:12 }}>
             <button onClick={() => setSubView(subView==="summary" ? "calc" : "summary")}
               style={{ flex:1,padding:"11px 0",borderRadius:12,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:13,fontWeight:700,
@@ -526,7 +526,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
               💳 공제 항목 관리 {subView==="deduct"?"▲":"▼"}
             </button>
           </div>
-          {subView === "summary" && isSuperAdmin && (
+          {subView === "summary" && isAdmin && (
             <SummarySection users={users} leaves={leaves} periodStart={periodStart} calcWage={calcWage} getSavedDeductions={getSavedDeductions} getKeepBalance={getKeepBalance} getKeepBalanceAtPeriod={getKeepBalanceAtPeriod} getPeriodDeposits={getPeriodDeposits} EMP_COLORS={EMP_COLORS} fA={fA} C={C} selId={selId} setSelId={setSelId} setSubView={setSubView}/>
           )}
           {subView === "deduct" && (
