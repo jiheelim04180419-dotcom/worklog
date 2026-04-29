@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>K&M Invoice</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#F0F2F5;color:#1a1a2e;min-height:100vh}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script id="src" type="text/plain">
+// ── Firebase Config ──────────────────────────────────────────────────────────
+const FB_CONFIG = {
+  apiKey:"AIzaSyBnJkCZwGlhvXkbEGPMJJLiHwpuXV6KcVs",
+  authDomain:"knmtilingptyltd.firebaseapp.com",
+  databaseURL:"https://knmtilingptyltd-12520-default-rtdb.firebaseio.com",
+  projectId:"knmtilingptyltd",
+  storageBucket:"knmtilingptyltd.appspot.com",
+  messagingSenderId:"123456789",
+  appId:"1:123456789:web:abc123"
+};
+
+// ── Styles ───────────────────────────────────────────────────────────────────
+const S = {
+  page:{minHeight:"100vh",background:"#F0F2F5",paddingBottom:80},
+  header:{background:"#1a1a2e",color:"#fff",padding:"16px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:100,boxShadow:"0 2px 8px rgba(0,0,0,0.3)"},
+  logo:{fontSize:18,fontWeight:800,letterSpacing:1},
+  badge:{fontSize:11,background:"#e8b84b",color:"#1a1a2e",borderRadius:6,padding:"3px 8px",fontWeight:700},
+  nav:{display:"flex",gap:4},
+  navBtn:(a)=>({padding:"8px 16px",borderRadius:8,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:13,fontWeight:600,background:a?"#e8b84b":"transparent",color:a?"#1a1a2e":"rgba(255,255,255,0.7)",transition:"all .2s"}),
+  card:{background:"#fff",borderRadius:14,padding:"16px",marginBottom:12,boxShadow:"0 1px 4px rgba(0,0,0,0.08)"},
+  statCard:{background:"#fff",borderRadius:14,padding:"16px",flex:1,boxShadow:"0 1px 4px rgba(0,0,0,0.08)"},
+  input:{width:"100%",padding:"10px 12px",border:"1px solid #E5E7EB",borderRadius:8,fontSize:14,fontFamily:"inherit",outline:"none"},
+  select:{width:"100%",padding:"10px 12px",border:"1px solid #E5E7EB",borderRadius:8,fontSize:14,fontFamily:"inherit",background:"#fff"},
+  label:{display:"block",fontSize:11,fontWeight:700,color:"#888",marginBottom:4,textTransform:"uppercase",letterSpacing:0.5},
+  btnPrimary:{background:"#1a1a2e",color:"#fff",border:"none",borderRadius:10,padding:"12px 20px",fontSize:14,fontWeight:700,cursor:"pointer",fontFamily:"inherit",width:"100%"},
+  btnSecondary:{background:"#F3F4F6",color:"#333",border:"none",borderRadius:10,padding:"12px 20px",fontSize:14,fontWeight:600,cursor:"pointer",fontFamily:"inherit"},
+  btnGold:{background:"#e8b84b",color:"#1a1a2e",border:"none",borderRadius:8,padding:"8px 16px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"},
+  modal:{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:200,display:"flex",alignItems:"flex-end",justifyContent:"center"},
+  modalBox:{background:"#fff",borderRadius:"20px 20px 0 0",width:"100%",maxWidth:600,maxHeight:"90vh",overflowY:"auto",padding:"24px 20px"},
+  row:{display:"flex",gap:10},
+  statusBadge:(s)=>{
+    const map={INVOICE:{bg:"#EFF6FF",c:"#1D4ED8"},DEPOSIT:{bg:"#F0FDF4",c:"#16A34A"},CREDIT:{bg:"#FEF3C7",c:"#D97706"},SUSPEND:{bg:"#FFF1F2",c:"#BE123C"},OVERDUE:{bg:"#FEE2E2",c:"#DC2626"},PAID:{bg:"#F0FDF4",c:"#16A34A"}};
+    const m=map[s]||{bg:"#F3F4F6",c:"#666"};
+    return{background:m.bg,color:m.c,borderRadius:6,padding:"3px 8px",fontSize:11,fontWeight:700,display:"inline-block"};
+  },
+};
+
+const today = new Date().toISOString().split('T')[0];
+const fA = (n) => new Intl.NumberFormat("en-AU",{style:"currency",currency:"AUD"}).format(n||0);
+const fDate = (d) => d ? new Date(d+'T00:00:00').toLocaleDateString('en-AU',{day:'2-digit',month:'short',year:'numeric'}) : '—';
+
+// ── App ──────────────────────────────────────────────────────────────────────
+function App() {
+  const [tab, setTab] = React.useState("invoices");
+  const [invoices, setInvoices] = React.useState([]);
+  const [builders, setBuilders] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [db, setDb] = React.useState(null);
+
+  React.useEffect(() => {
+    try {
+      let app;
+      try { app = firebase.app(); } catch(e) { app = firebase.initializeApp(FB_CONFIG); }
+      const database = firebase.database(app);
+      setDb(database);
+      // Load invoices
+      database.ref('invoices').on('value', snap => {
+        const data = snap.val() || {};
+        setInvoices(Object.entries(data).map(([id,v])=>({...v,id})));
+        setLoading(false);
+      });
+      // Load builders
+      database.ref('invoiceBuilders').on('value', snap => {
+        const data = snap.val() || {};
+        setBuilders(Object.entries(data).map(([id,v])=>({...v,id})));
+      });
+    } catch(e) {
+      console.error(e);
+      setLoading(false);
+    }
+  }, []);
+
+  const saveInvoice = (inv) => {
+    if (!db) return;
+    const ref = inv.id ? db.ref('invoices/'+inv.id) : db.ref('invoices').push();
+    const {id,...data} = inv;
+    ref.set({...data, updatedAt: new Date().toISOString()});
+  };
+
+  const saveBuilder = (b) => {
+    if (!db) return;
+    const ref = b.id ? db.ref('invoiceBuilders/'+b.id) : db.ref('invoiceBuilders').push();
+    const {id,...data} = b;
+    ref.set(data);
+  };
+
+  const deleteInvoice = (id) => {
+    if (!db) return;
+    db.ref('invoices/'+id).remove();
+  };
+
+  // Stats
+  const totalOutstanding = invoices.filter(i=>i.status==='INVOICE'||i.status==='OVERDUE').reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
+  const totalOverdue = invoices.filter(i=>i.status==='OVERDUE').reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
+  const totalPaid = invoices.filter(i=>i.status==='DEPOSIT'||i.status==='PAID').reduce((s,i)=>s+(parseFloat(i.depositAmount||i.amount)||0),0);
+  const thisMonth = invoices.filter(i=>(i.invoiceDate||'').startsWith(today.slice(0,7))).reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
+
+  if (loading) return <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",fontSize:16,color:"#888"}}>로딩 중...</div>;
+
+  return (
+    <div style={S.page}>
+      {/* Header */}
+      <div style={S.header}>
+        <div>
+          <div style={S.logo}>K&M Tiling</div>
+          <div style={{fontSize:11,color:"rgba(255,255,255,0.5)",marginTop:2}}>Invoice Manager</div>
+        </div>
+        <div style={S.nav}>
+          {[["invoices","📋 인보이스"],["builders","🏗️ 빌더"],["stats","📊 통계"]].map(([t,l])=>(
+            <button key={t} style={S.navBtn(tab===t)} onClick={()=>setTab(t)}>{l}</button>
+          ))}
+        </div>
+      </div>
+
+      {/* Content */}
+      <div style={{maxWidth:600,margin:"0 auto",padding:"16px 16px 0"}}>
+        {tab==="invoices" && <InvoiceTab invoices={invoices} builders={builders} onSave={saveInvoice} onDelete={deleteInvoice} fA={fA} fDate={fDate} S={S}/>}
+        {tab==="builders" && <BuilderTab builders={builders} invoices={invoices} onSave={saveBuilder} fA={fA} S={S}/>}
+        {tab==="stats" && <StatsTab invoices={invoices} builders={builders} totalOutstanding={totalOutstanding} totalOverdue={totalOverdue} totalPaid={totalPaid} thisMonth={thisMonth} fA={fA} S={S}/>}
+      </div>
+
+      {/* Bottom summary bar */}
+      <div style={{position:"fixed",bottom:0,left:0,right:0,background:"#1a1a2e",padding:"10px 20px",display:"flex",justifyContent:"space-around",zIndex:100}}>
+        {[["미수금",totalOutstanding,"#e8b84b"],["연체",totalOverdue,"#ef4444"],["이번달",thisMonth,"#10b981"]].map(([l,v,c])=>(
+          <div key={l} style={{textAlign:"center"}}>
+            <div style={{fontSize:10,color:"rgba(255,255,255,0.5)"}}>{l}</div>
+            <div style={{fontSize:14,fontWeight:800,color:c}}>{fA(v)}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Invoice Tab ──────────────────────────────────────────────────────────────
+function InvoiceTab({invoices, builders, onSave, onDelete, fA, fDate, S}) {
+  const [showForm, setShowForm] = React.useState(false);
+  const [editInv, setEditInv] = React.useState(null);
+  const [filter, setFilter] = React.useState("ALL");
+  const [search, setSearch] = React.useState("");
+  const [sortBy, setSortBy] = React.useState("date");
+
+  const statuses = ["ALL","INVOICE","DEPOSIT","OVERDUE","CREDIT","SUSPEND","PAID"];
+
+  const filtered = invoices
+    .filter(i => filter==="ALL" || i.status===filter)
+    .filter(i => !search || (i.builderName||'').toLowerCase().includes(search.toLowerCase()) || (i.address||'').toLowerCase().includes(search.toLowerCase()) || (i.invoiceNum||'').toLowerCase().includes(search.toLowerCase()))
+    .sort((a,b) => {
+      if (sortBy==="date") return (b.invoiceDate||'').localeCompare(a.invoiceDate||'');
+      if (sortBy==="amount") return (parseFloat(b.amount)||0) - (parseFloat(a.amount)||0);
+      if (sortBy==="builder") return (a.builderName||'').localeCompare(b.builderName||'');
+      return 0;
+    });
+
+  return (
+    <div>
+      {/* Search + Add */}
+      <div style={{display:"flex",gap:8,marginBottom:12}}>
+        <input placeholder="🔍 빌더/주소/인보이스번호 검색" value={search} onChange={e=>setSearch(e.target.value)}
+          style={{...S.input,flex:1}}/>
+        <button style={{...S.btnGold,whiteSpace:"nowrap"}} onClick={()=>{setEditInv(null);setShowForm(true);}}>+ 추가</button>
+      </div>
+
+      {/* Status filter */}
+      <div style={{display:"flex",gap:6,overflowX:"auto",marginBottom:12,paddingBottom:4}}>
+        {statuses.map(s=>(
+          <button key={s} onClick={()=>setFilter(s)} style={{padding:"6px 12px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:600,whiteSpace:"nowrap",background:filter===s?"#1a1a2e":"#fff",color:filter===s?"#fff":"#666",boxShadow:"0 1px 3px rgba(0,0,0,0.1)"}}>
+            {s} {s!=="ALL" && <span style={{opacity:0.7}}>({invoices.filter(i=>i.status===s).length})</span>}
+          </button>
+        ))}
+      </div>
+
+      {/* Sort */}
+      <div style={{display:"flex",gap:8,marginBottom:12,alignItems:"center"}}>
+        <span style={{fontSize:12,color:"#888"}}>정렬:</span>
+        {[["date","날짜"],["amount","금액"],["builder","빌더"]].map(([k,l])=>(
+          <button key={k} onClick={()=>setSortBy(k)} style={{padding:"4px 10px",borderRadius:6,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,background:sortBy===k?"#E0E7FF":"#fff",color:sortBy===k?"#3730a3":"#666",fontWeight:sortBy===k?700:400}}>
+            {l}
+          </button>
+        ))}
+        <span style={{marginLeft:"auto",fontSize:12,color:"#888"}}>{filtered.length}건</span>
+      </div>
+
+      {/* Invoice list */}
+      {filtered.length === 0 ? (
+        <div style={{textAlign:"center",padding:"40px 0",color:"#aaa"}}>
+          <div style={{fontSize:40,marginBottom:8}}>📋</div>
+          <div>인보이스가 없어요</div>
+        </div>
+      ) : filtered.map(inv => (
+        <InvoiceCard key={inv.id} inv={inv} fA={fA} fDate={fDate} S={S}
+          onEdit={()=>{setEditInv(inv);setShowForm(true);}}
+          onDelete={()=>{ if(confirm('삭제할까요?')) onDelete(inv.id); }}/>
+      ))}
+
+      {showForm && (
+        <InvoiceForm inv={editInv} builders={builders} onSave={(d)=>{onSave(d);setShowForm(false);}} onClose={()=>setShowForm(false)} S={S} today={today}/>
+      )}
+    </div>
+  );
+}
+
+// ── Invoice Card ─────────────────────────────────────────────────────────────
+function InvoiceCard({inv, fA, fDate, S, onEdit, onDelete}) {
+  const [expanded, setExpanded] = React.useState(false);
+  const isPO = inv.type === "PO";
+  const isOverdue = inv.status==="INVOICE" && inv.dueDate && new Date(inv.dueDate) < new Date();
+
+  return (
+    <div style={{...S.card,borderLeft:`4px solid ${inv.status==="OVERDUE"||isOverdue?"#ef4444":inv.status==="DEPOSIT"||inv.status==="PAID"?"#10b981":inv.status==="CREDIT"?"#f59e0b":"#3b82f6"}`}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap",marginBottom:4}}>
+            <span style={{fontSize:14,fontWeight:700}}>{inv.builderName||"—"}</span>
+            <span style={S.statusBadge(isOverdue?"OVERDUE":inv.status)}>{isOverdue?"OVERDUE":inv.status}</span>
+            {isPO && <span style={{fontSize:10,background:"#EDE9FE",color:"#7c3aed",borderRadius:4,padding:"2px 6px",fontWeight:700}}>PO</span>}
+          </div>
+          <div style={{fontSize:12,color:"#666",marginBottom:2}}>{inv.address||"—"}</div>
+          {inv.invoiceNum && <div style={{fontSize:11,color:"#888"}}>#{inv.invoiceNum}</div>}
+        </div>
+        <div style={{textAlign:"right",flexShrink:0,marginLeft:10}}>
+          <div style={{fontSize:16,fontWeight:800,color:inv.status==="CREDIT"?"#ef4444":"#1a1a2e"}}>{fA(inv.amount)}</div>
+          {inv.depositAmount && inv.depositAmount < inv.amount && (
+            <div style={{fontSize:11,color:"#10b981"}}>입금 {fA(inv.depositAmount)}</div>
+          )}
+        </div>
+      </div>
+
+      <div style={{display:"flex",gap:12,marginTop:8,fontSize:11,color:"#888"}}>
+        <span>📅 {fDate(inv.invoiceDate)}</span>
+        {inv.dueDate && <span>⏰ 만기 {fDate(inv.dueDate)}</span>}
+        {inv.depositDate && <span>✅ 입금 {fDate(inv.depositDate)}</span>}
+      </div>
+
+      {expanded && (
+        <div style={{marginTop:12,paddingTop:12,borderTop:"1px solid #F3F4F6"}}>
+          {inv.note && <div style={{fontSize:12,color:"#555",marginBottom:8}}>📝 {inv.note}</div>}
+          {inv.poNumber && <div style={{fontSize:12,color:"#555",marginBottom:4}}>PO: {inv.poNumber}</div>}
+          {isPO && inv.items && inv.items.length > 0 && (
+            <div style={{background:"#F9FAFB",borderRadius:8,padding:"8px 10px",marginBottom:8}}>
+              {inv.items.map((item,i)=>(
+                <div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:11,marginBottom:4}}>
+                  <span style={{flex:1,color:"#555"}}>{item.desc}</span>
+                  <span style={{color:"#1a1a2e",fontWeight:600}}>{fA(item.amount)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          <div style={{display:"flex",gap:8,marginTop:8}}>
+            <button onClick={onEdit} style={{flex:1,...S.btnSecondary,padding:"8px",fontSize:12}}>✏️ 수정</button>
+            <button onClick={onDelete} style={{...S.btnSecondary,padding:"8px 12px",fontSize:12,color:"#ef4444"}}>🗑</button>
+          </div>
+        </div>
+      )}
+
+      <button onClick={()=>setExpanded(!expanded)} style={{marginTop:8,background:"none",border:"none",cursor:"pointer",fontSize:11,color:"#888",width:"100%",textAlign:"center",fontFamily:"inherit"}}>
+        {expanded ? "▲ 접기" : "▼ 더보기"}
+      </button>
+    </div>
+  );
+}
+
+// ── Invoice Form ─────────────────────────────────────────────────────────────
+function InvoiceForm({inv, builders, onSave, onClose, S, today}) {
+  const [form, setForm] = React.useState({
+    status: "INVOICE",
+    type: "NORMAL",
+    builderName: "",
+    address: "",
+    invoiceNum: "",
+    invoiceDate: today,
+    dueDate: "",
+    depositDate: "",
+    depositAmount: "",
+    amount: "",
+    poNumber: "",
+    note: "",
+    items: [],
+    ...inv
+  });
+  const [items, setItems] = React.useState(inv?.items||[]);
+
+  const set = (k,v) => setForm(f=>({...f,[k]:v}));
+
+  const addItem = () => setItems(i=>[...i,{desc:"",amount:""}]);
+  const setItem = (i,k,v) => setItems(arr=>arr.map((r,idx)=>idx===i?{...r,[k]:v}:r));
+  const delItem = (i) => setItems(arr=>arr.filter((_,idx)=>idx!==i));
+
+  const totalItems = items.reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
+
+  const submit = () => {
+    if (!form.builderName) return alert("빌더명을 입력하세요");
+    if (!form.amount && form.type==="NORMAL") return alert("금액을 입력하세요");
+    const finalAmount = form.type==="PO" ? totalItems : parseFloat(form.amount)||0;
+    onSave({...form, items: form.type==="PO"?items:[], amount: finalAmount});
+  };
+
+  return (
+    <div style={S.modal} onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div style={S.modalBox}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+          <h3 style={{fontSize:16,fontWeight:700}}>{inv?"인보이스 수정":"새 인보이스"}</h3>
+          <button onClick={onClose} style={{background:"none",border:"none",fontSize:20,cursor:"pointer",color:"#888"}}>×</button>
+        </div>
+
+        {/* Type */}
+        <div style={{display:"flex",gap:8,marginBottom:16}}>
+          {[["NORMAL","일반 인보이스"],["PO","PO 기반"]].map(([t,l])=>(
+            <button key={t} onClick={()=>set("type",t)} style={{flex:1,padding:"10px",borderRadius:10,border:`2px solid ${form.type===t?"#1a1a2e":"#E5E7EB"}`,background:form.type===t?"#1a1a2e":"#fff",color:form.type===t?"#fff":"#666",fontFamily:"inherit",cursor:"pointer",fontWeight:600,fontSize:13}}>
+              {l}
+            </button>
+          ))}
+        </div>
+
+        {/* Builder */}
+        <div style={{marginBottom:12}}>
+          <label style={S.label}>빌더명 *</label>
+          <input list="builders-list" value={form.builderName} onChange={e=>set("builderName",e.target.value)} style={S.input} placeholder="빌더명 입력"/>
+          <datalist id="builders-list">
+            {builders.map(b=><option key={b.id} value={b.name}/>)}
+          </datalist>
+        </div>
+
+        <div style={{marginBottom:12}}>
+          <label style={S.label}>현장 주소</label>
+          <input value={form.address} onChange={e=>set("address",e.target.value)} style={S.input} placeholder="주소 입력"/>
+        </div>
+
+        <div style={{...S.row,marginBottom:12}}>
+          <div style={{flex:1}}>
+            <label style={S.label}>인보이스 번호</label>
+            <input value={form.invoiceNum} onChange={e=>set("invoiceNum",e.target.value)} style={S.input} placeholder="INV-1234"/>
+          </div>
+          <div style={{flex:1}}>
+            <label style={S.label}>상태</label>
+            <select value={form.status} onChange={e=>set("status",e.target.value)} style={S.select}>
+              {["INVOICE","DEPOSIT","CREDIT","SUSPEND","PAID","OVERDUE"].map(s=><option key={s}>{s}</option>)}
+            </select>
+          </div>
+        </div>
+
+        {form.type==="PO" && (
+          <div style={{marginBottom:12}}>
+            <label style={S.label}>PO 번호</label>
+            <input value={form.poNumber} onChange={e=>set("poNumber",e.target.value)} style={S.input} placeholder="PO Number"/>
+          </div>
+        )}
+
+        <div style={{...S.row,marginBottom:12}}>
+          <div style={{flex:1}}>
+            <label style={S.label}>인보이스 날짜</label>
+            <input type="date" value={form.invoiceDate} onChange={e=>set("invoiceDate",e.target.value)} style={S.input}/>
+          </div>
+          <div style={{flex:1}}>
+            <label style={S.label}>만기일</label>
+            <input type="date" value={form.dueDate} onChange={e=>set("dueDate",e.target.value)} style={S.input}/>
+          </div>
+        </div>
+
+        {/* Items for PO */}
+        {form.type==="PO" ? (
+          <div style={{marginBottom:12}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+              <label style={S.label}>항목</label>
+              <button onClick={addItem} style={{...S.btnGold,padding:"4px 10px",fontSize:12}}>+ 항목추가</button>
+            </div>
+            {items.map((item,i)=>(
+              <div key={i} style={{...S.row,marginBottom:8,alignItems:"flex-end"}}>
+                <div style={{flex:2}}>
+                  <input value={item.desc} onChange={e=>setItem(i,"desc",e.target.value)} style={S.input} placeholder="항목 설명 (예: Villa 14-15)"/>
+                </div>
+                <div style={{flex:1}}>
+                  <input type="number" value={item.amount} onChange={e=>setItem(i,"amount",e.target.value)} style={S.input} placeholder="금액"/>
+                </div>
+                <button onClick={()=>delItem(i)} style={{background:"none",border:"none",color:"#ef4444",fontSize:16,cursor:"pointer",padding:"0 4px"}}>×</button>
+              </div>
+            ))}
+            {items.length > 0 && (
+              <div style={{textAlign:"right",fontSize:14,fontWeight:700,color:"#1a1a2e",padding:"8px 0"}}>
+                합계: {new Intl.NumberFormat("en-AU",{style:"currency",currency:"AUD"}).format(totalItems)}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div style={{marginBottom:12}}>
+            <label style={S.label}>금액 (inc. GST) *</label>
+            <input type="number" step="0.01" value={form.amount} onChange={e=>set("amount",e.target.value)} style={S.input} placeholder="0.00"/>
+          </div>
+        )}
+
+        {/* Deposit */}
+        <div style={{...S.row,marginBottom:12}}>
+          <div style={{flex:1}}>
+            <label style={S.label}>입금 날짜</label>
+            <input type="date" value={form.depositDate} onChange={e=>set("depositDate",e.target.value)} style={S.input}/>
+          </div>
+          <div style={{flex:1}}>
+            <label style={S.label}>입금 금액</label>
+            <input type="number" step="0.01" value={form.depositAmount} onChange={e=>set("depositAmount",e.target.value)} style={S.input} placeholder="0.00"/>
+          </div>
+        </div>
+
+        <div style={{marginBottom:20}}>
+          <label style={S.label}>메모</label>
+          <textarea value={form.note} onChange={e=>set("note",e.target.value)} style={{...S.input,height:70,resize:"none"}} placeholder="프로젝트 메모, PO 특이사항 등"/>
+        </div>
+
+        <div style={{...S.row,gap:10}}>
+          <button onClick={onClose} style={{...S.btnSecondary,flex:1}}>취소</button>
+          <button onClick={submit} style={{...S.btnPrimary,flex:2}}>💾 저장</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Builder Tab ──────────────────────────────────────────────────────────────
+function BuilderTab({builders, invoices, onSave, fA, S}) {
+  const [showForm, setShowForm] = React.useState(false);
+  const [editBuilder, setEditBuilder] = React.useState(null);
+  const [form, setForm] = React.useState({name:"",contact:"",email:"",abn:"",address:""});
+
+  const set = (k,v) => setForm(f=>({...f,[k]:v}));
+
+  const submit = () => {
+    if (!form.name) return alert("빌더명을 입력하세요");
+    onSave(editBuilder ? {...editBuilder,...form} : form);
+    setShowForm(false);
+    setForm({name:"",contact:"",email:"",abn:"",address:""});
+    setEditBuilder(null);
+  };
+
+  return (
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+        <div style={{fontSize:15,fontWeight:700}}>빌더 목록 ({builders.length})</div>
+        <button style={S.btnGold} onClick={()=>{setEditBuilder(null);setForm({name:"",contact:"",email:"",abn:"",address:""});setShowForm(true);}}>+ 빌더추가</button>
+      </div>
+
+      {builders.map(b => {
+        const bInvs = invoices.filter(i=>i.builderName===b.name);
+        const outstanding = bInvs.filter(i=>i.status==="INVOICE"||i.status==="OVERDUE").reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
+        return (
+          <div key={b.id} style={S.card} onClick={()=>{setEditBuilder(b);setForm({name:b.name||"",contact:b.contact||"",email:b.email||"",abn:b.abn||"",address:b.address||""});setShowForm(true);}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div>
+                <div style={{fontSize:14,fontWeight:700,marginBottom:2}}>{b.name}</div>
+                {b.contact && <div style={{fontSize:12,color:"#888"}}>📞 {b.contact}</div>}
+              </div>
+              <div style={{textAlign:"right"}}>
+                <div style={{fontSize:13,fontWeight:700,color:outstanding>0?"#ef4444":"#10b981"}}>{outstanding>0?fA(outstanding):"✅ 완납"}</div>
+                <div style={{fontSize:11,color:"#aaa"}}>{bInvs.length}건</div>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+
+      {builders.length === 0 && (
+        <div style={{textAlign:"center",padding:"40px 0",color:"#aaa"}}>
+          <div style={{fontSize:40,marginBottom:8}}>🏗️</div>
+          <div>빌더를 추가해보세요</div>
+        </div>
+      )}
+
+      {showForm && (
+        <div style={S.modal} onClick={e=>e.target===e.currentTarget&&setShowForm(false)}>
+          <div style={S.modalBox}>
+            <div style={{display:"flex",justifyContent:"space-between",marginBottom:20}}>
+              <h3 style={{fontSize:16,fontWeight:700}}>{editBuilder?"빌더 수정":"새 빌더"}</h3>
+              <button onClick={()=>setShowForm(false)} style={{background:"none",border:"none",fontSize:20,cursor:"pointer",color:"#888"}}>×</button>
+            </div>
+            {[["name","빌더명 *","텍스트"],["contact","연락처","텍스트"],["email","이메일","이메일"],["abn","ABN","텍스트"],["address","주소","텍스트"]].map(([k,l,t])=>(
+              <div key={k} style={{marginBottom:12}}>
+                <label style={S.label}>{l}</label>
+                <input value={form[k]} onChange={e=>set(k,e.target.value)} style={S.input} placeholder={l}/>
+              </div>
+            ))}
+            <div style={{...S.row,gap:10,marginTop:8}}>
+              <button onClick={()=>setShowForm(false)} style={{...S.btnSecondary,flex:1}}>취소</button>
+              <button onClick={submit} style={{...S.btnPrimary,flex:2}}>💾 저장</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Stats Tab ────────────────────────────────────────────────────────────────
+function StatsTab({invoices, builders, totalOutstanding, totalOverdue, totalPaid, thisMonth, fA, S}) {
+  // Builder breakdown
+  const builderStats = {};
+  invoices.forEach(inv => {
+    const b = inv.builderName || "기타";
+    if (!builderStats[b]) builderStats[b] = {total:0,paid:0,outstanding:0,count:0};
+    builderStats[b].count++;
+    builderStats[b].total += parseFloat(inv.amount)||0;
+    if (inv.status==="DEPOSIT"||inv.status==="PAID") builderStats[b].paid += parseFloat(inv.depositAmount||inv.amount)||0;
+    if (inv.status==="INVOICE"||inv.status==="OVERDUE") builderStats[b].outstanding += parseFloat(inv.amount)||0;
+  });
+
+  const sortedBuilders = Object.entries(builderStats).sort((a,b)=>b[1].outstanding-a[1].outstanding);
+
+  // Monthly breakdown
+  const monthly = {};
+  invoices.forEach(inv => {
+    const m = (inv.invoiceDate||'').slice(0,7);
+    if (!m) return;
+    if (!monthly[m]) monthly[m] = 0;
+    monthly[m] += parseFloat(inv.amount)||0;
+  });
+  const sortedMonthly = Object.entries(monthly).sort((a,b)=>b[0].localeCompare(a[0])).slice(0,6);
+
+  return (
+    <div>
+      {/* Summary cards */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
+        {[["💰 미수금",totalOutstanding,"#3b82f6"],["🔴 연체",totalOverdue,"#ef4444"],["✅ 입금",totalPaid,"#10b981"],["📅 이번달",thisMonth,"#e8b84b"]].map(([l,v,c])=>(
+          <div key={l} style={{...S.statCard,borderTop:`3px solid ${c}`}}>
+            <div style={{fontSize:11,color:"#888",marginBottom:4}}>{l}</div>
+            <div style={{fontSize:16,fontWeight:800,color:c}}>{fA(v)}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Builder breakdown */}
+      <div style={{...S.card,marginBottom:12}}>
+        <div style={{fontSize:13,fontWeight:700,marginBottom:12}}>빌더별 미수금</div>
+        {sortedBuilders.map(([name, stat]) => (
+          <div key={name} style={{marginBottom:12}}>
+            <div style={{display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:4}}>
+              <span style={{fontWeight:600}}>{name}</span>
+              <span style={{color:stat.outstanding>0?"#ef4444":"#10b981",fontWeight:700}}>
+                {stat.outstanding>0?fA(stat.outstanding):"✅"}
+              </span>
+            </div>
+            <div style={{height:6,background:"#F3F4F6",borderRadius:3,overflow:"hidden"}}>
+              <div style={{height:"100%",background:stat.outstanding>0?"#ef4444":"#10b981",width:stat.total>0?`${Math.min(100,stat.paid/stat.total*100)}%`:"0%",borderRadius:3,transition:"width .3s"}}/>
+            </div>
+            <div style={{fontSize:10,color:"#aaa",marginTop:2}}>{stat.count}건 / 합계 {fA(stat.total)}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Monthly */}
+      <div style={S.card}>
+        <div style={{fontSize:13,fontWeight:700,marginBottom:12}}>월별 인보이스</div>
+        {sortedMonthly.map(([month, amount]) => (
+          <div key={month} style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"8px 0",borderBottom:"1px solid #F3F4F6"}}>
+            <span style={{color:"#555"}}>{month}</span>
+            <span style={{fontWeight:700}}>{fA(amount)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Run ──────────────────────────────────────────────────────────────────────
+function runApp() {
+  try {
+    const root = ReactDOM.createRoot(document.getElementById("root"));
+    root.render(<App/>);
+  } catch(e) {
+    console.error(e);
+  }
+}
+window.onload = () => setTimeout(runApp, 500);
+</script>
+<script>
+window.onload = function() {
+  setTimeout(function() {
+    var code = document.getElementById('src').textContent;
+    var script = document.createElement('script');
+    script.type = 'text/babel';
+    script.setAttribute('data-presets', 'react');
+    script.textContent = code;
+    document.body.appendChild(script);
+  }, 300);
+};
+</script>
+</body>
+</html>
