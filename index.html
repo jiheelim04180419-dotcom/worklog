@@ -822,8 +822,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                         borderRadius:10,padding:"8px 12px",marginBottom:10 }}>
                         <div>
                           <p style={{ margin:0,fontSize:11,fontWeight:600,color:wage.keepBalance>0?"#166534":"#DC2626" }}>🏦 이전 기간까지 누적 킵</p>
-                          {getSettledBalance(selId, periodStart) !== null && <p style={{ margin:"2px 0 0",fontSize:10,color:"#888" }}>✅ 이 기간 정산결과: {fA(getSettledBalance(selId,periodStart))}</p>}
-                          {getSettledBalance(selId, periodStart) === null && <p style={{ margin:0,fontSize:10,color:"#555" }}>이전 기간까지 누적된 킵 잔액</p>}
+                          <p style={{ margin:0,fontSize:10,color:"#555" }}>이전 기간까지 누적된 킵 잔액</p>
                         </div>
                         <span style={{ fontSize:16,fontWeight:800,color:wage.keepBalance>0?"#10B981":"#EF4444" }}>{fA(wage.keepBalance)}</span>
                       </div>
