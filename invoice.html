@@ -577,27 +577,9 @@ function StatsTab({invoices, builders, totalOutstanding, totalOverdue, totalPaid
 }
 
 // ── Run ──────────────────────────────────────────────────────────────────────
-function runApp() {
-  try {
-    const root = ReactDOM.createRoot(document.getElementById("root"));
-    root.render(<App/>);
-  } catch(e) {
-    console.error(e);
-  }
-}
-window.onload = () => setTimeout(runApp, 500);
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(<App/>);
 </script>
-<script>
-window.onload = function() {
-  setTimeout(function() {
-    var code = document.getElementById('src').textContent;
-    var script = document.createElement('script');
-    script.type = 'text/babel';
-    script.setAttribute('data-presets', 'react');
-    script.textContent = code;
-    document.body.appendChild(script);
-  }, 300);
-};
-</script>
+
 </body>
 </html>
