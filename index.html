@@ -1037,10 +1037,11 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                   </div>
                   <button onClick={() => {
                     const lv = leaves[selId]||{};
-                    persist(null,null,{...leaves,[selId]:{...lv,keepBalance:0}});
+                    persist(null,null,{...leaves,[selId]:{...lv,keepBalance:0,keepBalanceHistory:[]}});
                   }} style={{ fontSize:11,background:"#FEF2F2",color:"#EF4444",border:"1px solid #FECACA",borderRadius:8,padding:"5px 10px",cursor:"pointer",fontFamily:"inherit",fontWeight:600 }}>
                     초기화
                   </button>
+                  <KeeepBalanceManualEditor lv={lv} selId={selId} persist={persist} leaves={leaves} periodStart={periodStart} fA={fA}/>
                 </div>
               </div>
             )}
@@ -1855,6 +1856,57 @@ function KeepDepositLog({ selId, leaves, persist, getKeepBalance, fA, wpStart, w
       ) : (
         <p style={{ margin:0,fontSize:12,color:"#888",textAlign:"center" }}>입금 기록이 없어요</p>
       )}
+    </div>
+  );
+}
+
+
+function KeeepBalanceManualEditor({lv, selId, persist, leaves, periodStart, fA}) {
+  const [editing, setEditing] = React.useState(false);
+  const [manualAmt, setManualAmt] = React.useState("");
+  const [manualPeriod, setManualPeriod] = React.useState(periodStart);
+
+  if (!editing) return (
+    <button onClick={()=>setEditing(true)}
+      style={{fontSize:11,background:"#EFF6FF",color:"#1D4ED8",border:"1px solid #BFDBFE",borderRadius:8,padding:"5px 10px",cursor:"pointer",fontFamily:"inherit",fontWeight:600,marginTop:6,display:"block",width:"100%"}}>
+      🔧 킵 잔액 수동 설정
+    </button>
+  );
+
+  const save = () => {
+    const amt = parseFloat(manualAmt);
+    if (isNaN(amt)) return alert("금액을 입력하세요");
+    const hist = lv.keepBalanceHistory || [];
+    const newEntry = {periodStart: manualPeriod, balance: amt, savedAt: new Date().toISOString(), manual: true};
+    const newHist = [...hist.filter(h=>h.periodStart!==manualPeriod), newEntry]
+      .sort((a,b)=>a.periodStart.localeCompare(b.periodStart));
+    const latestBal = newHist[newHist.length-1].balance;
+    persist(null, null, {...leaves, [selId]: {...lv, keepBalance: latestBal, keepBalanceHistory: newHist}});
+    alert(`✅ ${manualPeriod} 기간 킵 잔액을 ${fA(amt)}로 저장했어요`);
+    setEditing(false);
+  };
+
+  return (
+    <div style={{background:"#EFF6FF",border:"1px solid #BFDBFE",borderRadius:10,padding:"10px 12px",marginTop:8}}>
+      <p style={{margin:"0 0 8px",fontSize:12,fontWeight:700,color:"#1D4ED8"}}>🔧 킵 잔액 수동 설정</p>
+      <div style={{display:"flex",gap:8,marginBottom:8}}>
+        <div style={{flex:1}}>
+          <p style={{margin:"0 0 3px",fontSize:10,color:"#888"}}>기간 시작일</p>
+          <input type="date" value={manualPeriod} onChange={e=>setManualPeriod(e.target.value)}
+            style={{width:"100%",padding:"6px 8px",border:"1px solid #BFDBFE",borderRadius:6,fontSize:12,fontFamily:"inherit"}}/>
+        </div>
+        <div style={{flex:1}}>
+          <p style={{margin:"0 0 3px",fontSize:10,color:"#888"}}>정산 후 킵 잔액</p>
+          <input type="number" step="0.01" value={manualAmt} onChange={e=>setManualAmt(e.target.value)}
+            placeholder="예: -1655.64"
+            style={{width:"100%",padding:"6px 8px",border:"1px solid #BFDBFE",borderRadius:6,fontSize:12,fontFamily:"inherit"}}/>
+        </div>
+      </div>
+      <p style={{margin:"0 0 8px",fontSize:10,color:"#888"}}>⚠️ 해당 기간 정산 완료 후 기록을 수동으로 추가해요 (keepBalanceHistory)</p>
+      <div style={{display:"flex",gap:6}}>
+        <button onClick={()=>setEditing(false)} style={{flex:1,background:"#fff",border:"1px solid #BFDBFE",borderRadius:6,padding:"6px",fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>취소</button>
+        <button onClick={save} style={{flex:2,background:"#1D4ED8",color:"#fff",border:"none",borderRadius:6,padding:"6px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>💾 저장</button>
+      </div>
     </div>
   );
 }
