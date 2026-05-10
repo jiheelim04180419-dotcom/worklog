@@ -774,7 +774,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
 
           </>)}
 
-          {wage && wage.dailyRate > 0 && (<>
+          {wage && (wage.dailyRate > 0 || wage.hasFlatPay) && (<>
             {/* Tax + Super */}
             {(wage.fixedNet > 0 || wage.fixedTax > 0 || wage.fixedSuper > 0) && (
               <div style={{ background:"#fff",borderRadius:14,padding:"14px 16px",marginBottom:10,boxShadow:"0 1px 4px #0000000a" }}>
@@ -1041,7 +1041,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                   }} style={{ fontSize:11,background:"#FEF2F2",color:"#EF4444",border:"1px solid #FECACA",borderRadius:8,padding:"5px 10px",cursor:"pointer",fontFamily:"inherit",fontWeight:600 }}>
                     초기화
                   </button>
-                  <KeeepBalanceManualEditor lv={lv} selId={selId} persist={persist} leaves={leaves} periodStart={periodStart} fA={fA}/>
+                  <KeeepBalanceManualEditor selId={selId} persist={persist} leaves={leaves} periodStart={periodStart} fA={fA}/>
                 </div>
               </div>
             )}
@@ -1861,7 +1861,8 @@ function KeepDepositLog({ selId, leaves, persist, getKeepBalance, fA, wpStart, w
 }
 
 
-function KeeepBalanceManualEditor({lv, selId, persist, leaves, periodStart, fA}) {
+function KeeepBalanceManualEditor({selId, persist, leaves, periodStart, fA}) {
+  const lv = leaves[selId] || {};
   const [editing, setEditing] = React.useState(false);
   const [manualAmt, setManualAmt] = React.useState("");
   const [manualPeriod, setManualPeriod] = React.useState(periodStart);
