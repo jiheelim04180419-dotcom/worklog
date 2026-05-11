@@ -729,6 +729,18 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                         <span style={{ fontWeight:700,color:"#EF4444" }}>-{fA(wage.deficitH*wage.partHourlyRate)}</span>
                       </div>
                     )}
+                    {getSavedDeductions(selId).map(d => (
+                      <div key={d.id} style={{ display:"flex",justifyContent:"space-between",fontSize:12,marginTop:2 }}>
+                        <span style={{ color:"#555" }}>{d.date} · {d.desc}</span>
+                        <span style={{ fontWeight:700,color:parseFloat(d.amount)<0?"#10B981":"#EF4444" }}>{parseFloat(d.amount)<0?"+":"-"}{fA(Math.abs(parseFloat(d.amount)))}</span>
+                      </div>
+                    ))}
+                    {deductions.filter(d=>d.desc&&parseFloat(d.amount)>0).map(d => (
+                      <div key={d.id} style={{ display:"flex",justifyContent:"space-between",fontSize:12,marginTop:2,opacity:0.6 }}>
+                        <span style={{ color:"#555" }}>{d.desc} <span style={{fontSize:10,color:"#f59e0b"}}>(미저장)</span></span>
+                        <span style={{ fontWeight:700,color:"#EF4444" }}>-{fA(parseFloat(d.amount))}</span>
+                      </div>
+                    ))}
                   </div>
                 )}
                 </>)}
