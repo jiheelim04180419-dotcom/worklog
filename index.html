@@ -1786,22 +1786,23 @@ function MgmtTab({ fbUrl, fA }) {
   }, [fbUrl]);
 
   // 세금 계산 (ATO 포트나잇리 기준 연소득 환산)
-  const calcTax = (grossMonthly) => {
-    const annual = grossMonthly * 12;
+  // 포트나잇(2주) Gross 기준으로 계산
+  const calcTax = (grossFortnight) => {
+    const annual = grossFortnight * 26; // 1년 26 포트나잇
     let tax = 0;
     if (annual <= 18200) tax = 0;
     else if (annual <= 45000) tax = (annual - 18200) * 0.19;
     else if (annual <= 120000) tax = 5092 + (annual - 45000) * 0.325;
     else if (annual <= 180000) tax = 29467 + (annual - 120000) * 0.37;
     else tax = 51667 + (annual - 180000) * 0.45;
-    return Math.round(tax / 12 * 100) / 100;
+    return Math.round(tax / 26 * 100) / 100; // 포트나잇 세금
   };
 
   const calcSuper = (gross) => Math.round(gross * 0.12 * 100) / 100;
 
-  const calcNet = (gross) => {
-    const tax = calcTax(gross);
-    const sup = calcSuper(gross);
+  const calcNet = (gross, manualTax, manualSuper) => {
+    const tax = parseFloat(manualTax) || 0;
+    const sup = parseFloat(manualSuper) || 0;
     return { gross, tax, sup, net: Math.round((gross - tax) * 100) / 100 };
   };
 
@@ -1862,7 +1863,7 @@ function MgmtTab({ fbUrl, fA }) {
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14, paddingTop:4 }}>
         <div>
           <p style={{ margin:0, fontSize:15, fontWeight:800, color:'#e2e8f0' }}>⭐ 운영진 급여</p>
-          <p style={{ margin:0, fontSize:11, color:'#6366f1' }}>이번달 예상 {fA(expectedMonthly)}</p>
+          <p style={{ margin:0, fontSize:11, color:'#6366f1' }}>이번 포트나잇 예상 {fA(expectedMonthly)}</p>
         </div>
         <div style={{ display:'flex', gap:6 }}>
           <button onClick={() => { setEditPay(null); setShowPayForm(true); }}
@@ -1885,7 +1886,7 @@ function MgmtTab({ fbUrl, fA }) {
       )}
       {members.map((m, mi) => {
         const color = COLORS[mi % COLORS.length];
-        const c = m.type === 'monthly' ? calcNet(parseFloat(m.salary)||0) : null;
+        const c = m.type === 'monthly' ? calcNet(parseFloat(m.salary)||0, m.tax, m.super) : null;
         const invoiceAmt = parseFloat(m.invoiceAmount)||0;
         const gst = m.type === 'invoice_gst' ? invoiceAmt * 0.1 : 0;
         const mPays = memberPayments(m.id);
@@ -1928,7 +1929,7 @@ function MgmtTab({ fbUrl, fA }) {
                 <div style={{ background:'#252535', borderRadius:10, padding:'12px', marginTop:12, marginBottom:12 }}>
                   {m.type === 'monthly' && c && (<>
                     <div style={{ display:'flex', justifyContent:'space-between', fontSize:12, marginBottom:4 }}>
-                      <span style={{ color:'rgba(226,232,240,0.6)' }}>Gross (월)</span>
+                      <span style={{ color:'rgba(226,232,240,0.6)' }}>Gross (2주)</span>
                       <span style={{ color:'#e2e8f0', fontWeight:600 }}>{fA(c.gross)}</span>
                     </div>
                     <div style={{ display:'flex', justifyContent:'space-between', fontSize:12, marginBottom:4 }}>
@@ -2055,7 +2056,7 @@ function MgmtTab({ fbUrl, fA }) {
 
 function MgmtMemberForm({ member, onSave, onClose }) {
   const [form, setForm] = React.useState({
-    name: '', role: '', type: 'monthly', salary: '', invoiceAmount: '', ...member
+    name: '', role: '', type: 'monthly', salary: '', tax: '', super: '', invoiceAmount: '', ...member
   });
   const set = (k, v) => setForm(f => ({...f, [k]: v}));
 
@@ -2080,12 +2081,22 @@ function MgmtMemberForm({ member, onSave, onClose }) {
             <option value="invoice_gst">인보이스 + GST 10%</option>
           </select>
         </div>
-        {form.type === 'monthly' && (
+        {form.type === 'monthly' && (<>
           <div style={{ marginBottom:12 }}>
-            <label style={{ display:'block', fontSize:10, fontWeight:700, color:'#6366f1', marginBottom:4, textTransform:'uppercase' }}>월 Gross 급여 (AUD)</label>
+            <label style={{ display:'block', fontSize:10, fontWeight:700, color:'#6366f1', marginBottom:4, textTransform:'uppercase' }}>포트나잇 Gross (2주, AUD)</label>
             <input type="number" value={form.salary} onChange={e=>set('salary',e.target.value)} style={{ width:'100%', padding:'10px 12px', border:'1.5px solid rgba(99,102,241,0.3)', borderRadius:8, fontSize:14, fontFamily:'inherit', background:'#2a2a3e', color:'#e2e8f0' }} placeholder="0.00"/>
           </div>
-        )}
+          <div style={{ display:'flex', gap:10, marginBottom:12 }}>
+            <div style={{ flex:1 }}>
+              <label style={{ display:'block', fontSize:10, fontWeight:700, color:'#6366f1', marginBottom:4, textTransform:'uppercase' }}>Tax (2주)</label>
+              <input type="number" value={form.tax||''} onChange={e=>set('tax',e.target.value)} style={{ width:'100%', padding:'10px 12px', border:'1.5px solid rgba(99,102,241,0.3)', borderRadius:8, fontSize:14, fontFamily:'inherit', background:'#2a2a3e', color:'#e2e8f0' }} placeholder="0.00"/>
+            </div>
+            <div style={{ flex:1 }}>
+              <label style={{ display:'block', fontSize:10, fontWeight:700, color:'#6366f1', marginBottom:4, textTransform:'uppercase' }}>Super (2주)</label>
+              <input type="number" value={form.super||''} onChange={e=>set('super',e.target.value)} style={{ width:'100%', padding:'10px 12px', border:'1.5px solid rgba(99,102,241,0.3)', borderRadius:8, fontSize:14, fontFamily:'inherit', background:'#2a2a3e', color:'#e2e8f0' }} placeholder="0.00"/>
+            </div>
+          </div>
+        </>)}
         {form.type === 'monthly' && (
           <div style={{ marginBottom:12 }}>
             <label style={{ display:'block', fontSize:10, fontWeight:700, color:'#6366f1', marginBottom:4, textTransform:'uppercase' }}>인보이스 별도 금액 (선택)</label>
