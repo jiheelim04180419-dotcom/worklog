@@ -298,7 +298,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
     const dailyRate = getDailyRate(userId);
     const { days: reqDays, hours: reqExtraHours } = getReqForPeriod(userId, periodStart);
     const carry = getCarryover(userId);
-    if (!dailyRate) return null;
+    if (!dailyRate && !hasFlatPay) return null;
     const periodLogs = getPeriodLogs(userId);
     const stats = calcWorkStats(periodLogs);
     const partHourlyRate = dailyRate / 9;  // 파트타임: 일당 ÷ 9
@@ -577,7 +577,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
               </div>
             </div>
             <div style={{ textAlign:"right" }}>
-              {wage && wage.dailyRate > 0 ? (<>
+              {wage && (wage.dailyRate > 0 || wage.hasFlatPay) ? (<>
                 <p style={{ margin:0,fontSize:14,fontWeight:700,color:C.text }}>{fA(wage.dailyRate)}<span style={{ fontSize:11,color:C.sub,fontWeight:400 }}>/일</span></p>
                 {!wage.isContractor && <p style={{ margin:"2px 0 0",fontSize:11,color:C.sub }}>기준 {wage.reqDays}일 {wage.reqExtraHours>0?`${wage.reqExtraHours}h`:""}</p>}
                 {wage.isContractor && !wage.hasFlatPay && <p style={{ margin:"2px 0 0",fontSize:11,color:C.sub }}>인보이스</p>}
@@ -603,7 +603,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
               {isAdmin && <button onClick={() => setSubView("settings")} style={{ ...styles.btnAdd,margin:"0 auto" }}>⚙️ 설정하기</button>}
             </div>
           )}
-          {wage && wage.dailyRate > 0 && (<>
+          {wage && (wage.dailyRate > 0 || wage.hasFlatPay) && (<>
 
             {/* Work summary grid */}
             <div style={{ background:"#fff",borderRadius:14,padding:"14px 16px",marginBottom:10,boxShadow:"0 1px 4px #0000000a" }}>
