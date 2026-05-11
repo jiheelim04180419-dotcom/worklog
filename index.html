@@ -673,6 +673,26 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                   {wage.travel>0&&<div style={S.row}><span style={{ fontSize:13,color:C.text }}>Travel</span><span style={{ fontSize:13,fontWeight:700,color:C.primary }}>{fA(wage.travel)}</span></div>}
                   <div style={{ height:1,background:"#F0F0F0",margin:"8px 0" }}/>
                   <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center" }}><span style={{ fontSize:15,fontWeight:700 }}>Gross</span><span style={{ fontSize:20,fontWeight:900 }}>{fA(wage.gross)}</span></div>
+                  {(savedTotal(selId) + totalDeductions) > 0 && (<>
+                    <div style={{ height:1,background:"#F0F0F0",margin:"8px 0" }}/>
+                    {getSavedDeductions(selId).map(d=>(
+                      <div key={d.id} style={{ display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:4 }}>
+                        <span style={{ color:"#555" }}>공제 · {d.desc}</span>
+                        <span style={{ fontWeight:700,color:"#EF4444" }}>-{fA(d.amount)}</span>
+                      </div>
+                    ))}
+                    {deductions.filter(d=>d.desc&&parseFloat(d.amount)>0).map(d=>(
+                      <div key={d.id} style={{ display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:4,opacity:0.6 }}>
+                        <span style={{ color:"#555" }}>공제 · {d.desc} <span style={{fontSize:10,color:"#f59e0b"}}>(미저장)</span></span>
+                        <span style={{ fontWeight:700,color:"#EF4444" }}>-{fA(parseFloat(d.amount))}</span>
+                      </div>
+                    ))}
+                    <div style={{ height:1,background:"#F0F0F0",margin:"8px 0" }}/>
+                    <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center" }}>
+                      <span style={{ fontSize:15,fontWeight:700 }}>실 청구금액</span>
+                      <span style={{ fontSize:20,fontWeight:900,color:"#10B981" }}>{fA(wage.gross - savedTotal(selId) - totalDeductions)}</span>
+                    </div>
+                  </>)}
                 </div>
               )}
               {!wage.isContractor && (<>
