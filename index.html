@@ -2005,12 +2005,26 @@ function MgmtTab({ fbUrl, fA }) {
   };
 
   // 멤버별 금액 계산
+  // 기간에 맞는 이력 항목 가져오기
+  const getHistoryEntry = (history, ps) => {
+    if (!history || !history.length) return null;
+    const sorted = [...history].sort((a,b) => b.from.localeCompare(a.from));
+    return sorted.find(h => h.from <= ps) || sorted[sorted.length-1];
+  };
+
   const calcAmt = (m) => {
-    const inv = parseFloat(m.invoiceAmount)||0;
-    const invGst = m.invoiceGst ? inv*0.1 : 0;
+    // 이력이 있으면 이력 기반, 없으면 현재 값 사용
+    const hist = Array.isArray(m.history) ? m.history : Object.values(m.history||{});
+    const entry = hist.length > 0 ? getHistoryEntry(hist, periodStart) : null;
+
+    const inv = parseFloat((entry||m).invoiceAmount)||0;
+    const invGst = (entry ? entry.invoiceGst : m.invoiceGst) ? inv*0.1 : 0;
     const invTotal = inv + invGst;
+
     if (m.type==='monthly') {
-      const net=parseFloat(m.salary)||0, tax=parseFloat(m.tax)||0, sup=parseFloat(m.super)||0;
+      const net = parseFloat((entry||m).salary)||0;
+      const tax = parseFloat((entry||m).tax)||0;
+      const sup = parseFloat((entry||m).super)||0;
       return { net, tax, sup, inv, invGst, invTotal, total: net+invTotal };
     }
     if (m.type==='invoice') return { inv, invTotal:inv, total:inv };
@@ -2227,52 +2241,129 @@ function MgmtTab({ fbUrl, fA }) {
 }
 
 function MgmtMemberForm({ member, onSave, onClose }) {
-  const [form, setForm] = React.useState({name:'',role:'',type:'monthly',salary:'',tax:'',super:'',invoiceAmount:'',invoiceGst:false,...member});
-  const set = (k,v) => setForm(f=>({...f,[k]:v}));
+  const today0 = new Date().toISOString().split('T')[0];
+  const initHistory = () => {
+    const existing = Array.isArray(member?.history) ? member.history
+      : Object.values(member?.history||{});
+    if (existing.length > 0) return existing;
+    // 기존 멤버 데이터로 최초 이력 생성
+    if (member) return [{
+      from: '2026-04-13',
+      salary: member.salary||'', tax: member.tax||'', super: member.super||'',
+      invoiceAmount: member.invoiceAmount||'', invoiceGst: !!member.invoiceGst
+    }];
+    return [{ from: today0, salary:'', tax:'', super:'', invoiceAmount:'', invoiceGst:false }];
+  };
+
+  const [name, setName] = React.useState(member?.name||'');
+  const [role, setRole] = React.useState(member?.role||'');
+  const [type, setType] = React.useState(member?.type||'monthly');
+  const [history, setHistory] = React.useState(initHistory);
+  const sortedHist = [...history].sort((a,b)=>b.from.localeCompare(a.from));
+
+  const setH = (i, k, v) => {
+    const sorted = [...history].sort((a,b)=>b.from.localeCompare(a.from));
+    const target = sorted[i];
+    setHistory(h => h.map(x => x===target ? {...x,[k]:v} : x));
+  };
+  const addHistory = () => setHistory(h => [...h, {
+    from: today0,
+    salary: sortedHist[0]?.salary||'', tax: sortedHist[0]?.tax||'',
+    super: sortedHist[0]?.super||'', invoiceAmount: sortedHist[0]?.invoiceAmount||'',
+    invoiceGst: !!sortedHist[0]?.invoiceGst
+  }]);
+  const delHistory = (i) => {
+    if (history.length <= 1) return alert('최소 1개 이력이 필요해요');
+    const sorted = [...history].sort((a,b)=>b.from.localeCompare(a.from));
+    const target = sorted[i];
+    setHistory(h => h.filter(x => x!==target));
+  };
+
   const IS = {width:'100%',padding:'10px 12px',border:'1.5px solid #E5E8F5',borderRadius:9,fontSize:14,fontFamily:'inherit',background:'#fff',color:'#111827',outline:'none'};
+  const IS_SM = {width:'100%',padding:'8px 10px',border:'1.5px solid #E5E8F5',borderRadius:8,fontSize:13,fontFamily:'inherit',background:'#fff',color:'#111827',outline:'none'};
   const LB = {display:'block',fontSize:11,fontWeight:700,color:'#6B7280',marginBottom:4,textTransform:'uppercase',letterSpacing:0.5};
+
   return (
     <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.4)',zIndex:200,display:'flex',alignItems:'flex-end',justifyContent:'center',backdropFilter:'blur(2px)'}}>
-      <div style={{background:'#fff',borderRadius:'20px 20px 0 0',width:'100%',maxWidth:600,maxHeight:'90vh',overflowY:'auto',padding:'22px 20px',boxShadow:'0 -4px 30px rgba(79,70,229,0.12)'}}>
+      <div style={{background:'#fff',borderRadius:'20px 20px 0 0',width:'100%',maxWidth:600,maxHeight:'92vh',overflowY:'auto',padding:'22px 20px',boxShadow:'0 -4px 30px rgba(79,70,229,0.12)'}}>
         <div style={{display:'flex',justifyContent:'space-between',marginBottom:20}}>
           <h3 style={{fontSize:17,fontWeight:800,color:'#111827'}}>{member?'멤버 수정':'멤버 추가'}</h3>
           <button onClick={onClose} style={{background:'none',border:'none',fontSize:22,cursor:'pointer',color:'#9CA3AF'}}>×</button>
         </div>
+
+        {/* 기본 정보 */}
         <div style={{display:'flex',gap:10,marginBottom:14}}>
-          <div style={{flex:1}}><label style={LB}>이름</label><input value={form.name} onChange={e=>set('name',e.target.value)} style={IS} placeholder="이름"/></div>
-          <div style={{flex:1}}><label style={LB}>역할</label><input value={form.role} onChange={e=>set('role',e.target.value)} style={IS} placeholder="CEO, CFO..."/></div>
+          <div style={{flex:1}}><label style={LB}>이름</label><input value={name} onChange={e=>setName(e.target.value)} style={IS} placeholder="이름"/></div>
+          <div style={{flex:1}}><label style={LB}>역할</label><input value={role} onChange={e=>setRole(e.target.value)} style={IS} placeholder="CEO, CFO..."/></div>
         </div>
-        <div style={{marginBottom:14}}>
+        <div style={{marginBottom:16}}>
           <label style={LB}>급여 유형</label>
-          <select value={form.type} onChange={e=>set('type',e.target.value)} style={IS}>
+          <select value={type} onChange={e=>setType(e.target.value)} style={IS}>
             <option value="monthly">월급 (Net Pay 직접 입력)</option>
             <option value="invoice">인보이스 (GST 없음)</option>
             <option value="invoice_gst">인보이스 + GST 10%</option>
           </select>
         </div>
-        {form.type==='monthly' && (<>
-          <div style={{marginBottom:14}}><label style={LB}>포트나잇 Net Pay (2주, AUD)</label><input type="number" value={form.salary} onChange={e=>set('salary',e.target.value)} style={IS} placeholder="0.00"/></div>
-          <div style={{display:'flex',gap:10,marginBottom:14}}>
-            <div style={{flex:1}}><label style={LB}>Tax (2주)</label><input type="number" value={form.tax||''} onChange={e=>set('tax',e.target.value)} style={IS} placeholder="0.00"/></div>
-            <div style={{flex:1}}><label style={LB}>Super (2주)</label><input type="number" value={form.super||''} onChange={e=>set('super',e.target.value)} style={IS} placeholder="0.00"/></div>
+
+        {/* 금액 이력 */}
+        <div style={{marginBottom:16}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+            <label style={{...LB,margin:0}}>💰 금액 이력 (기간별 보존)</label>
+            <button onClick={addHistory}
+              style={{background:'#EEF2FF',color:'#4F46E5',border:'1px solid #C7D2FE',borderRadius:7,padding:'5px 12px',fontSize:12,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>
+              + 이력 추가
+            </button>
           </div>
-          <div style={{marginBottom:8}}><label style={LB}>인보이스 별도 금액 (선택)</label><input type="number" value={form.invoiceAmount} onChange={e=>set('invoiceAmount',e.target.value)} style={IS} placeholder="0.00"/></div>
-          <label style={{display:'flex',alignItems:'center',gap:8,fontSize:13,color:'#374151',marginBottom:18,cursor:'pointer',padding:'10px 12px',background:'#FFFBEB',borderRadius:9,border:'1px solid #FDE68A'}}>
-            <input type="checkbox" checked={!!form.invoiceGst} onChange={e=>set('invoiceGst',e.target.checked)} style={{accentColor:'#D97706',width:16,height:16}}/>
-            🧾 인보이스에 GST 10% 추가
-          </label>
-        </>)}
-        {(form.type==='invoice'||form.type==='invoice_gst') && (
-          <div style={{marginBottom:18}}>
-            <label style={LB}>인보이스 기본 금액{form.type==='invoice_gst'?' (GST 별도)':' (GST 없음)'}</label>
-            <input type="number" value={form.invoiceAmount} onChange={e=>set('invoiceAmount',e.target.value)} style={IS} placeholder="0.00"/>
-            <p style={{margin:'5px 0 0',fontSize:11,color:'#9CA3AF'}}>공제는 "날짜별 공제 설정"에서 카일+사라 공동으로 관리해요</p>
-          </div>
-        )}
+          <p style={{margin:'0 0 10px',fontSize:11,color:'#9CA3AF'}}>적용 시작일 이후 기간은 해당 금액으로 표시돼요</p>
+
+          {sortedHist.map((h,i) => (
+            <div key={i} style={{background:i===0?'#F0F4FF':'#F9FAFB',borderRadius:12,padding:'12px 14px',marginBottom:8,border:`1.5px solid ${i===0?'#C7D2FE':'#E5E8F5'}`}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+                <div style={{display:'flex',alignItems:'center',gap:8}}>
+                  <span style={{fontSize:10,fontWeight:700,color:i===0?'#4F46E5':'#9CA3AF',textTransform:'uppercase'}}>
+                    {i===0?'✅ 최신':'이전'} · 적용 시작일
+                  </span>
+                  <input type="date" value={h.from} onChange={e=>setH(i,'from',e.target.value)}
+                    style={{...IS_SM,width:'auto',flex:'none'}}/>
+                </div>
+                {history.length>1&&<button onClick={()=>delHistory(i)}
+                  style={{background:'none',border:'none',color:'#FCA5A5',fontSize:16,cursor:'pointer'}}>×</button>}
+              </div>
+
+              {type==='monthly' && (<>
+                <div style={{display:'flex',gap:8,marginBottom:8}}>
+                  <div style={{flex:1}}><p style={{margin:'0 0 3px',fontSize:10,color:'#6B7280',fontWeight:600}}>Net Pay (2주)</p><input type="number" value={h.salary} onChange={e=>setH(i,'salary',e.target.value)} style={IS_SM} placeholder="0.00"/></div>
+                  <div style={{flex:1}}><p style={{margin:'0 0 3px',fontSize:10,color:'#6B7280',fontWeight:600}}>Tax (2주)</p><input type="number" value={h.tax||''} onChange={e=>setH(i,'tax',e.target.value)} style={IS_SM} placeholder="0.00"/></div>
+                  <div style={{flex:1}}><p style={{margin:'0 0 3px',fontSize:10,color:'#6B7280',fontWeight:600}}>Super (2주)</p><input type="number" value={h.super||''} onChange={e=>setH(i,'super',e.target.value)} style={IS_SM} placeholder="0.00"/></div>
+                </div>
+                <div style={{display:'flex',gap:8,alignItems:'flex-end'}}>
+                  <div style={{flex:1}}><p style={{margin:'0 0 3px',fontSize:10,color:'#6B7280',fontWeight:600}}>인보이스 별도 (선택)</p><input type="number" value={h.invoiceAmount||''} onChange={e=>setH(i,'invoiceAmount',e.target.value)} style={IS_SM} placeholder="0.00"/></div>
+                  <label style={{display:'flex',alignItems:'center',gap:6,fontSize:12,cursor:'pointer',paddingBottom:2}}>
+                    <input type="checkbox" checked={!!h.invoiceGst} onChange={e=>setH(i,'invoiceGst',e.target.checked)} style={{accentColor:'#D97706',width:14,height:14}}/>
+                    GST +10%
+                  </label>
+                </div>
+              </>)}
+              {(type==='invoice'||type==='invoice_gst') && (
+                <div><p style={{margin:'0 0 3px',fontSize:10,color:'#6B7280',fontWeight:600}}>인보이스 금액</p><input type="number" value={h.invoiceAmount||''} onChange={e=>setH(i,'invoiceAmount',e.target.value)} style={IS_SM} placeholder="0.00"/></div>
+              )}
+            </div>
+          ))}
+        </div>
+
         <div style={{display:'flex',gap:10}}>
           <button onClick={onClose} style={{flex:1,background:'#F3F4F6',color:'#374151',border:'none',borderRadius:10,padding:12,fontSize:14,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>취소</button>
-          <button onClick={()=>{if(!form.name)return alert('이름을 입력하세요');onSave(form);}}
-            style={{flex:2,background:'#4F46E5',color:'#fff',border:'none',borderRadius:10,padding:12,fontSize:14,fontWeight:700,cursor:'pointer',fontFamily:'inherit',boxShadow:'0 2px 8px rgba(79,70,229,0.25)'}}>
+          <button onClick={()=>{
+            if(!name) return alert('이름을 입력하세요');
+            if(history.length===0) return alert('금액 이력이 필요해요');
+            const latest = [...history].sort((a,b)=>b.from.localeCompare(a.from))[0];
+            onSave({
+              ...(member||{}), name, role, type, history,
+              // 하위 호환용 현재 값
+              salary: latest.salary, tax: latest.tax, super: latest.super,
+              invoiceAmount: latest.invoiceAmount, invoiceGst: latest.invoiceGst
+            });
+          }} style={{flex:2,background:'#4F46E5',color:'#fff',border:'none',borderRadius:10,padding:12,fontSize:14,fontWeight:700,cursor:'pointer',fontFamily:'inherit',boxShadow:'0 2px 8px rgba(79,70,229,0.25)'}}>
             💾 저장
           </button>
         </div>
