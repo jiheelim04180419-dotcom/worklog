@@ -360,6 +360,22 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
     const w = calcWage(userId);
     if (!w) return;
     const lv = leaves[userId] || {};
+    // 로컬 공제항목이 있으면 Firebase savedDeductions에 저장
+    if (deductions && deductions.length > 0) {
+      const validDeds = deductions.filter(d => d.desc && parseFloat(d.amount) > 0);
+      if (validDeds.length > 0) {
+        const existing = Array.isArray(lv.savedDeductions) ? lv.savedDeductions : Object.values(lv.savedDeductions||{});
+        const newEntries = validDeds.map(d => ({
+          id: Date.now() + Math.random(),
+          date: wpStart,
+          desc: d.desc,
+          amount: parseFloat(d.amount)
+        }));
+        const updatedDeds = [...existing, ...newEntries];
+        // 먼저 savedDeductions 저장
+        persist(null, null, {...leaves, [userId]: {...lv, savedDeductions: updatedDeds}});
+      }
+    }
     // 변동분 계산
     const savedDedTotal = getSavedDeductions(userId).reduce((s,d) => s + (parseFloat(d.amount)||0), 0);
     const allDeductionsTotal = totalDeductions + savedDedTotal;
