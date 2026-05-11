@@ -135,8 +135,12 @@ body{background:#F0F4FF;color:#111827;min-height:100vh}
     <button onclick="closeBM()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#9CA3AF">×</button>
   </div>
   <div class="mb"><label class="label">빌더명 *</label><input class="input" id="bf-n" placeholder="빌더명"/></div>
-  <div class="mb"><label class="label">연락처</label><input class="input" id="bf-c" placeholder="연락처"/></div>
-  <div class="mb"><label class="label">이메일</label><input class="input" id="bf-e" placeholder="이메일"/></div>
+  <div class="mb"><label class="label">담당자 (Note)</label><input class="input" id="bf-cp" placeholder="담당자명"/></div>
+  <div class="mb"><label class="label">연락처</label><input class="input" id="bf-c" placeholder="전화번호"/></div>
+  <div class="mb"><label class="label">이메일</label><input class="input" id="bf-e" placeholder="contact@example.com"/></div>
+  <div class="mb"><label class="label">📧 인보이스 이메일</label><input class="input" id="bf-ie" placeholder="invoice@example.com"/></div>
+  <div class="mb"><label class="label">Business Address</label><input class="input" id="bf-ba" placeholder="사업장 주소"/></div>
+  <div class="mb"><label class="label">Postal Address</label><input class="input" id="bf-pa" placeholder="우편 주소"/></div>
   <div class="mb"><label class="label">ABN</label><input class="input" id="bf-a" placeholder="ABN"/></div>
   <div class="row2" style="gap:10px"><button class="btn-secondary" style="flex:1" onclick="closeBM()">취소</button><button class="btn-primary" style="flex:2" onclick="saveBuilder()">💾 저장</button></div>
 </div>
@@ -376,22 +380,32 @@ async function delInv(id) {
 
 // ── Builders ──────────────────────────────────────────────────────────────────
 function renderBuilders() {
-  let h = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+  let h = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:8px;flex-wrap:wrap">
     <div style="font-size:15px;font-weight:800;color:#111827">빌더 목록 (${builders.length})</div>
-    <button class="btn-gold" onclick="openBM(null)">+ 빌더추가</button>
+    <div style="display:flex;gap:6px">
+      <button class="btn-secondary" style="padding:6px 10px;font-size:12px" onclick="importBuilders()" title="K&M 빌더 60개 일괄 가져오기">📥 가져오기</button>
+      <button class="btn-gold" onclick="openBM(null)">+ 빌더추가</button>
+    </div>
   </div>`;
   if (!builders.length) {
-    h += `<div class="empty"><div style="font-size:44px;margin-bottom:10px">🏗️</div><p style="font-size:14px">빌더를 추가해보세요</p></div>`;
+    h += `<div class="empty"><div style="font-size:44px;margin-bottom:10px">🏗️</div><p style="font-size:14px;margin-bottom:14px">빌더를 추가해보세요</p>
+      <button class="btn-primary" style="padding:10px 18px" onclick="importBuilders()">📥 K&M 빌더 60개 가져오기</button>
+    </div>`;
   } else {
-    builders.forEach(b => {
+    // sort alphabetically
+    const sorted = [...builders].sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+    sorted.forEach(b => {
       const bi = invoices.filter(i=>i.builderName===b.name);
       const out = bi.filter(i=>i.status==='INVOICE'||i.status==='OVERDUE').reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
-      h += `<div class="card" onclick="openBM('${b.id}')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center">
-        <div>
+      const emailToShow = b.invoiceEmail || b.email || '';
+      h += `<div class="card" onclick="openBM('${b.id}')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+        <div style="min-width:0;flex:1">
           <div style="font-size:14px;font-weight:700;color:#111827;margin-bottom:2px">${esc(b.name)}</div>
-          ${b.contact?`<div style="font-size:12px;color:#6B7280">📞 ${esc(b.contact)}</div>`:''}
+          ${b.contactPerson?`<div style="font-size:12px;color:#6B7280">👤 ${esc(b.contactPerson)}</div>`:''}
+          ${emailToShow?`<div style="font-size:11px;color:#9CA3AF;margin-top:2px;word-break:break-all">📧 ${esc(emailToShow)}</div>`:''}
+          ${b.contact?`<div style="font-size:11px;color:#9CA3AF">📞 ${esc(b.contact)}</div>`:''}
         </div>
-        <div style="text-align:right">
+        <div style="text-align:right;flex-shrink:0">
           <div style="font-size:13px;font-weight:700;color:${out>0?'#DC2626':'#059669'}">${out>0?fA(out):'✅ 완납'}</div>
           <div style="font-size:11px;color:#9CA3AF">${bi.length}건</div>
         </div>
@@ -399,6 +413,97 @@ function renderBuilders() {
     });
   }
   document.getElementById('tab-builders').innerHTML = h;
+}
+
+// ── Builder Bulk Import (K&M Tiling builder list) ─────────────────────────────
+const BUILDER_SEED = [
+  {name:"1412 Building Co", email:"nick@1412carpentry.com.au", invoiceEmail:"nick@1412carpentry.com.au", contactPerson:"Nick Hart"},
+  {name:"AB Build", email:"aaron@abbuildbathurst.com.au", invoiceEmail:"aaron@abbuildbathurst.com.au", contactPerson:"Aaron Baker"},
+  {name:"AKAY BUILDING GROUP", email:"kurt.swift@akaybuildinggroup.com.au", invoiceEmail:"kurt.swift@akaybuildinggroup.com.au"},
+  {name:"AKURA", email:"accountspayable@akura.com.au", invoiceEmail:"accountspayable@akura.com.au"},
+  {name:"Andy Adams Constructions", email:"adamscon13@gmail.com", invoiceEmail:"adamscon13@gmail.com"},
+  {name:"Avason", email:"admin@avasonhomes.com.au", invoiceEmail:"admin@avasonhomes.com.au", contactPerson:"Stuart"},
+  {name:"Bathurst Building Solutions", businessAddress:"1561 Mutton Falls Road, O'Connell NSW 2795", postalAddress:"PO Box 51 Bathurst, NSW 2795", email:"bbs2795@outlook.com", invoiceEmail:"bbs2795@outlook.com", contactPerson:"Kyle James, Karen James"},
+  {name:"Bespoke", email:"Bryce@bespoke-building.com", invoiceEmail:"admin@bespoke-building.com", contactPerson:"Bryce"},
+  {name:"Bowood", email:"Info@bowoodconstructions.com.au", invoiceEmail:"Info@bowoodconstructions.com.au"},
+  {name:"Cabonne Constructions", businessAddress:"Lv 1, 200 Summer Street, Orange NSW 2800", email:"Admin@cabonneconstructions.com.au", invoiceEmail:"Admin@cabonneconstructions.com.au"},
+  {name:"Campbell", email:"campbellconstructionrenovation@gmail.com", invoiceEmail:"campbellconstructionrenovation@gmail.com"},
+  {name:"Carters Carpentry Contracting", email:"carterscarpentrycontracting@outlook.com", invoiceEmail:"carterscarpentrycontracting@outlook.com"},
+  {name:"Cavalier Homes", email:"angus.thomson@cavalierhomes.com.au", invoiceEmail:"angus.thomson@cavalierhomes.com.au"},
+  {name:"Chandolin", email:"accounts@chandolinconstruction.com", invoiceEmail:"accounts@chandolinconstruction.com"},
+  {name:"CJD Constructions", email:"admin@cjdcc.com.au", invoiceEmail:"admin@cjdcc.com.au"},
+  {name:"DSL Construction", email:"admin@dslconstruction.com.au", invoiceEmail:"admin@dslconstruction.com.au", contactPerson:"Daniel, David, Wes, Skye"},
+  {name:"Dunstan", email:"cameron@dunstanconstructions.com.au", invoiceEmail:"cameron@dunstanconstructions.com.au", contactPerson:"Cameron"},
+  {name:"ELS", email:"eamon@elsprojects.com.au", invoiceEmail:"eamon@elsprojects.com.au"},
+  {name:"EPSS", businessAddress:"2 Pat O'leary Drive, Bathurst, New South Wales 2795", email:"info@epssb.com.au", invoiceEmail:"info@epssb.com.au"},
+  {name:"Gratitude", email:"miles@gratcon.com.au", invoiceEmail:"admin@gratcon.com.au", contactPerson:"Kate, Miles"},
+  {name:"Greenwich Build", email:"invoice@greenwichbuild.com.au", invoiceEmail:"invoice@greenwichbuild.com.au"},
+  {name:"Hart Homes", email:"vicki@harthomes.com.au", invoiceEmail:"vicki@harthomes.com.au", contactPerson:"Adam Hart"},
+  {name:"Hibbards", email:"invoices@hibbards.com.au", invoiceEmail:"invoices@hibbards.com.au"},
+  {name:"Hines", email:"admin@hinesconstruct.com.au", invoiceEmail:"admin@hinesconstruct.com.au"},
+  {name:"Honeywood Carpentry", email:"ash@honeywoodcarpentry.com.au", invoiceEmail:"ash@honeywoodcarpentry.com.au"},
+  {name:"Huscliffe Homes", email:"HussCliffe.homes@outlook.com", invoiceEmail:"HussCliffe.homes@outlook.com"},
+  {name:"JB Tiling", email:"jbonotiling@gmail.com", invoiceEmail:"jbonotiling@gmail.com", contactPerson:"John"},
+  {name:"JCB Carpentry & Building", email:"jcbcarpentryandbuilding@hotmail.com", invoiceEmail:"jcbcarpentryandbuilding@hotmail.com"},
+  {name:"JK Building", email:"mya1129@hotmail.com", invoiceEmail:"mya1129@hotmail.com"},
+  {name:"Joss", email:"fminvoices@jossgroup.com.au", invoiceEmail:"fminvoices@jossgroup.com.au, shaun.hildebrandt@jossgroup.com.au"},
+  {name:"Kensington", email:"adam@kensingtonbuilding.com.au", invoiceEmail:"adam@kensingtonbuilding.com.au"},
+  {name:"Maas", email:"accounts@maasgroup.com.au", invoiceEmail:"accounts@maasgroup.com.au"},
+  {name:"Maje Projects", email:"majeprojects@gmail.com", invoiceEmail:"majeprojects@gmail.com", contactPerson:"Jesse"},
+  {name:"Manor Properties", email:"rob.felli@manorproperties.com.au", invoiceEmail:"rob.felli@manorproperties.com.au", contactPerson:"Rob"},
+  {name:"Maxam & Co", email:"accounts@maxam.co", invoiceEmail:"accounts@maxam.co"},
+  {name:"MJK", email:"mjkconstructions@outlook.com", invoiceEmail:"mjkconstructions@outlook.com", contactPerson:"Mitchell"},
+  {name:"MK3", postalAddress:"PO Box 844, Baulkham Hills, NSW 1755", email:"Shaun.Fulton@mk3.com.au", invoiceEmail:"Shaun.Fulton@mk3.com.au"},
+  {name:"MPH Group", email:"peter@mphgroup.com.au", invoiceEmail:"accounts@mphgroup.com.au", contactPerson:"Peter, Jeffery"},
+  {name:"Muzz Build", email:"admin@muzzbuild.com", invoiceEmail:"admin@muzzbuild.com"},
+  {name:"Nick Harvey Constructions", email:"nhconstructions@live.com.au", invoiceEmail:"nhconstructions@live.com.au"},
+  {name:"North", email:"accounts@north.com.au", invoiceEmail:"accounts@north.com.au"},
+  {name:"Oakbank", email:"Oakbankconstructions@gmail.com", invoiceEmail:"Oakbankconstructions@gmail.com", contactPerson:"Murray Arnold"},
+  {name:"Ozkorp Construction", email:"info@ozkorp.com.au", invoiceEmail:"info@ozkorp.com.au"},
+  {name:"Partridge", email:"mitch@partridgebuilding.com", invoiceEmail:"mitch@partridgebuilding.com"},
+  {name:"Patterson", email:"Kurt.Davis@buildgrp.com", invoiceEmail:"Accounts@buildgrp.com", contactPerson:"Kurt CC - Forbes"},
+  {name:"PCB", email:"accounts@pcbuilding.com.au", invoiceEmail:"accounts@pcbuilding.com.au, hiral@pcbuilding.com.au", contactPerson:"with Work comp, sub statement"},
+  {name:"Qlinc", email:"accounts@qlinc.com.au", invoiceEmail:"accounts@qlinc.com.au"},
+  {name:"Renascent", email:"accounts@renascent.com.au", invoiceEmail:"accounts@renascent.com.au"},
+  {name:"Reno Build Australia", email:"info@renobuildaustralia.com.au", invoiceEmail:"info@renobuildaustralia.com.au", contactPerson:"Victor"},
+  {name:"River Park Constructions", email:"terry@riverparkconstructions.com", invoiceEmail:"terry@riverparkconstructions.com"},
+  {name:"Ross Clark", email:"ross@rossclarkconstructions.com.au", invoiceEmail:"ross@rossclarkconstructions.com.au", contactPerson:"Ross"},
+  {name:"Sched Developments", email:"adam@scheddevelopments.com.au", invoiceEmail:"adam@scheddevelopments.com.au"},
+  {name:"Schrimshaw Homes", email:"glenn@scrimshawhomes.com.au", invoiceEmail:"glenn@scrimshawhomes.com.au", contactPerson:"Glenn"},
+  {name:"Structen", email:"accounts@structen.com.au", invoiceEmail:"accounts@structen.com.au"},
+  {name:"Structor", email:"accounts@structorprojects.com.au", invoiceEmail:"accounts@structorprojects.com.au"},
+  {name:"Structor (Bayden)", email:"bayden@structorprojects.com.au", invoiceEmail:"bayden@structorprojects.com.au"},
+  {name:"Structure Corp", email:"simon@structurecorp.com.au", invoiceEmail:"simon@structurecorp.com.au"},
+  {name:"Zauner", email:"accounts@zauner.com.au", invoiceEmail:"accounts@zauner.com.au"}
+];
+
+async function importBuilders() {
+  const existing = new Set(builders.map(b=>(b.name||'').toLowerCase().trim()));
+  const toAdd = BUILDER_SEED.filter(b => !existing.has(b.name.toLowerCase().trim()));
+  if (!toAdd.length) {
+    alert('이미 모든 빌더가 등록되어 있어요 ✓');
+    return;
+  }
+  if (!confirm(`${toAdd.length}개의 빌더를 추가할까요?\n(이미 등록된 빌더는 건너뛰어요)`)) return;
+  
+  // disable button-ish; show progress via alert at end
+  let added = 0, failed = 0;
+  for (const b of toAdd) {
+    const data = {
+      name: b.name,
+      contactPerson: b.contactPerson || '',
+      contact: '',
+      email: b.email || '',
+      invoiceEmail: b.invoiceEmail || '',
+      businessAddress: b.businessAddress || '',
+      postalAddress: b.postalAddress || '',
+      abn: ''
+    };
+    const id = await fbPush('invoiceBuilders', data);
+    if (id) added++; else failed++;
+  }
+  await loadAll();
+  alert(`✅ ${added}개 추가 완료${failed?` (실패 ${failed}개)`:''}`);
 }
 
 function renderDL() {
@@ -410,8 +515,12 @@ function openBM(id) {
   const b = id ? builders.find(b=>b.id===id) : null;
   document.getElementById('bm-title').textContent = b ? '빌더 수정' : '새 빌더';
   document.getElementById('bf-n').value = b?.name||'';
+  document.getElementById('bf-cp').value = b?.contactPerson||'';
   document.getElementById('bf-c').value = b?.contact||'';
   document.getElementById('bf-e').value = b?.email||'';
+  document.getElementById('bf-ie').value = b?.invoiceEmail||'';
+  document.getElementById('bf-ba').value = b?.businessAddress||'';
+  document.getElementById('bf-pa').value = b?.postalAddress||'';
   document.getElementById('bf-a').value = b?.abn||'';
   document.getElementById('b-modal').classList.add('open');
 }
@@ -420,7 +529,16 @@ function closeBM() { document.getElementById('b-modal').classList.remove('open')
 async function saveBuilder() {
   const n = document.getElementById('bf-n').value.trim();
   if (!n) return alert('빌더명을 입력하세요');
-  const data = { name:n, contact:document.getElementById('bf-c').value, email:document.getElementById('bf-e').value, abn:document.getElementById('bf-a').value };
+  const data = {
+    name: n,
+    contactPerson: document.getElementById('bf-cp').value,
+    contact: document.getElementById('bf-c').value,
+    email: document.getElementById('bf-e').value,
+    invoiceEmail: document.getElementById('bf-ie').value,
+    businessAddress: document.getElementById('bf-ba').value,
+    postalAddress: document.getElementById('bf-pa').value,
+    abn: document.getElementById('bf-a').value
+  };
   if (editBId) await fbSet('invoiceBuilders/'+editBId, data);
   else await fbPush('invoiceBuilders', data);
   closeBM();
