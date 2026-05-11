@@ -448,14 +448,15 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
     const newLeaves = {...leaves};
     entries.forEach(({userId, entry}) => {
       const lv = newLeaves[userId] || {};
-      newLeaves[userId] = {...lv, savedDeductions: [...(lv.savedDeductions||[]), entry]};
+      newLeaves[userId] = {...lv, savedDeductions: [...(Array.isArray(lv.savedDeductions)?lv.savedDeductions:Object.values(lv.savedDeductions||{})), entry]};
     });
     persist(null, null, newLeaves);
   };
   const addSavedDeduction = (userId, entry) => addSavedDeductions([{userId, entry}]);
   const removeSavedDeduction = (userId, id) => {
     const lv = leaves[userId] || {};
-    const all = (lv.savedDeductions || []).filter(d => d.id !== id);
+    const allDeds = Array.isArray(lv.savedDeductions)?lv.savedDeductions:Object.values(lv.savedDeductions||{});
+    const all = allDeds.filter(d => d.id !== id);
     persist(null, null, {...leaves, [userId]: {...lv, savedDeductions: all}});
   };
 
