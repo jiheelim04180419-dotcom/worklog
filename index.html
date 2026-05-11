@@ -2169,7 +2169,7 @@ function SummarySection({users, leaves, periodStart, calcWage, getSavedDeduction
             {splitPay0 ? (
               <div style={{ textAlign:"center" }}>
                 <p style={{ margin:0,fontSize:11,fontWeight:700,color:"#10B981" }}>💵 {fA(splitCash)}</p>
-                <p style={{ margin:0,fontSize:11,fontWeight:700,color:"#3B82F6" }}>🧾 {fA(splitAbn+splitGst)}</p>
+                <p style={{ margin:0,fontSize:11,fontWeight:700,color:"#3B82F6" }}>🧾 {fA(splitAbnBase+splitGst)}</p>
               </div>
             ) : fmt(netPay,"#10B981")}
             {splitPay0 ? <p style={{ margin:0,fontSize:12,color:"#aaa",textAlign:"center" }}>—</p> : fmt(taxAmt,"#EF4444")}
