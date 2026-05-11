@@ -1631,7 +1631,46 @@ function SummarySection({users, leaves, periodStart, calcWage, getSavedDeduction
           <p key={h} style={{ margin:0,fontSize:10,fontWeight:700,color:"#888",textAlign:"center" }}>{h}</p>
         ))}
       </div>
-      {activeEmps.map((emp,ei) => {
+      {/* 정산 미완료 직원 표시 */}
+      {activeEmps.filter(emp => {
+        const hist = (leaves[emp.id]||{}).keepBalanceHistory || [];
+        const settled = Array.isArray(hist) ? hist : Object.values(hist);
+        return !settled.find(h => h.periodStart === periodStart);
+      }).length > 0 && (
+        <div style={{ background:"#FEF9C3",border:"1px solid #FDE047",borderRadius:10,padding:"10px 12px",marginBottom:12 }}>
+          <p style={{ margin:"0 0 6px",fontSize:12,fontWeight:700,color:"#854D0E" }}>⚠️ 정산 미완료</p>
+          <div style={{ display:"flex",flexWrap:"wrap",gap:6 }}>
+            {activeEmps.filter(emp => {
+              const hist = (leaves[emp.id]||{}).keepBalanceHistory || [];
+              const settled = Array.isArray(hist) ? hist : Object.values(hist);
+              return !settled.find(h => h.periodStart === periodStart);
+            }).map(emp => (
+              <span key={emp.id} onClick={()=>{ setSelId(emp.id); setSubView("calc"); }}
+                style={{ background:"#FEF08A",color:"#713F12",borderRadius:6,padding:"3px 8px",fontSize:12,fontWeight:600,cursor:"pointer" }}>
+                {emp.name}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 정산 완료 직원만 표시 */}
+      {activeEmps.filter(emp => {
+        const hist = (leaves[emp.id]||{}).keepBalanceHistory || [];
+        const settled = Array.isArray(hist) ? hist : Object.values(hist);
+        return !!settled.find(h => h.periodStart === periodStart);
+      }).length === 0 && (
+        <div style={{ textAlign:"center",padding:"20px 0",color:"#aaa" }}>
+          <p style={{ margin:0,fontSize:13 }}>정산 완료한 직원이 없어요</p>
+          <p style={{ margin:"4px 0 0",fontSize:11 }}>각 직원 급여탭에서 정산 완료 버튼을 눌러주세요</p>
+        </div>
+      )}
+
+      {activeEmps.filter(emp => {
+        const hist = (leaves[emp.id]||{}).keepBalanceHistory || [];
+        const settled = Array.isArray(hist) ? hist : Object.values(hist);
+        return !!settled.find(h => h.periodStart === periodStart);
+      }).map((emp,ei) => {
         const lv = leaves[emp.id] || {};
         const w = calcWage(emp.id);
         // 기간별 킵잔액 (정산 전 시작잔액 + 당기입금)
@@ -1672,11 +1711,16 @@ function SummarySection({users, leaves, periodStart, calcWage, getSavedDeduction
         );
       })}
       {/* 합계 행 */}
-      {activeEmps.length > 0 && (() => {
-        const totNet   = activeEmps.reduce((s,u)=>{const w2=calcWage(u.id);const lv2=leaves[u.id]||{};return s+(w2&&w2.isContractor&&!w2.hasFlatPay?(parseFloat(w2.gross)||0):(parseFloat(lv2.fixedNet)||0));},0);
-        const totTax   = activeEmps.reduce((s,u)=>{const w2=calcWage(u.id);const lv2=leaves[u.id]||{};return s+(w2&&w2.isContractor&&!w2.hasFlatPay?0:(parseFloat(lv2.fixedTax)||0));},0);
-        const totSuper = activeEmps.reduce((s,u)=>s+(parseFloat((leaves[u.id]||{}).fixedSuper)||0),0);
-        const totKeep  = activeEmps.reduce((s,u,ei) => {
+      {activeEmps.filter(emp => {
+        const hist = (leaves[emp.id]||{}).keepBalanceHistory || [];
+        const settled = Array.isArray(hist) ? hist : Object.values(hist);
+        return !!settled.find(h => h.periodStart === periodStart);
+      }).length > 0 && (() => {
+        const settledEmps = activeEmps.filter(u => { const hist=(leaves[u.id]||{}).keepBalanceHistory||[]; const s=Array.isArray(hist)?hist:Object.values(hist); return !!s.find(h=>h.periodStart===periodStart); });
+        const totNet   = settledEmps.reduce((s,u)=>{const w2=calcWage(u.id);const lv2=leaves[u.id]||{};return s+(w2&&w2.isContractor&&!w2.hasFlatPay?(parseFloat(w2.gross)||0):(parseFloat(lv2.fixedNet)||0));},0);
+        const totTax   = settledEmps.reduce((s,u)=>{const w2=calcWage(u.id);const lv2=leaves[u.id]||{};return s+(w2&&w2.isContractor&&!w2.hasFlatPay?0:(parseFloat(lv2.fixedTax)||0));},0);
+        const totSuper = settledEmps.reduce((s,u)=>s+(parseFloat((leaves[u.id]||{}).fixedSuper)||0),0);
+        const totKeep  = settledEmps.reduce((s,u,ei) => {
           const lv = leaves[u.id]||{};
           const keep = getKeepBalanceAtPeriod(u.id, periodStart) + getPeriodDeposits(u.id, periodStart);
           const sd2 = getSavedDeductions(u.id).reduce((s,d)=>s+(parseFloat(d.amount)||0),0);
