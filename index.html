@@ -2292,33 +2292,7 @@ function SummarySection({users, leaves, periodStart, calcWage, getSavedDeduction
   const [jResult, setJResult] = React.useState(null);
   const [editJConfig, setEditJConfig] = React.useState(false);
 
-  // 기간에 20일/27일 포함 여부
-  const periodHas20 = periodStart && wpEnd && (() => {
-    const [sy,sm] = periodStart.split('-').map(Number);
-    const [ey,em] = wpEnd.split('-').map(Number);
-    // 같은달이면 20일이 포함되는지
-    for (let y=sy, m=sm; y<ey||(y===ey&&m<=em); ) {
-      const d20 = `${y}-${String(m).padStart(2,'0')}-20`;
-      if (d20 >= periodStart && d20 <= wpEnd) return true;
-      m++; if(m>12){m=1;y++;}
-    }
-    return false;
-  })();
 
-  const periodHas27 = periodStart && wpEnd && (() => {
-    const [sy,sm] = periodStart.split('-').map(Number);
-    const [ey,em] = wpEnd.split('-').map(Number);
-    for (let y=sy, m=sm; y<ey||(y===ey&&m<=em); ) {
-      const d27 = `${y}-${String(m).padStart(2,'0')}-27`;
-      if (d27 >= periodStart && d27 <= wpEnd) return true;
-      m++; if(m>12){m=1;y++;}
-    }
-    return false;
-  })();
-
-  // 카일/사라 ID 찾기 (이름 기반)
-  const kyleUser = users.find(u => u.name && (u.name.includes('카일') || u.name.toLowerCase().includes('kyle')));
-  const saraUser = users.find(u => u.name && (u.name.includes('사라') || u.name.toLowerCase().includes('sara')));
 
   const calcJoint = () => {
     const total = parseFloat(jConfig.total) || 0;
