@@ -731,6 +731,29 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
             {/* Gross breakdown */}
           </>)}
 
+          {/* 인보이스 직원 정산 확인 버튼 - 블록 밖에서 별도 표시 */}
+          {isSuperAdmin && wage && wage.isContractor && !wage.hasFlatPay && (() => {
+            const lv0 = leaves[selId]||{};
+            const hist0 = Array.isArray(lv0.keepBalanceHistory)?lv0.keepBalanceHistory:Object.values(lv0.keepBalanceHistory||{});
+            const isSettled0 = !!hist0.find(h=>h.periodStart===periodStart);
+            return isSettled0 ? (
+              <div style={{ margin:"12px 0",textAlign:"center",color:"#10B981",fontSize:13,fontWeight:700,background:"#F0FDF4",border:"1px solid #BBF7D0",borderRadius:10,padding:"10px 12px" }}>
+                ✅ 이 기간 정산 확인 완료
+                <button onClick={()=>{
+                  const newHist=[...hist0.filter(h=>h.periodStart!==periodStart)];
+                  persist(null,null,{...leaves,[selId]:{...lv0,keepBalanceHistory:newHist}});
+                }} style={{ marginLeft:8,fontSize:11,color:"#888",background:"none",border:"none",cursor:"pointer",fontFamily:"inherit" }}>취소</button>
+              </div>
+            ) : (
+              <button onClick={()=>{
+                const newHist=[...hist0,{periodStart,balance:0,isContractor:true,savedAt:new Date().toISOString()}];
+                persist(null,null,{...leaves,[selId]:{...lv0,keepBalanceHistory:newHist}});
+              }} style={{ width:"100%",background:"#0F766E",color:"#fff",border:"none",borderRadius:12,padding:13,fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit",margin:"12px 0",display:"block" }}>
+                ✅ 이 기간 정산 확인
+              </button>
+            );
+          })()}
+
           {/* ── 디덕션 섹션 ── (인보이스 포함 항상 표시) */}
           {selId && (<>
             <div style={{ background:"#fff",borderRadius:14,padding:"14px 16px",marginBottom:10,boxShadow:"0 1px 4px #0000000a" }}>
@@ -759,6 +782,27 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                     style={{ background:"#FEF2F2",border:"1px solid #FECACA",borderRadius:8,cursor:"pointer",color:"#EF4444",fontSize:16,width:32,height:32,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontFamily:"inherit" }}>×</button>}
                 </div>
               ))}
+              {/* 로컬 공제항목 저장 버튼 */}
+              {isSuperAdmin && deductions.filter(d=>d.desc&&parseFloat(d.amount)>0).length > 0 && (
+                <button onClick={() => {
+                  const validDeds = deductions.filter(d => d.desc && parseFloat(d.amount) > 0);
+                  const lv0 = leaves[selId] || {};
+                  const existing = Array.isArray(lv0.savedDeductions) ? lv0.savedDeductions : Object.values(lv0.savedDeductions||{});
+                  const today0 = new Date().toISOString().split('T')[0];
+                  const newEntries = validDeds.map(d => ({
+                    id: Date.now() + Math.random(),
+                    date: wpStart,
+                    desc: d.desc,
+                    amount: parseFloat(d.amount)
+                  }));
+                  persist(null, null, {...leaves, [selId]: {...lv0, savedDeductions: [...existing, ...newEntries]}});
+                  setDeductions([]);
+                  alert(`✅ 공제항목 ${validDeds.length}개 저장됐어요`);
+                }} style={{ width:"100%",background:"#FFF7ED",color:"#C2410C",border:"1.5px solid #FED7AA",borderRadius:8,padding:"8px 12px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",marginBottom:8 }}>
+                  💾 공제항목 저장 ({deductions.filter(d=>d.desc&&parseFloat(d.amount)>0).length}개)
+                </button>
+              )}
+
               {/* Firebase 저장 공제 항목 */}
               {getSavedDeductions(selId).map(d => (
                 <div key={d.id} style={{ display:"flex",gap:6,alignItems:"center",marginBottom:8,background:"#FFF7F7",borderRadius:8,padding:"6px 10px" }}>
@@ -957,31 +1001,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                           <p style={{ margin:"4px 0 0",fontSize:11,color:"#555" }}>변동분은 자동 반영 + 추가 조정 금액 (선택사항)</p>
                         </div>
                       )}
-                      {wage.isContractor && !wage.hasFlatPay ? (
-                        // 인보이스 직원 - 킵 없으므로 기간 확인만
-                        (() => {
-                          const lv0 = leaves[selId]||{};
-                          const hist0 = Array.isArray(lv0.keepBalanceHistory)?lv0.keepBalanceHistory:Object.values(lv0.keepBalanceHistory||{});
-                          const isSettled0 = !!hist0.find(h=>h.periodStart===periodStart);
-                          return isSettled0 ? (
-                            <div style={{ marginTop:12,textAlign:"center",color:"#10B981",fontSize:13,fontWeight:700 }}>
-                              ✅ 이 기간 정산 확인 완료
-                              <button onClick={()=>{
-                                const newHist=[...hist0.filter(h=>h.periodStart!==periodStart)];
-                                persist(null,null,{...leaves,[selId]:{...lv0,keepBalanceHistory:newHist}});
-                              }} style={{ marginLeft:8,fontSize:11,color:"#888",background:"none",border:"none",cursor:"pointer",fontFamily:"inherit" }}>취소</button>
-                            </div>
-                          ) : (
-                            <button onClick={()=>{
-                              const newHist=[...hist0,{periodStart,balance:0,isContractor:true,savedAt:new Date().toISOString()}];
-                              persist(null,null,{...leaves,[selId]:{...lv0,keepBalanceHistory:newHist}});
-                            }} style={{ width:"100%",background:"#0F766E",color:"#fff",border:"none",borderRadius:12,padding:13,fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit",marginTop:12 }}>
-                              ✅ 이 기간 정산 확인
-                            </button>
-                          );
-                        })()
-                      ) : (
-                        <button onClick={() => saveCarryover(selId)}
+                      <button onClick={() => saveCarryover(selId)}
                         style={{ width:"100%",background:"#111",color:"#fff",border:"none",borderRadius:12,padding:13,fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit",marginTop:12 }}>
                         💾 정산 완료 {(() => { const tot = skipVariable
               ? wage.keepBalance + (parseFloat(directKeep)||0)
