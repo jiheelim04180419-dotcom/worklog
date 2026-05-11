@@ -557,7 +557,8 @@ async function delInv(id) {
 function renderBuilders() {
   let h = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:8px;flex-wrap:wrap">
     <div style="font-size:15px;font-weight:800;color:#111827">빌더 목록 (${builders.length})</div>
-    <div style="display:flex;gap:6px">
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <button class="btn-secondary" style="padding:6px 10px;font-size:12px" onclick="dedupeBuilders()" title="같은 이름의 빌더 중복 제거">🧹 중복정리</button>
       <button class="btn-secondary" style="padding:6px 10px;font-size:12px" onclick="importBuilders()" title="K&M 빌더 60개 일괄 가져오기">📥 가져오기</button>
       <button class="btn-gold" onclick="openBM(null)">+ 빌더추가</button>
     </div>
@@ -654,8 +655,14 @@ const BUILDER_SEED = [
   {name:"Zauner", email:"accounts@zauner.com.au", invoiceEmail:"accounts@zauner.com.au"}
 ];
 
+let isImporting = false;
 async function importBuilders() {
-  const existing = new Set(builders.map(b=>(b.name||'').toLowerCase().trim()));
+  if (isImporting) { alert('이미 진행 중이에요. 잠시만 기다려주세요.'); return; }
+  
+  // re-fetch latest state from Firebase to avoid stale dedupe
+  const fresh = await fbGet('invoiceBuilders');
+  const freshBuilders = fresh ? Object.entries(fresh).map(([id,v])=>({...v,id})) : [];
+  const existing = new Set(freshBuilders.map(b=>(b.name||'').toLowerCase().trim()));
   const toAdd = BUILDER_SEED.filter(b => !existing.has(b.name.toLowerCase().trim()));
   if (!toAdd.length) {
     alert('이미 모든 빌더가 등록되어 있어요 ✓');
@@ -663,26 +670,128 @@ async function importBuilders() {
   }
   if (!confirm(`${toAdd.length}개의 빌더를 추가할까요?\n(이미 등록된 빌더는 건너뛰어요)`)) return;
   
-  // disable button-ish; show progress via alert at end
+  isImporting = true;
+  // show progress indicator
+  const btns = document.querySelectorAll('button[onclick*="importBuilders"]');
+  btns.forEach(b => { b.disabled = true; b.dataset.orig = b.textContent; b.textContent = '⏳ 가져오는중...'; });
+  
   let added = 0, failed = 0;
-  for (const b of toAdd) {
-    const data = {
-      name: b.name,
-      billingType: b.billingType || 'PER_JOB',
-      defaultCompany: b.defaultCompany || '',
-      contactPerson: b.contactPerson || '',
-      contact: '',
-      email: b.email || '',
-      invoiceEmail: b.invoiceEmail || '',
-      businessAddress: b.businessAddress || '',
-      postalAddress: b.postalAddress || '',
-      abn: ''
-    };
-    const id = await fbPush('invoiceBuilders', data);
-    if (id) added++; else failed++;
+  try {
+    for (const b of toAdd) {
+      const data = {
+        name: b.name,
+        billingType: b.billingType || 'PER_JOB',
+        defaultCompany: b.defaultCompany || '',
+        contactPerson: b.contactPerson || '',
+        contact: '',
+        email: b.email || '',
+        invoiceEmail: b.invoiceEmail || '',
+        businessAddress: b.businessAddress || '',
+        postalAddress: b.postalAddress || '',
+        abn: ''
+      };
+      const id = await fbPush('invoiceBuilders', data);
+      if (id) added++; else failed++;
+    }
+  } finally {
+    isImporting = false;
+    btns.forEach(b => { b.disabled = false; if (b.dataset.orig) b.textContent = b.dataset.orig; });
   }
   await loadAll();
   alert(`✅ ${added}개 추가 완료${failed?` (실패 ${failed}개)`:''}`);
+}
+
+// ── Dedupe Builders ──────────────────────────────────────────────────────────
+// Score by how much info is filled (non-empty fields), keep best, delete rest
+function scoreBuilder(b) {
+  const fields = ['contactPerson','contact','email','invoiceEmail','businessAddress','postalAddress','abn','billingType','defaultCompany'];
+  return fields.reduce((s,f) => s + ((b[f]||'').toString().trim() ? 1 : 0), 0);
+}
+
+async function dedupeBuilders() {
+  // re-fetch fresh from Firebase
+  const fresh = await fbGet('invoiceBuilders');
+  const all = fresh ? Object.entries(fresh).map(([id,v])=>({...v,id})) : [];
+  
+  // group by lowercase trimmed name
+  const groups = {};
+  all.forEach(b => {
+    const key = (b.name||'').toLowerCase().trim();
+    if (!key) return;
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(b);
+  });
+  
+  // find groups with duplicates
+  const dupes = Object.entries(groups).filter(([k,g]) => g.length > 1);
+  if (!dupes.length) {
+    alert('✓ 중복된 빌더가 없어요');
+    return;
+  }
+  
+  const totalToDelete = dupes.reduce((s,[k,g])=>s+(g.length-1),0);
+  const preview = dupes.slice(0,5).map(([k,g])=>`• ${g[0].name} (${g.length}개)`).join('\n');
+  const more = dupes.length>5 ? `\n... 외 ${dupes.length-5}건` : '';
+  if (!confirm(`중복된 빌더 ${dupes.length}종류, 총 ${totalToDelete}개를 삭제할게요.\n각 이름마다 정보가 가장 많이 채워진 1개만 남깁니다.\n\n${preview}${more}\n\n진행할까요?`)) return;
+  
+  let deleted = 0;
+  for (const [key, group] of dupes) {
+    // sort by score descending, keep [0]
+    group.sort((a,b) => scoreBuilder(b) - scoreBuilder(a));
+    const keep = group[0];
+    const toDel = group.slice(1);
+    for (const b of toDel) {
+      await fbDel('invoiceBuilders/'+b.id);
+      deleted++;
+    }
+  }
+  await loadAll();
+  alert(`✅ 중복 ${deleted}개 삭제 완료. 빌더 ${all.length-deleted}개 남음.`);
+}
+
+// ── Cleanup Duplicate Builders ───────────────────────────────────────────────
+async function cleanupBuilders() {
+  // re-fetch latest
+  const fresh = await fbGet('invoiceBuilders');
+  const freshBuilders = fresh ? Object.entries(fresh).map(([id,v])=>({...v,id})) : [];
+  
+  // group by lowercased trimmed name
+  const groups = {};
+  freshBuilders.forEach(b => {
+    const key = (b.name||'').toLowerCase().trim();
+    if (!key) return;
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(b);
+  });
+  
+  const dupes = Object.entries(groups).filter(([k,arr]) => arr.length > 1);
+  if (!dupes.length) {
+    alert('중복된 빌더가 없어요 ✓');
+    return;
+  }
+  
+  let toRemove = 0;
+  dupes.forEach(([k,arr]) => toRemove += arr.length - 1);
+  
+  if (!confirm(`중복 빌더 ${toRemove}개를 제거할까요?\n(각 이름당 가장 정보가 많은 1개만 남깁니다)\n\n발견된 중복: ${dupes.length}개 이름`)) return;
+  
+  let removed = 0;
+  for (const [key, arr] of dupes) {
+    // sort by completeness (most non-empty fields first), tiebreak by id
+    arr.sort((a,b) => {
+      const scoreA = Object.values(a).filter(v => v && String(v).trim()).length;
+      const scoreB = Object.values(b).filter(v => v && String(v).trim()).length;
+      if (scoreA !== scoreB) return scoreB - scoreA;
+      return (a.id||'').localeCompare(b.id||'');
+    });
+    // keep arr[0], delete the rest
+    for (let i = 1; i < arr.length; i++) {
+      await fbDel('invoiceBuilders/'+arr[i].id);
+      removed++;
+    }
+  }
+  await loadAll();
+  alert(`✅ 중복 ${removed}개 제거 완료`);
 }
 
 // ── Company Settings ─────────────────────────────────────────────────────────
