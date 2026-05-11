@@ -1097,7 +1097,6 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
               ? wage.keepBalance + (parseFloat(directKeep)||0)
               : wage.keepBalance + (variable < 0 ? variable + (parseFloat(directKeep)||0) : Math.max(0,variable) - Math.min(parseFloat(partialCash)||0, Math.max(0,variable))); return tot !== wage.keepBalance ? `→ 킵 ${fA(tot)}` : ""; })()}{cashAmt > 0 ? ` (캐시 ${fA(cashOut)})` : ""}
                       </button>
-                      )}
                     </>)}
                   </div>
                 );
@@ -2088,17 +2087,22 @@ function KyleSaraCalc({ base, fA, members }) {
   React.useEffect(() => {
     if (!base) return;
     fetch(base + '/mgmt/kyleSaraConfig.json')
-      .then(r => r.json())
-      .then(d => { if(d){ setD20(d.d20||''); setD27(d.d27||''); } setLoaded(true); })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if(d && d.d20 !== undefined){ setD20(d.d20||''); setD27(d.d27||''); } setLoaded(true); })
       .catch(() => setLoaded(true));
   }, [base]);
 
-  const saveConfig = () => {
-    if (!base) return;
-    fetch(base + '/mgmt/kyleSaraConfig.json', {
-      method:'PUT', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ d20, d27 })
-    });
+  const saveConfig = async () => {
+    if (!base) { alert('Firebase URL 없음. WorkLog에 먼저 로그인하세요.'); return; }
+    try {
+      const r = await fetch(base + '/mgmt/kyleSaraConfig.json', {
+        method:'PUT',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ d20, d27 })
+      });
+      if (r.ok) { alert('✅ 공제 설정 저장됐어요!'); }
+      else { alert('❌ 저장 실패: ' + r.status); }
+    } catch(e) { alert('❌ 연결 오류: ' + e.message); }
   };
 
   // 오늘 기준으로 현재 포트나잇 계산
@@ -2126,16 +2130,21 @@ function KyleSaraCalc({ base, fA, members }) {
   const has27 = checkDate(27);
 
   const calc = () => {
-    const t = parseFloat(total)||0;
+    const t = parseFloat(total)||autoTotal;
     const d20amt = has20 ? (parseFloat(d20)||0) : 0;
     const d27amt = has27 ? (parseFloat(d27)||0) : 0;
     const net = t - d20amt - d27amt;
     setResult({ t, d20amt, d27amt, net, kyle: net/2, sara: net/2*1.1 });
   };
 
-  // 카일/사라 이름
+  // 카일/사라 멤버 찾기
   const kyleMember = members.find(m => m.name&&(m.name.includes('카일')||m.name.toLowerCase().includes('kyle')));
   const saraMember = members.find(m => m.name&&(m.name.includes('사라')||m.name.toLowerCase().includes('sara')));
+
+  // 멤버 금액에서 자동 계산
+  const kyleInvoice = parseFloat(kyleMember?.invoiceAmount)||0;
+  const saraInvoice = parseFloat(saraMember?.invoiceAmount)||0;
+  const autoTotal = kyleInvoice + saraInvoice;
 
   const IS = { width:'100%', padding:'9px 12px', border:'1.5px solid rgba(139,92,246,0.4)', borderRadius:8, fontSize:13, fontFamily:'inherit', background:'#2a2a3e', color:'#e2e8f0', outline:'none' };
 
@@ -2176,16 +2185,28 @@ function KyleSaraCalc({ base, fA, members }) {
           </button>
         </div>
 
-        {/* 총액 입력 + 계산 */}
-        <div style={{ display:'flex', gap:8, marginTop:10, alignItems:'flex-end' }}>
-          <div style={{ flex:1 }}>
-            <p style={{ margin:'0 0 4px', fontSize:11, fontWeight:700, color:'#a78bfa' }}>이번 기간 총액</p>
-            <input type="number" value={total} onChange={e=>setTotal(e.target.value)} style={IS} placeholder="0.00"/>
+        {/* 총액 - 멤버 금액 자동 합산 */}
+        <div style={{ background:'rgba(109,40,217,0.1)', borderRadius:10, padding:'10px 12px', marginTop:10 }}>
+          <p style={{ margin:'0 0 6px', fontSize:11, fontWeight:700, color:'#a78bfa' }}>이번 기간 총액 (멤버 금액 합산)</p>
+          <div style={{ display:'flex', gap:6, fontSize:12, marginBottom:6 }}>
+            <span style={{ color:'rgba(226,232,240,0.5)' }}>{kyleMember?.name||'카일'}:</span>
+            <span style={{ color:'#60a5fa', fontWeight:600 }}>{fA(kyleInvoice)}</span>
+            <span style={{ color:'rgba(226,232,240,0.3)' }}>+</span>
+            <span style={{ color:'rgba(226,232,240,0.5)' }}>{saraMember?.name||'사라'}:</span>
+            <span style={{ color:'#fbbf24', fontWeight:600 }}>{fA(saraInvoice)}</span>
+            <span style={{ color:'rgba(226,232,240,0.3)' }}>=</span>
+            <span style={{ color:'#e2e8f0', fontWeight:700 }}>{fA(autoTotal)}</span>
           </div>
-          <button onClick={calc}
-            style={{ background:'#7c3aed', color:'#fff', border:'none', borderRadius:8, padding:'10px 18px', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:'inherit', whiteSpace:'nowrap' }}>
-            계산
-          </button>
+          <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+            <div style={{ flex:1 }}>
+              <p style={{ margin:'0 0 3px', fontSize:10, color:'rgba(226,232,240,0.4)' }}>금액 조정 (선택)</p>
+              <input type="number" value={total} onChange={e=>setTotal(e.target.value)} style={IS} placeholder={String(autoTotal)}/>
+            </div>
+            <button onClick={()=>{ setTotal(''); calc(); }}
+              style={{ background:'#7c3aed', color:'#fff', border:'none', borderRadius:8, padding:'10px 18px', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:'inherit', whiteSpace:'nowrap' }}>
+              계산
+            </button>
+          </div>
         </div>
 
         {/* 결과 */}
