@@ -229,18 +229,13 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
   const getKeepBalanceAtPeriod = (userId, ps) => {
     const lv = leaves[userId] || {};
     const hist = lv.keepBalanceHistory || [];
-    // 이 기간 시작 잔액 = 직전 기간 정산 후 잔액
-    // h.periodStart < ps 인 것 중 가장 최신값
     const sorted = [...hist].sort((a,b) => b.periodStart.localeCompare(a.periodStart));
+    // 이 기간 시작 잔액 = 직전 기간 (ps 보다 이전) 정산 후 잔액
     const prevEntry = sorted.find(h => h.periodStart < ps);
     if (prevEntry) return parseFloat(prevEntry.balance || 0);
-    // 히스토리가 없거나 ps가 첫 번째 정산보다 앞이면
-    // 현재 keepBalance가 최신이므로 → 아직 정산 안 됐으면 현재 keepBalance
-    // 단, ps보다 미래 정산 기록이 있으면 히스토리가 더 정확
-    const futureEntry = sorted.find(h => h.periodStart >= ps);
-    if (!futureEntry) return parseFloat(lv.keepBalance || 0);
-    // 미래 정산은 있지만 현재 기간 이전 기록이 없으면 0
-    return 0;
+    // 이전 기록이 없으면 → keepBalance가 최초 시작 잔액
+    // (히스토리 이전부터 쌓인 잔액이므로 항상 keepBalance 사용)
+    return parseFloat(lv.keepBalance || 0);
   };
 
   // 급여기간별 기준 조회 (이력 기반 - 기간 변경해도 과거 기준 유지)
