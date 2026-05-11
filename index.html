@@ -2210,6 +2210,41 @@ function HomeTab({ user, users, logs, leaves, isAdmin, onJumpToLog }) {
       </div>
       <div style={styles.section}>
         <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10 }}>
+          {/* ── 비자 만료 경고 ── */}
+          {(() => {
+            const todayD = new Date(todayStr+'T00:00:00');
+            const checkUsers = isAdmin ? users.filter(u=>u.visa&&u.visa.to&&!u.resignedDate) : [user].filter(u=>u.visa&&u.visa.to);
+            const warnings = checkUsers.map(u => {
+              const exp = new Date(u.visa.to+'T00:00:00');
+              const diff = Math.ceil((exp - todayD) / (1000*60*60*24));
+              const vt = (u.visa.type||'').toUpperCase();
+              const isWHV = vt.includes('WHV') || vt.includes('WH1') || vt.includes('WH2') || vt==='417' || vt==='462';
+              const threshold = isWHV ? 30 : 60;
+              if (diff <= threshold && diff > 0) return { u, diff, expired: false };
+              if (diff <= 0) return { u, diff, expired: true };
+              return null;
+            }).filter(Boolean).sort((a,b) => a.diff - b.diff);
+            if (!warnings.length) return null;
+            return (
+              <div style={{ marginBottom:12 }}>
+                {warnings.map(({ u, diff, expired }) => (
+                  <div key={u.id} style={{ display:"flex",alignItems:"center",gap:10,background:expired?"#FEF2F2":diff<=7?"#FEF2F2":"#FFF7ED",border:`1px solid ${expired?"#FECACA":diff<=7?"#FECACA":"#FED7AA"}`,borderRadius:10,padding:"10px 12px",marginBottom:6 }}>
+                    <div style={{ fontSize:22 }}>{expired?"🚨":diff<=7?"⚠️":"📋"}</div>
+                    <div style={{ flex:1 }}>
+                      {isAdmin && <p style={{ margin:0,fontSize:12,fontWeight:700,color:"#111" }}>{u.name}</p>}
+                      <p style={{ margin:0,fontSize:12,color:"#555" }}>{u.visa.type} · 만료 {u.visa.to}</p>
+                    </div>
+                    <div style={{ textAlign:"right" }}>
+                      {expired
+                        ? <span style={{ fontSize:13,fontWeight:800,color:"#DC2626" }}>만료됨</span>
+                        : <span style={{ fontSize:16,fontWeight:800,color:diff<=7?"#DC2626":"#EA580C" }}>D-{diff}</span>
+                      }
+                    </div>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
           <h3 style={{ ...styles.sectionTitle,margin:0 }}>{isAdmin?"근무현황":"근무일지"}</h3>
           {isAdmin&&<input type="date" style={{ ...styles.input,width:"auto",fontSize:12,padding:"4px 8px" }} value={selectedDate} onChange={e=>setSelectedDate(e.target.value)}/>}
         </div>
