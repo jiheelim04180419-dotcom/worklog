@@ -625,7 +625,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
   const S = {
     chip: (active, color) => ({ display:"flex",alignItems:"center",gap:6, background:active?color:"#fff", color:active?"#fff":"#444", border:"1.5px solid "+(active?color:"#E5E7EB"), borderRadius:20,padding:"6px 12px",fontSize:13,fontWeight:600,cursor:"pointer",transition:"all .15s",fontFamily:"inherit" }),
     statBox: (color) => ({ background:color+"15",border:"1px solid "+color+"30",borderRadius:12,padding:"12px 14px" }),
-    sectionTitle: { margin:"0 0 12px",fontSize:11,fontWeight:700,color:C.sub,textTransform:"uppercase",letterSpacing:1 },
+    sectionTitle: { margin:"0 0 10px",fontSize:11,fontWeight:700,color:C.sub,textTransform:"uppercase",letterSpacing:0.8 },
     row: { display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8 },
     subTab: (active, color) => ({ flex:1,padding:"9px 0",borderRadius:8,border:"none",cursor:"pointer",fontSize:12,fontWeight:600,fontFamily:"inherit", background:active?color:"transparent",color:active?"#fff":"#888",transition:"all .15s" }),
   };
@@ -2969,7 +2969,6 @@ function HomeTab({ user, users, logs, leaves, isAdmin, onJumpToLog }) {
         {isAdmin&&<><StatCard label="전체 직원" value={`${staffUsers.length}명`} sub="재직 중" color="#4f8ef7" emoji="👥"/><StatCard label="오늘 출근" value={`${todayLogs.length}명`} sub="근무일지 등록" color="#34c98b" emoji="✅"/></>}
       </div>
       <div style={styles.section}>
-        <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10 }}>
           {/* ── 비자 만료 경고 ── */}
           {(() => {
             const todayD = new Date(todayStr+'T00:00:00');
@@ -2986,18 +2985,18 @@ function HomeTab({ user, users, logs, leaves, isAdmin, onJumpToLog }) {
             }).filter(Boolean).sort((a,b) => a.diff - b.diff);
             if (!warnings.length) return null;
             return (
-              <div style={{ marginBottom:12 }}>
+              <div style={{ marginBottom:14 }}>
                 {warnings.map(({ u, diff, expired }) => (
-                  <div key={u.id} style={{ display:"flex",alignItems:"center",gap:10,background:expired?"#FEF2F2":diff<=7?"#FEF2F2":"#FFF7ED",border:`1px solid ${expired?"#FECACA":diff<=7?"#FECACA":"#FED7AA"}`,borderRadius:10,padding:"10px 12px",marginBottom:6 }}>
-                    <div style={{ fontSize:22 }}>{expired?"🚨":diff<=7?"⚠️":"📋"}</div>
-                    <div style={{ flex:1 }}>
-                      {isAdmin && <p style={{ margin:0,fontSize:12,fontWeight:700,color:"#111" }}>{u.name}</p>}
-                      <p style={{ margin:0,fontSize:12,color:"#555" }}>{u.visa.type} · 만료 {u.visa.to}</p>
+                  <div key={u.id} style={{ display:"flex",alignItems:"center",gap:12,background:expired||diff<=7?"#FEF2F2":"#FFFBEB",border:`1.5px solid ${expired||diff<=7?"#FECACA":"#FDE68A"}`,borderRadius:12,padding:"12px 14px",marginBottom:8,boxShadow:"0 1px 4px rgba(0,0,0,0.05)" }}>
+                    <div style={{ fontSize:24,flexShrink:0 }}>{expired?"🚨":diff<=7?"⚠️":"⏰"}</div>
+                    <div style={{ flex:1,minWidth:0 }}>
+                      {isAdmin && <p style={{ margin:"0 0 1px",fontSize:13,fontWeight:700,color:C.text }}>{u.name}</p>}
+                      <p style={{ margin:0,fontSize:12,color:C.sub }}>{u.visa.type} · 만료 {u.visa.to}</p>
                     </div>
-                    <div style={{ textAlign:"right" }}>
+                    <div style={{ textAlign:"right",flexShrink:0 }}>
                       {expired
-                        ? <span style={{ fontSize:13,fontWeight:800,color:"#DC2626" }}>만료됨</span>
-                        : <span style={{ fontSize:16,fontWeight:800,color:diff<=7?"#DC2626":"#EA580C" }}>D-{diff}</span>
+                        ? <span style={{ fontSize:12,fontWeight:800,color:"#DC2626",background:"#FEE2E2",padding:"4px 8px",borderRadius:6 }}>만료됨</span>
+                        : <span style={{ fontSize:18,fontWeight:900,color:diff<=7?"#DC2626":"#D97706" }}>D-{diff}</span>
                       }
                     </div>
                   </div>
@@ -3005,6 +3004,7 @@ function HomeTab({ user, users, logs, leaves, isAdmin, onJumpToLog }) {
               </div>
             );
           })()}
+        <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10 }}>
           <h3 style={{ ...styles.sectionTitle,margin:0 }}>{isAdmin?"근무현황":"근무일지"}</h3>
           {isAdmin&&<input type="date" style={{ ...styles.input,width:"auto",fontSize:12,padding:"4px 8px" }} value={selectedDate} onChange={e=>setSelectedDate(e.target.value)}/>}
         </div>
@@ -3141,15 +3141,29 @@ function HomeTab({ user, users, logs, leaves, isAdmin, onJumpToLog }) {
 function StatCard({label,value,sub,color,emoji}){return(<div style={{ ...styles.statCard,borderTop:`3px solid ${color}` }}><span style={styles.statEmoji}>{emoji}</span><p style={styles.statValue}>{value}</p><p style={styles.statLabel}>{label}</p><p style={styles.statSub}>{sub}</p></div>);}
 
 // ─── Styles ────────────────────────────────────────────────────────────────
-const C = { primary: "#3b7ff5", bg: "#f4f6fb", card: "#fff", border: "#eaecf3", text: "#1a1d2e", sub: "#8891a8", success: "#34c98b", danger: "#f76f6f" };
+const C = {
+  primary: "#4F46E5",
+  primaryLight: "#EEF2FF",
+  bg: "#F0F4FF",
+  card: "#FFFFFF",
+  border: "#E8EBF5",
+  text: "#111827",
+  sub: "#6B7280",
+  success: "#059669",
+  successLight: "#ECFDF5",
+  danger: "#DC2626",
+  dangerLight: "#FEF2F2",
+  gold: "#D97706",
+  goldLight: "#FFFBEB",
+};
 
 const styles = {
   app: { fontFamily: "'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif", background: C.bg, backgroundColor: "#f4f6fb", minHeight: "100vh", minHeight: "100dvh", display: "flex", flexDirection: "column", maxWidth: 480, margin: "0 auto", position: "relative", width: "100%" },
   content: { flex: 1, overflowY: "auto", paddingBottom: 72 }, contentDesktop: { flex: 1, overflowY: "auto", paddingBottom: 20 },
-  page: { padding: "16px 16px 0" },
-  pageHeader: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 },
-  pageTitle: { margin: 0, fontSize: 20, fontWeight: 700, color: "#1a1d2e" },
-  loginWrap: { minHeight: "100vh", minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(135deg, #e8efff 0%, #f4f6fb 100%)", padding: 20, backgroundColor: "#f4f6fb" },
+  page: { padding: "18px 16px 0" },
+  pageHeader: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 },
+  pageTitle: { margin: 0, fontSize: 20, fontWeight: 800, color: C.text, letterSpacing: "-0.5px" },
+  loginWrap: { minHeight: "100vh", minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(135deg, #EEF2FF 0%, #F0F4FF 50%, #E0E7FF 100%)" },
   loginBox: { background: "#fff", borderRadius: 20, padding: "32px 24px", width: "100%", maxWidth: 380, boxShadow: "0 8px 40px #3b7ff520" },
   loginLogo: { textAlign: "center", marginBottom: 28 },
   logoIcon: { fontSize: 44, marginBottom: 8 },
@@ -3163,7 +3177,7 @@ const styles = {
   headerUser: { fontSize: 13, color: "#1a1d2e", fontWeight: 500, display: "flex", alignItems: "center", gap: 6 },
   roleBadge: { background: "#3b7ff518", color: "#3b7ff5", fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 20 },
   logoutBtn: { background: "none", border: "none", cursor: "pointer", color: "#8891a8", padding: 4, display: "flex" },
-  nav: { position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 480, background: "#fff", borderTop: "1px solid #eaecf3", display: "flex", padding: "8px 0 env(safe-area-inset-bottom, 8px)", zIndex: 20 },
+  nav: { position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 480, background: "rgba(255,255,255,0.95)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)", borderTop: "1px solid " + C.border, display: "flex", padding: "6px 0 env(safe-area-inset-bottom, 8px)", zIndex: 20 },
   navItem: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3, background: "none", border: "none", cursor: "pointer", color: "#8891a8", padding: "4px 0", fontSize: 10 },
   navItemActive: { color: "#3b7ff5" },
   navLabel: { fontSize: 11, fontWeight: 500 },
@@ -3188,7 +3202,7 @@ const styles = {
   statValue: { margin: "8px 0 2px", fontSize: 24, fontWeight: 800, color: "#1a1d2e" },
   statLabel: { margin: 0, fontSize: 12, color: "#8891a8", fontWeight: 600 },
   statSub: { margin: "2px 0 0", fontSize: 11, color: "#bbb" },
-  section: { marginBottom: 24 },
+  section: { marginBottom: 20 },
   sectionTitle: { fontSize: 15, fontWeight: 700, color: "#1a1d2e", margin: "0 0 12px" },
   greeting: { marginBottom: 20 },
   greetingText: { margin: 0, fontSize: 20, fontWeight: 700, color: "#1a1d2e" },
