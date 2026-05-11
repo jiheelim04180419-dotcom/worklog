@@ -1770,258 +1770,190 @@ function DeductTab({ users, leaves, wpStart, wpEnd, persist, removeSavedDeductio
 
 // ─── MgmtTab ─────────────────────────────────────────────────────────────────
 function MgmtTab({ fbUrl, fA }) {
+  const base = fbUrl || getFbUrl();
   const [members, setMembers] = React.useState([]);
   const [payments, setPayments] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
   const [showForm, setShowForm] = React.useState(false);
   const [showPayForm, setShowPayForm] = React.useState(false);
   const [editMember, setEditMember] = React.useState(null);
   const [editPay, setEditPay] = React.useState(null);
   const [selMemberId, setSelMemberId] = React.useState(null);
-  const [db, setDb] = React.useState(null);
-
   const today = new Date().toISOString().split('T')[0];
   const curMonth = today.slice(0, 7);
 
-  const getDb = () => {
-    try { return firebase.database(); } catch(e) { return null; }
+  const mgmtGet = async (path) => {
+    if (!base) return null;
+    try { const r = await fetch(base + '/mgmt/' + path + '.json'); return r.ok ? r.json() : null; } catch { return null; }
+  };
+  const mgmtSet = async (path, value) => {
+    if (!base) return false;
+    try { const r = await fetch(base + '/mgmt/' + path + '.json', { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(value) }); return r.ok; } catch { return false; }
+  };
+  const mgmtPush = async (path, value) => {
+    if (!base) return false;
+    try { const r = await fetch(base + '/mgmt/' + path + '.json', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(value) }); return r.ok; } catch { return false; }
+  };
+  const mgmtDelete = async (path) => {
+    if (!base) return false;
+    try { const r = await fetch(base + '/mgmt/' + path + '.json', { method:'DELETE' }); return r.ok; } catch { return false; }
   };
 
-  React.useEffect(() => {
-    const database = getDb();
-    if (!database) return;
-    setDb(database);
-    database.ref('mgmt/members').on('value', s => {
-      const d = s.val() || {};
-      setMembers(Object.entries(d).map(([id,v]) => ({...v, id})));
-    });
-    database.ref('mgmt/payments').on('value', s => {
-      const d = s.val() || {};
-      setPayments(Object.entries(d).map(([id,v]) => ({...v, id})));
-    });
-  }, []);
-
-  // 세금 계산 (ATO 포트나잇리 기준 연소득 환산)
-  // 포트나잇(2주) Gross 기준으로 계산
-  const calcTax = (grossFortnight) => {
-    const annual = grossFortnight * 26; // 1년 26 포트나잇
-    let tax = 0;
-    if (annual <= 18200) tax = 0;
-    else if (annual <= 45000) tax = (annual - 18200) * 0.19;
-    else if (annual <= 120000) tax = 5092 + (annual - 45000) * 0.325;
-    else if (annual <= 180000) tax = 29467 + (annual - 120000) * 0.37;
-    else tax = 51667 + (annual - 180000) * 0.45;
-    return Math.round(tax / 26 * 100) / 100; // 포트나잇 세금
+  const loadData = async () => {
+    const [m, p] = await Promise.all([mgmtGet('members'), mgmtGet('payments')]);
+    if (m) setMembers(Object.entries(m).map(([id,v]) => ({...v, id})));
+    if (p) setPayments(Object.entries(p).map(([id,v]) => ({...v, id})));
+    setLoading(false);
   };
 
-  const calcSuper = (gross) => Math.round(gross * 0.12 * 100) / 100;
+  React.useEffect(() => { loadData(); }, []);
 
-  const calcNet = (gross, manualTax, manualSuper) => {
-    const tax = parseFloat(manualTax) || 0;
-    const sup = parseFloat(manualSuper) || 0;
-    return { gross, tax, sup, net: Math.round((gross - tax) * 100) / 100 };
-  };
-
-  const saveMember = (m) => {
-    const database = db || getDb();
-    if (!database) { alert('Firebase 연결 오류'); return; }
-    const ref = m.id ? database.ref('mgmt/members/' + m.id) : database.ref('mgmt/members').push();
+  const saveMember = async (m) => {
+    if (!base) { alert('Firebase URL 없음. WorkLog에 로그인 후 다시 시도하세요.'); return; }
     const { id, ...data } = m;
-    ref.set(data);
-    setShowForm(false);
-    setEditMember(null);
+    let ok;
+    if (id) { ok = await mgmtSet('members/' + id, data); }
+    else { ok = await mgmtPush('members', data); }
+    if (ok) { await loadData(); setShowForm(false); setEditMember(null); }
+    else { alert('저장 실패. Firebase 연결을 확인하세요.'); }
   };
 
-  const deleteMember = (id) => {
-    const database = db || getDb();
-    if (!database || !confirm('삭제할까요?')) return;
-    database.ref('mgmt/members/' + id).remove();
-  };
-
-  const savePayment = (p) => {
-    const database = db || getDb();
-    if (!database) { alert('Firebase 연결 오류'); return; }
-    const ref = p.id ? database.ref('mgmt/payments/' + p.id) : database.ref('mgmt/payments').push();
+  const savePayment = async (p) => {
+    if (!base) { alert('Firebase URL 없음.'); return; }
     const { id, ...data } = p;
-    ref.set({ ...data, createdAt: new Date().toISOString() });
-    setShowPayForm(false);
-    setEditPay(null);
+    const payload = { ...data, createdAt: new Date().toISOString() };
+    let ok;
+    if (id) { ok = await mgmtSet('payments/' + id, payload); }
+    else { ok = await mgmtPush('payments', payload); }
+    if (ok) { await loadData(); setShowPayForm(false); setEditPay(null); }
+    else { alert('저장 실패.'); }
   };
 
-  const deletePayment = (id) => {
-    const database = db || getDb();
-    if (!database || !confirm('삭제할까요?')) return;
-    database.ref('mgmt/payments/' + id).remove();
+  const deleteMember = async (id) => {
+    if (!confirm('삭제할까요?')) return;
+    await mgmtDelete('members/' + id);
+    await loadData();
   };
-
-  const getTypeLabel = (type) => ({ monthly:'월급', invoice:'인보이스', invoice_gst:'인보이스+GST' }[type] || type);
-  const getTypeColor = (type) => ({ monthly:'#6366f1', invoice:'#10b981', invoice_gst:'#f59e0b' }[type] || '#888');
+  const deletePayment = async (id) => {
+    if (!confirm('삭제할까요?')) return;
+    await mgmtDelete('payments/' + id);
+    await loadData();
+  };
 
   const memberPayments = (memberId) => payments.filter(p => p.memberId === memberId).sort((a,b) => b.date.localeCompare(a.date));
   const thisMonthPaid = payments.filter(p => (p.date||'').startsWith(curMonth)).reduce((s,p) => s + (parseFloat(p.amount)||0), 0);
-  const yearPaid = payments.filter(p => (p.date||'').startsWith(today.slice(0,4))).reduce((s,p) => s + (parseFloat(p.amount)||0), 0);
-
-  // 이번달 예상 총액
-  const expectedMonthly = members.reduce((s, m) => {
+  const expectedTotal = members.reduce((s, m) => {
     if (m.type === 'monthly') return s + (parseFloat(m.salary)||0);
     if (m.type === 'invoice') return s + (parseFloat(m.invoiceAmount)||0);
     if (m.type === 'invoice_gst') return s + (parseFloat(m.invoiceAmount)||0) * 1.1;
     return s;
   }, 0);
 
-  const selMember = members.find(m => m.id === selMemberId);
-
   const COLORS = ['#6366f1','#10b981','#f59e0b','#ec4899','#8b5cf6','#14b8a6'];
+  const S2 = {
+    card: { background:'#1e1e2e', borderRadius:14, marginBottom:10, overflow:'hidden' },
+    row: { display:'flex', justifyContent:'space-between', fontSize:12, padding:'3px 0' },
+    label: { color:'rgba(226,232,240,0.5)' },
+    val: { color:'#e2e8f0', fontWeight:600 },
+    inputStyle: { width:'100%', padding:'10px 12px', border:'1.5px solid rgba(99,102,241,0.3)', borderRadius:8, fontSize:14, fontFamily:'inherit', background:'#2a2a3e', color:'#e2e8f0', outline:'none' },
+    labelStyle: { display:'block', fontSize:10, fontWeight:700, color:'#6366f1', marginBottom:4, textTransform:'uppercase', letterSpacing:.5 },
+  };
+
+  if (loading) return <div style={{ textAlign:'center', padding:'60px 0', color:'rgba(165,180,252,0.5)' }}>⏳ 로딩 중...</div>;
 
   return (
-    <div style={{ paddingBottom: 80 }}>
-      {/* Header */}
+    <div style={{ paddingBottom:80 }}>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14, paddingTop:4 }}>
         <div>
           <p style={{ margin:0, fontSize:15, fontWeight:800, color:'#e2e8f0' }}>⭐ 운영진 급여</p>
-          <p style={{ margin:0, fontSize:11, color:'#6366f1' }}>이번 포트나잇 예상 {fA(expectedMonthly)}</p>
+          <p style={{ margin:0, fontSize:11, color:'#6366f1' }}>이번 포트나잇 예상 {fA(expectedTotal)}</p>
         </div>
         <div style={{ display:'flex', gap:6 }}>
           <button onClick={() => { setEditPay(null); setShowPayForm(true); }}
-            style={{ background:'#10b981', color:'#fff', border:'none', borderRadius:8, padding:'7px 12px', fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>
-            + 지급기록
-          </button>
+            style={{ background:'#10b981', color:'#fff', border:'none', borderRadius:8, padding:'7px 12px', fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>+ 지급기록</button>
           <button onClick={() => { setEditMember(null); setShowForm(true); }}
-            style={{ background:'#6366f1', color:'#fff', border:'none', borderRadius:8, padding:'7px 12px', fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>
-            + 멤버
-          </button>
+            style={{ background:'#6366f1', color:'#fff', border:'none', borderRadius:8, padding:'7px 12px', fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>+ 멤버</button>
         </div>
       </div>
 
-      {/* 멤버 카드 */}
-      {members.length === 0 && (
-        <div style={{ textAlign:'center', padding:'40px 0', color:'rgba(165,180,252,0.4)' }}>
-          <div style={{ fontSize:40, marginBottom:8 }}>⭐</div>
-          <p style={{ fontSize:13 }}>멤버를 추가해보세요</p>
-        </div>
-      )}
+      {members.length === 0 && <div style={{ textAlign:'center', padding:'40px 0', color:'rgba(165,180,252,0.4)' }}><div style={{ fontSize:40, marginBottom:8 }}>⭐</div><p>멤버를 추가해보세요</p></div>}
+
       {members.map((m, mi) => {
         const color = COLORS[mi % COLORS.length];
-        const c = m.type === 'monthly' ? calcNet(parseFloat(m.salary)||0, m.tax, m.super) : null;
+        const netPay = parseFloat(m.salary)||0;
+        const tax = parseFloat(m.tax)||0;
+        const sup = parseFloat(m.super)||0;
         const invoiceAmt = parseFloat(m.invoiceAmount)||0;
         const gst = m.type === 'invoice_gst' ? invoiceAmt * 0.1 : 0;
+        const totalAmt = m.type === 'monthly' ? netPay : invoiceAmt + gst;
         const mPays = memberPayments(m.id);
-        const thisMonthMPaid = mPays.filter(p => (p.date||'').startsWith(curMonth)).reduce((s,p) => s+(parseFloat(p.amount)||0), 0);
+        const thisMonthMPaid = mPays.filter(p => (p.date||'').startsWith(curMonth)).reduce((s,p)=>s+(parseFloat(p.amount)||0), 0);
         const expanded = selMemberId === m.id;
+        const typeLabel = { monthly:'월급', invoice:'인보이스', invoice_gst:'인보이스+GST' }[m.type] || m.type;
 
         return (
-          <div key={m.id} style={{ background:'#1e1e2e', borderRadius:14, marginBottom:10, border:`1px solid ${color}33`, overflow:'hidden' }}>
-            <div style={{ padding:'14px', cursor:'pointer' }} onClick={() => setSelMemberId(expanded ? null : m.id)}>
+          <div key={m.id} style={{ ...S2.card, border:`1px solid ${color}33` }}>
+            <div style={{ padding:14, cursor:'pointer' }} onClick={() => setSelMemberId(expanded ? null : m.id)}>
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
                 <div style={{ display:'flex', gap:10, alignItems:'center' }}>
                   <div style={{ width:40, height:40, borderRadius:'50%', background:`${color}22`, border:`2px solid ${color}`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:16, fontWeight:800, color }}>
                     {(m.name||'?')[0]}
                   </div>
                   <div>
-                    <p style={{ margin:0, fontSize:14, fontWeight:700, color:'#e2e8f0' }}>{m.name}
-                      <span style={{ marginLeft:6, background:`${color}22`, color, borderRadius:5, padding:'2px 7px', fontSize:10, fontWeight:700 }}>{getTypeLabel(m.type)}</span>
+                    <p style={{ margin:0, fontSize:14, fontWeight:700, color:'#e2e8f0' }}>
+                      {m.name} <span style={{ background:`${color}22`, color, borderRadius:5, padding:'2px 7px', fontSize:10, fontWeight:700 }}>{typeLabel}</span>
                     </p>
                     <p style={{ margin:0, fontSize:11, color:'rgba(226,232,240,0.5)' }}>{m.role}</p>
                   </div>
                 </div>
                 <div style={{ textAlign:'right' }}>
-                  {m.type === 'monthly' && c && (
-                    <p style={{ margin:0, fontSize:15, fontWeight:800, color:'#e2e8f0' }}>{fA(c.net)}<span style={{ fontSize:10, color:'rgba(226,232,240,0.4)', marginLeft:2 }}>/월</span></p>
-                  )}
-                  {(m.type === 'invoice' || m.type === 'invoice_gst') && (
-                    <p style={{ margin:0, fontSize:15, fontWeight:800, color:'#e2e8f0' }}>{fA(invoiceAmt + gst)}<span style={{ fontSize:10, color:'rgba(226,232,240,0.4)', marginLeft:2 }}>/기간</span></p>
-                  )}
-                  <p style={{ margin:'2px 0 0', fontSize:11, color:thisMonthMPaid > 0 ? '#10b981' : 'rgba(226,232,240,0.4)' }}>
-                    이번달 지급 {fA(thisMonthMPaid)}
-                  </p>
+                  <p style={{ margin:0, fontSize:15, fontWeight:800, color:'#e2e8f0' }}>{fA(totalAmt)}<span style={{ fontSize:10, color:'rgba(226,232,240,0.4)', marginLeft:2 }}>/2주</span></p>
+                  <p style={{ margin:'2px 0 0', fontSize:11, color: thisMonthMPaid>0?'#10b981':'rgba(226,232,240,0.4)' }}>이번달 지급 {fA(thisMonthMPaid)}</p>
                 </div>
               </div>
             </div>
 
-            {/* 상세 */}
             {expanded && (
               <div style={{ padding:'0 14px 14px', borderTop:'1px solid rgba(99,102,241,0.15)' }}>
-                {/* 급여 계산 */}
-                <div style={{ background:'#252535', borderRadius:10, padding:'12px', marginTop:12, marginBottom:12 }}>
-                  {m.type === 'monthly' && c && (<>
-                    <div style={{ display:'flex', justifyContent:'space-between', fontSize:12, marginBottom:4 }}>
-                      <span style={{ color:'rgba(226,232,240,0.6)' }}>Net Pay (2주)</span>
-                      <span style={{ color:'#e2e8f0', fontWeight:600 }}>{fA(c.gross)}</span>
-                    </div>
-                    <div style={{ display:'flex', justifyContent:'space-between', fontSize:12, marginBottom:4 }}>
-                      <span style={{ color:'rgba(226,232,240,0.6)' }}>Tax</span>
-                      <span style={{ color:'#f87171', fontWeight:600 }}>-{fA(c.tax)}</span>
-                    </div>
-                    <div style={{ display:'flex', justifyContent:'space-between', fontSize:12, marginBottom:4 }}>
-                      <span style={{ color:'rgba(226,232,240,0.6)' }}>Super (12%)</span>
-                      <span style={{ color:'#fbbf24', fontWeight:600 }}>{fA(c.sup)}</span>
-                    </div>
-                    {m.invoiceAmount > 0 && (
-                      <div style={{ display:'flex', justifyContent:'space-between', fontSize:12, marginBottom:4 }}>
-                        <span style={{ color:'rgba(226,232,240,0.6)' }}>인보이스 별도</span>
-                        <span style={{ color:'#34d399', fontWeight:600 }}>{fA(parseFloat(m.invoiceAmount)||0)}</span>
-                      </div>
-                    )}
-                    <div style={{ borderTop:'1px solid rgba(99,102,241,0.2)', marginTop:8, paddingTop:8, display:'flex', justifyContent:'space-between', fontSize:14, fontWeight:800 }}>
-                      <span style={{ color:'#a5b4fc' }}>Net Pay</span>
-                      <span style={{ color:'#e2e8f0' }}>{fA(c.net)}</span>
-                    </div>
+                <div style={{ background:'#252535', borderRadius:10, padding:12, marginTop:12, marginBottom:12 }}>
+                  {m.type === 'monthly' && (<>
+                    <div style={S2.row}><span style={S2.label}>Net Pay (2주)</span><span style={{ ...S2.val, color:'#10b981' }}>{fA(netPay)}</span></div>
+                    {tax > 0 && <div style={S2.row}><span style={S2.label}>Tax</span><span style={{ ...S2.val, color:'#f87171' }}>-{fA(tax)}</span></div>}
+                    {sup > 0 && <div style={S2.row}><span style={S2.label}>Super</span><span style={{ ...S2.val, color:'#fbbf24' }}>{fA(sup)}</span></div>}
+                    {invoiceAmt > 0 && <div style={S2.row}><span style={S2.label}>인보이스 별도</span><span style={{ ...S2.val, color:'#34d399' }}>{fA(invoiceAmt)}</span></div>}
                   </>)}
-
-                  {m.type === 'invoice' && (
-                    <div style={{ display:'flex', justifyContent:'space-between', fontSize:14, fontWeight:800 }}>
-                      <span style={{ color:'#a5b4fc' }}>인보이스 금액 (GST 없음)</span>
-                      <span style={{ color:'#34d399' }}>{fA(invoiceAmt)}</span>
-                    </div>
-                  )}
-
+                  {m.type === 'invoice' && <div style={S2.row}><span style={S2.label}>인보이스 (GST 없음)</span><span style={{ ...S2.val, color:'#34d399' }}>{fA(invoiceAmt)}</span></div>}
                   {m.type === 'invoice_gst' && (<>
-                    <div style={{ display:'flex', justifyContent:'space-between', fontSize:12, marginBottom:4 }}>
-                      <span style={{ color:'rgba(226,232,240,0.6)' }}>인보이스 금액</span>
-                      <span style={{ color:'#e2e8f0', fontWeight:600 }}>{fA(invoiceAmt)}</span>
-                    </div>
-                    <div style={{ display:'flex', justifyContent:'space-between', fontSize:12, marginBottom:8 }}>
-                      <span style={{ color:'rgba(226,232,240,0.6)' }}>GST (10%)</span>
-                      <span style={{ color:'#fbbf24', fontWeight:600 }}>+{fA(gst)}</span>
-                    </div>
-                    <div style={{ borderTop:'1px solid rgba(99,102,241,0.2)', paddingTop:8, display:'flex', justifyContent:'space-between', fontSize:14, fontWeight:800 }}>
-                      <span style={{ color:'#a5b4fc' }}>총 지급액</span>
-                      <span style={{ color:'#34d399' }}>{fA(invoiceAmt + gst)}</span>
+                    <div style={S2.row}><span style={S2.label}>인보이스</span><span style={S2.val}>{fA(invoiceAmt)}</span></div>
+                    <div style={S2.row}><span style={S2.label}>+ GST 10%</span><span style={{ ...S2.val, color:'#fbbf24' }}>+{fA(gst)}</span></div>
+                    <div style={{ borderTop:'1px solid rgba(99,102,241,0.2)', marginTop:6, paddingTop:6, ...S2.row }}>
+                      <span style={{ color:'#a5b4fc', fontWeight:700 }}>총 지급액</span>
+                      <span style={{ color:'#34d399', fontWeight:800 }}>{fA(invoiceAmt+gst)}</span>
                     </div>
                   </>)}
                 </div>
 
-                {/* 지급 내역 */}
                 <div style={{ marginBottom:8, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
                   <p style={{ margin:0, fontSize:11, fontWeight:700, color:'#6366f1', textTransform:'uppercase', letterSpacing:1 }}>지급 내역</p>
                   <button onClick={() => { setEditPay({ memberId: m.id }); setShowPayForm(true); }}
-                    style={{ background:'rgba(16,185,129,0.15)', color:'#34d399', border:'1px solid rgba(16,185,129,0.3)', borderRadius:6, padding:'4px 10px', fontSize:11, fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>
-                    + 지급
-                  </button>
+                    style={{ background:'rgba(16,185,129,0.15)', color:'#34d399', border:'1px solid rgba(16,185,129,0.3)', borderRadius:6, padding:'4px 10px', fontSize:11, fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>+ 지급</button>
                 </div>
-                {mPays.length === 0 && <p style={{ fontSize:12, color:'rgba(226,232,240,0.3)', textAlign:'center', padding:'10px 0' }}>지급 내역 없음</p>}
-                {mPays.slice(0, 6).map(p => (
-                  <div key={p.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'7px 0', borderBottom:'1px solid rgba(99,102,241,0.1)' }}>
-                    <div>
-                      <p style={{ margin:0, fontSize:12, color:'#e2e8f0', fontWeight:600 }}>{p.date}</p>
-                      <p style={{ margin:0, fontSize:11, color:'rgba(226,232,240,0.5)' }}>{p.note||'—'}</p>
-                    </div>
+                {mPays.length === 0 && <p style={{ fontSize:12, color:'rgba(226,232,240,0.3)', textAlign:'center', padding:'8px 0' }}>지급 내역 없음</p>}
+                {mPays.slice(0,6).map(p => (
+                  <div key={p.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'7px 0', borderBottom:'1px solid rgba(99,102,241,0.08)' }}>
+                    <div><p style={{ margin:0, fontSize:12, color:'#e2e8f0', fontWeight:600 }}>{p.date}</p><p style={{ margin:0, fontSize:11, color:'rgba(226,232,240,0.5)' }}>{p.note||'—'}</p></div>
                     <div style={{ display:'flex', alignItems:'center', gap:8 }}>
                       <span style={{ fontSize:13, fontWeight:700, color:'#34d399' }}>{fA(p.amount)}</span>
-                      <button onClick={() => deletePayment(p.id)} style={{ background:'none', border:'none', color:'rgba(248,113,113,0.6)', fontSize:14, cursor:'pointer' }}>×</button>
+                      <button onClick={() => deletePayment(p.id)} style={{ background:'none', border:'none', color:'rgba(248,113,113,0.6)', fontSize:16, cursor:'pointer' }}>×</button>
                     </div>
                   </div>
                 ))}
 
-                {/* 수정/삭제 버튼 */}
                 <div style={{ display:'flex', gap:8, marginTop:12 }}>
                   <button onClick={() => { setEditMember(m); setShowForm(true); }}
-                    style={{ flex:1, background:'rgba(99,102,241,0.15)', color:'#a5b4fc', border:'1px solid rgba(99,102,241,0.3)', borderRadius:8, padding:'8px', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>
-                    ✏️ 수정
-                  </button>
+                    style={{ flex:1, background:'rgba(99,102,241,0.15)', color:'#a5b4fc', border:'1px solid rgba(99,102,241,0.3)', borderRadius:8, padding:8, fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>✏️ 수정</button>
                   <button onClick={() => deleteMember(m.id)}
-                    style={{ background:'rgba(239,68,68,0.1)', color:'#f87171', border:'1px solid rgba(239,68,68,0.2)', borderRadius:8, padding:'8px 14px', fontSize:12, cursor:'pointer', fontFamily:'inherit' }}>
-                    🗑
-                  </button>
+                    style={{ background:'rgba(239,68,68,0.1)', color:'#f87171', border:'1px solid rgba(239,68,68,0.2)', borderRadius:8, padding:'8px 14px', fontSize:12, cursor:'pointer', fontFamily:'inherit' }}>🗑</button>
                 </div>
               </div>
             )}
@@ -2029,7 +1961,6 @@ function MgmtTab({ fbUrl, fA }) {
         );
       })}
 
-      {/* 전체 지급 내역 */}
       {payments.length > 0 && (
         <div style={{ background:'#1e1e2e', borderRadius:14, padding:16, border:'1px solid rgba(99,102,241,0.15)' }}>
           <p style={{ margin:'0 0 12px', fontSize:11, fontWeight:700, color:'#6366f1', textTransform:'uppercase', letterSpacing:1 }}>전체 지급 내역</p>
@@ -2040,9 +1971,7 @@ function MgmtTab({ fbUrl, fA }) {
             return (
               <div key={p.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 0', borderBottom:'1px solid rgba(99,102,241,0.08)' }}>
                 <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-                  <div style={{ width:28, height:28, borderRadius:'50%', background:`${color}22`, border:`1.5px solid ${color}`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, fontWeight:800, color }}>
-                    {(mem?.name||'?')[0]}
-                  </div>
+                  <div style={{ width:28, height:28, borderRadius:'50%', background:`${color}22`, border:`1.5px solid ${color}`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, fontWeight:800, color }}>{(mem?.name||'?')[0]}</div>
                   <div>
                     <p style={{ margin:0, fontSize:12, color:'#e2e8f0', fontWeight:600 }}>{mem?.name||'—'} · {p.date}</p>
                     {p.note && <p style={{ margin:0, fontSize:11, color:'rgba(226,232,240,0.4)' }}>{p.note}</p>}
@@ -2055,26 +1984,20 @@ function MgmtTab({ fbUrl, fA }) {
         </div>
       )}
 
-      {/* 멤버 추가/수정 모달 */}
-      {showForm && (
-        <MgmtMemberForm member={editMember} onSave={saveMember} onClose={() => { setShowForm(false); setEditMember(null); }} fA={fA}/>
-      )}
-
-      {/* 지급 기록 모달 */}
-      {showPayForm && (
-        <MgmtPayForm members={members} initMemberId={editPay?.memberId} payment={editPay?.id ? editPay : null}
-          onSave={savePayment} onClose={() => { setShowPayForm(false); setEditPay(null); }} today={today} fA={fA}/>
-      )}
+      {showForm && <MgmtMemberForm member={editMember} onSave={saveMember} onClose={() => { setShowForm(false); setEditMember(null); }}/>}
+      {showPayForm && <MgmtPayForm members={members} initMemberId={editPay?.memberId} payment={editPay?.id ? editPay : null} onSave={savePayment} onClose={() => { setShowPayForm(false); setEditPay(null); }} today={today} fA={fA}/>}
     </div>
   );
 }
 
 function MgmtMemberForm({ member, onSave, onClose }) {
-  const [form, setForm] = React.useState({
-    name: '', role: '', type: 'monthly', salary: '', tax: '', super: '', invoiceAmount: '', ...member
-  });
+  const [form, setForm] = React.useState({ name:'', role:'', type:'monthly', salary:'', tax:'', super:'', invoiceAmount:'', ...member });
   const set = (k, v) => setForm(f => ({...f, [k]: v}));
-
+  const S3 = {
+    input: { width:'100%', padding:'10px 12px', border:'1.5px solid rgba(99,102,241,0.3)', borderRadius:8, fontSize:14, fontFamily:'inherit', background:'#2a2a3e', color:'#e2e8f0', outline:'none' },
+    label: { display:'block', fontSize:10, fontWeight:700, color:'#6366f1', marginBottom:4, textTransform:'uppercase' },
+    mb: { marginBottom:12 },
+  };
   return (
     <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.7)', zIndex:200, display:'flex', alignItems:'flex-end', justifyContent:'center' }}>
       <div style={{ background:'#1e1e2e', borderRadius:'20px 20px 0 0', width:'100%', maxWidth:600, maxHeight:'90vh', overflowY:'auto', padding:'22px 18px', borderTop:'1px solid rgba(99,102,241,0.3)' }}>
@@ -2082,47 +2005,28 @@ function MgmtMemberForm({ member, onSave, onClose }) {
           <h3 style={{ fontSize:16, fontWeight:700, color:'#a5b4fc' }}>{member ? '멤버 수정' : '멤버 추가'}</h3>
           <button onClick={onClose} style={{ background:'none', border:'none', fontSize:22, cursor:'pointer', color:'#6366f1' }}>×</button>
         </div>
-        <div style={{ display:'flex', gap:10, marginBottom:12 }}>
-          <div style={{ flex:1 }}><label style={{ display:'block', fontSize:10, fontWeight:700, color:'#6366f1', marginBottom:4, textTransform:'uppercase' }}>이름</label>
-            <input value={form.name} onChange={e=>set('name',e.target.value)} style={{ width:'100%', padding:'10px 12px', border:'1.5px solid rgba(99,102,241,0.3)', borderRadius:8, fontSize:14, fontFamily:'inherit', background:'#2a2a3e', color:'#e2e8f0' }} placeholder="이름"/></div>
-          <div style={{ flex:1 }}><label style={{ display:'block', fontSize:10, fontWeight:700, color:'#6366f1', marginBottom:4, textTransform:'uppercase' }}>역할</label>
-            <input value={form.role} onChange={e=>set('role',e.target.value)} style={{ width:'100%', padding:'10px 12px', border:'1.5px solid rgba(99,102,241,0.3)', borderRadius:8, fontSize:14, fontFamily:'inherit', background:'#2a2a3e', color:'#e2e8f0' }} placeholder="예: CEO"/></div>
+        <div style={{ display:'flex', gap:10, ...S3.mb }}>
+          <div style={{ flex:1 }}><label style={S3.label}>이름</label><input value={form.name} onChange={e=>set('name',e.target.value)} style={S3.input} placeholder="이름"/></div>
+          <div style={{ flex:1 }}><label style={S3.label}>역할</label><input value={form.role} onChange={e=>set('role',e.target.value)} style={S3.input} placeholder="예: CEO"/></div>
         </div>
-        <div style={{ marginBottom:12 }}>
-          <label style={{ display:'block', fontSize:10, fontWeight:700, color:'#6366f1', marginBottom:4, textTransform:'uppercase' }}>급여 유형</label>
-          <select value={form.type} onChange={e=>set('type',e.target.value)} style={{ width:'100%', padding:'10px 12px', border:'1.5px solid rgba(99,102,241,0.3)', borderRadius:8, fontSize:14, fontFamily:'inherit', background:'#2a2a3e', color:'#e2e8f0' }}>
-            <option value="monthly">월급 (세금/슈퍼 포함)</option>
+        <div style={S3.mb}>
+          <label style={S3.label}>급여 유형</label>
+          <select value={form.type} onChange={e=>set('type',e.target.value)} style={S3.input}>
+            <option value="monthly">월급 (Net Pay 직접 입력)</option>
             <option value="invoice">인보이스 (GST 없음)</option>
             <option value="invoice_gst">인보이스 + GST 10%</option>
           </select>
         </div>
         {form.type === 'monthly' && (<>
-          <div style={{ marginBottom:12 }}>
-            <label style={{ display:'block', fontSize:10, fontWeight:700, color:'#6366f1', marginBottom:4, textTransform:'uppercase' }}>포트나잇 Net Pay (2주, AUD)</label>
-            <input type="number" value={form.salary} onChange={e=>set('salary',e.target.value)} style={{ width:'100%', padding:'10px 12px', border:'1.5px solid rgba(99,102,241,0.3)', borderRadius:8, fontSize:14, fontFamily:'inherit', background:'#2a2a3e', color:'#e2e8f0' }} placeholder="0.00"/>
+          <div style={S3.mb}><label style={S3.label}>포트나잇 Net Pay (2주, AUD)</label><input type="number" value={form.salary} onChange={e=>set('salary',e.target.value)} style={S3.input} placeholder="0.00"/></div>
+          <div style={{ display:'flex', gap:10, ...S3.mb }}>
+            <div style={{ flex:1 }}><label style={S3.label}>Tax (2주)</label><input type="number" value={form.tax||''} onChange={e=>set('tax',e.target.value)} style={S3.input} placeholder="0.00"/></div>
+            <div style={{ flex:1 }}><label style={S3.label}>Super (2주)</label><input type="number" value={form.super||''} onChange={e=>set('super',e.target.value)} style={S3.input} placeholder="0.00"/></div>
           </div>
-          <div style={{ display:'flex', gap:10, marginBottom:12 }}>
-            <div style={{ flex:1 }}>
-              <label style={{ display:'block', fontSize:10, fontWeight:700, color:'#6366f1', marginBottom:4, textTransform:'uppercase' }}>Tax (2주)</label>
-              <input type="number" value={form.tax||''} onChange={e=>set('tax',e.target.value)} style={{ width:'100%', padding:'10px 12px', border:'1.5px solid rgba(99,102,241,0.3)', borderRadius:8, fontSize:14, fontFamily:'inherit', background:'#2a2a3e', color:'#e2e8f0' }} placeholder="0.00"/>
-            </div>
-            <div style={{ flex:1 }}>
-              <label style={{ display:'block', fontSize:10, fontWeight:700, color:'#6366f1', marginBottom:4, textTransform:'uppercase' }}>Super (2주)</label>
-              <input type="number" value={form.super||''} onChange={e=>set('super',e.target.value)} style={{ width:'100%', padding:'10px 12px', border:'1.5px solid rgba(99,102,241,0.3)', borderRadius:8, fontSize:14, fontFamily:'inherit', background:'#2a2a3e', color:'#e2e8f0' }} placeholder="0.00"/>
-            </div>
-          </div>
+          <div style={S3.mb}><label style={S3.label}>인보이스 별도 금액 (선택)</label><input type="number" value={form.invoiceAmount} onChange={e=>set('invoiceAmount',e.target.value)} style={S3.input} placeholder="0.00"/></div>
         </>)}
-        {form.type === 'monthly' && (
-          <div style={{ marginBottom:12 }}>
-            <label style={{ display:'block', fontSize:10, fontWeight:700, color:'#6366f1', marginBottom:4, textTransform:'uppercase' }}>인보이스 별도 금액 (선택)</label>
-            <input type="number" value={form.invoiceAmount} onChange={e=>set('invoiceAmount',e.target.value)} style={{ width:'100%', padding:'10px 12px', border:'1.5px solid rgba(99,102,241,0.3)', borderRadius:8, fontSize:14, fontFamily:'inherit', background:'#2a2a3e', color:'#e2e8f0' }} placeholder="0.00"/>
-          </div>
-        )}
         {(form.type === 'invoice' || form.type === 'invoice_gst') && (
-          <div style={{ marginBottom:12 }}>
-            <label style={{ display:'block', fontSize:10, fontWeight:700, color:'#6366f1', marginBottom:4, textTransform:'uppercase' }}>인보이스 금액 (AUD){form.type==='invoice_gst'?' — GST별도':' — GST없음'}</label>
-            <input type="number" value={form.invoiceAmount} onChange={e=>set('invoiceAmount',e.target.value)} style={{ width:'100%', padding:'10px 12px', border:'1.5px solid rgba(99,102,241,0.3)', borderRadius:8, fontSize:14, fontFamily:'inherit', background:'#2a2a3e', color:'#e2e8f0' }} placeholder="0.00"/>
-          </div>
+          <div style={S3.mb}><label style={S3.label}>인보이스 금액{form.type==='invoice_gst'?' (GST 별도)':' (GST 없음)'}</label><input type="number" value={form.invoiceAmount} onChange={e=>set('invoiceAmount',e.target.value)} style={S3.input} placeholder="0.00"/></div>
         )}
         <div style={{ display:'flex', gap:10, marginTop:8 }}>
           <button onClick={onClose} style={{ flex:1, background:'rgba(99,102,241,0.15)', color:'#a5b4fc', border:'1px solid rgba(99,102,241,0.3)', borderRadius:10, padding:12, fontSize:14, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>취소</button>
@@ -2134,13 +2038,13 @@ function MgmtMemberForm({ member, onSave, onClose }) {
   );
 }
 
-function MgmtPayForm({ members, initMemberId, payment, onSave, onClose, today }) {
-  const [form, setForm] = React.useState({
-    memberId: initMemberId || (members[0]?.id || ''),
-    amount: '', date: today, note: '', ...payment
-  });
+function MgmtPayForm({ members, initMemberId, payment, onSave, onClose, today, fA }) {
+  const [form, setForm] = React.useState({ memberId: initMemberId || (members[0]?.id||''), amount:'', date:today, note:'', ...payment });
   const set = (k, v) => setForm(f => ({...f, [k]: v}));
-
+  const S3 = {
+    input: { width:'100%', padding:'10px 12px', border:'1.5px solid rgba(16,185,129,0.3)', borderRadius:8, fontSize:14, fontFamily:'inherit', background:'#2a2a3e', color:'#e2e8f0', outline:'none' },
+    label: { display:'block', fontSize:10, fontWeight:700, color:'#10b981', marginBottom:4, textTransform:'uppercase' },
+  };
   return (
     <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.7)', zIndex:200, display:'flex', alignItems:'flex-end', justifyContent:'center' }}>
       <div style={{ background:'#1e1e2e', borderRadius:'20px 20px 0 0', width:'100%', maxWidth:600, maxHeight:'90vh', overflowY:'auto', padding:'22px 18px', borderTop:'1px solid rgba(16,185,129,0.3)' }}>
@@ -2148,29 +2052,19 @@ function MgmtPayForm({ members, initMemberId, payment, onSave, onClose, today })
           <h3 style={{ fontSize:16, fontWeight:700, color:'#34d399' }}>지급 기록</h3>
           <button onClick={onClose} style={{ background:'none', border:'none', fontSize:22, cursor:'pointer', color:'#10b981' }}>×</button>
         </div>
-        <div style={{ marginBottom:12 }}>
-          <label style={{ display:'block', fontSize:10, fontWeight:700, color:'#10b981', marginBottom:4, textTransform:'uppercase' }}>멤버</label>
-          <select value={form.memberId} onChange={e=>set('memberId',e.target.value)} style={{ width:'100%', padding:'10px 12px', border:'1.5px solid rgba(16,185,129,0.3)', borderRadius:8, fontSize:14, fontFamily:'inherit', background:'#2a2a3e', color:'#e2e8f0' }}>
+        <div style={{ marginBottom:12 }}><label style={S3.label}>멤버</label>
+          <select value={form.memberId} onChange={e=>set('memberId',e.target.value)} style={S3.input}>
             {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
           </select>
         </div>
         <div style={{ display:'flex', gap:10, marginBottom:12 }}>
-          <div style={{ flex:1 }}>
-            <label style={{ display:'block', fontSize:10, fontWeight:700, color:'#10b981', marginBottom:4, textTransform:'uppercase' }}>날짜</label>
-            <input type="date" value={form.date} onChange={e=>set('date',e.target.value)} style={{ width:'100%', padding:'10px 12px', border:'1.5px solid rgba(16,185,129,0.3)', borderRadius:8, fontSize:14, fontFamily:'inherit', background:'#2a2a3e', color:'#e2e8f0' }}/>
-          </div>
-          <div style={{ flex:1 }}>
-            <label style={{ display:'block', fontSize:10, fontWeight:700, color:'#10b981', marginBottom:4, textTransform:'uppercase' }}>금액 (AUD)</label>
-            <input type="number" step="0.01" value={form.amount} onChange={e=>set('amount',e.target.value)} style={{ width:'100%', padding:'10px 12px', border:'1.5px solid rgba(16,185,129,0.3)', borderRadius:8, fontSize:14, fontFamily:'inherit', background:'#2a2a3e', color:'#e2e8f0' }} placeholder="0.00"/>
-          </div>
+          <div style={{ flex:1 }}><label style={S3.label}>날짜</label><input type="date" value={form.date} onChange={e=>set('date',e.target.value)} style={S3.input}/></div>
+          <div style={{ flex:1 }}><label style={S3.label}>금액 (AUD)</label><input type="number" step="0.01" value={form.amount} onChange={e=>set('amount',e.target.value)} style={S3.input} placeholder="0.00"/></div>
         </div>
-        <div style={{ marginBottom:18 }}>
-          <label style={{ display:'block', fontSize:10, fontWeight:700, color:'#10b981', marginBottom:4, textTransform:'uppercase' }}>메모 (선택)</label>
-          <input value={form.note} onChange={e=>set('note',e.target.value)} style={{ width:'100%', padding:'10px 12px', border:'1.5px solid rgba(16,185,129,0.3)', borderRadius:8, fontSize:14, fontFamily:'inherit', background:'#2a2a3e', color:'#e2e8f0' }} placeholder="예: 4월 급여, 인보이스 INV-001"/>
-        </div>
+        <div style={{ marginBottom:18 }}><label style={S3.label}>메모 (선택)</label><input value={form.note} onChange={e=>set('note',e.target.value)} style={S3.input} placeholder="예: 4월 급여"/></div>
         <div style={{ display:'flex', gap:10 }}>
           <button onClick={onClose} style={{ flex:1, background:'rgba(16,185,129,0.1)', color:'#34d399', border:'1px solid rgba(16,185,129,0.2)', borderRadius:10, padding:12, fontSize:14, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>취소</button>
-          <button onClick={() => { if(!form.amount||!form.memberId) return alert('금액과 멤버를 입력하세요'); onSave({...form, amount: parseFloat(form.amount)}); }}
+          <button onClick={() => { if(!form.amount||!form.memberId) return alert('금액과 멤버를 선택하세요'); onSave({...form, amount:parseFloat(form.amount)}); }}
             style={{ flex:2, background:'#10b981', color:'#fff', border:'none', borderRadius:10, padding:12, fontSize:14, fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>💾 저장</button>
         </div>
       </div>
@@ -2238,10 +2132,16 @@ function SummarySection({users, leaves, periodStart, calcWage, getSavedDeduction
         const w = calcWage(emp.id);
         // 기간별 킵잔액 (정산 전 시작잔액 + 당기입금)
         const keep = getKeepBalanceAtPeriod(emp.id, periodStart) + getPeriodDeposits(emp.id, periodStart);
-        // 인보이스 직원은 w.gross(총 청구금액), 고정급 직원은 fixedNet/Tax/Super
+        // splitPay 여부 확인
+        const ci0 = lv.contractorInfo || {};
+        const splitPay0 = !!(ci0.splitPay);
+        const gstReg0 = !!(ci0.gstRegistered);
         const netPay   = w ? (w.isContractor && !w.hasFlatPay ? (parseFloat(w.gross)||0) : (parseFloat(lv.fixedNet)||0)) : 0;
         const taxAmt   = w ? (w.isContractor && !w.hasFlatPay ? 0 : (parseFloat(lv.fixedTax)||0)) : 0;
         const superAmt = w ? (w.isContractor && !w.hasFlatPay ? 0 : (parseFloat(lv.fixedSuper)||0)) : 0;
+        const splitCash = (splitPay0 && w) ? (w.stats.fullDays * w.dailyRate / 2) : 0;
+        const splitAbnBase = (splitPay0 && w) ? (w.stats.fullDays*w.dailyRate/2 + (w.stats.partHours||0)*w.partHourlyRate + (w.stats.otHours||0)*w.otHourlyRate + (w.travel||0)) : 0;
+        const splitGst  = (splitPay0 && gstReg0) ? splitAbnBase * 0.1 : 0;
         const col = EMP_COLORS[ei % EMP_COLORS.length];
         const isContractor = !!(lv.noLeave);
         const hasFlatPay   = !!(lv.hasFlatPay);
@@ -2266,9 +2166,14 @@ function SummarySection({users, leaves, periodStart, calcWage, getSavedDeduction
                 <p style={{ margin:0,fontSize:9,color:"#aaa" }}>{typeLabel}</p>
               </div>
             </div>
-            {fmt(netPay,"#10B981")}
-            {fmt(taxAmt,"#EF4444")}
-            {fmt(superAmt,"#8B5CF6")}
+            {splitPay0 ? (
+              <div style={{ textAlign:"center" }}>
+                <p style={{ margin:0,fontSize:11,fontWeight:700,color:"#10B981" }}>💵 {fA(splitCash)}</p>
+                <p style={{ margin:0,fontSize:11,fontWeight:700,color:"#3B82F6" }}>🧾 {fA(splitAbn+splitGst)}</p>
+              </div>
+            ) : fmt(netPay,"#10B981")}
+            {splitPay0 ? <p style={{ margin:0,fontSize:12,color:"#aaa",textAlign:"center" }}>—</p> : fmt(taxAmt,"#EF4444")}
+            {splitPay0 ? <p style={{ margin:0,fontSize:12,color:"#aaa",textAlign:"center" }}>—</p> : fmt(superAmt,"#8B5CF6")}
             <p style={{ margin:0,fontSize:12,fontWeight:700,color:ka>0?"#3B82F6":ka<0?"#EF4444":"#ccc",textAlign:"center" }}>{ka!==0?fA(ka):"—"}</p>
           </div>
         );
