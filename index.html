@@ -440,7 +440,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
   // Firebase 저장 디덕션 (날짜 기반 필터)
   const getSavedDeductions = (userId) => {
     const all = (leaves[userId] || {}).savedDeductions || [];
-    return all.filter(d => d.date >= wpStart && d.date <= wpEnd);
+    return Array.isArray(all) ? all : Object.values(all);
   };
   const savedTotal = (userId) => getSavedDeductions(userId).reduce((s,d) => s + (parseFloat(d.amount)||0), 0);
   const addSavedDeductions = (entries) => {
