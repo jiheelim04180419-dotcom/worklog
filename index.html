@@ -12,6 +12,45 @@
 <style>
   html, body { background-color: #f4f6fb !important; color-scheme: light; }
   * { -webkit-tap-highlight-color: transparent; }
+
+  /* ── 데스크탑 레이아웃 ── */
+  @media (min-width: 768px) {
+    /* 사이드바 네비게이션 */
+    .dt-sidebar {
+      display: flex !important;
+      flex-direction: column;
+      width: 220px;
+      min-height: 100vh;
+      background: #fff;
+      border-right: 1px solid #eaecf3;
+      position: fixed;
+      left: 0; top: 0; bottom: 0;
+      z-index: 100;
+      padding-top: 0;
+    }
+    /* 메인 컨텐츠 영역 */
+    .dt-content {
+      margin-left: 220px !important;
+      max-width: 100% !important;
+    }
+    .dt-inner {
+      max-width: 960px;
+      margin: 0 auto;
+    }
+    /* 모바일 하단 nav 숨김 */
+    .mb-nav { display: none !important; }
+    /* 모바일 헤더 조정 */
+    .dt-header { padding-left: 24px !important; }
+    /* 컨텐츠 여백 */
+    .dt-page { padding: 20px 32px 40px !important; }
+    /* 그리드 레이아웃 (카드 2열) */
+    .dt-grid-2 { display: grid !important; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .dt-grid-3 { display: grid !important; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+  }
+  @media (max-width: 767px) {
+    .dt-sidebar { display: none !important; }
+    .mb-nav { display: flex !important; }
+  }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
@@ -2761,7 +2800,7 @@ function BottomNav({ tab, setTab, isAdmin, isSuperAdmin, userHasLeave, user, log
     ...(isSuperAdmin ? [{ key:"mgmt", label:"운영진", emoji:"⭐" }] : []),
   ];
   return (
-    <nav style={styles.nav}>
+    <nav style={styles.nav} className="mb-nav">
       {items.map(item => {
         const active = tab === item.key;
         return (
@@ -3034,7 +3073,7 @@ const C = { primary: "#3b7ff5", bg: "#f4f6fb", card: "#fff", border: "#eaecf3", 
 
 const styles = {
   app: { fontFamily: "'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif", background: C.bg, backgroundColor: "#f4f6fb", minHeight: "100vh", minHeight: "100dvh", display: "flex", flexDirection: "column", maxWidth: 480, margin: "0 auto", position: "relative" },
-  content: { flex: 1, overflowY: "auto", paddingBottom: 72 },
+  content: { flex: 1, overflowY: "auto", paddingBottom: 72 }, contentDesktop: { flex: 1, overflowY: "auto", paddingBottom: 20 },
   page: { padding: "16px 16px 0" },
   pageHeader: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 },
   pageTitle: { margin: 0, fontSize: 20, fontWeight: 700, color: "#1a1d2e" },
@@ -3405,6 +3444,12 @@ function TeamTab({users,leaves,logs,persist,isSuperAdmin,companies}){const[showA
 
 // ─── App ───────────────────────────────────────────────────────────────────
 function App() {
+  const [isDesktop, setIsDesktop] = React.useState(window.innerWidth >= 768);
+  React.useEffect(() => {
+    const handler = () => setIsDesktop(window.innerWidth >= 768);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
   const [ready,setReady]=useState(false);
   const [session,setSession]=useState(null);
   const [users,setUsers]=useState(SEED_USERS);
@@ -3464,7 +3509,39 @@ function App() {
   const isViewAdmin=currentUser.role==="viewadmin";
 
   return(
-    <div style={styles.app}>
+    <div style={{...styles.app, maxWidth: isDesktop?'100%':480, flexDirection: isDesktop?'row':'column'}}>
+      {/* 데스크탑 사이드바 */}
+      {isDesktop && (
+        <div className="dt-sidebar" style={{display:'flex',flexDirection:'column'}}>
+          <div style={{padding:'20px 16px 12px',borderBottom:'1px solid #eaecf3'}}>
+            <div style={{fontSize:18,fontWeight:900,color:'#1a1a2e',letterSpacing:-0.5}}>📋 WorkLog</div>
+            <div style={{fontSize:11,color:'#aaa',marginTop:2}}>K&M Tiling</div>
+          </div>
+          <div style={{flex:1,padding:'8px 0',overflowY:'auto'}}>
+            {[
+              {key:'home',label:'홈',emoji:'🏠'},
+              {key:'log',label:'근무일지',emoji:'📋'},
+              ...(isAdmin||!normLeave(leaves[currentUser.id],currentUser.joinDate).noLeave?[{key:'leave',label:'연차',emoji:'🌴'}]:[]),
+              {key:'payroll',label:'급여',emoji:'💰'},
+              ...(isAdmin?[{key:'rate',label:'일급',emoji:'💵'}]:[]),
+              ...(isAdmin?[{key:'team',label:'직원관리',emoji:'👥'}]:[]),
+              ...(isAdmin?[{key:'company',label:'회사',emoji:'🏢'}]:[]),
+              ...(isSuperAdmin?[{key:'mgmt',label:'운영진',emoji:'⭐'}]:[]),
+            ].map(item => (
+              <button key={item.key} onClick={()=>setTab(item.key)}
+                style={{width:'100%',display:'flex',alignItems:'center',gap:10,padding:'10px 20px',border:'none',background:tab===item.key?'#EEF2FF':'transparent',color:tab===item.key?'#4F46E5':'#555',fontWeight:tab===item.key?700:400,fontSize:14,cursor:'pointer',fontFamily:'inherit',textAlign:'left',borderLeft:tab===item.key?'3px solid #4F46E5':'3px solid transparent'}}>
+                <span style={{fontSize:18}}>{item.emoji}</span>
+                {item.label}
+              </button>
+            ))}
+          </div>
+          <div style={{padding:'12px 16px',borderTop:'1px solid #eaecf3',fontSize:11,color:'#aaa'}}>
+            {currentUser?.name} · {isAdmin?'관리자':'직원'}
+          </div>
+        </div>
+      )}
+      {/* 메인 콘텐츠 */}
+      <div style={{flex:1, marginLeft: isDesktop?220:0, maxWidth: isDesktop?'100%':480, width:'100%'}}>
       <Header user={currentUser} onLogout={logout} onChangePw={()=>{setPwForm({cur:"",next:"",confirm:""});setPwErr("");setShowChangePw(true);}}/>
       <div style={styles.content}>
         {tab==="home"&&<HomeTab user={currentUser} users={users} logs={logs} leaves={leaves} isAdmin={isAdmin} onJumpToLog={(date,userId,periodOffset)=>{setJumpInfo({date,userId,periodOffset});setTab("log");}}/> }
@@ -3515,6 +3592,7 @@ function App() {
         </div>
       )}
       <BottomNav tab={tab} setTab={setTab} isAdmin={isAdmin} isSuperAdmin={isSuperAdmin} userHasLeave={isAdmin||!normLeave(leaves[currentUser.id],currentUser.joinDate).noLeave} user={currentUser} logs={logs}/>
+      </div>{/* 메인 콘텐츠 닫기 */}
     </div>
   );
 }
