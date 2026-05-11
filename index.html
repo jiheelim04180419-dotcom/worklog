@@ -1782,22 +1782,23 @@ function MgmtTab({ fbUrl, fA }) {
   const today = new Date().toISOString().split('T')[0];
   const curMonth = today.slice(0, 7);
 
+  const getDb = () => {
+    try { return firebase.database(); } catch(e) { return null; }
+  };
+
   React.useEffect(() => {
-    try {
-      // 이미 초기화된 Firebase 앱 재사용
-      let app; try { app = firebase.app(); } catch(e) { return; }
-      const database = firebase.database(app);
-      setDb(database);
-      database.ref('mgmt/members').on('value', s => {
-        const d = s.val() || {};
-        setMembers(Object.entries(d).map(([id,v]) => ({...v, id})));
-      });
-      database.ref('mgmt/payments').on('value', s => {
-        const d = s.val() || {};
-        setPayments(Object.entries(d).map(([id,v]) => ({...v, id})));
-      });
-    } catch(e) { console.error(e); }
-  }, [fbUrl]);
+    const database = getDb();
+    if (!database) return;
+    setDb(database);
+    database.ref('mgmt/members').on('value', s => {
+      const d = s.val() || {};
+      setMembers(Object.entries(d).map(([id,v]) => ({...v, id})));
+    });
+    database.ref('mgmt/payments').on('value', s => {
+      const d = s.val() || {};
+      setPayments(Object.entries(d).map(([id,v]) => ({...v, id})));
+    });
+  }, []);
 
   // 세금 계산 (ATO 포트나잇리 기준 연소득 환산)
   // 포트나잇(2주) Gross 기준으로 계산
@@ -1821,7 +1822,7 @@ function MgmtTab({ fbUrl, fA }) {
   };
 
   const saveMember = (m) => {
-    const database = db || (() => { try { return firebase.database(firebase.app()); } catch(e) { return null; } })();
+    const database = db || getDb();
     if (!database) { alert('Firebase 연결 오류'); return; }
     const ref = m.id ? database.ref('mgmt/members/' + m.id) : database.ref('mgmt/members').push();
     const { id, ...data } = m;
@@ -1831,13 +1832,13 @@ function MgmtTab({ fbUrl, fA }) {
   };
 
   const deleteMember = (id) => {
-    const database = db || (() => { try { return firebase.database(firebase.app()); } catch(e) { return null; } })();
+    const database = db || getDb();
     if (!database || !confirm('삭제할까요?')) return;
     database.ref('mgmt/members/' + id).remove();
   };
 
   const savePayment = (p) => {
-    const database = db || (() => { try { return firebase.database(firebase.app()); } catch(e) { return null; } })();
+    const database = db || getDb();
     if (!database) { alert('Firebase 연결 오류'); return; }
     const ref = p.id ? database.ref('mgmt/payments/' + p.id) : database.ref('mgmt/payments').push();
     const { id, ...data } = p;
@@ -1847,7 +1848,7 @@ function MgmtTab({ fbUrl, fA }) {
   };
 
   const deletePayment = (id) => {
-    const database = db || (() => { try { return firebase.database(firebase.app()); } catch(e) { return null; } })();
+    const database = db || getDb();
     if (!database || !confirm('삭제할까요?')) return;
     database.ref('mgmt/payments/' + id).remove();
   };
@@ -1943,7 +1944,7 @@ function MgmtTab({ fbUrl, fA }) {
                 <div style={{ background:'#252535', borderRadius:10, padding:'12px', marginTop:12, marginBottom:12 }}>
                   {m.type === 'monthly' && c && (<>
                     <div style={{ display:'flex', justifyContent:'space-between', fontSize:12, marginBottom:4 }}>
-                      <span style={{ color:'rgba(226,232,240,0.6)' }}>Gross (2주)</span>
+                      <span style={{ color:'rgba(226,232,240,0.6)' }}>Net Pay (2주)</span>
                       <span style={{ color:'#e2e8f0', fontWeight:600 }}>{fA(c.gross)}</span>
                     </div>
                     <div style={{ display:'flex', justifyContent:'space-between', fontSize:12, marginBottom:4 }}>
@@ -2097,7 +2098,7 @@ function MgmtMemberForm({ member, onSave, onClose }) {
         </div>
         {form.type === 'monthly' && (<>
           <div style={{ marginBottom:12 }}>
-            <label style={{ display:'block', fontSize:10, fontWeight:700, color:'#6366f1', marginBottom:4, textTransform:'uppercase' }}>포트나잇 Gross (2주, AUD)</label>
+            <label style={{ display:'block', fontSize:10, fontWeight:700, color:'#6366f1', marginBottom:4, textTransform:'uppercase' }}>포트나잇 Net Pay (2주, AUD)</label>
             <input type="number" value={form.salary} onChange={e=>set('salary',e.target.value)} style={{ width:'100%', padding:'10px 12px', border:'1.5px solid rgba(99,102,241,0.3)', borderRadius:8, fontSize:14, fontFamily:'inherit', background:'#2a2a3e', color:'#e2e8f0' }} placeholder="0.00"/>
           </div>
           <div style={{ display:'flex', gap:10, marginBottom:12 }}>
