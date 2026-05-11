@@ -367,7 +367,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
         const existing = Array.isArray(lv.savedDeductions) ? lv.savedDeductions : Object.values(lv.savedDeductions||{});
         const newEntries = validDeds.map(d => ({
           id: Date.now() + Math.random(),
-          date: wpStart,
+          date: d.date || wpStart,
           desc: d.desc,
           amount: parseFloat(d.amount)
         }));
@@ -448,15 +448,22 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
     return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
   })();
 
-  const addDeduction = () => setDeductions(d => [...d, { id: Date.now(), desc: "", amount: "" }]);
+  const addDeduction = () => setDeductions(d => [...d, { id: Date.now(), desc: "", amount: "", date: wpStart }]);
   const updateDeduction = (id, field, val) => setDeductions(d => d.map(x => x.id === id ? { ...x, [field]: val } : x));
   const removeDeduction = (id) => setDeductions(d => d.filter(x => x.id !== id));
   const totalDeductions = deductions.reduce((s, d) => s + (parseFloat(d.amount) || 0), 0);
 
   // Firebase 저장 디덕션 (날짜 기반 필터)
-  const getSavedDeductions = (userId) => {
+  // 전체 savedDeductions (기간 무관) - 정산 계산용
+  const getAllSavedDeductions = (userId) => {
     const all = (leaves[userId] || {}).savedDeductions || [];
     return Array.isArray(all) ? all : Object.values(all);
+  };
+
+  const getSavedDeductions = (userId) => {
+    const all = (leaves[userId] || {}).savedDeductions || [];
+    const arr = Array.isArray(all) ? all : Object.values(all);
+    return arr.filter(d => d.date >= wpStart && d.date <= wpEnd);
   };
   const savedTotal = (userId) => getSavedDeductions(userId).reduce((s,d) => s + (parseFloat(d.amount)||0), 0);
   const addSavedDeductions = (entries) => {
@@ -768,7 +775,9 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                 <p style={{ fontSize:12,color:"#ccc",textAlign:"center",margin:"8px 0 0",fontStyle:"italic" }}>회사카드 개인결제 등 공제할 항목을 추가하세요</p>
               )}
               {deductions.map(d => (
-                <div key={d.id} style={{ display:"flex",gap:6,alignItems:"center",marginBottom:8 }}>
+                <div key={d.id} style={{ display:"flex",gap:6,alignItems:"center",marginBottom:8,flexWrap:"wrap" }}>
+                  <input type="date" value={d.date||wpStart} onChange={e => updateDeduction(d.id, "date", e.target.value)}
+                    style={{ ...styles.input,flex:"0 0 130px",fontSize:12,padding:"8px 10px" }} />
                   <input placeholder="항목명 (예: 회사카드 개인결제)" value={d.desc}
                     onChange={e => updateDeduction(d.id, "desc", e.target.value)}
                     style={{ ...styles.input,flex:2,fontSize:12,padding:"8px 10px" }} />
