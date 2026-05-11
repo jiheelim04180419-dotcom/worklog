@@ -3,584 +3,475 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' https: data: blob:; connect-src *;">
 <title>K&M Invoice</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 <style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Segoe UI',system-ui,sans-serif;background:#F0F2F5;color:#1a1a2e;min-height:100vh}
+*{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+body{background:#F0F4FF;color:#111827;min-height:100vh}
+.header{background:#1E1B4B;color:#fff;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,0.3)}
+.logo{font-size:17px;font-weight:800;letter-spacing:-0.3px}
+.logo small{display:block;font-size:10px;color:rgba(255,255,255,0.4);font-weight:400;margin-top:1px}
+.nav{display:flex;gap:4px}
+.nav button{padding:7px 13px;border-radius:8px;border:none;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;transition:all .15s}
+.nav button.active{background:#818CF8;color:#fff}
+.nav button:not(.active){background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.6)}
+.content{max-width:600px;margin:0 auto;padding:16px 16px 90px}
+.card{background:#fff;border-radius:14px;padding:15px 16px;margin-bottom:10px;box-shadow:0 2px 8px rgba(79,70,229,0.08);border:1px solid #E5E8F5}
+.input{width:100%;padding:10px 13px;border:1.5px solid #E5E8F5;border-radius:9px;font-size:14px;font-family:inherit;outline:none;background:#fff;color:#111827}
+.input:focus{border-color:#4F46E5}
+.select{width:100%;padding:10px 13px;border:1.5px solid #E5E8F5;border-radius:9px;font-size:14px;font-family:inherit;background:#fff;color:#111827}
+.label{display:block;font-size:10px;font-weight:700;color:#6B7280;margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px}
+.btn-primary{background:#4F46E5;color:#fff;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;box-shadow:0 2px 8px rgba(79,70,229,0.25)}
+.btn-secondary{background:#F3F4F6;color:#374151;border:1px solid #E5E7EB;border-radius:10px;padding:11px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit}
+.btn-gold{background:#7C3AED;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:200;align-items:flex-end;justify-content:center;backdrop-filter:blur(2px)}
+.modal.open{display:flex}
+.mbox{background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:600px;max-height:92vh;overflow-y:auto;padding:22px 20px;box-shadow:0 -4px 30px rgba(79,70,229,0.12)}
+.row2{display:flex;gap:10px}
+.row2>*{flex:1}
+.mb{margin-bottom:12px}
+.pill{display:inline-block;border-radius:6px;padding:3px 8px;font-size:11px;font-weight:700}
+.pill-INVOICE{background:#EEF2FF;color:#4F46E5}
+.pill-DEPOSIT,.pill-PAID{background:#ECFDF5;color:#059669}
+.pill-CREDIT{background:#FFFBEB;color:#D97706}
+.pill-SUSPEND{background:#FFF1F2;color:#BE123C}
+.pill-OVERDUE{background:#FEE2E2;color:#DC2626}
+.filter-bar{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;margin-bottom:10px;scrollbar-width:none}
+.filter-bar::-webkit-scrollbar{display:none}
+.fbtn{padding:6px 12px;border-radius:20px;border:none;cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap;background:#fff;color:#6B7280;box-shadow:0 1px 4px rgba(0,0,0,0.08);font-family:inherit}
+.fbtn.active{background:#4F46E5;color:#fff}
+.bbar{position:fixed;bottom:0;left:0;right:0;background:rgba(30,27,75,0.97);backdrop-filter:blur(10px);padding:10px 20px;display:flex;justify-content:space-around;z-index:100}
+.bstat{text-align:center}
+.bstat-l{font-size:10px;color:rgba(255,255,255,0.4)}
+.bstat-v{font-size:14px;font-weight:800}
+.icard{background:#fff;border-radius:14px;margin-bottom:10px;box-shadow:0 2px 8px rgba(79,70,229,0.07);overflow:hidden;border-left:4px solid #4F46E5;border:1px solid #E5E8F5;border-left-width:4px}
+.icard.DEPOSIT,.icard.PAID{border-left-color:#059669}
+.icard.OVERDUE{border-left-color:#DC2626}
+.icard.CREDIT{border-left-color:#D97706}
+.icard.SUSPEND{border-left-color:#94A3B8}
+.icard-body{padding:14px 16px}
+.iname{font-size:14px;font-weight:800;color:#111827;margin-bottom:3px}
+.iaddr{font-size:12px;color:#6B7280}
+.iamount{font-size:17px;font-weight:900;white-space:nowrap;color:#111827}
+.idates{display:flex;gap:10px;font-size:11px;color:#9CA3AF;margin-top:8px;flex-wrap:wrap}
+.iexpand{background:none;border:none;cursor:pointer;font-size:11px;color:#9CA3AF;width:100%;padding:6px;text-align:center;border-top:1px solid #F3F4F6;font-family:inherit}
+.idetail{padding:0 16px 14px;border-top:1px solid #F3F4F6}
+.empty{text-align:center;padding:48px 0;color:#9CA3AF}
+.search-row{display:flex;gap:8px;margin-bottom:10px}
+.search-row input{flex:1}
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.stat-card{background:#fff;border-radius:14px;padding:14px;box-shadow:0 2px 8px rgba(79,70,229,0.07);border:1px solid #E5E8F5}
+.type-toggle{display:flex;gap:8px;margin-bottom:14px}
+.ttp{flex:1;padding:10px;border-radius:10px;border:1.5px solid #E5E8F5;background:#fff;color:#6B7280;font-family:inherit;cursor:pointer;font-weight:600;font-size:13px;transition:all .15s}
+.ttp.active{border-color:#4F46E5;background:#4F46E5;color:#fff}
+.bar-wrap{height:6px;background:#F3F4F6;border-radius:3px;overflow:hidden;margin:4px 0}
+.bar-fill{height:100%;border-radius:3px}
 </style>
 </head>
 <body>
-<div id="root"></div>
-<script id="src" type="text/plain">
-// ── Firebase Config ──────────────────────────────────────────────────────────
-const FB_CONFIG = {
-  apiKey:"AIzaSyBnJkCZwGlhvXkbEGPMJJLiHwpuXV6KcVs",
-  authDomain:"knmtilingptyltd.firebaseapp.com",
-  databaseURL:"https://knmtilingptyltd-12520-default-rtdb.firebaseio.com",
-  projectId:"knmtilingptyltd",
-  storageBucket:"knmtilingptyltd.appspot.com",
-  messagingSenderId:"123456789",
-  appId:"1:123456789:web:abc123"
-};
+<div class="header">
+  <div class="logo">K&M Tiling<small>Invoice Manager</small></div>
+  <div class="nav">
+    <button class="active" onclick="showTab('invoices')">📋 인보이스</button>
+    <button onclick="showTab('builders')">🏗️ 빌더</button>
+    <button onclick="showTab('stats')">📊 통계</button>
+  </div>
+</div>
+<div class="content">
+  <div id="tab-invoices"></div>
+  <div id="tab-builders" style="display:none"></div>
+  <div id="tab-stats" style="display:none"></div>
+</div>
+<div class="bbar">
+  <div class="bstat"><div class="bstat-l">미수금</div><div class="bstat-v" id="bs-out" style="color:#818CF8">$0</div></div>
+  <div class="bstat"><div class="bstat-l">연체</div><div class="bstat-v" id="bs-ov" style="color:#f87171">$0</div></div>
+  <div class="bstat"><div class="bstat-l">이번달</div><div class="bstat-v" id="bs-mo" style="color:#34d399">$0</div></div>
+</div>
 
-// ── Styles ───────────────────────────────────────────────────────────────────
-const S = {
-  page:{minHeight:"100vh",background:"#F0F2F5",paddingBottom:80},
-  header:{background:"#1a1a2e",color:"#fff",padding:"16px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:100,boxShadow:"0 2px 8px rgba(0,0,0,0.3)"},
-  logo:{fontSize:18,fontWeight:800,letterSpacing:1},
-  badge:{fontSize:11,background:"#e8b84b",color:"#1a1a2e",borderRadius:6,padding:"3px 8px",fontWeight:700},
-  nav:{display:"flex",gap:4},
-  navBtn:(a)=>({padding:"8px 16px",borderRadius:8,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:13,fontWeight:600,background:a?"#e8b84b":"transparent",color:a?"#1a1a2e":"rgba(255,255,255,0.7)",transition:"all .2s"}),
-  card:{background:"#fff",borderRadius:14,padding:"16px",marginBottom:12,boxShadow:"0 1px 4px rgba(0,0,0,0.08)"},
-  statCard:{background:"#fff",borderRadius:14,padding:"16px",flex:1,boxShadow:"0 1px 4px rgba(0,0,0,0.08)"},
-  input:{width:"100%",padding:"10px 12px",border:"1px solid #E5E7EB",borderRadius:8,fontSize:14,fontFamily:"inherit",outline:"none"},
-  select:{width:"100%",padding:"10px 12px",border:"1px solid #E5E7EB",borderRadius:8,fontSize:14,fontFamily:"inherit",background:"#fff"},
-  label:{display:"block",fontSize:11,fontWeight:700,color:"#888",marginBottom:4,textTransform:"uppercase",letterSpacing:0.5},
-  btnPrimary:{background:"#1a1a2e",color:"#fff",border:"none",borderRadius:10,padding:"12px 20px",fontSize:14,fontWeight:700,cursor:"pointer",fontFamily:"inherit",width:"100%"},
-  btnSecondary:{background:"#F3F4F6",color:"#333",border:"none",borderRadius:10,padding:"12px 20px",fontSize:14,fontWeight:600,cursor:"pointer",fontFamily:"inherit"},
-  btnGold:{background:"#e8b84b",color:"#1a1a2e",border:"none",borderRadius:8,padding:"8px 16px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"},
-  modal:{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:200,display:"flex",alignItems:"flex-end",justifyContent:"center"},
-  modalBox:{background:"#fff",borderRadius:"20px 20px 0 0",width:"100%",maxWidth:600,maxHeight:"90vh",overflowY:"auto",padding:"24px 20px"},
-  row:{display:"flex",gap:10},
-  statusBadge:(s)=>{
-    const map={INVOICE:{bg:"#EFF6FF",c:"#1D4ED8"},DEPOSIT:{bg:"#F0FDF4",c:"#16A34A"},CREDIT:{bg:"#FEF3C7",c:"#D97706"},SUSPEND:{bg:"#FFF1F2",c:"#BE123C"},OVERDUE:{bg:"#FEE2E2",c:"#DC2626"},PAID:{bg:"#F0FDF4",c:"#16A34A"}};
-    const m=map[s]||{bg:"#F3F4F6",c:"#666"};
-    return{background:m.bg,color:m.c,borderRadius:6,padding:"3px 8px",fontSize:11,fontWeight:700,display:"inline-block"};
-  },
-};
-
-const today = new Date().toISOString().split('T')[0];
-const fA = (n) => new Intl.NumberFormat("en-AU",{style:"currency",currency:"AUD"}).format(n||0);
-const fDate = (d) => d ? new Date(d+'T00:00:00').toLocaleDateString('en-AU',{day:'2-digit',month:'short',year:'numeric'}) : '—';
-
-// ── App ──────────────────────────────────────────────────────────────────────
-function App() {
-  const [tab, setTab] = React.useState("invoices");
-  const [invoices, setInvoices] = React.useState([]);
-  const [builders, setBuilders] = React.useState([]);
-  const [loading, setLoading] = React.useState(true);
-  const [db, setDb] = React.useState(null);
-
-  React.useEffect(() => {
-    try {
-      let app;
-      try { app = firebase.app(); } catch(e) { app = firebase.initializeApp(FB_CONFIG); }
-      const database = firebase.database(app);
-      setDb(database);
-      // Load invoices
-      database.ref('invoices').on('value', snap => {
-        const data = snap.val() || {};
-        setInvoices(Object.entries(data).map(([id,v])=>({...v,id})));
-        setLoading(false);
-      });
-      // Load builders
-      database.ref('invoiceBuilders').on('value', snap => {
-        const data = snap.val() || {};
-        setBuilders(Object.entries(data).map(([id,v])=>({...v,id})));
-      });
-    } catch(e) {
-      console.error(e);
-      setLoading(false);
-    }
-  }, []);
-
-  const saveInvoice = (inv) => {
-    if (!db) return;
-    const ref = inv.id ? db.ref('invoices/'+inv.id) : db.ref('invoices').push();
-    const {id,...data} = inv;
-    ref.set({...data, updatedAt: new Date().toISOString()});
-  };
-
-  const saveBuilder = (b) => {
-    if (!db) return;
-    const ref = b.id ? db.ref('invoiceBuilders/'+b.id) : db.ref('invoiceBuilders').push();
-    const {id,...data} = b;
-    ref.set(data);
-  };
-
-  const deleteInvoice = (id) => {
-    if (!db) return;
-    db.ref('invoices/'+id).remove();
-  };
-
-  // Stats
-  const totalOutstanding = invoices.filter(i=>i.status==='INVOICE'||i.status==='OVERDUE').reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
-  const totalOverdue = invoices.filter(i=>i.status==='OVERDUE').reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
-  const totalPaid = invoices.filter(i=>i.status==='DEPOSIT'||i.status==='PAID').reduce((s,i)=>s+(parseFloat(i.depositAmount||i.amount)||0),0);
-  const thisMonth = invoices.filter(i=>(i.invoiceDate||'').startsWith(today.slice(0,7))).reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
-
-  if (loading) return <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",fontSize:16,color:"#888"}}>로딩 중...</div>;
-
-  return (
-    <div style={S.page}>
-      {/* Header */}
-      <div style={S.header}>
-        <div>
-          <div style={S.logo}>K&M Tiling</div>
-          <div style={{fontSize:11,color:"rgba(255,255,255,0.5)",marginTop:2}}>Invoice Manager</div>
-        </div>
-        <div style={S.nav}>
-          {[["invoices","📋 인보이스"],["builders","🏗️ 빌더"],["stats","📊 통계"]].map(([t,l])=>(
-            <button key={t} style={S.navBtn(tab===t)} onClick={()=>setTab(t)}>{l}</button>
-          ))}
-        </div>
-      </div>
-
-      {/* Content */}
-      <div style={{maxWidth:600,margin:"0 auto",padding:"16px 16px 0"}}>
-        {tab==="invoices" && <InvoiceTab invoices={invoices} builders={builders} onSave={saveInvoice} onDelete={deleteInvoice} fA={fA} fDate={fDate} S={S}/>}
-        {tab==="builders" && <BuilderTab builders={builders} invoices={invoices} onSave={saveBuilder} fA={fA} S={S}/>}
-        {tab==="stats" && <StatsTab invoices={invoices} builders={builders} totalOutstanding={totalOutstanding} totalOverdue={totalOverdue} totalPaid={totalPaid} thisMonth={thisMonth} fA={fA} S={S}/>}
-      </div>
-
-      {/* Bottom summary bar */}
-      <div style={{position:"fixed",bottom:0,left:0,right:0,background:"#1a1a2e",padding:"10px 20px",display:"flex",justifyContent:"space-around",zIndex:100}}>
-        {[["미수금",totalOutstanding,"#e8b84b"],["연체",totalOverdue,"#ef4444"],["이번달",thisMonth,"#10b981"]].map(([l,v,c])=>(
-          <div key={l} style={{textAlign:"center"}}>
-            <div style={{fontSize:10,color:"rgba(255,255,255,0.5)"}}>{l}</div>
-            <div style={{fontSize:14,fontWeight:800,color:c}}>{fA(v)}</div>
-          </div>
-        ))}
-      </div>
+<!-- Invoice Modal -->
+<div class="modal" id="inv-modal">
+<div class="mbox">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+    <h3 id="im-title" style="font-size:16px;font-weight:800;color:#111827">새 인보이스</h3>
+    <button onclick="closeIM()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#9CA3AF">×</button>
+  </div>
+  <div class="type-toggle">
+    <button class="ttp active" id="tt-normal" onclick="setType('NORMAL')">일반 인보이스</button>
+    <button class="ttp" id="tt-po" onclick="setType('PO')">PO 기반</button>
+  </div>
+  <div class="mb"><label class="label">빌더명 *</label><input class="input" id="f-b" list="bdl" placeholder="빌더명"/><datalist id="bdl"></datalist></div>
+  <div class="mb"><label class="label">현장 주소</label><input class="input" id="f-a" placeholder="주소"/></div>
+  <div class="row2 mb">
+    <div><label class="label">인보이스 번호</label><input class="input" id="f-n" placeholder="INV-1234"/></div>
+    <div><label class="label">상태</label><select class="select" id="f-st"><option>INVOICE</option><option>DEPOSIT</option><option>PAID</option><option>CREDIT</option><option>SUSPEND</option><option>OVERDUE</option></select></div>
+  </div>
+  <div id="f-po-row" class="mb" style="display:none"><label class="label">PO 번호</label><input class="input" id="f-po" placeholder="PO Number"/></div>
+  <div class="row2 mb">
+    <div><label class="label">인보이스 날짜</label><input type="date" class="input" id="f-id"/></div>
+    <div><label class="label">만기일</label><input type="date" class="input" id="f-dd"/></div>
+  </div>
+  <div id="f-amt-row" class="mb"><label class="label">금액 (inc. GST) *</label><input type="number" step="0.01" class="input" id="f-am" placeholder="0.00"/></div>
+  <div id="f-items-row" class="mb" style="display:none">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <label class="label" style="margin:0">항목</label>
+      <button class="btn-gold" style="padding:5px 10px;font-size:12px" onclick="addItem()">+ 항목추가</button>
     </div>
-  );
+    <div id="items-list"></div>
+    <div id="items-total" style="text-align:right;font-size:14px;font-weight:700;padding:6px 0;color:#4F46E5"></div>
+  </div>
+  <div class="row2 mb">
+    <div><label class="label">입금 날짜</label><input type="date" class="input" id="f-dd2"/></div>
+    <div><label class="label">입금 금액</label><input type="number" step="0.01" class="input" id="f-da" placeholder="0.00"/></div>
+  </div>
+  <div class="mb"><label class="label">메모</label><textarea class="input" id="f-no" style="height:60px;resize:none" placeholder="메모"></textarea></div>
+  <div class="row2" style="gap:10px"><button class="btn-secondary" style="flex:1" onclick="closeIM()">취소</button><button class="btn-primary" style="flex:2" onclick="saveInv()">💾 저장</button></div>
+</div>
+</div>
+
+<!-- Builder Modal -->
+<div class="modal" id="b-modal">
+<div class="mbox">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+    <h3 id="bm-title" style="font-size:16px;font-weight:800;color:#111827">새 빌더</h3>
+    <button onclick="closeBM()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#9CA3AF">×</button>
+  </div>
+  <div class="mb"><label class="label">빌더명 *</label><input class="input" id="bf-n" placeholder="빌더명"/></div>
+  <div class="mb"><label class="label">연락처</label><input class="input" id="bf-c" placeholder="연락처"/></div>
+  <div class="mb"><label class="label">이메일</label><input class="input" id="bf-e" placeholder="이메일"/></div>
+  <div class="mb"><label class="label">ABN</label><input class="input" id="bf-a" placeholder="ABN"/></div>
+  <div class="row2" style="gap:10px"><button class="btn-secondary" style="flex:1" onclick="closeBM()">취소</button><button class="btn-primary" style="flex:2" onclick="saveBuilder()">💾 저장</button></div>
+</div>
+</div>
+
+<script>
+// ── Firebase REST API ─────────────────────────────────────────────────────────
+const FB_BASE = 'https://knmtilingptyltd-12520-default-rtdb.firebaseio.com';
+
+async function fbGet(path) {
+  try {
+    const r = await fetch(FB_BASE + '/' + path + '.json');
+    return r.ok ? r.json() : null;
+  } catch(e) { return null; }
 }
-
-// ── Invoice Tab ──────────────────────────────────────────────────────────────
-function InvoiceTab({invoices, builders, onSave, onDelete, fA, fDate, S}) {
-  const [showForm, setShowForm] = React.useState(false);
-  const [editInv, setEditInv] = React.useState(null);
-  const [filter, setFilter] = React.useState("ALL");
-  const [search, setSearch] = React.useState("");
-  const [sortBy, setSortBy] = React.useState("date");
-
-  const statuses = ["ALL","INVOICE","DEPOSIT","OVERDUE","CREDIT","SUSPEND","PAID"];
-
-  const filtered = invoices
-    .filter(i => filter==="ALL" || i.status===filter)
-    .filter(i => !search || (i.builderName||'').toLowerCase().includes(search.toLowerCase()) || (i.address||'').toLowerCase().includes(search.toLowerCase()) || (i.invoiceNum||'').toLowerCase().includes(search.toLowerCase()))
-    .sort((a,b) => {
-      if (sortBy==="date") return (b.invoiceDate||'').localeCompare(a.invoiceDate||'');
-      if (sortBy==="amount") return (parseFloat(b.amount)||0) - (parseFloat(a.amount)||0);
-      if (sortBy==="builder") return (a.builderName||'').localeCompare(b.builderName||'');
-      return 0;
+async function fbSet(path, val) {
+  try {
+    await fetch(FB_BASE + '/' + path + '.json', {
+      method: 'PUT', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(val)
     });
-
-  return (
-    <div>
-      {/* Search + Add */}
-      <div style={{display:"flex",gap:8,marginBottom:12}}>
-        <input placeholder="🔍 빌더/주소/인보이스번호 검색" value={search} onChange={e=>setSearch(e.target.value)}
-          style={{...S.input,flex:1}}/>
-        <button style={{...S.btnGold,whiteSpace:"nowrap"}} onClick={()=>{setEditInv(null);setShowForm(true);}}>+ 추가</button>
-      </div>
-
-      {/* Status filter */}
-      <div style={{display:"flex",gap:6,overflowX:"auto",marginBottom:12,paddingBottom:4}}>
-        {statuses.map(s=>(
-          <button key={s} onClick={()=>setFilter(s)} style={{padding:"6px 12px",borderRadius:20,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:600,whiteSpace:"nowrap",background:filter===s?"#1a1a2e":"#fff",color:filter===s?"#fff":"#666",boxShadow:"0 1px 3px rgba(0,0,0,0.1)"}}>
-            {s} {s!=="ALL" && <span style={{opacity:0.7}}>({invoices.filter(i=>i.status===s).length})</span>}
-          </button>
-        ))}
-      </div>
-
-      {/* Sort */}
-      <div style={{display:"flex",gap:8,marginBottom:12,alignItems:"center"}}>
-        <span style={{fontSize:12,color:"#888"}}>정렬:</span>
-        {[["date","날짜"],["amount","금액"],["builder","빌더"]].map(([k,l])=>(
-          <button key={k} onClick={()=>setSortBy(k)} style={{padding:"4px 10px",borderRadius:6,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,background:sortBy===k?"#E0E7FF":"#fff",color:sortBy===k?"#3730a3":"#666",fontWeight:sortBy===k?700:400}}>
-            {l}
-          </button>
-        ))}
-        <span style={{marginLeft:"auto",fontSize:12,color:"#888"}}>{filtered.length}건</span>
-      </div>
-
-      {/* Invoice list */}
-      {filtered.length === 0 ? (
-        <div style={{textAlign:"center",padding:"40px 0",color:"#aaa"}}>
-          <div style={{fontSize:40,marginBottom:8}}>📋</div>
-          <div>인보이스가 없어요</div>
-        </div>
-      ) : filtered.map(inv => (
-        <InvoiceCard key={inv.id} inv={inv} fA={fA} fDate={fDate} S={S}
-          onEdit={()=>{setEditInv(inv);setShowForm(true);}}
-          onDelete={()=>{ if(confirm('삭제할까요?')) onDelete(inv.id); }}/>
-      ))}
-
-      {showForm && (
-        <InvoiceForm inv={editInv} builders={builders} onSave={(d)=>{onSave(d);setShowForm(false);}} onClose={()=>setShowForm(false)} S={S} today={today}/>
-      )}
-    </div>
-  );
+  } catch(e) {}
+}
+async function fbPush(path, val) {
+  try {
+    const r = await fetch(FB_BASE + '/' + path + '.json', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(val)
+    });
+    const d = await r.json();
+    return d && d.name;
+  } catch(e) { return null; }
+}
+async function fbDel(path) {
+  try {
+    await fetch(FB_BASE + '/' + path + '.json', { method: 'DELETE' });
+  } catch(e) {}
 }
 
-// ── Invoice Card ─────────────────────────────────────────────────────────────
-function InvoiceCard({inv, fA, fDate, S, onEdit, onDelete}) {
-  const [expanded, setExpanded] = React.useState(false);
-  const isPO = inv.type === "PO";
-  const isOverdue = inv.status==="INVOICE" && inv.dueDate && new Date(inv.dueDate) < new Date();
+// ── State ─────────────────────────────────────────────────────────────────────
+let invoices = [], builders = [], curFilter = 'ALL', curType = 'NORMAL', editId = null, editBId = null, invItems = [];
+const today = new Date().toISOString().split('T')[0];
+const fA = n => new Intl.NumberFormat('en-AU',{style:'currency',currency:'AUD'}).format(n||0);
+const fD = d => d ? new Date(d+'T00:00:00').toLocaleDateString('en-AU',{day:'2-digit',month:'short',year:'numeric'}) : '—';
+const esc = s => (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+let searchQ = '';
 
-  return (
-    <div style={{...S.card,borderLeft:`4px solid ${inv.status==="OVERDUE"||isOverdue?"#ef4444":inv.status==="DEPOSIT"||inv.status==="PAID"?"#10b981":inv.status==="CREDIT"?"#f59e0b":"#3b82f6"}`}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-        <div style={{flex:1,minWidth:0}}>
-          <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap",marginBottom:4}}>
-            <span style={{fontSize:14,fontWeight:700}}>{inv.builderName||"—"}</span>
-            <span style={S.statusBadge(isOverdue?"OVERDUE":inv.status)}>{isOverdue?"OVERDUE":inv.status}</span>
-            {isPO && <span style={{fontSize:10,background:"#EDE9FE",color:"#7c3aed",borderRadius:4,padding:"2px 6px",fontWeight:700}}>PO</span>}
-          </div>
-          <div style={{fontSize:12,color:"#666",marginBottom:2}}>{inv.address||"—"}</div>
-          {inv.invoiceNum && <div style={{fontSize:11,color:"#888"}}>#{inv.invoiceNum}</div>}
-        </div>
-        <div style={{textAlign:"right",flexShrink:0,marginLeft:10}}>
-          <div style={{fontSize:16,fontWeight:800,color:inv.status==="CREDIT"?"#ef4444":"#1a1a2e"}}>{fA(inv.amount)}</div>
-          {inv.depositAmount && inv.depositAmount < inv.amount && (
-            <div style={{fontSize:11,color:"#10b981"}}>입금 {fA(inv.depositAmount)}</div>
-          )}
-        </div>
-      </div>
-
-      <div style={{display:"flex",gap:12,marginTop:8,fontSize:11,color:"#888"}}>
-        <span>📅 {fDate(inv.invoiceDate)}</span>
-        {inv.dueDate && <span>⏰ 만기 {fDate(inv.dueDate)}</span>}
-        {inv.depositDate && <span>✅ 입금 {fDate(inv.depositDate)}</span>}
-      </div>
-
-      {expanded && (
-        <div style={{marginTop:12,paddingTop:12,borderTop:"1px solid #F3F4F6"}}>
-          {inv.note && <div style={{fontSize:12,color:"#555",marginBottom:8}}>📝 {inv.note}</div>}
-          {inv.poNumber && <div style={{fontSize:12,color:"#555",marginBottom:4}}>PO: {inv.poNumber}</div>}
-          {isPO && inv.items && inv.items.length > 0 && (
-            <div style={{background:"#F9FAFB",borderRadius:8,padding:"8px 10px",marginBottom:8}}>
-              {inv.items.map((item,i)=>(
-                <div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:11,marginBottom:4}}>
-                  <span style={{flex:1,color:"#555"}}>{item.desc}</span>
-                  <span style={{color:"#1a1a2e",fontWeight:600}}>{fA(item.amount)}</span>
-                </div>
-              ))}
-            </div>
-          )}
-          <div style={{display:"flex",gap:8,marginTop:8}}>
-            <button onClick={onEdit} style={{flex:1,...S.btnSecondary,padding:"8px",fontSize:12}}>✏️ 수정</button>
-            <button onClick={onDelete} style={{...S.btnSecondary,padding:"8px 12px",fontSize:12,color:"#ef4444"}}>🗑</button>
-          </div>
-        </div>
-      )}
-
-      <button onClick={()=>setExpanded(!expanded)} style={{marginTop:8,background:"none",border:"none",cursor:"pointer",fontSize:11,color:"#888",width:"100%",textAlign:"center",fontFamily:"inherit"}}>
-        {expanded ? "▲ 접기" : "▼ 더보기"}
-      </button>
-    </div>
-  );
+// ── Init ──────────────────────────────────────────────────────────────────────
+async function loadAll() {
+  const [inv, bld] = await Promise.all([fbGet('invoices'), fbGet('invoiceBuilders')]);
+  invoices = inv ? Object.entries(inv).map(([id,v])=>({...v,id})) : [];
+  builders = bld ? Object.entries(bld).map(([id,v])=>({...v,id})) : [];
+  renderInv();
+  renderBuilders();
+  renderDL();
+  updateBar();
 }
 
-// ── Invoice Form ─────────────────────────────────────────────────────────────
-function InvoiceForm({inv, builders, onSave, onClose, S, today}) {
-  const [form, setForm] = React.useState({
-    status: "INVOICE",
-    type: "NORMAL",
-    builderName: "",
-    address: "",
-    invoiceNum: "",
-    invoiceDate: today,
-    dueDate: "",
-    depositDate: "",
-    depositAmount: "",
-    amount: "",
-    poNumber: "",
-    note: "",
-    items: [],
-    ...inv
+document.getElementById('f-id').value = today;
+loadAll();
+
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+function showTab(t) {
+  ['invoices','builders','stats'].forEach(id => {
+    document.getElementById('tab-'+id).style.display = id===t?'block':'none';
   });
-  const [items, setItems] = React.useState(inv?.items||[]);
-
-  const set = (k,v) => setForm(f=>({...f,[k]:v}));
-
-  const addItem = () => setItems(i=>[...i,{desc:"",amount:""}]);
-  const setItem = (i,k,v) => setItems(arr=>arr.map((r,idx)=>idx===i?{...r,[k]:v}:r));
-  const delItem = (i) => setItems(arr=>arr.filter((_,idx)=>idx!==i));
-
-  const totalItems = items.reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
-
-  const submit = () => {
-    if (!form.builderName) return alert("빌더명을 입력하세요");
-    if (!form.amount && form.type==="NORMAL") return alert("금액을 입력하세요");
-    const finalAmount = form.type==="PO" ? totalItems : parseFloat(form.amount)||0;
-    onSave({...form, items: form.type==="PO"?items:[], amount: finalAmount});
-  };
-
-  return (
-    <div style={S.modal} onClick={e=>e.target===e.currentTarget&&onClose()}>
-      <div style={S.modalBox}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-          <h3 style={{fontSize:16,fontWeight:700}}>{inv?"인보이스 수정":"새 인보이스"}</h3>
-          <button onClick={onClose} style={{background:"none",border:"none",fontSize:20,cursor:"pointer",color:"#888"}}>×</button>
-        </div>
-
-        {/* Type */}
-        <div style={{display:"flex",gap:8,marginBottom:16}}>
-          {[["NORMAL","일반 인보이스"],["PO","PO 기반"]].map(([t,l])=>(
-            <button key={t} onClick={()=>set("type",t)} style={{flex:1,padding:"10px",borderRadius:10,border:`2px solid ${form.type===t?"#1a1a2e":"#E5E7EB"}`,background:form.type===t?"#1a1a2e":"#fff",color:form.type===t?"#fff":"#666",fontFamily:"inherit",cursor:"pointer",fontWeight:600,fontSize:13}}>
-              {l}
-            </button>
-          ))}
-        </div>
-
-        {/* Builder */}
-        <div style={{marginBottom:12}}>
-          <label style={S.label}>빌더명 *</label>
-          <input list="builders-list" value={form.builderName} onChange={e=>set("builderName",e.target.value)} style={S.input} placeholder="빌더명 입력"/>
-          <datalist id="builders-list">
-            {builders.map(b=><option key={b.id} value={b.name}/>)}
-          </datalist>
-        </div>
-
-        <div style={{marginBottom:12}}>
-          <label style={S.label}>현장 주소</label>
-          <input value={form.address} onChange={e=>set("address",e.target.value)} style={S.input} placeholder="주소 입력"/>
-        </div>
-
-        <div style={{...S.row,marginBottom:12}}>
-          <div style={{flex:1}}>
-            <label style={S.label}>인보이스 번호</label>
-            <input value={form.invoiceNum} onChange={e=>set("invoiceNum",e.target.value)} style={S.input} placeholder="INV-1234"/>
-          </div>
-          <div style={{flex:1}}>
-            <label style={S.label}>상태</label>
-            <select value={form.status} onChange={e=>set("status",e.target.value)} style={S.select}>
-              {["INVOICE","DEPOSIT","CREDIT","SUSPEND","PAID","OVERDUE"].map(s=><option key={s}>{s}</option>)}
-            </select>
-          </div>
-        </div>
-
-        {form.type==="PO" && (
-          <div style={{marginBottom:12}}>
-            <label style={S.label}>PO 번호</label>
-            <input value={form.poNumber} onChange={e=>set("poNumber",e.target.value)} style={S.input} placeholder="PO Number"/>
-          </div>
-        )}
-
-        <div style={{...S.row,marginBottom:12}}>
-          <div style={{flex:1}}>
-            <label style={S.label}>인보이스 날짜</label>
-            <input type="date" value={form.invoiceDate} onChange={e=>set("invoiceDate",e.target.value)} style={S.input}/>
-          </div>
-          <div style={{flex:1}}>
-            <label style={S.label}>만기일</label>
-            <input type="date" value={form.dueDate} onChange={e=>set("dueDate",e.target.value)} style={S.input}/>
-          </div>
-        </div>
-
-        {/* Items for PO */}
-        {form.type==="PO" ? (
-          <div style={{marginBottom:12}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-              <label style={S.label}>항목</label>
-              <button onClick={addItem} style={{...S.btnGold,padding:"4px 10px",fontSize:12}}>+ 항목추가</button>
-            </div>
-            {items.map((item,i)=>(
-              <div key={i} style={{...S.row,marginBottom:8,alignItems:"flex-end"}}>
-                <div style={{flex:2}}>
-                  <input value={item.desc} onChange={e=>setItem(i,"desc",e.target.value)} style={S.input} placeholder="항목 설명 (예: Villa 14-15)"/>
-                </div>
-                <div style={{flex:1}}>
-                  <input type="number" value={item.amount} onChange={e=>setItem(i,"amount",e.target.value)} style={S.input} placeholder="금액"/>
-                </div>
-                <button onClick={()=>delItem(i)} style={{background:"none",border:"none",color:"#ef4444",fontSize:16,cursor:"pointer",padding:"0 4px"}}>×</button>
-              </div>
-            ))}
-            {items.length > 0 && (
-              <div style={{textAlign:"right",fontSize:14,fontWeight:700,color:"#1a1a2e",padding:"8px 0"}}>
-                합계: {new Intl.NumberFormat("en-AU",{style:"currency",currency:"AUD"}).format(totalItems)}
-              </div>
-            )}
-          </div>
-        ) : (
-          <div style={{marginBottom:12}}>
-            <label style={S.label}>금액 (inc. GST) *</label>
-            <input type="number" step="0.01" value={form.amount} onChange={e=>set("amount",e.target.value)} style={S.input} placeholder="0.00"/>
-          </div>
-        )}
-
-        {/* Deposit */}
-        <div style={{...S.row,marginBottom:12}}>
-          <div style={{flex:1}}>
-            <label style={S.label}>입금 날짜</label>
-            <input type="date" value={form.depositDate} onChange={e=>set("depositDate",e.target.value)} style={S.input}/>
-          </div>
-          <div style={{flex:1}}>
-            <label style={S.label}>입금 금액</label>
-            <input type="number" step="0.01" value={form.depositAmount} onChange={e=>set("depositAmount",e.target.value)} style={S.input} placeholder="0.00"/>
-          </div>
-        </div>
-
-        <div style={{marginBottom:20}}>
-          <label style={S.label}>메모</label>
-          <textarea value={form.note} onChange={e=>set("note",e.target.value)} style={{...S.input,height:70,resize:"none"}} placeholder="프로젝트 메모, PO 특이사항 등"/>
-        </div>
-
-        <div style={{...S.row,gap:10}}>
-          <button onClick={onClose} style={{...S.btnSecondary,flex:1}}>취소</button>
-          <button onClick={submit} style={{...S.btnPrimary,flex:2}}>💾 저장</button>
-        </div>
-      </div>
-    </div>
-  );
+  document.querySelectorAll('.nav button').forEach((b,i) => {
+    b.classList.toggle('active', ['invoices','builders','stats'][i]===t);
+  });
+  if (t==='stats') renderStats();
 }
 
-// ── Builder Tab ──────────────────────────────────────────────────────────────
-function BuilderTab({builders, invoices, onSave, fA, S}) {
-  const [showForm, setShowForm] = React.useState(false);
-  const [editBuilder, setEditBuilder] = React.useState(null);
-  const [form, setForm] = React.useState({name:"",contact:"",email:"",abn:"",address:""});
-
-  const set = (k,v) => setForm(f=>({...f,[k]:v}));
-
-  const submit = () => {
-    if (!form.name) return alert("빌더명을 입력하세요");
-    onSave(editBuilder ? {...editBuilder,...form} : form);
-    setShowForm(false);
-    setForm({name:"",contact:"",email:"",abn:"",address:""});
-    setEditBuilder(null);
-  };
-
-  return (
-    <div>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-        <div style={{fontSize:15,fontWeight:700}}>빌더 목록 ({builders.length})</div>
-        <button style={S.btnGold} onClick={()=>{setEditBuilder(null);setForm({name:"",contact:"",email:"",abn:"",address:""});setShowForm(true);}}>+ 빌더추가</button>
-      </div>
-
-      {builders.map(b => {
-        const bInvs = invoices.filter(i=>i.builderName===b.name);
-        const outstanding = bInvs.filter(i=>i.status==="INVOICE"||i.status==="OVERDUE").reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
-        return (
-          <div key={b.id} style={S.card} onClick={()=>{setEditBuilder(b);setForm({name:b.name||"",contact:b.contact||"",email:b.email||"",abn:b.abn||"",address:b.address||""});setShowForm(true);}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-              <div>
-                <div style={{fontSize:14,fontWeight:700,marginBottom:2}}>{b.name}</div>
-                {b.contact && <div style={{fontSize:12,color:"#888"}}>📞 {b.contact}</div>}
-              </div>
-              <div style={{textAlign:"right"}}>
-                <div style={{fontSize:13,fontWeight:700,color:outstanding>0?"#ef4444":"#10b981"}}>{outstanding>0?fA(outstanding):"✅ 완납"}</div>
-                <div style={{fontSize:11,color:"#aaa"}}>{bInvs.length}건</div>
-              </div>
-            </div>
-          </div>
-        );
-      })}
-
-      {builders.length === 0 && (
-        <div style={{textAlign:"center",padding:"40px 0",color:"#aaa"}}>
-          <div style={{fontSize:40,marginBottom:8}}>🏗️</div>
-          <div>빌더를 추가해보세요</div>
-        </div>
-      )}
-
-      {showForm && (
-        <div style={S.modal} onClick={e=>e.target===e.currentTarget&&setShowForm(false)}>
-          <div style={S.modalBox}>
-            <div style={{display:"flex",justifyContent:"space-between",marginBottom:20}}>
-              <h3 style={{fontSize:16,fontWeight:700}}>{editBuilder?"빌더 수정":"새 빌더"}</h3>
-              <button onClick={()=>setShowForm(false)} style={{background:"none",border:"none",fontSize:20,cursor:"pointer",color:"#888"}}>×</button>
-            </div>
-            {[["name","빌더명 *","텍스트"],["contact","연락처","텍스트"],["email","이메일","이메일"],["abn","ABN","텍스트"],["address","주소","텍스트"]].map(([k,l,t])=>(
-              <div key={k} style={{marginBottom:12}}>
-                <label style={S.label}>{l}</label>
-                <input value={form[k]} onChange={e=>set(k,e.target.value)} style={S.input} placeholder={l}/>
-              </div>
-            ))}
-            <div style={{...S.row,gap:10,marginTop:8}}>
-              <button onClick={()=>setShowForm(false)} style={{...S.btnSecondary,flex:1}}>취소</button>
-              <button onClick={submit} style={{...S.btnPrimary,flex:2}}>💾 저장</button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+// ── Bottom Bar ────────────────────────────────────────────────────────────────
+function updateBar() {
+  const out = invoices.filter(i=>i.status==='INVOICE'||i.status==='OVERDUE').reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
+  const ov = invoices.filter(i=>i.status==='OVERDUE').reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
+  const mo = invoices.filter(i=>(i.invoiceDate||'').startsWith(today.slice(0,7))).reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
+  document.getElementById('bs-out').textContent = fA(out);
+  document.getElementById('bs-ov').textContent = fA(ov);
+  document.getElementById('bs-mo').textContent = fA(mo);
 }
 
-// ── Stats Tab ────────────────────────────────────────────────────────────────
-function StatsTab({invoices, builders, totalOutstanding, totalOverdue, totalPaid, thisMonth, fA, S}) {
-  // Builder breakdown
-  const builderStats = {};
-  invoices.forEach(inv => {
-    const b = inv.builderName || "기타";
-    if (!builderStats[b]) builderStats[b] = {total:0,paid:0,outstanding:0,count:0};
-    builderStats[b].count++;
-    builderStats[b].total += parseFloat(inv.amount)||0;
-    if (inv.status==="DEPOSIT"||inv.status==="PAID") builderStats[b].paid += parseFloat(inv.depositAmount||inv.amount)||0;
-    if (inv.status==="INVOICE"||inv.status==="OVERDUE") builderStats[b].outstanding += parseFloat(inv.amount)||0;
+// ── Invoice List ──────────────────────────────────────────────────────────────
+function renderInv() {
+  const sts = ['ALL','INVOICE','DEPOSIT','OVERDUE','CREDIT','SUSPEND','PAID'];
+  const filtered = invoices.filter(i => {
+    if (curFilter!=='ALL' && i.status!==curFilter) return false;
+    if (searchQ) {
+      const q = searchQ.toLowerCase();
+      return (i.builderName||'').toLowerCase().includes(q)||(i.address||'').toLowerCase().includes(q)||(i.invoiceNum||'').toLowerCase().includes(q);
+    }
+    return true;
+  }).sort((a,b)=>(b.invoiceDate||'').localeCompare(a.invoiceDate||''));
+
+  let h = `<div class="search-row">
+    <input class="input" placeholder="🔍 빌더/주소/번호 검색" oninput="searchQ=this.value;renderInv()" value="${esc(searchQ)}"/>
+    <button class="btn-gold" onclick="openIM(null)">+ 추가</button>
+  </div>
+  <div class="filter-bar">${sts.map(s=>`<button class="fbtn${curFilter===s?' active':''}" onclick="curFilter='${s}';renderInv()">${s}(${s==='ALL'?invoices.length:invoices.filter(i=>i.status===s).length})</button>`).join('')}</div>
+  <div style="font-size:12px;color:#9CA3AF;text-align:right;margin-bottom:8px">${filtered.length}건</div>`;
+
+  if (!filtered.length) {
+    h += `<div class="empty"><div style="font-size:44px;margin-bottom:10px">📋</div><p style="font-size:14px">인보이스가 없어요</p></div>`;
+  } else {
+    filtered.forEach(inv => {
+      const isOD = inv.status==='INVOICE' && inv.dueDate && new Date(inv.dueDate) < new Date();
+      const ss = isOD ? 'OVERDUE' : inv.status;
+      const bc = (inv.status==='DEPOSIT'||inv.status==='PAID') ? 'DEPOSIT' : isOD ? 'OVERDUE' : inv.status;
+      h += `<div class="icard ${bc}">
+        <div class="icard-body">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+            <div style="min-width:0;flex:1">
+              <div class="iname">${esc(inv.builderName||'—')} <span class="pill pill-${ss}">${ss}</span>${inv.type==='PO'?` <span style="background:#EDE9FE;color:#7C3AED;border-radius:4px;padding:2px 6px;font-size:10px;font-weight:700">PO</span>`:''}</div>
+              <div class="iaddr">${esc(inv.address||'—')}</div>
+              ${inv.invoiceNum?`<div style="font-size:11px;color:#9CA3AF;margin-top:2px">#${esc(inv.invoiceNum)}</div>`:''}
+            </div>
+            <div style="flex-shrink:0;text-align:right">
+              <div class="iamount" style="color:${inv.status==='CREDIT'?'#DC2626':'#111827'}">${fA(inv.amount)}</div>
+              ${inv.depositAmount&&parseFloat(inv.depositAmount)<parseFloat(inv.amount)?`<div style="font-size:11px;color:#059669;margin-top:2px">입금 ${fA(inv.depositAmount)}</div>`:''}
+            </div>
+          </div>
+          <div class="idates">
+            <span>📅 ${fD(inv.invoiceDate)}</span>
+            ${inv.dueDate?`<span>⏰ ${fD(inv.dueDate)}</span>`:''}
+            ${inv.depositDate?`<span>✅ ${fD(inv.depositDate)}</span>`:''}
+          </div>
+        </div>
+        <button class="iexpand" onclick="toggleD('${inv.id}')">▼ 더보기</button>
+        <div id="d-${inv.id}" style="display:none">
+          <div class="idetail">
+            ${inv.note?`<div style="font-size:12px;color:#555;margin-bottom:8px">📝 ${esc(inv.note)}</div>`:''}
+            ${inv.type==='PO'&&inv.items?(Array.isArray(inv.items)?inv.items:Object.values(inv.items)).map(it=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;color:#555"><span>${esc(it.desc)}</span><span style="font-weight:700">${fA(it.amount)}</span></div>`).join(''):''}
+            <div style="display:flex;gap:8px;margin-top:10px">
+              <button class="btn-secondary" style="flex:1;padding:8px;font-size:12px" onclick="openIM('${inv.id}')">✏️ 수정</button>
+              <button style="background:#FEF2F2;color:#DC2626;border:1px solid #FECACA;border-radius:9px;padding:8px 14px;font-size:12px;cursor:pointer" onclick="delInv('${inv.id}')">🗑</button>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    });
+  }
+  document.getElementById('tab-invoices').innerHTML = h;
+}
+
+function toggleD(id) {
+  const el = document.getElementById('d-'+id);
+  const btn = el.previousElementSibling;
+  const open = el.style.display === 'none';
+  el.style.display = open ? 'block' : 'none';
+  btn.textContent = open ? '▲ 접기' : '▼ 더보기';
+}
+
+// ── Invoice CRUD ──────────────────────────────────────────────────────────────
+function openIM(id) {
+  editId = id; invItems = [];
+  const inv = id ? invoices.find(i=>i.id===id) : null;
+  document.getElementById('im-title').textContent = inv ? '인보이스 수정' : '새 인보이스';
+  document.getElementById('f-b').value = inv?.builderName||'';
+  document.getElementById('f-a').value = inv?.address||'';
+  document.getElementById('f-n').value = inv?.invoiceNum||'';
+  document.getElementById('f-st').value = inv?.status||'INVOICE';
+  document.getElementById('f-id').value = inv?.invoiceDate||today;
+  document.getElementById('f-dd').value = inv?.dueDate||'';
+  document.getElementById('f-am').value = inv?.amount||'';
+  document.getElementById('f-po').value = inv?.poNumber||'';
+  document.getElementById('f-dd2').value = inv?.depositDate||'';
+  document.getElementById('f-da').value = inv?.depositAmount||'';
+  document.getElementById('f-no').value = inv?.note||'';
+  setType(inv?.type||'NORMAL');
+  if (inv?.type==='PO' && inv.items) {
+    invItems = Array.isArray(inv.items) ? [...inv.items] : Object.values(inv.items);
+    renderItems();
+  }
+  document.getElementById('inv-modal').classList.add('open');
+}
+function closeIM() { document.getElementById('inv-modal').classList.remove('open'); }
+
+function setType(t) {
+  curType = t;
+  document.getElementById('tt-normal').classList.toggle('active', t==='NORMAL');
+  document.getElementById('tt-po').classList.toggle('active', t==='PO');
+  document.getElementById('f-amt-row').style.display = t==='NORMAL' ? 'block' : 'none';
+  document.getElementById('f-items-row').style.display = t==='PO' ? 'block' : 'none';
+  document.getElementById('f-po-row').style.display = t==='PO' ? 'block' : 'none';
+}
+
+function addItem() { invItems.push({desc:'',amount:''}); renderItems(); }
+function renderItems() {
+  let h = '';
+  invItems.forEach((it,i) => {
+    h += `<div style="display:flex;gap:8px;margin-bottom:8px;align-items:center">
+      <input class="input" style="flex:2" value="${esc(it.desc)}" placeholder="항목 설명" oninput="invItems[${i}].desc=this.value;calcTotal()"/>
+      <input type="number" class="input" style="flex:1" value="${it.amount}" placeholder="금액" oninput="invItems[${i}].amount=this.value;calcTotal()"/>
+      <button style="background:none;border:none;color:#FCA5A5;font-size:18px;cursor:pointer" onclick="invItems.splice(${i},1);renderItems()">×</button>
+    </div>`;
+  });
+  document.getElementById('items-list').innerHTML = h;
+  calcTotal();
+}
+function calcTotal() {
+  const t = invItems.reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
+  document.getElementById('items-total').textContent = t > 0 ? '합계: '+fA(t) : '';
+}
+
+async function saveInv() {
+  const b = document.getElementById('f-b').value.trim();
+  if (!b) return alert('빌더명을 입력하세요');
+  const isPO = curType === 'PO';
+  const amt = isPO ? invItems.reduce((s,i)=>s+(parseFloat(i.amount)||0),0) : parseFloat(document.getElementById('f-am').value)||0;
+  if (!amt) return alert('금액을 입력하세요');
+  const data = {
+    type: curType, builderName: b,
+    address: document.getElementById('f-a').value,
+    invoiceNum: document.getElementById('f-n').value,
+    status: document.getElementById('f-st').value,
+    invoiceDate: document.getElementById('f-id').value,
+    dueDate: document.getElementById('f-dd').value,
+    amount: amt,
+    poNumber: isPO ? document.getElementById('f-po').value : '',
+    depositDate: document.getElementById('f-dd2').value,
+    depositAmount: parseFloat(document.getElementById('f-da').value)||0,
+    note: document.getElementById('f-no').value,
+    items: isPO ? invItems : [],
+    updatedAt: new Date().toISOString()
+  };
+  if (editId) await fbSet('invoices/'+editId, data);
+  else await fbPush('invoices', data);
+  closeIM();
+  await loadAll();
+}
+
+async function delInv(id) {
+  if (!confirm('삭제할까요?')) return;
+  await fbDel('invoices/'+id);
+  await loadAll();
+}
+
+// ── Builders ──────────────────────────────────────────────────────────────────
+function renderBuilders() {
+  let h = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+    <div style="font-size:15px;font-weight:800;color:#111827">빌더 목록 (${builders.length})</div>
+    <button class="btn-gold" onclick="openBM(null)">+ 빌더추가</button>
+  </div>`;
+  if (!builders.length) {
+    h += `<div class="empty"><div style="font-size:44px;margin-bottom:10px">🏗️</div><p style="font-size:14px">빌더를 추가해보세요</p></div>`;
+  } else {
+    builders.forEach(b => {
+      const bi = invoices.filter(i=>i.builderName===b.name);
+      const out = bi.filter(i=>i.status==='INVOICE'||i.status==='OVERDUE').reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
+      h += `<div class="card" onclick="openBM('${b.id}')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:14px;font-weight:700;color:#111827;margin-bottom:2px">${esc(b.name)}</div>
+          ${b.contact?`<div style="font-size:12px;color:#6B7280">📞 ${esc(b.contact)}</div>`:''}
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:13px;font-weight:700;color:${out>0?'#DC2626':'#059669'}">${out>0?fA(out):'✅ 완납'}</div>
+          <div style="font-size:11px;color:#9CA3AF">${bi.length}건</div>
+        </div>
+      </div>`;
+    });
+  }
+  document.getElementById('tab-builders').innerHTML = h;
+}
+
+function renderDL() {
+  document.getElementById('bdl').innerHTML = builders.map(b=>`<option value="${esc(b.name)}"/>`).join('');
+}
+
+function openBM(id) {
+  editBId = id;
+  const b = id ? builders.find(b=>b.id===id) : null;
+  document.getElementById('bm-title').textContent = b ? '빌더 수정' : '새 빌더';
+  document.getElementById('bf-n').value = b?.name||'';
+  document.getElementById('bf-c').value = b?.contact||'';
+  document.getElementById('bf-e').value = b?.email||'';
+  document.getElementById('bf-a').value = b?.abn||'';
+  document.getElementById('b-modal').classList.add('open');
+}
+function closeBM() { document.getElementById('b-modal').classList.remove('open'); }
+
+async function saveBuilder() {
+  const n = document.getElementById('bf-n').value.trim();
+  if (!n) return alert('빌더명을 입력하세요');
+  const data = { name:n, contact:document.getElementById('bf-c').value, email:document.getElementById('bf-e').value, abn:document.getElementById('bf-a').value };
+  if (editBId) await fbSet('invoiceBuilders/'+editBId, data);
+  else await fbPush('invoiceBuilders', data);
+  closeBM();
+  await loadAll();
+}
+
+// ── Stats ─────────────────────────────────────────────────────────────────────
+function renderStats() {
+  const out = invoices.filter(i=>i.status==='INVOICE'||i.status==='OVERDUE').reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
+  const ov = invoices.filter(i=>i.status==='OVERDUE').reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
+  const pd = invoices.filter(i=>i.status==='DEPOSIT'||i.status==='PAID').reduce((s,i)=>s+(parseFloat(i.depositAmount||i.amount)||0),0);
+  const mo = invoices.filter(i=>(i.invoiceDate||'').startsWith(today.slice(0,7))).reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
+
+  const bs = {};
+  invoices.forEach(i => {
+    const b = i.builderName||'기타';
+    if (!bs[b]) bs[b] = {total:0,paid:0,outstanding:0,count:0};
+    bs[b].count++; bs[b].total += parseFloat(i.amount)||0;
+    if (i.status==='DEPOSIT'||i.status==='PAID') bs[b].paid += parseFloat(i.depositAmount||i.amount)||0;
+    if (i.status==='INVOICE'||i.status==='OVERDUE') bs[b].outstanding += parseFloat(i.amount)||0;
   });
 
-  const sortedBuilders = Object.entries(builderStats).sort((a,b)=>b[1].outstanding-a[1].outstanding);
-
-  // Monthly breakdown
   const monthly = {};
-  invoices.forEach(inv => {
-    const m = (inv.invoiceDate||'').slice(0,7);
-    if (!m) return;
-    if (!monthly[m]) monthly[m] = 0;
-    monthly[m] += parseFloat(inv.amount)||0;
-  });
-  const sortedMonthly = Object.entries(monthly).sort((a,b)=>b[0].localeCompare(a[0])).slice(0,6);
+  invoices.forEach(i => { const m=(i.invoiceDate||'').slice(0,7); if(m){monthly[m]=(monthly[m]||0)+(parseFloat(i.amount)||0);} });
+  const sortedM = Object.entries(monthly).sort((a,b)=>b[0].localeCompare(a[0])).slice(0,6);
 
-  return (
-    <div>
-      {/* Summary cards */}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
-        {[["💰 미수금",totalOutstanding,"#3b82f6"],["🔴 연체",totalOverdue,"#ef4444"],["✅ 입금",totalPaid,"#10b981"],["📅 이번달",thisMonth,"#e8b84b"]].map(([l,v,c])=>(
-          <div key={l} style={{...S.statCard,borderTop:`3px solid ${c}`}}>
-            <div style={{fontSize:11,color:"#888",marginBottom:4}}>{l}</div>
-            <div style={{fontSize:16,fontWeight:800,color:c}}>{fA(v)}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Builder breakdown */}
-      <div style={{...S.card,marginBottom:12}}>
-        <div style={{fontSize:13,fontWeight:700,marginBottom:12}}>빌더별 미수금</div>
-        {sortedBuilders.map(([name, stat]) => (
-          <div key={name} style={{marginBottom:12}}>
-            <div style={{display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:4}}>
-              <span style={{fontWeight:600}}>{name}</span>
-              <span style={{color:stat.outstanding>0?"#ef4444":"#10b981",fontWeight:700}}>
-                {stat.outstanding>0?fA(stat.outstanding):"✅"}
-              </span>
-            </div>
-            <div style={{height:6,background:"#F3F4F6",borderRadius:3,overflow:"hidden"}}>
-              <div style={{height:"100%",background:stat.outstanding>0?"#ef4444":"#10b981",width:stat.total>0?`${Math.min(100,stat.paid/stat.total*100)}%`:"0%",borderRadius:3,transition:"width .3s"}}/>
-            </div>
-            <div style={{fontSize:10,color:"#aaa",marginTop:2}}>{stat.count}건 / 합계 {fA(stat.total)}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Monthly */}
-      <div style={S.card}>
-        <div style={{fontSize:13,fontWeight:700,marginBottom:12}}>월별 인보이스</div>
-        {sortedMonthly.map(([month, amount]) => (
-          <div key={month} style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"8px 0",borderBottom:"1px solid #F3F4F6"}}>
-            <span style={{color:"#555"}}>{month}</span>
-            <span style={{fontWeight:700}}>{fA(amount)}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+  let h = `<div class="stat-grid">
+    ${[['💰 미수금',out,'#818CF8'],['🔴 연체',ov,'#f87171'],['✅ 입금',pd,'#34d399'],['📅 이번달',mo,'#fbbf24']].map(([l,v,c])=>`
+      <div class="stat-card" style="border-top:3px solid ${c}">
+        <div style="font-size:11px;color:#6B7280;margin-bottom:4px">${l}</div>
+        <div style="font-size:17px;font-weight:800;color:${c}">${fA(v)}</div>
+      </div>`).join('')}
+  </div>
+  <div class="card" style="margin-bottom:12px">
+    <div style="font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">빌더별 미수금</div>
+    ${Object.entries(bs).sort((a,b)=>b[1].outstanding-a[1].outstanding).map(([name,s])=>`
+      <div style="margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px">
+          <span style="font-weight:700;color:#111827">${esc(name)}</span>
+          <span style="color:${s.outstanding>0?'#DC2626':'#059669'};font-weight:700">${s.outstanding>0?fA(s.outstanding):'✅'}</span>
+        </div>
+        <div class="bar-wrap"><div class="bar-fill" style="background:${s.outstanding>0?'#DC2626':'#059669'};width:${s.total>0?Math.min(100,s.paid/s.total*100):0}%"></div></div>
+        <div style="font-size:10px;color:#9CA3AF">${s.count}건 · ${fA(s.total)}</div>
+      </div>`).join('')}
+  </div>
+  <div class="card">
+    <div style="font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">월별 인보이스</div>
+    ${sortedM.map(([m,v])=>`<div style="display:flex;justify-content:space-between;font-size:13px;padding:8px 0;border-bottom:1px solid #F3F4F6"><span style="color:#555">${m}</span><span style="font-weight:700">${fA(v)}</span></div>`).join('')}
+  </div>`;
+  document.getElementById('tab-stats').innerHTML = h;
 }
-
-// ── Run ──────────────────────────────────────────────────────────────────────
-const root = ReactDOM.createRoot(document.getElementById("root"));
-root.render(<App/>);
 </script>
-
 </body>
 </html>
