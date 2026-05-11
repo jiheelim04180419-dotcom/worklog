@@ -35,6 +35,14 @@ body{background:#F0F4FF;color:#111827;min-height:100vh}
 .pill-CREDIT{background:#FFFBEB;color:#D97706}
 .pill-SUSPEND{background:#FFF1F2;color:#BE123C}
 .pill-OVERDUE{background:#FEE2E2;color:#DC2626}
+.pill-ONGOING{background:#FEF3C7;color:#92400E}
+.pill-RETENTION{background:#E0E7FF;color:#3730A3}
+.pill-BOOKING{background:#F3E8FF;color:#6B21A8}
+.co-badge{display:inline-block;background:#E0F2FE;color:#0369A1;border-radius:4px;padding:2px 6px;font-size:10px;font-weight:700;margin-right:4px}
+.co-badge.co2{background:#FCE7F3;color:#9D174D}
+.bill-badge{display:inline-block;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:600;margin-left:6px}
+.bill-MONTHLY{background:#DCFCE7;color:#15803D}
+.bill-PER_JOB{background:#FEF9C3;color:#854D0E}
 .filter-bar{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;margin-bottom:10px;scrollbar-width:none}
 .filter-bar::-webkit-scrollbar{display:none}
 .fbtn{padding:6px 12px;border-radius:20px;border:none;cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap;background:#fff;color:#6B7280;box-shadow:0 1px 4px rgba(0,0,0,0.08);font-family:inherit}
@@ -48,6 +56,9 @@ body{background:#F0F4FF;color:#111827;min-height:100vh}
 .icard.OVERDUE{border-left-color:#DC2626}
 .icard.CREDIT{border-left-color:#D97706}
 .icard.SUSPEND{border-left-color:#94A3B8}
+.icard.ONGOING{border-left-color:#F59E0B;background:#FFFBEB}
+.icard.RETENTION{border-left-color:#6366F1}
+.icard.BOOKING{border-left-color:#A855F7}
 .icard-body{padding:14px 16px}
 .iname{font-size:14px;font-weight:800;color:#111827;margin-bottom:3px}
 .iaddr{font-size:12px;color:#6B7280}
@@ -74,6 +85,7 @@ body{background:#F0F4FF;color:#111827;min-height:100vh}
     <button class="active" onclick="showTab('invoices')">📋 인보이스</button>
     <button onclick="showTab('builders')">🏗️ 빌더</button>
     <button onclick="showTab('stats')">📊 통계</button>
+    <button onclick="openSet()" title="회사 설정">⚙️</button>
   </div>
 </div>
 <div class="content">
@@ -95,28 +107,43 @@ body{background:#F0F4FF;color:#111827;min-height:100vh}
     <button onclick="closeIM()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#9CA3AF">×</button>
   </div>
   <div class="type-toggle">
-    <button class="ttp active" id="tt-normal" onclick="setType('NORMAL')">일반 인보이스</button>
+    <button class="ttp active" id="tt-normal" onclick="setType('NORMAL')">일반</button>
     <button class="ttp" id="tt-po" onclick="setType('PO')">PO 기반</button>
+    <button class="ttp" id="tt-prog" onclick="setType('PROGRESS')">진행률(%)</button>
   </div>
-  <div class="mb"><label class="label">빌더명 *</label><input class="input" id="f-b" list="bdl" placeholder="빌더명"/><datalist id="bdl"></datalist></div>
-  <div class="mb"><label class="label">현장 주소</label><input class="input" id="f-a" placeholder="주소"/></div>
   <div class="row2 mb">
+    <div><label class="label">회사 *</label><select class="select" id="f-co" onchange="onCoChange()"></select></div>
     <div><label class="label">인보이스 번호</label><input class="input" id="f-n" placeholder="INV-1234"/></div>
-    <div><label class="label">상태</label><select class="select" id="f-st"><option>INVOICE</option><option>DEPOSIT</option><option>PAID</option><option>CREDIT</option><option>SUSPEND</option><option>OVERDUE</option></select></div>
   </div>
-  <div id="f-po-row" class="mb" style="display:none"><label class="label">PO 번호</label><input class="input" id="f-po" placeholder="PO Number"/></div>
+  <div class="mb"><label class="label">빌더명 *</label><input class="input" id="f-b" list="bdl" placeholder="빌더명" oninput="onBChange()"/><datalist id="bdl"></datalist></div>
+  <div class="mb"><label class="label">현장 주소 (Job Address)</label><input class="input" id="f-a" placeholder="주소"/></div>
   <div class="row2 mb">
-    <div><label class="label">인보이스 날짜</label><input type="date" class="input" id="f-id"/></div>
-    <div><label class="label">만기일</label><input type="date" class="input" id="f-dd"/></div>
+    <div><label class="label">상태</label><select class="select" id="f-st"><option>INVOICE</option><option>DEPOSIT</option><option>PAID</option><option>ONGOING</option><option>RETENTION</option><option>BOOKING</option><option>CREDIT</option><option>SUSPEND</option><option>OVERDUE</option></select></div>
+    <div id="f-po-row"><label class="label">PO 번호</label><input class="input" id="f-po" placeholder="PO Number"/></div>
   </div>
+  <div id="f-proj-row" class="mb" style="display:none"><label class="label">프로젝트명 (Project)</label><input class="input" id="f-proj" placeholder="예: Orange Conservatorium&Planetarium"/></div>
+  <div class="row2 mb">
+    <div><label class="label">Start Date</label><input type="date" class="input" id="f-sd"/></div>
+    <div><label class="label">인보이스 날짜</label><input type="date" class="input" id="f-id"/></div>
+  </div>
+  <div class="mb"><label class="label">만기일</label><input type="date" class="input" id="f-dd"/></div>
   <div id="f-amt-row" class="mb"><label class="label">금액 (inc. GST) *</label><input type="number" step="0.01" class="input" id="f-am" placeholder="0.00"/></div>
   <div id="f-items-row" class="mb" style="display:none">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-      <label class="label" style="margin:0">항목</label>
+      <label class="label" style="margin:0">PO 항목</label>
       <button class="btn-gold" style="padding:5px 10px;font-size:12px" onclick="addItem()">+ 항목추가</button>
     </div>
     <div id="items-list"></div>
     <div id="items-total" style="text-align:right;font-size:14px;font-weight:700;padding:6px 0;color:#4F46E5"></div>
+  </div>
+  <div id="f-prog-row" class="mb" style="display:none">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <label class="label" style="margin:0">진행 항목 (이번 청구분만 금액 입력)</label>
+      <button class="btn-gold" style="padding:5px 10px;font-size:12px" onclick="addProg()">+ 항목추가</button>
+    </div>
+    <div style="font-size:11px;color:#9CA3AF;margin-bottom:8px">💡 완료%는 누적, 이번 금액은 이번 회차에 청구할 금액</div>
+    <div id="prog-list"></div>
+    <div id="prog-total" style="text-align:right;font-size:14px;font-weight:700;padding:6px 0;color:#F59E0B"></div>
   </div>
   <div class="row2 mb">
     <div><label class="label">입금 날짜</label><input type="date" class="input" id="f-dd2"/></div>
@@ -135,6 +162,10 @@ body{background:#F0F4FF;color:#111827;min-height:100vh}
     <button onclick="closeBM()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#9CA3AF">×</button>
   </div>
   <div class="mb"><label class="label">빌더명 *</label><input class="input" id="bf-n" placeholder="빌더명"/></div>
+  <div class="row2 mb">
+    <div><label class="label">청구 주기</label><select class="select" id="bf-bt"><option value="PER_JOB">건별 청구</option><option value="MONTHLY">월별 청구</option></select></div>
+    <div><label class="label">기본 회사</label><select class="select" id="bf-dc"></select></div>
+  </div>
   <div class="mb"><label class="label">담당자 (Note)</label><input class="input" id="bf-cp" placeholder="담당자명"/></div>
   <div class="mb"><label class="label">연락처</label><input class="input" id="bf-c" placeholder="전화번호"/></div>
   <div class="mb"><label class="label">이메일</label><input class="input" id="bf-e" placeholder="contact@example.com"/></div>
@@ -143,6 +174,19 @@ body{background:#F0F4FF;color:#111827;min-height:100vh}
   <div class="mb"><label class="label">Postal Address</label><input class="input" id="bf-pa" placeholder="우편 주소"/></div>
   <div class="mb"><label class="label">ABN</label><input class="input" id="bf-a" placeholder="ABN"/></div>
   <div class="row2" style="gap:10px"><button class="btn-secondary" style="flex:1" onclick="closeBM()">취소</button><button class="btn-primary" style="flex:2" onclick="saveBuilder()">💾 저장</button></div>
+</div>
+</div>
+
+<!-- Settings Modal (Companies) -->
+<div class="modal" id="s-modal">
+<div class="mbox">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+    <h3 style="font-size:16px;font-weight:800;color:#111827">⚙️ 회사 설정</h3>
+    <button onclick="closeSet()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#9CA3AF">×</button>
+  </div>
+  <div style="font-size:11px;color:#6B7280;margin-bottom:12px">두 회사 정보를 등록하면 인보이스 작성 시 번호가 자동 채워져요.</div>
+  <div id="co-list"></div>
+  <div class="row2" style="gap:10px;margin-top:14px"><button class="btn-secondary" style="flex:1" onclick="closeSet()">닫기</button><button class="btn-primary" style="flex:2" onclick="saveAllCo()">💾 저장</button></div>
 </div>
 </div>
 
@@ -181,21 +225,34 @@ async function fbDel(path) {
 }
 
 // ── State ─────────────────────────────────────────────────────────────────────
-let invoices = [], builders = [], curFilter = 'ALL', curType = 'NORMAL', editId = null, editBId = null, invItems = [];
+let invoices = [], builders = [], companies = [], curFilter = 'ALL', curType = 'NORMAL', editId = null, editBId = null, invItems = [], progItems = [];
 const today = new Date().toISOString().split('T')[0];
 const fA = n => new Intl.NumberFormat('en-AU',{style:'currency',currency:'AUD'}).format(n||0);
 const fD = d => d ? new Date(d+'T00:00:00').toLocaleDateString('en-AU',{day:'2-digit',month:'short',year:'numeric'}) : '—';
 const esc = s => (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 let searchQ = '';
 
+const DEFAULT_COMPANIES = [
+  {id:'co1', name:'K&M Tiling Bathurst PTY LTD', prefix:'INV-', nextNumber:1541, address:'10/51 Hampden Park Rd, Kelso NSW 2795', abn:'51624778196', phone:'0402 595 744 / 0422 048 463', bsb:'032814', acc:'576638', contactEmail:'accounts@knmtilingbathurst.com', contactName:'Kathleen'},
+  {id:'co2', name:'Bathurst Tiling (2번째 회사)', prefix:'BXBT-', nextNumber:236, address:'', abn:'', phone:'', bsb:'', acc:'', contactEmail:'', contactName:''}
+];
+
 // ── Init ──────────────────────────────────────────────────────────────────────
 async function loadAll() {
-  const [inv, bld] = await Promise.all([fbGet('invoices'), fbGet('invoiceBuilders')]);
+  const [inv, bld, co] = await Promise.all([fbGet('invoices'), fbGet('invoiceBuilders'), fbGet('invoiceCompanies')]);
   invoices = inv ? Object.entries(inv).map(([id,v])=>({...v,id})) : [];
   builders = bld ? Object.entries(bld).map(([id,v])=>({...v,id})) : [];
+  if (co) {
+    companies = Object.entries(co).map(([id,v])=>({...v,id}));
+  } else {
+    // first run: seed defaults
+    companies = DEFAULT_COMPANIES.map(c=>({...c}));
+    for (const c of DEFAULT_COMPANIES) await fbSet('invoiceCompanies/'+c.id, c);
+  }
   renderInv();
   renderBuilders();
   renderDL();
+  renderCoSel();
   updateBar();
 }
 
@@ -207,15 +264,26 @@ function showTab(t) {
   ['invoices','builders','stats'].forEach(id => {
     document.getElementById('tab-'+id).style.display = id===t?'block':'none';
   });
-  document.querySelectorAll('.nav button').forEach((b,i) => {
-    b.classList.toggle('active', ['invoices','builders','stats'][i]===t);
+  document.querySelectorAll('.nav button').forEach(b => {
+    const oc = b.getAttribute('onclick')||'';
+    const m = oc.match(/showTab\('(\w+)'\)/);
+    b.classList.toggle('active', m && m[1]===t);
   });
   if (t==='stats') renderStats();
 }
 
+function renderCoSel() {
+  // populate company selects in invoice form and builder form
+  const opts = companies.map(c=>`<option value="${c.id}">${esc(c.name)} (${esc(c.prefix)})</option>`).join('');
+  const sel1 = document.getElementById('f-co');
+  const sel2 = document.getElementById('bf-dc');
+  if (sel1) sel1.innerHTML = opts;
+  if (sel2) sel2.innerHTML = `<option value="">(자동)</option>` + opts;
+}
+
 // ── Bottom Bar ────────────────────────────────────────────────────────────────
 function updateBar() {
-  const out = invoices.filter(i=>i.status==='INVOICE'||i.status==='OVERDUE').reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
+  const out = invoices.filter(i=>i.status==='INVOICE'||i.status==='OVERDUE'||i.status==='ONGOING').reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
   const ov = invoices.filter(i=>i.status==='OVERDUE').reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
   const mo = invoices.filter(i=>(i.invoiceDate||'').startsWith(today.slice(0,7))).reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
   document.getElementById('bs-out').textContent = fA(out);
@@ -225,18 +293,18 @@ function updateBar() {
 
 // ── Invoice List ──────────────────────────────────────────────────────────────
 function renderInv() {
-  const sts = ['ALL','INVOICE','DEPOSIT','OVERDUE','CREDIT','SUSPEND','PAID'];
+  const sts = ['ALL','INVOICE','ONGOING','DEPOSIT','OVERDUE','RETENTION','BOOKING','CREDIT','SUSPEND','PAID'];
   const filtered = invoices.filter(i => {
     if (curFilter!=='ALL' && i.status!==curFilter) return false;
     if (searchQ) {
       const q = searchQ.toLowerCase();
-      return (i.builderName||'').toLowerCase().includes(q)||(i.address||'').toLowerCase().includes(q)||(i.invoiceNum||'').toLowerCase().includes(q);
+      return (i.builderName||'').toLowerCase().includes(q)||(i.address||'').toLowerCase().includes(q)||(i.invoiceNum||'').toLowerCase().includes(q)||(i.projectName||'').toLowerCase().includes(q);
     }
     return true;
   }).sort((a,b)=>(b.invoiceDate||'').localeCompare(a.invoiceDate||''));
 
   let h = `<div class="search-row">
-    <input class="input" placeholder="🔍 빌더/주소/번호 검색" oninput="searchQ=this.value;renderInv()" value="${esc(searchQ)}"/>
+    <input class="input" placeholder="🔍 빌더/주소/번호/프로젝트 검색" oninput="searchQ=this.value;renderInv()" value="${esc(searchQ)}"/>
     <button class="btn-gold" onclick="openIM(null)">+ 추가</button>
   </div>
   <div class="filter-bar">${sts.map(s=>`<button class="fbtn${curFilter===s?' active':''}" onclick="curFilter='${s}';renderInv()">${s}(${s==='ALL'?invoices.length:invoices.filter(i=>i.status===s).length})</button>`).join('')}</div>
@@ -248,14 +316,20 @@ function renderInv() {
     filtered.forEach(inv => {
       const isOD = inv.status==='INVOICE' && inv.dueDate && new Date(inv.dueDate) < new Date();
       const ss = isOD ? 'OVERDUE' : inv.status;
-      const bc = (inv.status==='DEPOSIT'||inv.status==='PAID') ? 'DEPOSIT' : isOD ? 'OVERDUE' : inv.status;
+      const bc = (inv.status==='DEPOSIT'||inv.status==='PAID') ? 'DEPOSIT'
+        : isOD ? 'OVERDUE'
+        : (inv.status==='ONGOING'||inv.status==='RETENTION'||inv.status==='BOOKING') ? inv.status
+        : inv.status;
+      const co = companies.find(c=>c.id===inv.companyId);
+      const coClass = co && co.id==='co2' ? 'co2' : '';
       h += `<div class="icard ${bc}">
         <div class="icard-body">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
             <div style="min-width:0;flex:1">
-              <div class="iname">${esc(inv.builderName||'—')} <span class="pill pill-${ss}">${ss}</span>${inv.type==='PO'?` <span style="background:#EDE9FE;color:#7C3AED;border-radius:4px;padding:2px 6px;font-size:10px;font-weight:700">PO</span>`:''}</div>
+              <div class="iname">${co?`<span class="co-badge ${coClass}">${esc(co.prefix.replace('-',''))}</span>`:''}${esc(inv.builderName||'—')} <span class="pill pill-${ss}">${ss}</span>${inv.type==='PO'?` <span style="background:#EDE9FE;color:#7C3AED;border-radius:4px;padding:2px 6px;font-size:10px;font-weight:700">PO</span>`:''}${inv.type==='PROGRESS'?` <span style="background:#FEF3C7;color:#92400E;border-radius:4px;padding:2px 6px;font-size:10px;font-weight:700">%</span>`:''}</div>
               <div class="iaddr">${esc(inv.address||'—')}</div>
-              ${inv.invoiceNum?`<div style="font-size:11px;color:#9CA3AF;margin-top:2px">#${esc(inv.invoiceNum)}</div>`:''}
+              ${inv.projectName?`<div style="font-size:11px;color:#7C3AED;margin-top:2px">📁 ${esc(inv.projectName)}</div>`:''}
+              ${inv.invoiceNum?`<div style="font-size:11px;color:#9CA3AF;margin-top:2px">#${esc(inv.invoiceNum)}${inv.poNumber?` · PO ${esc(inv.poNumber)}`:''}</div>`:''}
             </div>
             <div style="flex-shrink:0;text-align:right">
               <div class="iamount" style="color:${inv.status==='CREDIT'?'#DC2626':'#111827'}">${fA(inv.amount)}</div>
@@ -263,6 +337,7 @@ function renderInv() {
             </div>
           </div>
           <div class="idates">
+            ${inv.startDate?`<span>🚀 ${fD(inv.startDate)}</span>`:''}
             <span>📅 ${fD(inv.invoiceDate)}</span>
             ${inv.dueDate?`<span>⏰ ${fD(inv.dueDate)}</span>`:''}
             ${inv.depositDate?`<span>✅ ${fD(inv.depositDate)}</span>`:''}
@@ -273,6 +348,7 @@ function renderInv() {
           <div class="idetail">
             ${inv.note?`<div style="font-size:12px;color:#555;margin-bottom:8px">📝 ${esc(inv.note)}</div>`:''}
             ${inv.type==='PO'&&inv.items?(Array.isArray(inv.items)?inv.items:Object.values(inv.items)).map(it=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;color:#555"><span>${esc(it.desc)}</span><span style="font-weight:700">${fA(it.amount)}</span></div>`).join(''):''}
+            ${inv.type==='PROGRESS'&&inv.progressItems?(Array.isArray(inv.progressItems)?inv.progressItems:Object.values(inv.progressItems)).map(it=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;color:#555;gap:8px"><span style="flex:1">${esc(it.desc)}${it.pct?` <span style="color:#92400E;font-weight:700">(${esc(String(it.pct))}%)</span>`:''}</span><span style="font-weight:700">${parseFloat(it.amount)>0?fA(it.amount):'—'}</span></div>`).join(''):''}
             <div style="display:flex;gap:8px;margin-top:10px">
               <button class="btn-secondary" style="flex:1;padding:8px;font-size:12px" onclick="openIM('${inv.id}')">✏️ 수정</button>
               <button style="background:#FEF2F2;color:#DC2626;border:1px solid #FECACA;border-radius:9px;padding:8px 14px;font-size:12px;cursor:pointer" onclick="delInv('${inv.id}')">🗑</button>
@@ -295,36 +371,76 @@ function toggleD(id) {
 
 // ── Invoice CRUD ──────────────────────────────────────────────────────────────
 function openIM(id) {
-  editId = id; invItems = [];
+  editId = id; invItems = []; progItems = [];
   const inv = id ? invoices.find(i=>i.id===id) : null;
   document.getElementById('im-title').textContent = inv ? '인보이스 수정' : '새 인보이스';
   document.getElementById('f-b').value = inv?.builderName||'';
   document.getElementById('f-a').value = inv?.address||'';
   document.getElementById('f-n').value = inv?.invoiceNum||'';
   document.getElementById('f-st').value = inv?.status||'INVOICE';
+  document.getElementById('f-sd').value = inv?.startDate||'';
   document.getElementById('f-id').value = inv?.invoiceDate||today;
   document.getElementById('f-dd').value = inv?.dueDate||'';
   document.getElementById('f-am').value = inv?.amount||'';
   document.getElementById('f-po').value = inv?.poNumber||'';
+  document.getElementById('f-proj').value = inv?.projectName||'';
   document.getElementById('f-dd2').value = inv?.depositDate||'';
   document.getElementById('f-da').value = inv?.depositAmount||'';
   document.getElementById('f-no').value = inv?.note||'';
+  
+  // company selection
+  const coId = inv?.companyId || (companies[0] && companies[0].id) || '';
+  document.getElementById('f-co').value = coId;
+  
   setType(inv?.type||'NORMAL');
   if (inv?.type==='PO' && inv.items) {
     invItems = Array.isArray(inv.items) ? [...inv.items] : Object.values(inv.items);
     renderItems();
   }
+  if (inv?.type==='PROGRESS' && inv.progressItems) {
+    progItems = Array.isArray(inv.progressItems) ? [...inv.progressItems] : Object.values(inv.progressItems);
+    renderProg();
+  }
+  // if new invoice, auto-suggest invoice number
+  if (!inv) suggestInvNum();
+  
   document.getElementById('inv-modal').classList.add('open');
 }
 function closeIM() { document.getElementById('inv-modal').classList.remove('open'); }
+
+function onCoChange() {
+  if (!editId) suggestInvNum();
+}
+function onBChange() {
+  // when builder is picked, auto-pick their default company if set
+  if (editId) return;
+  const bn = document.getElementById('f-b').value.trim();
+  const b = builders.find(bb=>bb.name===bn);
+  if (b && b.defaultCompany) {
+    document.getElementById('f-co').value = b.defaultCompany;
+    suggestInvNum();
+  }
+}
+function suggestInvNum() {
+  const coId = document.getElementById('f-co').value;
+  const c = companies.find(c=>c.id===coId);
+  if (!c) return;
+  // pad BXBT- to 4 digits, INV- as-is
+  const n = c.nextNumber || 1;
+  const padded = c.prefix.includes('BXBT') ? String(n).padStart(4,'0') : String(n);
+  document.getElementById('f-n').value = c.prefix + padded;
+}
 
 function setType(t) {
   curType = t;
   document.getElementById('tt-normal').classList.toggle('active', t==='NORMAL');
   document.getElementById('tt-po').classList.toggle('active', t==='PO');
-  document.getElementById('f-amt-row').style.display = t==='NORMAL' ? 'block' : 'none';
-  document.getElementById('f-items-row').style.display = t==='PO' ? 'block' : 'none';
-  document.getElementById('f-po-row').style.display = t==='PO' ? 'block' : 'none';
+  document.getElementById('tt-prog').classList.toggle('active', t==='PROGRESS');
+  document.getElementById('f-amt-row').style.display = (t==='NORMAL') ? 'block' : 'none';
+  document.getElementById('f-items-row').style.display = (t==='PO') ? 'block' : 'none';
+  document.getElementById('f-po-row').style.display = (t==='PO') ? 'block' : 'none';
+  document.getElementById('f-prog-row').style.display = (t==='PROGRESS') ? 'block' : 'none';
+  document.getElementById('f-proj-row').style.display = (t==='PROGRESS') ? 'block' : 'none';
 }
 
 function addItem() { invItems.push({desc:'',amount:''}); renderItems(); }
@@ -345,29 +461,88 @@ function calcTotal() {
   document.getElementById('items-total').textContent = t > 0 ? '합계: '+fA(t) : '';
 }
 
+// ── Progress Items (percentage-based) ────────────────────────────────────────
+function addProg() { progItems.push({desc:'',pct:'',amount:''}); renderProg(); }
+function renderProg() {
+  let h = '';
+  progItems.forEach((it,i) => {
+    h += `<div style="background:#FFFBEB;border:1px solid #FDE68A;border-radius:8px;padding:8px;margin-bottom:8px">
+      <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+        <input class="input" style="flex:1" value="${esc(it.desc)}" placeholder="항목명 (예: Floor Tiling)" oninput="progItems[${i}].desc=this.value"/>
+        <button style="background:none;border:none;color:#FCA5A5;font-size:18px;cursor:pointer" onclick="progItems.splice(${i},1);renderProg()">×</button>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <input type="number" class="input" style="flex:1" value="${it.pct||''}" placeholder="완료 %" max="100" oninput="progItems[${i}].pct=this.value"/>
+        <input type="number" step="0.01" class="input" style="flex:1" value="${it.amount||''}" placeholder="이번 금액" oninput="progItems[${i}].amount=this.value;calcProgTotal()"/>
+      </div>
+    </div>`;
+  });
+  document.getElementById('prog-list').innerHTML = h;
+  calcProgTotal();
+}
+function calcProgTotal() {
+  const t = progItems.reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
+  const allDone = progItems.length>0 && progItems.every(i=>parseFloat(i.pct)>=100);
+  document.getElementById('prog-total').textContent = t > 0 ? `합계: ${fA(t)}${allDone?' ✓ 전체완료':' (진행중)'}` : '';
+}
+
 async function saveInv() {
   const b = document.getElementById('f-b').value.trim();
   if (!b) return alert('빌더명을 입력하세요');
   const isPO = curType === 'PO';
-  const amt = isPO ? invItems.reduce((s,i)=>s+(parseFloat(i.amount)||0),0) : parseFloat(document.getElementById('f-am').value)||0;
+  const isProg = curType === 'PROGRESS';
+  let amt;
+  if (isPO) amt = invItems.reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
+  else if (isProg) amt = progItems.reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
+  else amt = parseFloat(document.getElementById('f-am').value)||0;
   if (!amt) return alert('금액을 입력하세요');
+  
+  const coId = document.getElementById('f-co').value;
+  const invNum = document.getElementById('f-n').value.trim();
+  
+  // auto-set ONGOING status if progress invoice has unfinished items and user left it on INVOICE
+  let status = document.getElementById('f-st').value;
+  if (isProg && status === 'INVOICE') {
+    const allDone = progItems.length>0 && progItems.every(i=>parseFloat(i.pct)>=100);
+    if (!allDone) status = 'ONGOING';
+  }
+  
   const data = {
-    type: curType, builderName: b,
+    type: curType,
+    companyId: coId,
+    builderName: b,
     address: document.getElementById('f-a').value,
-    invoiceNum: document.getElementById('f-n').value,
-    status: document.getElementById('f-st').value,
+    invoiceNum: invNum,
+    status: status,
+    startDate: document.getElementById('f-sd').value,
     invoiceDate: document.getElementById('f-id').value,
     dueDate: document.getElementById('f-dd').value,
     amount: amt,
     poNumber: isPO ? document.getElementById('f-po').value : '',
+    projectName: isProg ? document.getElementById('f-proj').value : '',
     depositDate: document.getElementById('f-dd2').value,
     depositAmount: parseFloat(document.getElementById('f-da').value)||0,
     note: document.getElementById('f-no').value,
     items: isPO ? invItems : [],
+    progressItems: isProg ? progItems : [],
     updatedAt: new Date().toISOString()
   };
-  if (editId) await fbSet('invoices/'+editId, data);
-  else await fbPush('invoices', data);
+  
+  if (editId) {
+    await fbSet('invoices/'+editId, data);
+  } else {
+    await fbPush('invoices', data);
+    // bump company's nextNumber if the invoice number we saved matches the suggestion
+    const co = companies.find(c=>c.id===coId);
+    if (co) {
+      const padded = co.prefix.includes('BXBT') ? String(co.nextNumber).padStart(4,'0') : String(co.nextNumber);
+      if (invNum === co.prefix + padded) {
+        const updated = {...co, nextNumber: (co.nextNumber||1)+1};
+        delete updated.id;
+        await fbSet('invoiceCompanies/'+co.id, updated);
+      }
+    }
+  }
   closeIM();
   await loadAll();
 }
@@ -396,11 +571,13 @@ function renderBuilders() {
     const sorted = [...builders].sort((a,b)=>(a.name||'').localeCompare(b.name||''));
     sorted.forEach(b => {
       const bi = invoices.filter(i=>i.builderName===b.name);
-      const out = bi.filter(i=>i.status==='INVOICE'||i.status==='OVERDUE').reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
+      const out = bi.filter(i=>i.status==='INVOICE'||i.status==='OVERDUE'||i.status==='ONGOING').reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
       const emailToShow = b.invoiceEmail || b.email || '';
+      const co = companies.find(c=>c.id===b.defaultCompany);
+      const billLabel = b.billingType==='MONTHLY' ? '월별' : '건별';
       h += `<div class="card" onclick="openBM('${b.id}')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
         <div style="min-width:0;flex:1">
-          <div style="font-size:14px;font-weight:700;color:#111827;margin-bottom:2px">${esc(b.name)}</div>
+          <div style="font-size:14px;font-weight:700;color:#111827;margin-bottom:2px">${esc(b.name)}<span class="bill-badge bill-${b.billingType||'PER_JOB'}">${billLabel}</span>${co?` <span class="co-badge ${co.id==='co2'?'co2':''}">${esc(co.prefix.replace('-',''))}</span>`:''}</div>
           ${b.contactPerson?`<div style="font-size:12px;color:#6B7280">👤 ${esc(b.contactPerson)}</div>`:''}
           ${emailToShow?`<div style="font-size:11px;color:#9CA3AF;margin-top:2px;word-break:break-all">📧 ${esc(emailToShow)}</div>`:''}
           ${b.contact?`<div style="font-size:11px;color:#9CA3AF">📞 ${esc(b.contact)}</div>`:''}
@@ -439,7 +616,7 @@ const BUILDER_SEED = [
   {name:"Gratitude", email:"miles@gratcon.com.au", invoiceEmail:"admin@gratcon.com.au", contactPerson:"Kate, Miles"},
   {name:"Greenwich Build", email:"invoice@greenwichbuild.com.au", invoiceEmail:"invoice@greenwichbuild.com.au"},
   {name:"Hart Homes", email:"vicki@harthomes.com.au", invoiceEmail:"vicki@harthomes.com.au", contactPerson:"Adam Hart"},
-  {name:"Hibbards", email:"invoices@hibbards.com.au", invoiceEmail:"invoices@hibbards.com.au"},
+  {name:"Hibbards", email:"invoices@hibbards.com.au", invoiceEmail:"invoices@hibbards.com.au", billingType:"MONTHLY", defaultCompany:"co2"},
   {name:"Hines", email:"admin@hinesconstruct.com.au", invoiceEmail:"admin@hinesconstruct.com.au"},
   {name:"Honeywood Carpentry", email:"ash@honeywoodcarpentry.com.au", invoiceEmail:"ash@honeywoodcarpentry.com.au"},
   {name:"Huscliffe Homes", email:"HussCliffe.homes@outlook.com", invoiceEmail:"HussCliffe.homes@outlook.com"},
@@ -491,6 +668,8 @@ async function importBuilders() {
   for (const b of toAdd) {
     const data = {
       name: b.name,
+      billingType: b.billingType || 'PER_JOB',
+      defaultCompany: b.defaultCompany || '',
       contactPerson: b.contactPerson || '',
       contact: '',
       email: b.email || '',
@@ -506,6 +685,62 @@ async function importBuilders() {
   alert(`✅ ${added}개 추가 완료${failed?` (실패 ${failed}개)`:''}`);
 }
 
+// ── Company Settings ─────────────────────────────────────────────────────────
+function openSet() {
+  renderCoList();
+  document.getElementById('s-modal').classList.add('open');
+}
+function closeSet() { document.getElementById('s-modal').classList.remove('open'); }
+
+function renderCoList() {
+  let h = '';
+  companies.forEach((c, idx) => {
+    h += `<div class="card" style="margin-bottom:12px;background:#FAFBFF">
+      <div style="font-size:13px;font-weight:800;color:#111827;margin-bottom:10px">회사 ${idx+1}</div>
+      <div class="mb"><label class="label">회사명</label><input class="input" id="co-n-${c.id}" value="${esc(c.name||'')}"/></div>
+      <div class="row2 mb">
+        <div><label class="label">인보이스 접두어</label><input class="input" id="co-p-${c.id}" value="${esc(c.prefix||'')}" placeholder="INV-"/></div>
+        <div><label class="label">다음 번호</label><input type="number" class="input" id="co-nn-${c.id}" value="${c.nextNumber||1}"/></div>
+      </div>
+      <div class="mb"><label class="label">주소</label><input class="input" id="co-a-${c.id}" value="${esc(c.address||'')}"/></div>
+      <div class="row2 mb">
+        <div><label class="label">ABN</label><input class="input" id="co-abn-${c.id}" value="${esc(c.abn||'')}"/></div>
+        <div><label class="label">전화</label><input class="input" id="co-ph-${c.id}" value="${esc(c.phone||'')}"/></div>
+      </div>
+      <div class="row2 mb">
+        <div><label class="label">BSB</label><input class="input" id="co-bsb-${c.id}" value="${esc(c.bsb||'')}"/></div>
+        <div><label class="label">계좌번호</label><input class="input" id="co-acc-${c.id}" value="${esc(c.acc||'')}"/></div>
+      </div>
+      <div class="row2 mb">
+        <div><label class="label">담당자</label><input class="input" id="co-cn-${c.id}" value="${esc(c.contactName||'')}"/></div>
+        <div><label class="label">담당 이메일</label><input class="input" id="co-ce-${c.id}" value="${esc(c.contactEmail||'')}"/></div>
+      </div>
+    </div>`;
+  });
+  document.getElementById('co-list').innerHTML = h;
+}
+
+async function saveAllCo() {
+  for (const c of companies) {
+    const data = {
+      name: document.getElementById('co-n-'+c.id).value,
+      prefix: document.getElementById('co-p-'+c.id).value,
+      nextNumber: parseInt(document.getElementById('co-nn-'+c.id).value) || 1,
+      address: document.getElementById('co-a-'+c.id).value,
+      abn: document.getElementById('co-abn-'+c.id).value,
+      phone: document.getElementById('co-ph-'+c.id).value,
+      bsb: document.getElementById('co-bsb-'+c.id).value,
+      acc: document.getElementById('co-acc-'+c.id).value,
+      contactName: document.getElementById('co-cn-'+c.id).value,
+      contactEmail: document.getElementById('co-ce-'+c.id).value
+    };
+    await fbSet('invoiceCompanies/'+c.id, data);
+  }
+  closeSet();
+  await loadAll();
+  alert('✅ 회사 정보 저장 완료');
+}
+
 function renderDL() {
   document.getElementById('bdl').innerHTML = builders.map(b=>`<option value="${esc(b.name)}"/>`).join('');
 }
@@ -515,6 +750,8 @@ function openBM(id) {
   const b = id ? builders.find(b=>b.id===id) : null;
   document.getElementById('bm-title').textContent = b ? '빌더 수정' : '새 빌더';
   document.getElementById('bf-n').value = b?.name||'';
+  document.getElementById('bf-bt').value = b?.billingType||'PER_JOB';
+  document.getElementById('bf-dc').value = b?.defaultCompany||'';
   document.getElementById('bf-cp').value = b?.contactPerson||'';
   document.getElementById('bf-c').value = b?.contact||'';
   document.getElementById('bf-e').value = b?.email||'';
@@ -531,6 +768,8 @@ async function saveBuilder() {
   if (!n) return alert('빌더명을 입력하세요');
   const data = {
     name: n,
+    billingType: document.getElementById('bf-bt').value,
+    defaultCompany: document.getElementById('bf-dc').value,
     contactPerson: document.getElementById('bf-cp').value,
     contact: document.getElementById('bf-c').value,
     email: document.getElementById('bf-e').value,
@@ -547,7 +786,7 @@ async function saveBuilder() {
 
 // ── Stats ─────────────────────────────────────────────────────────────────────
 function renderStats() {
-  const out = invoices.filter(i=>i.status==='INVOICE'||i.status==='OVERDUE').reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
+  const out = invoices.filter(i=>i.status==='INVOICE'||i.status==='OVERDUE'||i.status==='ONGOING').reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
   const ov = invoices.filter(i=>i.status==='OVERDUE').reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
   const pd = invoices.filter(i=>i.status==='DEPOSIT'||i.status==='PAID').reduce((s,i)=>s+(parseFloat(i.depositAmount||i.amount)||0),0);
   const mo = invoices.filter(i=>(i.invoiceDate||'').startsWith(today.slice(0,7))).reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
@@ -558,7 +797,7 @@ function renderStats() {
     if (!bs[b]) bs[b] = {total:0,paid:0,outstanding:0,count:0};
     bs[b].count++; bs[b].total += parseFloat(i.amount)||0;
     if (i.status==='DEPOSIT'||i.status==='PAID') bs[b].paid += parseFloat(i.depositAmount||i.amount)||0;
-    if (i.status==='INVOICE'||i.status==='OVERDUE') bs[b].outstanding += parseFloat(i.amount)||0;
+    if (i.status==='INVOICE'||i.status==='OVERDUE'||i.status==='ONGOING') bs[b].outstanding += parseFloat(i.amount)||0;
   });
 
   const monthly = {};
