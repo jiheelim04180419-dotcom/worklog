@@ -546,7 +546,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
             </button>
           </div>
           {subView === "summary" && isAdmin && (
-            <SummarySection users={users} leaves={leaves} periodStart={periodStart} calcWage={calcWage} getSavedDeductions={getSavedDeductions} getKeepBalance={getKeepBalance} getKeepBalanceAtPeriod={getKeepBalanceAtPeriod} getPeriodDeposits={getPeriodDeposits} EMP_COLORS={EMP_COLORS} fA={fA} C={C} selId={selId} setSelId={setSelId} setSubView={setSubView}/>
+            <SummarySection users={users} leaves={leaves} periodStart={periodStart} wpEnd={wpEnd} calcWage={calcWage} getSavedDeductions={getSavedDeductions} getKeepBalance={getKeepBalance} getKeepBalanceAtPeriod={getKeepBalanceAtPeriod} getPeriodDeposits={getPeriodDeposits} EMP_COLORS={EMP_COLORS} fA={fA} C={C} selId={selId} setSelId={setSelId} setSubView={setSubView} persist={persist}/>
           )}
           {subView === "deduct" && (
             <DeductTab users={users.filter(u=>!u.resignedDate&&u.role==="employee")}
@@ -2073,13 +2073,130 @@ function MgmtPayForm({ members, initMemberId, payment, onSave, onClose, today, f
 }
 
 
-function SummarySection({users, leaves, periodStart, calcWage, getSavedDeductions, getKeepBalance, getKeepBalanceAtPeriod, getPeriodDeposits, EMP_COLORS, fA, C, selId, setSelId, setSubView}) {
+function SummarySection({users, leaves, periodStart, wpEnd, calcWage, getSavedDeductions, getKeepBalance, getKeepBalanceAtPeriod, getPeriodDeposits, EMP_COLORS, fA, C, selId, setSelId, setSubView, persist}) {
   const activeEmps = users.filter(u => !u.resignedDate && u.role === "employee");
   const fmtD = (ps) => { const d=new Date(ps+"T00:00:00"); d.setDate(d.getDate()+13); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); };
   const fmt = (v, color) => <p style={{ margin:0,fontSize:12,fontWeight:700,color:v?color:"#ccc",textAlign:"center" }}>{v?fA(v):"—"}</p>;
 
+  // 카일+사라 공동 계산 설정 (Firebase에서 읽기)
+  const [jConfig, setJConfig] = React.useState({total:'', d20:'', d27:'', showCalc:false});
+  const [jResult, setJResult] = React.useState(null);
+  const [editJConfig, setEditJConfig] = React.useState(false);
+
+  // 기간에 20일/27일 포함 여부
+  const periodHas20 = periodStart && wpEnd && (() => {
+    const [sy,sm] = periodStart.split('-').map(Number);
+    const [ey,em] = wpEnd.split('-').map(Number);
+    // 같은달이면 20일이 포함되는지
+    for (let y=sy, m=sm; y<ey||(y===ey&&m<=em); ) {
+      const d20 = `${y}-${String(m).padStart(2,'0')}-20`;
+      if (d20 >= periodStart && d20 <= wpEnd) return true;
+      m++; if(m>12){m=1;y++;}
+    }
+    return false;
+  })();
+
+  const periodHas27 = periodStart && wpEnd && (() => {
+    const [sy,sm] = periodStart.split('-').map(Number);
+    const [ey,em] = wpEnd.split('-').map(Number);
+    for (let y=sy, m=sm; y<ey||(y===ey&&m<=em); ) {
+      const d27 = `${y}-${String(m).padStart(2,'0')}-27`;
+      if (d27 >= periodStart && d27 <= wpEnd) return true;
+      m++; if(m>12){m=1;y++;}
+    }
+    return false;
+  })();
+
+  // 카일/사라 ID 찾기 (이름 기반)
+  const kyleUser = users.find(u => u.name && (u.name.includes('카일') || u.name.toLowerCase().includes('kyle')));
+  const saraUser = users.find(u => u.name && (u.name.includes('사라') || u.name.toLowerCase().includes('sara')));
+
+  const calcJoint = () => {
+    const total = parseFloat(jConfig.total) || 0;
+    const d20amt = periodHas20 ? (parseFloat(jConfig.d20) || 0) : 0;
+    const d27amt = periodHas27 ? (parseFloat(jConfig.d27) || 0) : 0;
+    const net = total - d20amt - d27amt;
+    const kyle = net / 2;
+    const sara = (net / 2) * 1.1;
+    setJResult({ total, d20amt, d27amt, net, kyle, sara });
+  };
+
   return (
     <div>
+      {/* ── 카일+사라 공동 계산기 ── */}
+      <div style={{ background:"#F5F3FF",border:"1px solid #DDD6FE",borderRadius:14,padding:"14px 16px",marginBottom:12 }}>
+        <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:jConfig.showCalc?12:0 }}>
+          <p style={{ margin:0,fontSize:13,fontWeight:700,color:"#6D28D9" }}>🧮 카일 + 사라 공동 계산</p>
+          <button onClick={()=>setJConfig(c=>({...c,showCalc:!c.showCalc}))}
+            style={{ background:"#7C3AED",color:"#fff",border:"none",borderRadius:8,padding:"5px 12px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit" }}>
+            {jConfig.showCalc ? "▲ 접기" : "▼ 열기"}
+          </button>
+        </div>
+        {jConfig.showCalc && (<>
+          {/* 공제 설정 */}
+          <div style={{ background:"rgba(109,40,217,0.08)",borderRadius:10,padding:"10px 12px",marginBottom:10 }}>
+            <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6 }}>
+              <p style={{ margin:0,fontSize:11,fontWeight:700,color:"#6D28D9" }}>공제 설정 (매월 자동 적용)</p>
+              <button onClick={()=>setEditJConfig(!editJConfig)} style={{ background:"none",border:"none",fontSize:11,color:"#7C3AED",cursor:"pointer",fontFamily:"inherit",fontWeight:600 }}>{editJConfig?"✅ 완료":"✏️ 수정"}</button>
+            </div>
+            {editJConfig ? (
+              <div style={{ display:"flex",gap:8 }}>
+                <div style={{ flex:1 }}>
+                  <p style={{ margin:"0 0 3px",fontSize:10,color:"#888" }}>20일 공제액</p>
+                  <input type="number" value={jConfig.d20} onChange={e=>setJConfig(c=>({...c,d20:e.target.value}))}
+                    style={{ width:"100%",padding:"7px 8px",border:"1px solid #DDD6FE",borderRadius:6,fontSize:13,background:"#fff",fontFamily:"inherit" }} placeholder="0.00"/>
+                </div>
+                <div style={{ flex:1 }}>
+                  <p style={{ margin:"0 0 3px",fontSize:10,color:"#888" }}>27일 공제액</p>
+                  <input type="number" value={jConfig.d27} onChange={e=>setJConfig(c=>({...c,d27:e.target.value}))}
+                    style={{ width:"100%",padding:"7px 8px",border:"1px solid #DDD6FE",borderRadius:6,fontSize:13,background:"#fff",fontFamily:"inherit" }} placeholder="0.00"/>
+                </div>
+              </div>
+            ) : (
+              <div style={{ display:"flex",gap:12,fontSize:12 }}>
+                <span style={{ color:"#555" }}>20일: <strong style={{ color:"#6D28D9" }}>{jConfig.d20?fA(parseFloat(jConfig.d20)):"미설정"}</strong> {periodHas20&&<span style={{ color:"#DC2626",fontWeight:700 }}>← 이번 기간 포함</span>}</span>
+                <span style={{ color:"#555" }}>27일: <strong style={{ color:"#6D28D9" }}>{jConfig.d27?fA(parseFloat(jConfig.d27)):"미설정"}</strong> {periodHas27&&<span style={{ color:"#DC2626",fontWeight:700 }}>← 이번 기간 포함</span>}</span>
+              </div>
+            )}
+          </div>
+          {/* 총액 입력 */}
+          <div style={{ display:"flex",gap:8,marginBottom:10,alignItems:"flex-end" }}>
+            <div style={{ flex:1 }}>
+              <p style={{ margin:"0 0 4px",fontSize:11,fontWeight:700,color:"#6D28D9" }}>이번 기간 총액</p>
+              <input type="number" value={jConfig.total} onChange={e=>setJConfig(c=>({...c,total:e.target.value}))}
+                style={{ width:"100%",padding:"9px 12px",border:"1.5px solid #DDD6FE",borderRadius:8,fontSize:14,fontFamily:"inherit",background:"#fff" }} placeholder="0.00"/>
+            </div>
+            <button onClick={calcJoint}
+              style={{ background:"#7C3AED",color:"#fff",border:"none",borderRadius:8,padding:"10px 16px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap" }}>
+              계산
+            </button>
+          </div>
+          {/* 결과 */}
+          {jResult && (
+            <div style={{ background:"#fff",borderRadius:10,padding:"12px",border:"1px solid #DDD6FE" }}>
+              <div style={{ fontSize:12,color:"#555",marginBottom:8 }}>
+                <div style={{ display:"flex",justifyContent:"space-between",marginBottom:3 }}><span>총액</span><span style={{ fontWeight:600 }}>{fA(jResult.total)}</span></div>
+                {jResult.d20amt>0&&<div style={{ display:"flex",justifyContent:"space-between",marginBottom:3 }}><span>20일 공제</span><span style={{ color:"#DC2626",fontWeight:600 }}>-{fA(jResult.d20amt)}</span></div>}
+                {jResult.d27amt>0&&<div style={{ display:"flex",justifyContent:"space-between",marginBottom:3 }}><span>27일 공제</span><span style={{ color:"#DC2626",fontWeight:600 }}>-{fA(jResult.d27amt)}</span></div>}
+                <div style={{ display:"flex",justifyContent:"space-between",borderTop:"1px solid #EDE9FE",paddingTop:6,marginTop:6 }}><span style={{ fontWeight:700 }}>순액</span><span style={{ fontWeight:700 }}>{fA(jResult.net)}</span></div>
+              </div>
+              <div style={{ display:"flex",gap:8 }}>
+                <div style={{ flex:1,background:"#EFF6FF",borderRadius:8,padding:"10px",textAlign:"center" }}>
+                  <p style={{ margin:"0 0 2px",fontSize:11,color:"#1D4ED8",fontWeight:600 }}>{kyleUser?.name||"카일"} (카일)</p>
+                  <p style={{ margin:"0 0 2px",fontSize:10,color:"#888" }}>GST 없음</p>
+                  <p style={{ margin:0,fontSize:18,fontWeight:800,color:"#1D4ED8" }}>{fA(jResult.kyle)}</p>
+                </div>
+                <div style={{ flex:1,background:"#FFF7ED",borderRadius:8,padding:"10px",textAlign:"center" }}>
+                  <p style={{ margin:"0 0 2px",fontSize:11,color:"#C2410C",fontWeight:600 }}>{saraUser?.name||"사라"} (사라)</p>
+                  <p style={{ margin:"0 0 2px",fontSize:10,color:"#888" }}>+GST 10%</p>
+                  <p style={{ margin:0,fontSize:18,fontWeight:800,color:"#C2410C" }}>{fA(jResult.sara)}</p>
+                </div>
+              </div>
+            </div>
+          )}
+        </>)}
+      </div>
+
       <div style={{ background:"#EFF6FF",borderRadius:10,padding:"8px 14px",marginBottom:8,fontSize:12,color:"#1D4ED8",fontWeight:600 }}>
         📅 {periodStart} ~ {fmtD(periodStart)} 정산 요약
       </div>
