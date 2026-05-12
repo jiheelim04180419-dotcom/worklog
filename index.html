@@ -505,7 +505,8 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
           id: Date.now() + Math.random(),
           date: d.date || wpStart,
           desc: d.desc,
-          amount: parseFloat(d.amount)
+          amount: parseFloat(d.amount),
+          addedBy: user?.id || 'admin'
         }));
         const updatedDeds = [...existing, ...newEntries];
         // 먼저 savedDeductions 저장
@@ -983,7 +984,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
             <div style={{ background:"#fff",borderRadius:14,padding:"14px 16px",marginBottom:10,boxShadow:"0 1px 4px #0000000a" }}>
               <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:deductions.length>0?12:0 }}>
                 <p style={{ margin:0,fontSize:11,fontWeight:700,color:"#EF4444",textTransform:"uppercase",letterSpacing:1 }}>➖ 공제 항목 (Deductions)</p>
-                {isSuperAdmin && <button onClick={addDeduction}
+                {true && <button onClick={addDeduction}
                   style={{ fontSize:12,fontWeight:700,background:"#FEF2F2",color:"#EF4444",border:"1.5px solid #FECACA",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontFamily:"inherit" }}>
                   + 추가
                 </button>}
@@ -1009,7 +1010,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                 </div>
               ))}
               {/* 로컬 공제항목 저장 버튼 */}
-              {isSuperAdmin && deductions.filter(d=>d.desc&&parseFloat(d.amount)>0).length > 0 && (
+              {deductions.filter(d=>d.desc&&parseFloat(d.amount)>0).length > 0 && (
                 <button onClick={() => {
                   const validDeds = deductions.filter(d => d.desc && parseFloat(d.amount) > 0);
                   const lv0 = leaves[selId] || {};
@@ -1031,13 +1032,18 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
 
               {/* Firebase 저장 공제 항목 */}
               {getSavedDeductions(selId).map(d => (
-                <div key={d.id} style={{ display:"flex",gap:6,alignItems:"center",marginBottom:8,background:"#FFF7F7",borderRadius:8,padding:"6px 10px" }}>
+                <div key={d.id} style={{ display:"flex",gap:6,alignItems:"center",marginBottom:8,background:d.addedBy&&d.addedBy!=='admin'&&d.addedBy===user?.id?"#F0FDF4":"#FFF7F7",borderRadius:8,padding:"6px 10px" }}>
                   <div style={{ flex:1 }}>
                     <p style={{ margin:0,fontSize:11,color:"#555" }}>{d.date} · {d.desc}</p>
+                    {!isSuperAdmin && d.addedBy && d.addedBy!==user?.id && (
+                      <p style={{ margin:"2px 0 0",fontSize:10,color:"#aaa" }}>관리자 등록</p>
+                    )}
                   </div>
                   <span style={{ fontSize:13,fontWeight:700,color:"#EF4444" }}>{fA(d.amount)}</span>
-                  {isSuperAdmin && <button onClick={()=>removeSavedDeduction(selId,d.id)}
-                    style={{ background:"none",border:"none",cursor:"pointer",color:"#f77",fontSize:14,padding:"2px",fontFamily:"inherit" }}>×</button>}
+                  {(isSuperAdmin || (!isSuperAdmin && d.addedBy === user?.id)) && (
+                    <button onClick={()=>removeSavedDeduction(selId,d.id)}
+                      style={{ background:"none",border:"none",cursor:"pointer",color:"#f77",fontSize:14,padding:"2px",fontFamily:"inherit" }}>×</button>
+                  )}
                 </div>
               ))}
               {totalDeductions > 0 && (
