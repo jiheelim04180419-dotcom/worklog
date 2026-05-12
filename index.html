@@ -3546,8 +3546,12 @@ function App() {
             ))}
           </div>
           <div className="dt-sidebar-footer">
-            <div style={{fontWeight:600,color:'rgba(255,255,255,0.6)',fontSize:13}}>{currentUser?.name}</div>
-            <div>{isAdmin?'관리자':'직원'}</div>
+            <div style={{fontWeight:700,color:'rgba(255,255,255,0.8)',fontSize:13,marginBottom:2}}>{currentUser?.name}</div>
+            <div style={{marginBottom:10,fontSize:11}}>{isAdmin?'관리자':'직원'}</div>
+            <button onClick={onLogout}
+              style={{width:'100%',background:'rgba(220,38,38,0.15)',color:'#FCA5A5',border:'1px solid rgba(220,38,38,0.3)',borderRadius:8,padding:'8px',fontSize:12,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>
+              로그아웃 →
+            </button>
           </div>
         </div>
       )}
@@ -3560,8 +3564,15 @@ function App() {
             {{'home':'홈','log':'근무일지','leave':'연차','payroll':'급여','rate':'일급 관리','team':'직원 관리','company':'회사','mgmt':'⭐ 운영진'}[tab]||tab}
           </span>
           <div style={{display:'flex',alignItems:'center',gap:8,fontSize:12,color:'#888'}}>
-            <span style={{background:'#EEF2FF',color:'#4F46E5',borderRadius:6,padding:'4px 10px',fontWeight:600}}>{currentUser?.name}</span>
-            <span>{isAdmin?'관리자':'직원'}</span>
+            <button onClick={onChangePw}
+              style={{background:'none',border:'none',cursor:'pointer',color:C.sub,padding:'4px 8px',fontSize:12,fontFamily:'inherit',borderRadius:6}}
+              title="비밀번호 변경">🔑 비번변경</button>
+            <span style={{background:'#EEF2FF',color:'#4F46E5',borderRadius:6,padding:'4px 10px',fontWeight:700}}>{currentUser?.name}</span>
+            <span style={{color:C.sub}}>{isAdmin?'관리자':'직원'}</span>
+            <button onClick={onLogout}
+              style={{background:'#FEF2F2',color:'#DC2626',border:'1px solid #FECACA',borderRadius:8,padding:'5px 12px',fontSize:12,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>
+              로그아웃 →
+            </button>
           </div>
         </div>
       )}
