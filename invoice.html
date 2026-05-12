@@ -260,7 +260,7 @@ async function fbDel(path) {
 }
 
 // ── State ─────────────────────────────────────────────────────────────────────
-let invoices = [], builders = [], companies = [], curFilter = 'ALL', curType = 'NORMAL', editId = null, editBId = null, invItems = [], progItems = [], invPayments = [];
+let invoices = [], builders = [], companies = [], curFilter = 'INVOICE', curType = 'NORMAL', editId = null, editBId = null, invItems = [], progItems = [], invPayments = [];
 const today = new Date().toISOString().split('T')[0];
 const fA = n => new Intl.NumberFormat('en-AU',{style:'currency',currency:'AUD'}).format(n||0);
 const fD = d => d ? new Date(d+'T00:00:00').toLocaleDateString('en-AU',{day:'2-digit',month:'short',year:'numeric'}) : '—';
@@ -439,19 +439,24 @@ function setupInvTab() {
 // ── Invoice List ──────────────────────────────────────────────────────────────
 function renderInv() {
   setupInvTab();
-  const sts = ['ALL','INVOICE','OVERDUE','ONGOING','RETENTION','CREDIT','SUSPEND','FINISH','NO_PAYMENT','PAID'];
+  const sts = ['INVOICE','OVERDUE','PAID','RETENTION','CREDIT','SUSPEND','NO_PAYMENT','ALL'];
+  
+  // Pretty labels
+  const LABEL = {NO_PAYMENT: 'NO-PAY'};
+  const lblFor = s => LABEL[s] || s;
   
   const countFor = s => {
     if (s === 'ALL') return invoices.length;
     if (s === 'OVERDUE') return invoices.filter(isOverdue).length;
-    if (s === 'INVOICE') return invoices.filter(i => i.status==='INVOICE' && !isOverdue(i)).length;
+    // INVOICE filter = all status=INVOICE (overdue or not) + ONGOING items
+    if (s === 'INVOICE') return invoices.filter(i => i.status==='INVOICE' || i.status==='ONGOING').length;
     return invoices.filter(i => i.status === s).length;
   };
   
   const matchesFilter = i => {
     if (curFilter === 'ALL') return true;
     if (curFilter === 'OVERDUE') return isOverdue(i);
-    if (curFilter === 'INVOICE') return i.status === 'INVOICE' && !isOverdue(i);
+    if (curFilter === 'INVOICE') return i.status === 'INVOICE' || i.status === 'ONGOING';
     return i.status === curFilter;
   };
   
@@ -487,7 +492,7 @@ function renderInv() {
 
   // Update filter bar
   document.getElementById('inv-filter-bar').innerHTML = sts.map(s =>
-    `<button class="fbtn${curFilter===s?' active':''}" onclick="curFilter='${s}';invLimit=${INV_PAGE};renderInv()">${s}(${countFor(s)})</button>`
+    `<button class="fbtn${curFilter===s?' active':''}" onclick="curFilter='${s}';invLimit=${INV_PAGE};renderInv()">${lblFor(s)}(${countFor(s)})</button>`
   ).join('');
   
   // Summary: GST split for filtered view
