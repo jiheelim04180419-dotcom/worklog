@@ -145,7 +145,11 @@ body{background:#F0F4FF;color:#111827;min-height:100vh}
     <div><label class="label">인보이스 날짜</label><input type="date" class="input" id="f-id"/></div>
   </div>
   <div class="mb"><label class="label">만기일</label><input type="date" class="input" id="f-dd"/></div>
-  <div id="f-amt-row" class="mb"><label class="label">금액 (inc. GST) *</label><input type="number" step="0.01" class="input" id="f-am" placeholder="0.00"/></div>
+  <div id="f-amt-row" class="mb">
+    <label class="label">금액 *</label>
+    <input type="number" step="0.01" class="input" id="f-am" placeholder="0.00 (inc.GST)" oninput="updPayInfo()"/>
+    <div id="f-gst-info" style="font-size:11px;color:#9CA3AF;margin-top:4px"></div>
+  </div>
   <div id="f-items-row" class="mb" style="display:none">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
       <label class="label" style="margin:0">PO 항목</label>
@@ -163,9 +167,15 @@ body{background:#F0F4FF;color:#111827;min-height:100vh}
     <div id="prog-list"></div>
     <div id="prog-total" style="text-align:right;font-size:14px;font-weight:700;padding:6px 0;color:#F59E0B"></div>
   </div>
-  <div class="row2 mb">
-    <div><label class="label">입금 날짜</label><input type="date" class="input" id="f-dd2"/></div>
-    <div><label class="label">입금 금액</label><input type="number" step="0.01" class="input" id="f-da" placeholder="0.00"/></div>
+  
+  <!-- Payments -->
+  <div class="mb" style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:10px;padding:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <label class="label" style="margin:0;color:#065F46">💰 입금 내역 (분할 가능)</label>
+      <button class="btn-gold" style="padding:5px 10px;font-size:12px;background:#10B981;color:#fff" onclick="addPayment()">+ 입금</button>
+    </div>
+    <div id="payments-list"></div>
+    <div id="payments-summary" style="font-size:12px;font-weight:700;padding:6px 0;color:#065F46"></div>
   </div>
   <div class="mb"><label class="label">메모</label><textarea class="input" id="f-no" style="height:60px;resize:none" placeholder="메모"></textarea></div>
   <div class="row2" style="gap:10px"><button class="btn-secondary" style="flex:1" onclick="closeIM()">취소</button><button class="btn-primary" style="flex:2" onclick="saveInv()">💾 저장</button></div>
@@ -250,12 +260,40 @@ async function fbDel(path) {
 }
 
 // ── State ─────────────────────────────────────────────────────────────────────
-let invoices = [], builders = [], companies = [], curFilter = 'ALL', curType = 'NORMAL', editId = null, editBId = null, invItems = [], progItems = [];
+let invoices = [], builders = [], companies = [], curFilter = 'ALL', curType = 'NORMAL', editId = null, editBId = null, invItems = [], progItems = [], invPayments = [];
 const today = new Date().toISOString().split('T')[0];
 const fA = n => new Intl.NumberFormat('en-AU',{style:'currency',currency:'AUD'}).format(n||0);
 const fD = d => d ? new Date(d+'T00:00:00').toLocaleDateString('en-AU',{day:'2-digit',month:'short',year:'numeric'}) : '—';
 const esc = s => (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 let searchQ = '';
+let invLimit = 50;
+const INV_PAGE = 50;
+
+// ── GST helpers ─────────────────────────────────────────────────────────────
+// All amounts stored INCLUDE GST (10% Australian GST). ex.GST = inc.GST / 1.1
+const GST = 0.10;
+const exGST = n => (parseFloat(n)||0) / (1 + GST);
+const fAex = n => fA(exGST(n));
+
+// ── Payment helpers ─────────────────────────────────────────────────────────
+// New schema: invoice.payments = [{date, amount, note?}]
+// Legacy schema: invoice.depositDate + invoice.depositAmount (single payment)
+function getPayments(inv) {
+  if (!inv) return [];
+  if (Array.isArray(inv.payments) && inv.payments.length) return inv.payments;
+  if (inv.payments && typeof inv.payments === 'object') return Object.values(inv.payments);
+  // Legacy fallback
+  if (parseFloat(inv.depositAmount) > 0) {
+    return [{date: inv.depositDate||'', amount: parseFloat(inv.depositAmount)||0}];
+  }
+  return [];
+}
+function totalPaid(inv) {
+  return getPayments(inv).reduce((s,p) => s + (parseFloat(p.amount)||0), 0);
+}
+function remaining(inv) {
+  return (parseFloat(inv.amount)||0) - totalPaid(inv);
+}
 
 const DEFAULT_COMPANIES = [
   {id:'co1', name:'K&M Tiling Bathurst PTY LTD', prefix:'INV-', nextNumber:1541, address:'10/51 Hampden Park Rd, Kelso NSW 2795', abn:'51624778196', phone:'0402 595 744 / 0422 048 463', bsb:'032814', acc:'576638', contactEmail:'accounts@knmtilingbathurst.com', contactName:'Kathleen'},
@@ -264,6 +302,12 @@ const DEFAULT_COMPANIES = [
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 async function loadAll() {
+  // Show immediate feedback (UI before fetching)
+  const invEl = document.getElementById('tab-invoices');
+  if (invEl && !invoices.length) {
+    invEl.innerHTML = '<div class="empty"><div style="font-size:32px;margin-bottom:10px">⏳</div><p style="font-size:13px;color:#6B7280">데이터 로딩 중...</p></div>';
+  }
+  
   const [inv, bld, co] = await Promise.all([fbGet('invoices'), fbGet('invoiceBuilders'), fbGet('invoiceCompanies')]);
   invoices = inv ? Object.entries(inv).map(([id,v])=>({...v,id})) : [];
   builders = bld ? Object.entries(bld).map(([id,v])=>({...v,id})) : [];
@@ -271,21 +315,25 @@ async function loadAll() {
     companies = Object.entries(co).map(([id,v])=>({...v,id}));
   } else {
     companies = DEFAULT_COMPANIES.map(c=>({...c}));
-    for (const c of DEFAULT_COMPANIES) await fbSet('invoiceCompanies/'+c.id, c);
+    // Parallel seeding
+    await Promise.all(DEFAULT_COMPANIES.map(c => fbSet('invoiceCompanies/'+c.id, c)));
   }
   
-  // One-time auto-migration: DEPOSIT → PAID (silent, runs whenever any exist)
+  // One-time auto-migration: DEPOSIT → PAID / BOOKING → INVOICE
+  // Update LOCAL state immediately, then sync to Firebase in BACKGROUND (no await)
   const dep = invoices.filter(i => i.status === 'DEPOSIT' || i.status === 'BOOKING');
   if (dep.length > 0) {
-    console.log(`[migration] ${dep.length} records: DEPOSIT/BOOKING → PAID/INVOICE`);
-    for (const i of dep) {
+    console.log(`[migration] ${dep.length} records → PAID/INVOICE (background sync)`);
+    dep.forEach(i => {
+      if (i.status === 'DEPOSIT') i.status = 'PAID';
+      else if (i.status === 'BOOKING') i.status = 'INVOICE';
+    });
+    // Background sync (don't await — render right away)
+    Promise.all(dep.map(i => {
       const updated = {...i};
       delete updated.id;
-      if (i.status === 'DEPOSIT') updated.status = 'PAID';
-      else if (i.status === 'BOOKING') updated.status = 'INVOICE'; // fallback
-      await fbSet('invoices/' + i.id, updated);
-      i.status = updated.status;
-    }
+      return fbSet('invoices/' + i.id, updated);
+    })).then(() => console.log('[migration] sync complete'));
   }
   
   renderInv();
@@ -322,19 +370,18 @@ function renderCoSel() {
 
 // ── Bottom Bar ────────────────────────────────────────────────────────────────
 function updateBar() {
-  const out = invoices.filter(i => i.status==='INVOICE' || i.status==='ONGOING').reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
-  const ov = invoices.filter(isOverdue).reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
+  const out = invoices.filter(i => i.status==='INVOICE' || i.status==='ONGOING').reduce((s,i)=>s+Math.max(0,remaining(i)),0);
+  const ov = invoices.filter(isOverdue).reduce((s,i)=>s+Math.max(0,remaining(i)),0);
   const mo = invoices.filter(i=>(i.invoiceDate||'').startsWith(today.slice(0,7))).reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
-  document.getElementById('bs-out').textContent = fA(out);
-  document.getElementById('bs-ov').textContent = fA(ov);
-  document.getElementById('bs-mo').textContent = fA(mo);
+  document.getElementById('bs-out').innerHTML = `${fA(out)}<br><span style="font-size:9px;color:#9CA3AF;font-weight:400">${fAex(out)} ex</span>`;
+  document.getElementById('bs-ov').innerHTML = `${fA(ov)}<br><span style="font-size:9px;color:#9CA3AF;font-weight:400">${fAex(ov)} ex</span>`;
+  document.getElementById('bs-mo').innerHTML = `${fA(mo)}<br><span style="font-size:9px;color:#9CA3AF;font-weight:400">${fAex(mo)} ex</span>`;
 }
 
 // ── Aging helpers ─────────────────────────────────────────────────────────────
 // Default invoice term: 14 days. Aging starts after dueDate (or invoiceDate+14d).
 function getDaysPastDue(inv) {
   if (!inv) return 0;
-  // Only outstanding statuses age
   if (!['INVOICE','OVERDUE'].includes(inv.status)) return 0;
   let due = inv.dueDate;
   if (!due && inv.invoiceDate) {
@@ -364,6 +411,9 @@ function fmtAging(days) {
 function isOverdue(inv) {
   return inv.status === 'INVOICE' && getDaysPastDue(inv) > 0;
 }
+function isUnpaid(inv) {
+  return inv.status === 'INVOICE' || inv.status === 'ONGOING';
+}
 
 // ── Invoice tab setup (static parts rendered ONCE) ───────────────────────────
 let invTabReady = false;
@@ -371,16 +421,16 @@ function setupInvTab() {
   if (invTabReady) return;
   document.getElementById('tab-invoices').innerHTML = `
     <div class="search-row">
-      <input class="input" id="inv-search" placeholder="🔍 빌더 / 주소 / 인보이스 번호 / 메모 검색"/>
+      <input class="input" id="inv-search" aria-label="인보이스 검색" placeholder="🔍 빌더 / 주소 / 번호 / 메모"/>
       <button class="btn-gold" onclick="openIM(null)">+ 추가</button>
     </div>
     <div class="filter-bar" id="inv-filter-bar"></div>
-    <div style="font-size:12px;color:#9CA3AF;text-align:right;margin-bottom:8px" id="inv-count"></div>
+    <div id="inv-summary" style="font-size:11px;color:#6B7280;margin-bottom:8px;padding:8px;background:#F9FAFB;border-radius:8px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"></div>
     <div id="inv-list"></div>
   `;
-  // bind search input ONCE (no re-creation = no cursor jump)
   document.getElementById('inv-search').addEventListener('input', e => {
     searchQ = e.target.value;
+    invLimit = INV_PAGE;
     renderInv();
   });
   invTabReady = true;
@@ -391,7 +441,6 @@ function renderInv() {
   setupInvTab();
   const sts = ['ALL','INVOICE','OVERDUE','ONGOING','RETENTION','CREDIT','SUSPEND','FINISH','NO_PAYMENT','PAID'];
   
-  // Count helper that handles dynamic OVERDUE (INVOICE + past due date)
   const countFor = s => {
     if (s === 'ALL') return invoices.length;
     if (s === 'OVERDUE') return invoices.filter(isOverdue).length;
@@ -399,7 +448,6 @@ function renderInv() {
     return invoices.filter(i => i.status === s).length;
   };
   
-  // Filter logic
   const matchesFilter = i => {
     if (curFilter === 'ALL') return true;
     if (curFilter === 'OVERDUE') return isOverdue(i);
@@ -420,89 +468,173 @@ function renderInv() {
     }
     return true;
   }).sort((a,b) => {
-    // sort by invoice number descending, numeric-aware
-    return (b.invoiceNum||'').localeCompare(a.invoiceNum||'', undefined, {numeric:true, sensitivity:'base'});
+    // Smart sort: unpaid items first (oldest first), then paid (newest first)
+    const aUnpaid = isUnpaid(a) || a.status === 'RETENTION';
+    const bUnpaid = isUnpaid(b) || b.status === 'RETENTION';
+    if (aUnpaid !== bUnpaid) return aUnpaid ? -1 : 1;
+    if (aUnpaid) {
+      // both unpaid: oldest first (ascending date)
+      const ad = a.invoiceDate || '9999-12-31';
+      const bd = b.invoiceDate || '9999-12-31';
+      return ad.localeCompare(bd);
+    } else {
+      // both paid/credit/etc: newest first
+      const ad = a.invoiceDate || '0000-01-01';
+      const bd = b.invoiceDate || '0000-01-01';
+      return bd.localeCompare(ad);
+    }
   });
 
   // Update filter bar
   document.getElementById('inv-filter-bar').innerHTML = sts.map(s =>
-    `<button class="fbtn${curFilter===s?' active':''}" onclick="curFilter='${s}';renderInv()">${s}(${countFor(s)})</button>`
+    `<button class="fbtn${curFilter===s?' active':''}" onclick="curFilter='${s}';invLimit=${INV_PAGE};renderInv()">${s}(${countFor(s)})</button>`
   ).join('');
   
-  // Update count
-  document.getElementById('inv-count').textContent = filtered.length + '건';
+  // Summary: GST split for filtered view
+  const fSum = filtered.reduce((s,i) => s + (parseFloat(i.amount)||0), 0);
+  const fPaid = filtered.reduce((s,i) => s + totalPaid(i), 0);
+  const fRem = filtered.reduce((s,i) => s + Math.max(0, remaining(i)), 0);
+  document.getElementById('inv-summary').innerHTML = `
+    <span>${filtered.length}건</span>
+    <span>합계 <b style="color:#111827">${fA(fSum)}</b> <span style="color:#9CA3AF">(${fAex(fSum)} ex)</span></span>
+    <span>입금 <b style="color:#059669">${fA(fPaid)}</b></span>
+    <span>잔액 <b style="color:#DC2626">${fA(fRem)}</b></span>
+  `;
   
-  // Render list
   if (!filtered.length) {
     document.getElementById('inv-list').innerHTML = `<div class="empty"><div style="font-size:44px;margin-bottom:10px">📋</div><p style="font-size:14px">${searchQ?'검색 결과가 없어요':'인보이스가 없어요'}</p></div>`;
     return;
   }
   
+  // Reset pagination when filter/search changes (handled by callers via invLimit)
+  const toShow = filtered.slice(0, invLimit);
+  
   let h = '';
-  filtered.forEach(inv => {
+  toShow.forEach(inv => {
     const overdue = isOverdue(inv);
     const days = overdue ? getDaysPastDue(inv) : 0;
     const tier = getAgeTier(days);
     const ss = overdue ? 'OVERDUE' : inv.status;
-    // bg class precedence: aging tier > status-based bg
     let bgClass = '';
     if (overdue) bgClass = `age-${tier}`;
     else if (['PAID','CREDIT','SUSPEND','ONGOING','RETENTION','FINISH','NO_PAYMENT'].includes(inv.status)) bgClass = inv.status;
     
     const co = companies.find(c=>c.id===inv.companyId);
-    const coClass = co && co.id==='co2' ? 'co2' : '';
+    const coBadge = co ? `<span class="co-badge ${co.id==='co2'?'co2':''}">${esc(co.prefix.replace('-',''))}</span>` : '';
     
-    // Note preview (first line, truncated by CSS)
+    const amt = parseFloat(inv.amount) || 0;
+    const paid = totalPaid(inv);
+    const rem = amt - paid;
+    const isPartial = paid > 0.01 && Math.abs(rem) > 0.01;
+    const isRetention = inv.status === 'RETENTION';
+    
     const notePrev = (inv.note||'').replace(/\n/g,' ').trim();
     
+    // Card body only — detail panel is built LAZILY on first toggle
     h += `<div class="icard ${bgClass}">
-      <div class="icard-body">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+      <div class="icard-body" style="padding:10px 12px">
+        <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start">
           <div style="min-width:0;flex:1">
-            <div class="iname">${co?`<span class="co-badge ${coClass}">${esc(co.prefix.replace('-',''))}</span>`:''}${esc(inv.builderName||'—')}${inv.type==='PO'?` <span style="background:#EDE9FE;color:#7C3AED;border-radius:4px;padding:1px 5px;font-size:10px;font-weight:700">PO</span>`:''}${inv.type==='PROGRESS'?` <span style="background:#FEF3C7;color:#92400E;border-radius:4px;padding:1px 5px;font-size:10px;font-weight:700">%</span>`:''}</div>
-            <div class="iaddr">${esc(inv.address||'—')}</div>
-            ${notePrev?`<div class="note-preview">📝 ${esc(notePrev)}</div>`:''}
-            <div style="font-size:11px;color:#9CA3AF;margin-top:4px">${inv.invoiceNum?`#${esc(inv.invoiceNum)} · `:''}${fD(inv.invoiceDate)}${inv.depositDate?` · ✅ ${fD(inv.depositDate)}`:''}</div>
+            <div style="font-size:14px;font-weight:700;color:#111827;line-height:1.3">
+              ${coBadge}${esc(inv.builderName||'—')}
+              ${inv.type==='PO'?` <span style="background:#EDE9FE;color:#7C3AED;border-radius:3px;padding:0 4px;font-size:9px;font-weight:700">PO</span>`:''}
+              ${inv.type==='PROGRESS'?` <span style="background:#FEF3C7;color:#92400E;border-radius:3px;padding:0 4px;font-size:9px;font-weight:700">%</span>`:''}
+              ${isRetention?` <span style="color:#3730A3">🔒</span>`:''}
+            </div>
+            <div style="font-size:12px;color:#4B5563;line-height:1.3;margin-top:2px">${esc(inv.address||'—')}</div>
+            <div style="font-size:11px;color:#6B7280;line-height:1.3;margin-top:2px">
+              ${inv.invoiceNum?`<span style="font-weight:600">#${esc(inv.invoiceNum)}</span> · `:''}${fD(inv.invoiceDate)}
+              ${overdue?`<span style="color:#DC2626;font-weight:700"> · ⏰ ${fmtAging(days)}</span>`:''}
+            </div>
+            ${notePrev?`<div class="note-preview" style="margin-top:3px">📝 ${esc(notePrev)}</div>`:''}
           </div>
-          <div style="flex-shrink:0;text-align:right">
-            <div class="iamount" style="color:${inv.status==='CREDIT'?'#DC2626':'#111827'}">${fA(inv.amount)}</div>
-            <div style="margin-top:3px"><span class="pill pill-${ss}">${ss}</span></div>
-            ${overdue?`<div class="aging-txt age-${tier}" style="margin-top:4px">⏰ ${fmtAging(days)} (${days}d)</div>`:''}
-            ${inv.depositAmount&&parseFloat(inv.depositAmount)<parseFloat(inv.amount)?`<div style="font-size:11px;color:#059669;margin-top:3px">입금 ${fA(inv.depositAmount)}</div>`:''}
-          </div>
-        </div>
-      </div>
-      <button class="iexpand" onclick="toggleD('${inv.id}')">▼ 더보기</button>
-      <div id="d-${inv.id}" style="display:none">
-        <div class="idetail">
-          ${inv.projectName?`<div style="font-size:12px;color:#7C3AED;margin-bottom:8px">📁 ${esc(inv.projectName)}</div>`:''}
-          ${inv.startDate?`<div style="font-size:11px;color:#9CA3AF;margin-bottom:6px">🚀 Start: ${fD(inv.startDate)}${inv.dueDate?`  ⏰ Due: ${fD(inv.dueDate)}`:''}</div>`:''}
-          ${inv.poNumber?`<div style="font-size:12px;color:#7C3AED;margin-bottom:6px">PO #${esc(inv.poNumber)}</div>`:''}
-          ${inv.note?`<div style="font-size:12px;color:#555;margin-bottom:8px;white-space:pre-wrap">📝 ${esc(inv.note)}</div>`:''}
-          ${inv.type==='PO'&&inv.items?(Array.isArray(inv.items)?inv.items:Object.values(inv.items)).map(it=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;color:#555"><span>${esc(it.desc)}</span><span style="font-weight:700">${fA(it.amount)}</span></div>`).join(''):''}
-          ${inv.type==='PROGRESS'&&inv.progressItems?(Array.isArray(inv.progressItems)?inv.progressItems:Object.values(inv.progressItems)).map(it=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;color:#555;gap:8px"><span style="flex:1">${esc(it.desc)}${it.pct?` <span style="color:#92400E;font-weight:700">(${esc(String(it.pct))}%)</span>`:''}</span><span style="font-weight:700">${parseFloat(it.amount)>0?fA(it.amount):'—'}</span></div>`).join(''):''}
-          <div style="display:flex;gap:8px;margin-top:10px">
-            <button class="btn-secondary" style="flex:1;padding:8px;font-size:12px" onclick="openIM('${inv.id}')">✏️ 수정</button>
-            <button style="background:#FEF2F2;color:#DC2626;border:1px solid #FECACA;border-radius:9px;padding:8px 14px;font-size:12px;cursor:pointer" onclick="delInv('${inv.id}')">🗑</button>
+          <div style="flex-shrink:0;text-align:right;min-width:110px">
+            <div style="font-size:15px;font-weight:800;color:${amt<0?'#DC2626':'#111827'};line-height:1.1">${fA(amt)}</div>
+            <div style="font-size:10px;color:#9CA3AF;line-height:1.2">${fAex(amt)} ex</div>
+            <div style="margin-top:4px"><span class="pill pill-${ss}" style="font-size:10px;padding:2px 6px">${ss}</span></div>
+            ${isPartial && !isRetention?`<div style="font-size:10px;color:#059669;margin-top:3px;line-height:1.2">입금 ${fA(paid)}</div><div style="font-size:10px;color:${rem>0?'#DC2626':'#059669'};line-height:1.2">잔액 ${fA(rem)}</div>`:''}
+            ${isRetention?`<div style="font-size:10px;color:#3730A3;font-weight:700;margin-top:3px;line-height:1.2">보류 ${fA(rem>0?rem:amt)}</div>`:''}
           </div>
         </div>
       </div>
+      <button class="iexpand" onclick="toggleD('${inv.id}')" aria-label="상세 펼치기">▼ 더보기</button>
+      <div id="d-${inv.id}" style="display:none" data-built="0"></div>
     </div>`;
   });
+  
+  // "Show more" button if there are more items
+  if (filtered.length > invLimit) {
+    const moreLeft = filtered.length - invLimit;
+    h += `<button class="btn-secondary" style="width:100%;padding:14px;font-size:13px;font-weight:700;margin-top:8px" onclick="invLimit+=${INV_PAGE};renderInv()">⬇ 다음 ${Math.min(INV_PAGE, moreLeft)}건 더보기 (총 ${filtered.length}건 중 ${invLimit} 표시중)</button>`;
+  }
+  
   document.getElementById('inv-list').innerHTML = h;
+}
+
+// Build detail HTML lazily on first expand
+function buildDetailHTML(inv) {
+  const amt = parseFloat(inv.amount) || 0;
+  const paid = totalPaid(inv);
+  const rem = amt - paid;
+  const isRetention = inv.status === 'RETENTION';
+  const pays = getPayments(inv);
+  
+  return `<div class="idetail">
+    <div style="background:#F9FAFB;border-radius:8px;padding:8px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0">
+        <span style="color:#6B7280">청구금액 (inc.GST)</span>
+        <span style="font-weight:700">${fA(amt)}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0">
+        <span style="color:#6B7280">청구금액 (ex.GST)</span>
+        <span>${fAex(amt)}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0">
+        <span style="color:#6B7280">GST</span>
+        <span>${fA(amt - exGST(amt))}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0;border-top:1px solid #E5E7EB;margin-top:4px;padding-top:6px">
+        <span style="color:#059669">총 입금</span>
+        <span style="color:#059669;font-weight:700">${fA(paid)}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0">
+        <span style="color:${rem>0.01?'#DC2626':'#059669'}">${isRetention?'보류금':'잔액'}</span>
+        <span style="color:${rem>0.01?'#DC2626':'#059669'};font-weight:700">${fA(rem)}</span>
+      </div>
+    </div>
+    ${pays.length?`<div style="font-size:11px;color:#6B7280;font-weight:600;margin-bottom:4px">입금 내역</div>${pays.map(p=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0;color:#555">✓ ${fD(p.date)}<span style="font-weight:600">${fA(p.amount)}</span></div>`).join('')}`:''}
+    ${inv.projectName?`<div style="font-size:12px;color:#7C3AED;margin-top:8px">📁 ${esc(inv.projectName)}</div>`:''}
+    ${inv.startDate?`<div style="font-size:11px;color:#9CA3AF;margin-top:4px">🚀 Start: ${fD(inv.startDate)}${inv.dueDate?`  ⏰ Due: ${fD(inv.dueDate)}`:''}</div>`:''}
+    ${inv.poNumber?`<div style="font-size:12px;color:#7C3AED;margin-top:4px">PO #${esc(inv.poNumber)}</div>`:''}
+    ${inv.note?`<div style="font-size:12px;color:#555;margin-top:8px;white-space:pre-wrap">📝 ${esc(inv.note)}</div>`:''}
+    ${inv.type==='PO'&&inv.items?(Array.isArray(inv.items)?inv.items:Object.values(inv.items)).map(it=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;color:#555;margin-top:4px"><span>${esc(it.desc)}</span><span style="font-weight:700">${fA(it.amount)}</span></div>`).join(''):''}
+    ${inv.type==='PROGRESS'&&inv.progressItems?(Array.isArray(inv.progressItems)?inv.progressItems:Object.values(inv.progressItems)).map(it=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;color:#555;gap:8px;margin-top:4px"><span style="flex:1">${esc(it.desc)}${it.pct?` <span style="color:#92400E;font-weight:700">(${esc(String(it.pct))}%)</span>`:''}</span><span style="font-weight:700">${parseFloat(it.amount)>0?fA(it.amount):'—'}</span></div>`).join(''):''}
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button class="btn-secondary" style="flex:1;padding:8px;font-size:12px" onclick="openIM('${inv.id}')">✏️ 수정 / 입금추가</button>
+      <button style="background:#FEF2F2;color:#DC2626;border:1px solid #FECACA;border-radius:9px;padding:8px 14px;font-size:12px;cursor:pointer" onclick="delInv('${inv.id}')" aria-label="삭제">🗑</button>
+    </div>
+  </div>`;
 }
 
 function toggleD(id) {
   const el = document.getElementById('d-'+id);
   const btn = el.previousElementSibling;
   const open = el.style.display === 'none';
+  // Build detail HTML on first open
+  if (open && el.dataset.built === '0') {
+    const inv = invoices.find(i => i.id === id);
+    if (inv) {
+      el.innerHTML = buildDetailHTML(inv);
+      el.dataset.built = '1';
+    }
+  }
   el.style.display = open ? 'block' : 'none';
   btn.textContent = open ? '▲ 접기' : '▼ 더보기';
 }
 
 // ── Invoice CRUD ──────────────────────────────────────────────────────────────
 function openIM(id) {
-  editId = id; invItems = []; progItems = [];
+  editId = id; invItems = []; progItems = []; invPayments = [];
   const inv = id ? invoices.find(i=>i.id===id) : null;
   document.getElementById('im-title').textContent = inv ? '인보이스 수정' : '새 인보이스';
   document.getElementById('f-b').value = inv?.builderName||'';
@@ -515,9 +647,10 @@ function openIM(id) {
   document.getElementById('f-am').value = inv?.amount||'';
   document.getElementById('f-po').value = inv?.poNumber||'';
   document.getElementById('f-proj').value = inv?.projectName||'';
-  document.getElementById('f-dd2').value = inv?.depositDate||'';
-  document.getElementById('f-da').value = inv?.depositAmount||'';
   document.getElementById('f-no').value = inv?.note||'';
+  
+  // Load payments (with backward-compat migration)
+  if (inv) invPayments = getPayments(inv).map(p => ({date: p.date||'', amount: p.amount||0, note: p.note||''}));
   
   // company selection
   const coId = inv?.companyId || (companies[0] && companies[0].id) || '';
@@ -532,18 +665,58 @@ function openIM(id) {
     progItems = Array.isArray(inv.progressItems) ? [...inv.progressItems] : Object.values(inv.progressItems);
     renderProg();
   }
-  // if new invoice, auto-suggest invoice number
   if (!inv) suggestInvNum();
+  
+  renderPayments();
+  updPayInfo();
   
   document.getElementById('inv-modal').classList.add('open');
 }
 function closeIM() { document.getElementById('inv-modal').classList.remove('open'); }
 
+// ── Payment list inside modal ────────────────────────────────────────────────
+function addPayment() {
+  invPayments.push({date: today, amount: '', note: ''});
+  renderPayments();
+}
+function renderPayments() {
+  let h = '';
+  if (!invPayments.length) {
+    h = '<div style="font-size:12px;color:#9CA3AF;padding:6px 0">아직 입금 내역이 없어요. "+ 입금" 버튼으로 추가하세요.</div>';
+  } else {
+    invPayments.forEach((p,i) => {
+      h += `<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+        <input type="date" class="input" style="flex:1;min-width:0" value="${esc(p.date||'')}" oninput="invPayments[${i}].date=this.value;updPayInfo()" aria-label="입금 날짜"/>
+        <input type="number" step="0.01" class="input" style="flex:1;min-width:0" value="${p.amount||''}" placeholder="금액" oninput="invPayments[${i}].amount=this.value;updPayInfo()" aria-label="입금 금액"/>
+        <button style="background:none;border:none;color:#FCA5A5;font-size:18px;cursor:pointer;padding:0 4px" onclick="invPayments.splice(${i},1);renderPayments();updPayInfo()" aria-label="입금 삭제">×</button>
+      </div>`;
+    });
+  }
+  document.getElementById('payments-list').innerHTML = h;
+}
+function updPayInfo() {
+  const amt = parseFloat(document.getElementById('f-am').value) || 
+              invItems.reduce((s,i)=>s+(parseFloat(i.amount)||0),0) ||
+              progItems.reduce((s,i)=>s+(parseFloat(i.amount)||0),0) || 0;
+  document.getElementById('f-gst-info').innerHTML = amt > 0
+    ? `inc.GST <b>${fA(amt)}</b> · ex.GST <b>${fAex(amt)}</b> · GST <b>${fA(amt - exGST(amt))}</b>`
+    : '';
+  const paid = invPayments.reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+  const rem = amt - paid;
+  let summary = '';
+  if (paid > 0 || amt > 0) {
+    summary = `총 입금 <b>${fA(paid)}</b>`;
+    if (rem > 0.01) summary += ` · <span style="color:#DC2626">잔액 ${fA(rem)}</span>`;
+    else if (rem < -0.01) summary += ` · <span style="color:#D97706">초과 ${fA(-rem)}</span>`;
+    else if (amt > 0) summary += ` · ✓ 완납`;
+  }
+  document.getElementById('payments-summary').innerHTML = summary;
+}
+
 function onCoChange() {
   if (!editId) suggestInvNum();
 }
 function onBChange() {
-  // when builder is picked, auto-pick their default company if set
   if (editId) return;
   const bn = document.getElementById('f-b').value.trim();
   const b = builders.find(bb=>bb.name===bn);
@@ -556,7 +729,6 @@ function suggestInvNum() {
   const coId = document.getElementById('f-co').value;
   const c = companies.find(c=>c.id===coId);
   if (!c) return;
-  // pad BXBT- to 4 digits, INV- as-is
   const n = c.nextNumber || 1;
   const padded = c.prefix.includes('BXBT') ? String(n).padStart(4,'0') : String(n);
   document.getElementById('f-n').value = c.prefix + padded;
@@ -579,9 +751,9 @@ function renderItems() {
   let h = '';
   invItems.forEach((it,i) => {
     h += `<div style="display:flex;gap:8px;margin-bottom:8px;align-items:center">
-      <input class="input" style="flex:2" value="${esc(it.desc)}" placeholder="항목 설명" oninput="invItems[${i}].desc=this.value;calcTotal()"/>
-      <input type="number" class="input" style="flex:1" value="${it.amount}" placeholder="금액" oninput="invItems[${i}].amount=this.value;calcTotal()"/>
-      <button style="background:none;border:none;color:#FCA5A5;font-size:18px;cursor:pointer" onclick="invItems.splice(${i},1);renderItems()">×</button>
+      <input class="input" style="flex:2" value="${esc(it.desc)}" placeholder="항목 설명" oninput="invItems[${i}].desc=this.value;calcTotal()" aria-label="항목 설명"/>
+      <input type="number" class="input" style="flex:1" value="${it.amount}" placeholder="금액" oninput="invItems[${i}].amount=this.value;calcTotal()" aria-label="항목 금액"/>
+      <button style="background:none;border:none;color:#FCA5A5;font-size:18px;cursor:pointer" onclick="invItems.splice(${i},1);renderItems()" aria-label="항목 삭제">×</button>
     </div>`;
   });
   document.getElementById('items-list').innerHTML = h;
@@ -589,7 +761,8 @@ function renderItems() {
 }
 function calcTotal() {
   const t = invItems.reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
-  document.getElementById('items-total').textContent = t > 0 ? '합계: '+fA(t) : '';
+  document.getElementById('items-total').innerHTML = t > 0 ? `합계: ${fA(t)} <span style="color:#9CA3AF;font-weight:400">(${fAex(t)} ex)</span>` : '';
+  updPayInfo();
 }
 
 // ── Progress Items (percentage-based) ────────────────────────────────────────
@@ -599,12 +772,12 @@ function renderProg() {
   progItems.forEach((it,i) => {
     h += `<div style="background:#FFFBEB;border:1px solid #FDE68A;border-radius:8px;padding:8px;margin-bottom:8px">
       <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
-        <input class="input" style="flex:1" value="${esc(it.desc)}" placeholder="항목명 (예: Floor Tiling)" oninput="progItems[${i}].desc=this.value"/>
-        <button style="background:none;border:none;color:#FCA5A5;font-size:18px;cursor:pointer" onclick="progItems.splice(${i},1);renderProg()">×</button>
+        <input class="input" style="flex:1" value="${esc(it.desc)}" placeholder="항목명 (예: Floor Tiling)" oninput="progItems[${i}].desc=this.value" aria-label="진행 항목명"/>
+        <button style="background:none;border:none;color:#FCA5A5;font-size:18px;cursor:pointer" onclick="progItems.splice(${i},1);renderProg()" aria-label="진행 항목 삭제">×</button>
       </div>
       <div style="display:flex;gap:6px;align-items:center">
-        <input type="number" class="input" style="flex:1" value="${it.pct||''}" placeholder="완료 %" max="100" oninput="progItems[${i}].pct=this.value"/>
-        <input type="number" step="0.01" class="input" style="flex:1" value="${it.amount||''}" placeholder="이번 금액" oninput="progItems[${i}].amount=this.value;calcProgTotal()"/>
+        <input type="number" class="input" style="flex:1" value="${it.pct||''}" placeholder="완료 %" max="100" oninput="progItems[${i}].pct=this.value" aria-label="완료 퍼센트"/>
+        <input type="number" step="0.01" class="input" style="flex:1" value="${it.amount||''}" placeholder="이번 금액" oninput="progItems[${i}].amount=this.value;calcProgTotal()" aria-label="이번 청구 금액"/>
       </div>
     </div>`;
   });
@@ -614,7 +787,8 @@ function renderProg() {
 function calcProgTotal() {
   const t = progItems.reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
   const allDone = progItems.length>0 && progItems.every(i=>parseFloat(i.pct)>=100);
-  document.getElementById('prog-total').textContent = t > 0 ? `합계: ${fA(t)}${allDone?' ✓ 전체완료':' (진행중)'}` : '';
+  document.getElementById('prog-total').innerHTML = t > 0 ? `합계: ${fA(t)} <span style="color:#9CA3AF;font-weight:400">(${fAex(t)} ex)</span>${allDone?' ✓ 전체완료':' (진행중)'}` : '';
+  updPayInfo();
 }
 
 async function saveInv() {
@@ -631,12 +805,24 @@ async function saveInv() {
   const coId = document.getElementById('f-co').value;
   const invNum = document.getElementById('f-n').value.trim();
   
-  // auto-set ONGOING status if progress invoice has unfinished items and user left it on INVOICE
+  // Clean payments (drop empty rows)
+  const cleanPayments = invPayments
+    .filter(p => parseFloat(p.amount) > 0)
+    .map(p => ({date: p.date||'', amount: parseFloat(p.amount)||0, note: p.note||''}));
+  const totalPay = cleanPayments.reduce((s,p)=>s+p.amount, 0);
+  
   let status = document.getElementById('f-st').value;
+  // Auto-status: progress with incomplete items → ONGOING; fully paid → PAID
   if (isProg && status === 'INVOICE') {
     const allDone = progItems.length>0 && progItems.every(i=>parseFloat(i.pct)>=100);
     if (!allDone) status = 'ONGOING';
   }
+  if (status === 'INVOICE' && totalPay >= amt - 0.01) {
+    if (confirm(`입금액이 청구액과 일치합니다. 상태를 PAID로 변경할까요?`)) status = 'PAID';
+  }
+  
+  // Backward-compat: also write latest payment to depositDate/depositAmount
+  const lastPay = cleanPayments[cleanPayments.length-1] || {};
   
   const data = {
     type: curType,
@@ -651,8 +837,9 @@ async function saveInv() {
     amount: amt,
     poNumber: isPO ? document.getElementById('f-po').value : '',
     projectName: isProg ? document.getElementById('f-proj').value : '',
-    depositDate: document.getElementById('f-dd2').value,
-    depositAmount: parseFloat(document.getElementById('f-da').value)||0,
+    payments: cleanPayments,
+    depositDate: lastPay.date || '',
+    depositAmount: totalPay,
     note: document.getElementById('f-no').value,
     items: isPO ? invItems : [],
     progressItems: isProg ? progItems : [],
@@ -663,7 +850,6 @@ async function saveInv() {
     await fbSet('invoices/'+editId, data);
   } else {
     await fbPush('invoices', data);
-    // bump company's nextNumber if the invoice number we saved matches the suggestion
     const co = companies.find(c=>c.id===coId);
     if (co) {
       const padded = co.prefix.includes('BXBT') ? String(co.nextNumber).padStart(4,'0') : String(co.nextNumber);
@@ -703,7 +889,7 @@ function renderBuilders() {
     const sorted = [...builders].sort((a,b)=>(a.name||'').localeCompare(b.name||''));
     sorted.forEach(b => {
       const bi = invoices.filter(i=>i.builderName===b.name);
-      const out = bi.filter(i=>i.status==='INVOICE'||i.status==='ONGOING').reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
+      const out = bi.filter(i=>i.status==='INVOICE'||i.status==='ONGOING').reduce((s,i)=>s+Math.max(0,remaining(i)),0);
       const emailToShow = b.invoiceEmail || b.email || '';
       const co = companies.find(c=>c.id===b.defaultCompany);
       const billLabel = b.billingType==='MONTHLY' ? '월별' : '건별';
@@ -1096,9 +1282,9 @@ async function saveBuilder() {
 
 // ── Stats ─────────────────────────────────────────────────────────────────────
 function renderStats() {
-  const out = invoices.filter(i => i.status==='INVOICE' || i.status==='ONGOING').reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
-  const ov = invoices.filter(isOverdue).reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
-  const pd = invoices.filter(i=>i.status==='PAID').reduce((s,i)=>s+(parseFloat(i.depositAmount||i.amount)||0),0);
+  const out = invoices.filter(i => i.status==='INVOICE' || i.status==='ONGOING').reduce((s,i)=>s+Math.max(0,remaining(i)),0);
+  const ov = invoices.filter(isOverdue).reduce((s,i)=>s+Math.max(0,remaining(i)),0);
+  const pd = invoices.reduce((s,i)=>s+totalPaid(i),0);
   const mo = invoices.filter(i=>(i.invoiceDate||'').startsWith(today.slice(0,7))).reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
 
   const bs = {};
@@ -1106,8 +1292,8 @@ function renderStats() {
     const b = i.builderName||'기타';
     if (!bs[b]) bs[b] = {total:0,paid:0,outstanding:0,count:0};
     bs[b].count++; bs[b].total += parseFloat(i.amount)||0;
-    if (i.status==='PAID') bs[b].paid += parseFloat(i.depositAmount||i.amount)||0;
-    if (i.status==='INVOICE' || i.status==='ONGOING') bs[b].outstanding += parseFloat(i.amount)||0;
+    bs[b].paid += totalPaid(i);
+    if (i.status==='INVOICE' || i.status==='ONGOING') bs[b].outstanding += Math.max(0,remaining(i));
   });
 
   const monthly = {};
