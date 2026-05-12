@@ -75,6 +75,7 @@ body{background:var(--bg);color:var(--text);min-height:100vh;transition:backgrou
 .pill-BOOKING{background:#F3E8FF;color:#6B21A8}
 .pill-FINISH{background:#D1FAE5;color:#065F46}
 .pill-NO_PAYMENT{background:#F1F5F9;color:#475569}
+.pill-DRAFT{background:#FEE2E2;color:#B91C1C;border:1px dashed #FCA5A5}
 .co-badge{display:inline-block;background:#E0F2FE;color:#0369A1;border-radius:4px;padding:2px 6px;font-size:10px;font-weight:700;margin-right:4px}
 .co-badge.co2{background:#FCE7F3;color:#9D174D}
 .bill-badge{display:inline-block;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:600;margin-left:6px}
@@ -87,6 +88,7 @@ body{background:var(--bg);color:var(--text);min-height:100vh;transition:backgrou
 .bstat-l{font-size:10px;color:rgba(255,255,255,0.4)}
 .bstat-v{font-size:14px;font-weight:800}
 .icard{background:var(--card-bg);border-radius:14px;margin-bottom:10px;box-shadow:0 2px 8px var(--shadow);overflow:hidden;border-left:4px solid var(--accent);border:1px solid var(--border);border-left-width:4px}
+.icard.draft{border-left:4px dashed #DC2626;background:repeating-linear-gradient(135deg,var(--card-bg),var(--card-bg) 10px,var(--card-bg-alt) 10px,var(--card-bg-alt) 11px)}
 .icard.PAID{border-left-color:#059669;background:#F0FDF4}
 .icard.OVERDUE{border-left-color:#DC2626}
 .icard.CREDIT{border-left-color:#D97706;background:#FFFBEB}
@@ -135,54 +137,103 @@ body{background:var(--bg);color:var(--text);min-height:100vh;transition:backgrou
 body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
 
 /* ─────────────────────────────────────────────────────────────────────────
-   PRINT INVOICE (forced light theme for printing)
+   PRINT INVOICE (matched to K&M reference design)
    ───────────────────────────────────────────────────────────────────────── */
-.print-invoice { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #000; background: #fff; padding: 30px 40px; max-width: 800px; margin: 0 auto; }
-.print-invoice .pi-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 40px; }
-.print-invoice .pi-title { font-size: 32px; font-weight: 700; letter-spacing: -1px; }
-.print-invoice .pi-co-name { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; line-height: 1.1; }
-.print-invoice .pi-co-name .amp { color: #c79321; }
-.print-invoice .pi-co-sub { font-size: 12px; color: #6B7280; letter-spacing: 3px; margin-top: 2px; }
-.print-invoice .pi-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 36px; font-size: 12px; }
-.print-invoice .pi-meta-label { font-weight: 700; font-size: 12px; margin-bottom: 4px; }
-.print-invoice .pi-meta-value { color: #333; line-height: 1.5; }
-.print-invoice .pi-customer { font-weight: 700; font-size: 14px; margin-bottom: 8px; }
-.print-invoice table { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 12px; }
-.print-invoice th { text-align: left; font-weight: 700; padding: 10px 6px; border-bottom: 2px solid #000; background: transparent; }
+.print-invoice { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #000; background: #fff; padding: 20px 30px; max-width: 800px; margin: 0 auto; font-size: 11px; line-height: 1.4; }
+.print-invoice .pi-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; }
+.print-invoice .pi-title { font-size: 36px; font-weight: 400; letter-spacing: -1px; color: #000; }
+.print-invoice .pi-logo { max-width: 280px; max-height: 100px; }
+.print-invoice .pi-info { display: flex; justify-content: space-between; margin-bottom: 30px; gap: 30px; font-size: 11px; }
+.print-invoice .pi-info-left { flex: 1; }
+.print-invoice .pi-info-mid { flex: 1; }
+.print-invoice .pi-info-right { flex: 1; text-align: left; }
+.print-invoice .pi-customer-name { font-size: 13px; font-weight: 700; margin-bottom: 8px; }
+.print-invoice .pi-label { font-weight: 700; font-size: 11px; margin-top: 8px; }
+.print-invoice .pi-label:first-child { margin-top: 0; }
+.print-invoice .pi-value { color: #000; margin-top: 2px; }
+.print-invoice .pi-co-name { font-weight: 700; font-size: 11px; }
+
+.print-invoice table { width: 100%; border-collapse: collapse; margin-bottom: 0; font-size: 11px; }
+.print-invoice thead tr { border-bottom: 1px solid #000; }
+.print-invoice th { text-align: left; font-weight: 700; padding: 8px 6px; vertical-align: bottom; }
 .print-invoice th.num, .print-invoice th.center { text-align: right; }
 .print-invoice th.center { text-align: center; }
-.print-invoice td { padding: 8px 6px; border-bottom: 1px solid #E5E7EB; vertical-align: top; }
+.print-invoice td { padding: 5px 6px; vertical-align: top; }
+.print-invoice tbody tr { border-bottom: 1px solid #E5E7EB; }
+.print-invoice tbody tr.pi-room-header { border-bottom: none; }
+.print-invoice tbody tr.pi-room-header td { font-weight: 700; padding-top: 8px; padding-bottom: 2px; }
+.print-invoice tbody tr.pi-blank-row td { border-bottom: 1px solid #E5E7EB; height: 22px; padding: 0; }
+.print-invoice tbody tr.pi-blank-row.shaded td { background: #F5F5F5; }
 .print-invoice td.num { text-align: right; }
 .print-invoice td.center { text-align: center; }
-.print-invoice .pi-totals { margin-left: auto; width: 320px; font-size: 13px; margin-top: 14px; }
-.print-invoice .pi-totals-row { display: flex; justify-content: space-between; padding: 5px 0; }
-.print-invoice .pi-totals-row.total { font-size: 15px; font-weight: 800; border-top: 2px solid #000; padding-top: 10px; margin-top: 6px; }
-.print-invoice .pi-footer { margin-top: 36px; display: flex; justify-content: space-between; gap: 20px; font-size: 11px; }
-.print-invoice .pi-comments { background: #fff; border: 1px solid #D1D5DB; padding: 12px; border-radius: 4px; width: 55%; }
-.print-invoice .pi-comments b { display: block; background: #D1D5DB; padding: 6px 10px; margin: -12px -12px 10px -12px; font-size: 11px; }
-.print-invoice .pi-bank { width: 40%; font-size: 11px; line-height: 1.6; }
-.print-invoice .pi-bank b { display: block; margin-bottom: 4px; }
-.print-invoice .pi-thanks { text-align: center; margin-top: 30px; font-size: 11px; color: #6B7280; line-height: 1.6; }
-.print-invoice .pi-thanks .big { font-style: italic; font-weight: 700; font-size: 13px; color: #333; margin-top: 6px; }
+.print-invoice .pi-totals-col { background: #F5F5F5; }
+
+.print-invoice .pi-bottom { display: flex; gap: 18px; margin-top: 0; }
+.print-invoice .pi-comments { flex: 1; font-size: 10px; }
+.print-invoice .pi-comments-header { background: #C5C5C5; padding: 5px 10px; font-weight: 700; font-size: 11px; border: 1px solid #000; }
+.print-invoice .pi-comments-body { border: 1px solid #000; border-top: none; padding: 10px; min-height: 100px; }
+.print-invoice .pi-comments-body p { margin-bottom: 8px; }
+.print-invoice .pi-totals { width: 280px; font-size: 11px; }
+.print-invoice .pi-totals-row { display: flex; justify-content: space-between; padding: 5px 8px; font-weight: 700; }
+.print-invoice .pi-totals-row.shaded { background: #F5F5F5; }
+.print-invoice .pi-totals-row span:first-child { font-weight: 700; }
+.print-invoice .pi-totals-row.total { font-size: 13px; padding-top: 7px; padding-bottom: 7px; border-top: 1px solid #ccc; }
+.print-invoice .pi-totals-row.total .dollar { display: inline-block; margin-right: 8px; }
+
+.print-invoice .pi-footer { margin-top: 22px; text-align: right; }
+.print-invoice .pi-footer .payable { font-weight: 400; }
+.print-invoice .pi-footer .payable-co { font-weight: 700; font-size: 12px; margin-top: 2px; }
+.print-invoice .pi-thanks { text-align: center; margin-top: 35px; font-size: 10px; color: #555; line-height: 1.7; }
+.print-invoice .pi-thanks .big { font-style: italic; font-weight: 700; font-size: 12px; color: #000; margin-top: 4px; }
 
 @media print {
-  body * { visibility: hidden; }
-  body { background: #fff !important; }
-  #print-modal, #print-modal * { visibility: visible; }
-  #print-modal { position: absolute; left: 0; top: 0; right: 0; background: #fff; padding: 0; display: block !important; }
-  #print-modal .mbox { 
-    background: #fff !important; 
-    box-shadow: none !important; 
+  /* Reset html/body to avoid extra pages */
+  html, body { 
+    margin: 0 !important; 
+    padding: 0 !important; 
+    height: auto !important; 
+    min-height: 0 !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+  body > *:not(#print-modal) { display: none !important; }
+  #print-modal {
+    display: block !important;
+    position: static !important;
+    inset: auto !important;
+    background: #fff !important;
     padding: 0 !important;
-    max-width: none !important;
+    margin: 0 !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    height: auto !important;
+    min-height: 0 !important;
+  }
+  #print-modal .mbox {
+    position: static !important;
     max-height: none !important;
+    height: auto !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    margin: 0 !important;
     border-radius: 0 !important;
+    box-shadow: none !important;
+    width: 100% !important;
+    max-width: none !important;
+    background: #fff !important;
     color: #000 !important;
   }
-  /* hide modal header & tip */
   .no-print { display: none !important; }
-  .print-invoice { padding: 0 !important; }
-  @page { size: A4; margin: 15mm; }
+  .print-invoice { 
+    padding: 0 !important; 
+    max-width: none !important;
+    page-break-after: avoid;
+  }
+  .print-invoice table { page-break-inside: auto; }
+  .print-invoice tr { page-break-inside: avoid; page-break-after: auto; }
+  .print-invoice .pi-room-header { page-break-after: avoid; }
+  
+  @page { size: A4 portrait; margin: 12mm; }
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
@@ -347,9 +398,28 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
     <div><label class="label">인보이스 번호</label><input class="input" id="f-n" placeholder="INV-1234"/></div>
   </div>
   <div class="mb"><label class="label">빌더명 *</label><input class="input" id="f-b" list="bdl" placeholder="빌더명" oninput="onBChange()"/><datalist id="bdl"></datalist></div>
+  <datalist id="room-list">
+    <option value="Main Bathroom">
+    <option value="Ensuite">
+    <option value="Laundry">
+    <option value="Toilet">
+    <option value="Kitchen">
+    <option value="Powder Room">
+    <option value="PDR">
+    <option value="Porch">
+    <option value="Alfresco">
+    <option value="Mudroom">
+    <option value="WIR">
+    <option value="Hallway">
+    <option value="Entry">
+    <option value="Front Entry">
+    <option value="Pool Area">
+    <option value="Balcony">
+    <option value="Patio">
+  </datalist>
   <div class="mb"><label class="label">현장 주소 (Job Address)</label><input class="input" id="f-a" placeholder="주소"/></div>
   <div class="row2 mb">
-    <div><label class="label">상태</label><select class="select" id="f-st"><option>INVOICE</option><option>PAID</option><option>ONGOING</option><option>RETENTION</option><option>CREDIT</option><option>SUSPEND</option><option>FINISH</option><option>NO_PAYMENT</option><option>OVERDUE</option></select></div>
+    <div><label class="label">상태</label><select class="select" id="f-st"><option value="DRAFT">📝 DRAFT (임시저장)</option><option>INVOICE</option><option>PAID</option><option>ONGOING</option><option>RETENTION</option><option>CREDIT</option><option>SUSPEND</option><option>FINISH</option><option>NO_PAYMENT</option><option>OVERDUE</option></select></div>
     <div id="f-po-row"><label class="label">PO 번호</label><input class="input" id="f-po" placeholder="PO Number"/></div>
   </div>
   <div id="f-proj-row" class="mb" style="display:none"><label class="label">프로젝트명 (Project)</label><input class="input" id="f-proj" placeholder="예: Orange Conservatorium&Planetarium"/></div>
@@ -359,15 +429,25 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
   </div>
   <div class="mb"><label class="label">만기일</label><input type="date" class="input" id="f-dd"/></div>
   
-  <!-- LINE ITEMS (New rate sheet-based system) -->
+  <!-- LINE ITEMS (Rate sheet-based, picker at top) -->
   <div class="mb" style="background:var(--card-bg-alt);border:1px solid var(--border);border-radius:10px;padding:12px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
       <label class="label" style="margin:0">📋 작업 항목</label>
-      <div style="display:flex;gap:6px">
-        <button class="btn-secondary" style="padding:5px 10px;font-size:12px" onclick="toggleLegacyAmount()" id="toggle-legacy-btn">💵 단순 금액으로</button>
-        <button class="btn-gold" style="padding:5px 10px;font-size:12px" onclick="addLineItem()">+ 항목 추가</button>
+      <button class="btn-secondary" style="padding:5px 10px;font-size:12px" onclick="toggleLegacyAmount()" id="toggle-legacy-btn">💵 단순 금액으로</button>
+    </div>
+    
+    <!-- Picker at top: pick from dropdown → adds to list below -->
+    <div id="line-picker-row" style="background:var(--card-bg);border:1.5px solid var(--accent);border-radius:8px;padding:8px;margin-bottom:10px">
+      <div style="font-size:10px;color:var(--text-3);font-weight:700;margin-bottom:6px">⬇️ 항목 선택하면 자동으로 아래에 추가됩니다</div>
+      <select class="select" id="line-picker" style="font-size:13px" onchange="pickFromTop(this)">
+        <option value="">— 항목 선택해서 추가 —</option>
+      </select>
+      <div style="display:flex;gap:6px;margin-top:6px">
+        <button class="btn-secondary" style="flex:1;padding:6px;font-size:11px" onclick="addBlankLine()">+ 빈 항목 추가</button>
+        <button class="btn-secondary" style="flex:1;padding:6px;font-size:11px;background:#FEF3C7;color:#92400E;border-color:#FDE68A" onclick="addMaterialsLine()">📦 Materials 자재 추가</button>
       </div>
     </div>
+    
     <div id="line-items-list"></div>
     <div id="line-items-total" style="margin-top:8px;padding:10px;background:var(--card-bg);border-radius:8px;font-size:13px;display:none"></div>
   </div>
@@ -389,7 +469,7 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
     <div id="payments-summary" style="font-size:12px;font-weight:700;padding:6px 0;color:#065F46"></div>
   </div>
   <div class="mb"><label class="label">메모</label><textarea class="input" id="f-no" style="height:60px;resize:none" placeholder="메모"></textarea></div>
-  <div class="row2" style="gap:10px"><button class="btn-secondary" style="flex:1" onclick="closeIM()">취소</button><button class="btn-primary" style="flex:2" onclick="saveInv()">💾 저장</button></div>
+  <div class="row2" style="gap:8px"><button class="btn-secondary" style="flex:1" onclick="closeIM()">취소</button><button class="btn-secondary" style="flex:1.5;background:#FEF3C7;color:#92400E;border:1px solid #FDE68A;font-weight:700" onclick="saveInv(true)" title="발행 안 하고 임시 저장">📝 임시저장</button><button class="btn-primary" style="flex:2" onclick="saveInv(false)">💾 발행</button></div>
 </div>
 </div>
 
@@ -757,14 +837,14 @@ function setupInvTab() {
 // ── Invoice List ──────────────────────────────────────────────────────────────
 function renderInv() {
   setupInvTab();
-  const sts = ['INVOICE','OVERDUE','PAID','RETENTION','CREDIT','SUSPEND','NO_PAYMENT','ALL'];
+  const sts = ['INVOICE','DRAFT','OVERDUE','PAID','RETENTION','CREDIT','SUSPEND','NO_PAYMENT','ALL'];
   
   // Pretty labels
-  const LABEL = {NO_PAYMENT: 'NO-PAY'};
+  const LABEL = {NO_PAYMENT: 'NO-PAY', DRAFT: '📝 DRAFT'};
   const lblFor = s => LABEL[s] || s;
   
   const countFor = s => {
-    if (s === 'ALL') return invoices.length;
+    if (s === 'ALL') return invoices.filter(i => i.status !== 'DRAFT').length;
     if (s === 'OVERDUE') return invoices.filter(isOverdue).length;
     // INVOICE filter = all status=INVOICE (overdue or not) + ONGOING items
     if (s === 'INVOICE') return invoices.filter(i => i.status==='INVOICE' || i.status==='ONGOING').length;
@@ -772,6 +852,9 @@ function renderInv() {
   };
   
   const matchesFilter = i => {
+    // DRAFT items only appear in their own filter (not in ALL, not in any other status)
+    if (curFilter === 'DRAFT') return i.status === 'DRAFT';
+    if (i.status === 'DRAFT') return false; // hide drafts from non-DRAFT filters
     if (curFilter === 'ALL') return true;
     if (curFilter === 'OVERDUE') return isOverdue(i);
     if (curFilter === 'INVOICE') return i.status === 'INVOICE' || i.status === 'ONGOING';
@@ -844,7 +927,8 @@ function renderInv() {
     const tier = getAgeTier(days);
     const ss = overdue ? 'OVERDUE' : inv.status;
     let bgClass = '';
-    if (overdue) bgClass = `age-${tier}`;
+    if (inv.status === 'DRAFT') bgClass = 'draft';
+    else if (overdue) bgClass = `age-${tier}`;
     else if (['PAID','CREDIT','SUSPEND','ONGOING','RETENTION','FINISH','NO_PAYMENT'].includes(inv.status)) bgClass = inv.status;
     
     const co = companies.find(c=>c.id===inv.companyId);
@@ -942,16 +1026,36 @@ function buildDetailHTML(inv) {
       const bt = inv.buildType || 'NEW';
       let h = `<div style="margin-top:10px;padding-top:8px;border-top:1px dashed var(--border-2)">
         <div style="font-size:10px;color:var(--text-4);font-weight:700;margin-bottom:6px">📋 작업 항목 <span style="background:${bt==='NEW'?'#DBEAFE':'#FEF3C7'};color:${bt==='NEW'?'#1E40AF':'#92400E'};padding:1px 6px;border-radius:4px;margin-left:4px">${bt}</span></div>`;
-      items.forEach((it,i) => {
+      let prevRoom = null;
+      let itemNum = 0;
+      items.forEach((it) => {
         const lineEx = (parseFloat(it.qty)||0) * (parseFloat(it.unitPrice)||0);
         const lineInc = lineEx * 1.1;
-        const fullDesc = (it.desc||'') + (it.materials ? ' (Materials: glue, grout, sand&cement)' : '');
-        h += `<div style="font-size:12px;color:var(--text-2);padding:4px 0;border-bottom:1px dotted var(--border-2)">
+        let desc;
+        if (it.isMaterials) {
+          desc = `Materials(${it.desc||''})`;
+        } else {
+          desc = it.desc || '';
+          if (it.placement && !desc.toLowerCase().startsWith(it.placement.toLowerCase())) {
+            desc = `${it.placement} ${desc}`;
+          }
+        }
+        
+        // Room header (skip for materials)
+        const curRoom = it.room || '';
+        if (!it.isMaterials && curRoom && curRoom !== prevRoom) {
+          h += `<div style="font-size:11px;font-weight:700;color:#4F46E5;margin-top:6px;margin-bottom:2px;padding-left:4px;border-left:2px solid #4F46E5">🚪 ${esc(curRoom)}</div>`;
+        }
+        if (!it.isMaterials) prevRoom = curRoom;
+        itemNum++;
+        
+        const isMat = it.isMaterials;
+        h += `<div style="font-size:12px;color:var(--text-2);padding:4px 0;border-bottom:1px dotted var(--border-2);${isMat?'background:#FFFBEB;padding-left:6px;border-radius:4px;margin:4px 0':''}">
           <div style="display:flex;justify-content:space-between;gap:8px">
-            <span style="flex:1">${i+1}. ${esc(fullDesc)}${it.pct?` <span style="color:#92400E;font-weight:700">(${esc(String(it.pct))}%)</span>`:''}</span>
+            <span style="flex:1">${isMat?'📦':itemNum+'.'} ${esc(desc)}${it.pct?` <span style="color:#92400E;font-weight:700">(${esc(String(it.pct))}%)</span>`:''}</span>
             <span style="font-weight:700;white-space:nowrap">${fA(lineInc)}</span>
           </div>
-          <div style="font-size:10px;color:var(--text-4);margin-left:14px">${it.qty} × $${parseFloat(it.unitPrice).toFixed(2)} ex GST ${it.cat?` · ${esc(it.cat)}`:''}</div>
+          ${!isMat?`<div style="font-size:10px;color:var(--text-4);margin-left:14px">${it.qty} × $${parseFloat(it.unitPrice).toFixed(2)} ex GST ${it.cat?` · ${esc(it.cat)}`:''}</div>`:''}
         </div>`;
       });
       h += `</div>`;
@@ -960,11 +1064,34 @@ function buildDetailHTML(inv) {
     ${!inv.lineItems && inv.type==='PO' && inv.items ? (Array.isArray(inv.items)?inv.items:Object.values(inv.items)).map(it=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;color:#555;margin-top:4px"><span>${esc(it.desc)}</span><span style="font-weight:700">${fA(it.amount)}</span></div>`).join(''):''}
     ${!inv.lineItems && inv.type==='PROGRESS' && inv.progressItems ? (Array.isArray(inv.progressItems)?inv.progressItems:Object.values(inv.progressItems)).map(it=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;color:#555;gap:8px;margin-top:4px"><span style="flex:1">${esc(it.desc)}${it.pct?` <span style="color:#92400E;font-weight:700">(${esc(String(it.pct))}%)</span>`:''}</span><span style="font-weight:700">${parseFloat(it.amount)>0?fA(it.amount):'—'}</span></div>`).join(''):''}
     <div style="display:flex;gap:8px;margin-top:10px">
+      ${inv.status === 'DRAFT' ? `<button class="btn-primary" style="flex:1;padding:8px;font-size:12px" onclick="publishDraft('${inv.id}')" title="이 임시저장을 정식 인보이스로 발행">🚀 발행하기</button>` : ''}
       <button class="btn-primary" style="flex:1;padding:8px;font-size:12px;background:#10B981" onclick="printInvoice('${inv.id}')" title="인쇄용 인보이스 생성">🖨️ 인쇄 / PDF</button>
       <button class="btn-secondary" style="flex:1;padding:8px;font-size:12px" onclick="openIM('${inv.id}')">✏️ 수정</button>
       <button style="background:#FEF2F2;color:#DC2626;border:1px solid #FECACA;border-radius:9px;padding:8px 14px;font-size:12px;cursor:pointer" onclick="delInv('${inv.id}')" aria-label="삭제">🗑</button>
     </div>
   </div>`;
+}
+
+// Publish a DRAFT → INVOICE (one-click)
+async function publishDraft(id) {
+  const inv = invoices.find(i => i.id === id);
+  if (!inv) return;
+  if (!confirm(`${inv.invoiceNum || '(번호없음)'} 인보이스를 발행할까요?\n상태가 DRAFT → INVOICE 로 변경됩니다.`)) return;
+  const updated = {...inv, status: 'INVOICE', updatedAt: new Date().toISOString()};
+  delete updated.id;
+  await fbSet('invoices/'+id, updated);
+  
+  // Increment company.nextNumber if this invoice uses the suggested number
+  const co = companies.find(c => c.id === inv.companyId);
+  if (co && inv.invoiceNum) {
+    const padded = co.prefix.includes('BXBT') ? String(co.nextNumber).padStart(4,'0') : String(co.nextNumber);
+    if (inv.invoiceNum === co.prefix + padded) {
+      const upd = {...co, nextNumber: (co.nextNumber||1)+1};
+      delete upd.id;
+      await fbSet('invoiceCompanies/'+co.id, upd);
+    }
+  }
+  await loadAll();
 }
 
 function toggleD(id) {
@@ -1022,7 +1149,10 @@ function openIM(id) {
         qty: parseFloat(li.qty) || 1,
         unitPrice: parseFloat(li.unitPrice) || 0,
         materials: !!li.materials,
-        pct: li.pct || ''
+        pct: li.pct || '',
+        room: li.room || '',
+        placement: li.placement || '',
+        isMaterials: !!li.isMaterials
       }));
     useLegacyAmount = false;
   } else if (inv && inv.amount && !inv.items && !inv.progressItems) {
@@ -1033,15 +1163,15 @@ function openIM(id) {
     const items = Array.isArray(inv.items) ? inv.items : Object.values(inv.items);
     lineItems = items.map(it => ({
       cat: '', desc: it.desc || '', qty: 1, 
-      unitPrice: exGST(parseFloat(it.amount)||0),  // legacy items had inc GST amount; convert
-      materials: false, pct: ''
+      unitPrice: exGST(parseFloat(it.amount)||0),
+      materials: false, pct: '', room: '', placement: '', isMaterials: false
     }));
   } else if (inv?.type === 'PROGRESS' && inv.progressItems) {
     const items = Array.isArray(inv.progressItems) ? inv.progressItems : Object.values(inv.progressItems);
     lineItems = items.map(it => ({
       cat: '', desc: it.desc || '', qty: 1,
       unitPrice: exGST(parseFloat(it.amount)||0),
-      materials: false, pct: it.pct || ''
+      materials: false, pct: it.pct || '', room: '', placement: '', isMaterials: false
     }));
   }
   
@@ -1149,14 +1279,19 @@ function toggleLegacyAmount() {
 }
 
 // ── Line Items (Rate Sheet-based) ────────────────────────────────────────────
-function addLineItem() {
-  lineItems.push({cat:'', desc:'', qty:1, unitPrice:0, materials:false, pct:''});
-  renderLineItems();
+// New workflow: dropdown at top → adds to list below. Each line is compact (no per-item picker).
+
+function refreshLinePicker() {
+  // Build the picker dropdown at top with current build type's rates
+  const sel = document.getElementById('line-picker');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">— 항목 선택해서 추가 —</option>' + buildRateOptions().replace('<option value="">— 항목 선택 —</option>','');
 }
 
-function pickRate(idx, optKey) {
-  if (!optKey) return;
-  const [bt, itemIdx] = optKey.split('|');
+function pickFromTop(selEl) {
+  const v = selEl.value;
+  if (!v) return;
+  const [bt, itemIdx] = v.split('|');
   const rates = RATE_SHEET[bt];
   if (!rates) return;
   const r = rates[parseInt(itemIdx)];
@@ -1172,6 +1307,54 @@ function pickRate(idx, optKey) {
     if (cr && cr.rate) finalRate = parseFloat(cr.rate);
   }
   
+  // Copy room from last item if exists
+  const lastRoom = lineItems.length ? lineItems[lineItems.length-1].room : '';
+  lineItems.push({
+    cat: r.cat, desc: r.desc, qty: 1, unitPrice: finalRate,
+    materials: false, pct:'', room: lastRoom, placement:'', isMaterials: false
+  });
+  selEl.value = ''; // reset picker
+  renderLineItems();
+}
+
+function addBlankLine() {
+  const lastRoom = lineItems.length ? lineItems[lineItems.length-1].room : '';
+  lineItems.push({cat:'', desc:'', qty:1, unitPrice:0, materials:false, pct:'', room: lastRoom, placement:'', isMaterials: false});
+  renderLineItems();
+}
+
+// Materials as a SINGLE line item with customizable contents in parens
+function addMaterialsLine() {
+  // Default Materials line based on user's invoice format
+  const defaultContents = 'glue, grout, angle, silicone, floorwaste, sand&cement';
+  lineItems.push({
+    cat: 'Materials',
+    desc: defaultContents,  // contents in parens are stored as desc; final = "Materials(...)"
+    qty: 1, unitPrice: 0,
+    materials: false, pct: '', room: '', placement: '',
+    isMaterials: true
+  });
+  renderLineItems();
+}
+
+// Kept for compat with builder customrate code etc.
+function addLineItem() { addBlankLine(); }
+
+function pickRate(idx, optKey) {
+  if (!optKey) return;
+  const [bt, itemIdx] = optKey.split('|');
+  const rates = RATE_SHEET[bt];
+  if (!rates) return;
+  const r = rates[parseInt(itemIdx)];
+  if (!r) return;
+  const builderName = document.getElementById('f-b').value.trim();
+  const builder = builders.find(b => b.name === builderName);
+  let finalRate = r.rate;
+  if (builder && builder.customRates) {
+    const cr = (Array.isArray(builder.customRates) ? builder.customRates : Object.values(builder.customRates))
+      .find(c => c.desc === r.desc && c.buildType === bt);
+    if (cr && cr.rate) finalRate = parseFloat(cr.rate);
+  }
   lineItems[idx].cat = r.cat;
   lineItems[idx].desc = r.desc;
   lineItems[idx].unitPrice = finalRate;
@@ -1180,7 +1363,6 @@ function pickRate(idx, optKey) {
 
 function buildRateOptions() {
   const rates = RATE_SHEET[curBuildType] || [];
-  // Group by category
   const groups = {};
   rates.forEach((r, i) => {
     if (!groups[r.cat]) groups[r.cat] = [];
@@ -1197,54 +1379,83 @@ function buildRateOptions() {
   return opts;
 }
 
+// Compute final description for display/print
+function lineDescFinal(li) {
+  if (li.isMaterials) {
+    // Materials: render as "Materials(contents)"
+    return `Materials(${li.desc || ''})`;
+  }
+  let d = li.desc || '';
+  if (li.placement) {
+    const p = li.placement;
+    if (!d.toLowerCase().startsWith(p.toLowerCase())) {
+      d = `${p} ${d}`;
+    }
+  }
+  return d;
+}
+
 function renderLineItems() {
+  refreshLinePicker(); // refresh picker dropdown
   if (useLegacyAmount) {
     document.getElementById('line-items-list').innerHTML = '';
     document.getElementById('line-items-total').style.display = 'none';
+    document.getElementById('line-picker-row').style.display = 'none';
     return;
   }
+  document.getElementById('line-picker-row').style.display = 'block';
+  
   let h = '';
   if (!lineItems.length) {
-    h = `<div style="text-align:center;color:var(--text-4);font-size:12px;padding:14px;border:1px dashed var(--border);border-radius:8px">📋 항목이 없습니다. "+ 항목 추가" 버튼을 누르세요</div>`;
+    h = `<div style="text-align:center;color:var(--text-4);font-size:12px;padding:14px;border:1px dashed var(--border);border-radius:8px">📋 항목이 없습니다. 위 드롭다운에서 항목을 선택하세요</div>`;
   } else {
     lineItems.forEach((li, i) => {
       const lineTotalEx = (parseFloat(li.qty)||0) * (parseFloat(li.unitPrice)||0);
       const lineTotalInc = lineTotalEx * 1.1;
-      h += `<div style="background:var(--card-bg);border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:8px">
-        <div style="display:flex;gap:6px;margin-bottom:6px;align-items:center">
-          <span style="font-size:11px;font-weight:700;color:var(--text-3);min-width:18px">#${i+1}</span>
-          <select class="select" style="flex:1;font-size:12px" onchange="pickRate(${i}, this.value)" aria-label="작업 항목 선택">${buildRateOptions()}</select>
-          <button style="background:none;border:none;color:#FCA5A5;font-size:18px;cursor:pointer;line-height:1" onclick="lineItems.splice(${i},1);renderLineItems()" aria-label="항목 삭제">×</button>
-        </div>
-        <input class="input" style="font-size:12px;margin-bottom:6px" value="${esc(li.desc||'')}" placeholder="설명 (자동 채워짐, 수정 가능)" oninput="lineItems[${i}].desc=this.value;updLineTotal(${i})"/>
-        <div style="display:flex;gap:6px;align-items:center">
-          <div style="flex:1">
-            <div style="font-size:9px;color:var(--text-4);margin-bottom:2px">수량</div>
-            <input type="number" step="0.01" class="input" style="font-size:12px" value="${li.qty||''}" placeholder="qty" oninput="lineItems[${i}].qty=this.value;updLineTotal(${i})"/>
+      const finalDesc = lineDescFinal(li);
+      
+      if (li.isMaterials) {
+        // Materials: compact yellow row, only customizable contents + price
+        h += `<div style="background:#FFFBEB;border:1px solid #FDE68A;border-radius:8px;padding:8px;margin-bottom:6px">
+          <div style="display:flex;gap:6px;align-items:center;margin-bottom:5px">
+            <span style="font-size:11px;font-weight:700;color:#92400E;min-width:65px">📦 Materials</span>
+            <span style="font-size:11px;color:#92400E">(</span>
+            <input class="input" style="flex:1;font-size:11px;padding:6px 8px" value="${esc(li.desc||'')}" placeholder="glue, grout, angle, silicone, floorwaste, sand&cement" oninput="lineItems[${i}].desc=this.value;updLineTotal(${i})"/>
+            <span style="font-size:11px;color:#92400E">)</span>
+            <input type="number" step="0.01" class="input" style="width:90px;font-size:11px;padding:6px" value="${li.unitPrice||''}" placeholder="총액 ex GST" oninput="lineItems[${i}].unitPrice=this.value;lineItems[${i}].qty=1;updLineTotal(${i})"/>
+            <span id="line-total-${i}" style="min-width:80px;text-align:right;font-weight:700;font-size:11px;color:#92400E">${fA(lineTotalInc)}</span>
+            <button style="background:none;border:none;color:#FCA5A5;font-size:16px;cursor:pointer;line-height:1;padding:0 2px" onclick="lineItems.splice(${i},1);renderLineItems()" aria-label="삭제">×</button>
           </div>
-          <div style="flex:1">
-            <div style="font-size:9px;color:var(--text-4);margin-bottom:2px">단가 (ex GST)</div>
-            <input type="number" step="0.01" class="input" style="font-size:12px" value="${li.unitPrice||''}" placeholder="단가" oninput="lineItems[${i}].unitPrice=this.value;updLineTotal(${i})"/>
+          <div style="font-size:9px;color:#92400E;margin-left:71px">→ ${esc(finalDesc)}</div>
+        </div>`;
+      } else {
+        // Regular line item - compact
+        h += `<div style="background:var(--card-bg);border:1px solid var(--border);border-radius:8px;padding:8px;margin-bottom:6px">
+          <div style="display:flex;gap:5px;align-items:center;margin-bottom:5px">
+            <span style="font-size:10px;font-weight:700;color:var(--text-3);min-width:16px">#${i+1}</span>
+            <input class="input" list="room-list" style="flex:1.2;font-size:11px;padding:5px 7px" value="${esc(li.room||'')}" placeholder="🚪 방" oninput="lineItems[${i}].room=this.value"/>
+            <select class="select" style="flex:0.7;font-size:11px;padding:5px 7px" onchange="lineItems[${i}].placement=this.value;renderLineItems()" title="위치">
+              <option value="">위치</option>
+              <option value="Floor" ${li.placement==='Floor'?'selected':''}>📐 Floor</option>
+              <option value="Wall" ${li.placement==='Wall'?'selected':''}>🧱 Wall</option>
+              <option value="Splashback" ${li.placement==='Splashback'?'selected':''}>🍳 Splashback</option>
+            </select>
+            <button style="background:none;border:none;color:#FCA5A5;font-size:16px;cursor:pointer;line-height:1;padding:0 2px" onclick="lineItems.splice(${i},1);renderLineItems()" aria-label="삭제">×</button>
           </div>
-          ${curType==='PROGRESS' ? `<div style="flex:0.7">
-            <div style="font-size:9px;color:var(--text-4);margin-bottom:2px">진행 %</div>
-            <input type="number" class="input" style="font-size:12px" max="100" value="${li.pct||''}" placeholder="%" oninput="lineItems[${i}].pct=this.value"/>
-          </div>` : ''}
-        </div>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;font-size:11px;color:var(--text-3)">
-          <label style="display:flex;align-items:center;gap:4px;cursor:pointer">
-            <input type="checkbox" ${li.materials?'checked':''} onchange="lineItems[${i}].materials=this.checked;renderLineItems()"/>
-            <span>📦 Materials 포함 (glue, grout, sand&cement)</span>
-          </label>
-          <div id="line-total-${i}" style="font-weight:700;color:var(--text)">${fA(lineTotalInc)} <span style="color:var(--text-4);font-weight:400">(${lineTotalEx.toFixed(2)} ex)</span></div>
-        </div>
-      </div>`;
+          <input class="input" style="font-size:11px;margin-bottom:5px;padding:5px 7px" value="${esc(li.desc||'')}" placeholder="설명 (드롭다운 선택 시 자동, 수정 가능)" oninput="lineItems[${i}].desc=this.value;updLineTotal(${i})"/>
+          <div style="display:flex;gap:5px;align-items:center">
+            <input type="number" step="0.01" class="input" style="flex:1;font-size:11px;padding:5px 7px" value="${li.qty||''}" placeholder="수량" oninput="lineItems[${i}].qty=this.value;updLineTotal(${i})" title="수량"/>
+            <span style="font-size:10px;color:var(--text-4)">×</span>
+            <input type="number" step="0.01" class="input" style="flex:1;font-size:11px;padding:5px 7px" value="${li.unitPrice||''}" placeholder="단가 ex" oninput="lineItems[${i}].unitPrice=this.value;updLineTotal(${i})" title="단가 ex GST"/>
+            ${curType==='PROGRESS' ? `<input type="number" class="input" style="flex:0.6;font-size:11px;padding:5px 7px" max="100" value="${li.pct||''}" placeholder="%" oninput="lineItems[${i}].pct=this.value" title="진행률"/>` : ''}
+            <span id="line-total-${i}" style="min-width:75px;text-align:right;font-weight:700;font-size:11px;color:var(--text)">${fA(lineTotalInc)}</span>
+          </div>
+          <div style="margin-top:4px;font-size:9px;color:var(--accent);font-style:italic">→ ${esc(finalDesc)||'(설명 없음)'}</div>
+        </div>`;
+      }
     });
   }
   document.getElementById('line-items-list').innerHTML = h;
-  
-  // Reset all selects to show current selection (best effort)
-  // Update totals
   updLineItemsTotal();
 }
 
@@ -1282,7 +1493,7 @@ function getInvoiceAmount() {
   return lineItems.reduce((s,li)=> s + (parseFloat(li.qty)||0) * (parseFloat(li.unitPrice)||0), 0) * 1.1;
 }
 
-async function saveInv() {
+async function saveInv(asDraft) {
   const b = document.getElementById('f-b').value.trim();
   if (!b) return alert('빌더명을 입력하세요');
   const isPO = curType === 'PO';
@@ -1290,9 +1501,13 @@ async function saveInv() {
   
   // Compute amount from line items or legacy amount field
   const amt = getInvoiceAmount();
-  if (!amt && amt !== 0) return alert('금액을 입력하세요');
-  if (Math.abs(amt) < 0.01 && !lineItems.length && !useLegacyAmount) {
-    return alert('작업 항목을 추가하거나 단순 금액 모드로 전환하세요');
+  
+  // For drafts, allow saving without amount (work in progress)
+  if (!asDraft) {
+    if (!amt && amt !== 0) return alert('금액을 입력하세요');
+    if (Math.abs(amt) < 0.01 && !lineItems.length && !useLegacyAmount) {
+      return alert('작업 항목을 추가하거나 단순 금액 모드로 전환하세요');
+    }
   }
   
   const coId = document.getElementById('f-co').value;
@@ -1304,14 +1519,22 @@ async function saveInv() {
     .map(p => ({date: p.date||'', amount: parseFloat(p.amount)||0, note: p.note||''}));
   const totalPay = cleanPayments.reduce((s,p)=>s+p.amount, 0);
   
-  let status = document.getElementById('f-st').value;
-  // Auto-status: progress with incomplete items → ONGOING; fully paid → PAID
-  if (isProg && status === 'INVOICE') {
-    const allDone = lineItems.length>0 && lineItems.every(i=>parseFloat(i.pct)>=100);
-    if (!allDone) status = 'ONGOING';
-  }
-  if (status === 'INVOICE' && totalPay >= amt - 0.01 && amt > 0) {
-    if (confirm(`입금액이 청구액과 일치합니다. 상태를 PAID로 변경할까요?`)) status = 'PAID';
+  // Status: force DRAFT if임시저장 button; auto-convert DRAFT→INVOICE if 발행 button
+  let status;
+  if (asDraft) {
+    status = 'DRAFT';
+  } else {
+    status = document.getElementById('f-st').value;
+    // Auto-convert: if user is "publishing" but status is still DRAFT, set to INVOICE
+    if (status === 'DRAFT') status = 'INVOICE';
+    // Auto-status: progress with incomplete items → ONGOING; fully paid → PAID
+    if (isProg && status === 'INVOICE') {
+      const allDone = lineItems.length>0 && lineItems.every(i=>parseFloat(i.pct)>=100);
+      if (!allDone) status = 'ONGOING';
+    }
+    if (status === 'INVOICE' && totalPay >= amt - 0.01 && amt > 0) {
+      if (confirm(`입금액이 청구액과 일치합니다. 상태를 PAID로 변경할까요?`)) status = 'PAID';
+    }
   }
   
   // Backward-compat: also write latest payment to depositDate/depositAmount
@@ -1319,14 +1542,17 @@ async function saveInv() {
   
   // Clean line items
   const cleanLineItems = useLegacyAmount ? [] : lineItems
-    .filter(li => parseFloat(li.qty) > 0 && (parseFloat(li.unitPrice) >= 0))
+    .filter(li => (parseFloat(li.qty) > 0 || li.isMaterials) && parseFloat(li.unitPrice) >= 0)
     .map(li => ({
       cat: li.cat || '',
       desc: li.desc || '',
       qty: parseFloat(li.qty) || 1,
       unitPrice: parseFloat(li.unitPrice) || 0,
       materials: !!li.materials,
-      pct: isProg ? (li.pct || '') : ''
+      pct: isProg ? (li.pct || '') : '',
+      room: li.room || '',
+      placement: li.placement || '',
+      isMaterials: !!li.isMaterials
     }));
   
   const data = {
@@ -1357,13 +1583,16 @@ async function saveInv() {
     await fbSet('invoices/'+editId, data);
   } else {
     await fbPush('invoices', data);
-    const co = companies.find(c=>c.id===coId);
-    if (co) {
-      const padded = co.prefix.includes('BXBT') ? String(co.nextNumber).padStart(4,'0') : String(co.nextNumber);
-      if (invNum === co.prefix + padded) {
-        const updated = {...co, nextNumber: (co.nextNumber||1)+1};
-        delete updated.id;
-        await fbSet('invoiceCompanies/'+co.id, updated);
+    // Only increment company.nextNumber when publishing (not for drafts)
+    if (!asDraft) {
+      const co = companies.find(c=>c.id===coId);
+      if (co) {
+        const padded = co.prefix.includes('BXBT') ? String(co.nextNumber).padStart(4,'0') : String(co.nextNumber);
+        if (invNum === co.prefix + padded) {
+          const updated = {...co, nextNumber: (co.nextNumber||1)+1};
+          delete updated.id;
+          await fbSet('invoiceCompanies/'+co.id, updated);
+        }
       }
     }
   }
@@ -1500,9 +1729,6 @@ function printInvoice(id) {
   const amt = parseFloat(inv.amount) || 0;
   const sub = exGST(amt);
   const tax = amt - sub;
-  const pays = getPayments(inv);
-  const paid = totalPaid(inv);
-  const rem = amt - paid;
   
   // Format invoice date as DD/MM/YYYY (Australian)
   const fDAu = d => {
@@ -1511,133 +1737,165 @@ function printInvoice(id) {
     return `${dy}/${m}/${y}`;
   };
   
-  // Build items table - prefer new lineItems, fall back to legacy items
+  // Compute due date string (14 days after invoice date if not set)
+  const dueStr = (() => {
+    if (inv.dueDate) return fDAu(inv.dueDate);
+    if (!inv.invoiceDate) return '';
+    const d = new Date(inv.invoiceDate);
+    d.setDate(d.getDate() + 14);
+    return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+  })();
+  
+  // Build items table - prefer new lineItems, fall back to legacy
   let itemRows = '';
+  let rowsRendered = 0;
   const hasLineItems = inv.lineItems && Object.keys(inv.lineItems).length;
   
   if (hasLineItems) {
     const items = Array.isArray(inv.lineItems) ? inv.lineItems : Object.values(inv.lineItems);
-    items.forEach((it,i) => {
+    let itemNum = 0;
+    let prevRoom = null;
+    items.forEach((it) => {
       const qty = parseFloat(it.qty) || 1;
       const unitEx = parseFloat(it.unitPrice) || 0;
       const lineEx = qty * unitEx;
-      const lineTax = lineEx * 0.1;
       const lineInc = lineEx * 1.1;
-      const fullDesc = (it.desc||'') + (it.materials ? ' (Materials: glue, grout, sand&cement)' : '') + (it.pct ? ` (${it.pct}% completed)` : '');
+      
+      // Build final description
+      let desc = it.desc || '';
+      if (it.isMaterials) {
+        desc = `Materials(${desc})`;
+      } else {
+        if (it.placement && !desc.toLowerCase().startsWith(it.placement.toLowerCase())) {
+          desc = `${it.placement} ${desc}`;
+        }
+      }
+      if (it.pct) desc += ` (${it.pct}% completed)`;
+      
+      // Insert room header if room changed and not materials
+      const curRoom = it.room || '';
+      if (!it.isMaterials && curRoom && curRoom !== prevRoom) {
+        itemRows += `<tr class="pi-room-header"><td></td><td><b>${esc(curRoom)}</b></td><td></td><td></td><td></td><td class="pi-totals-col"></td></tr>`;
+        rowsRendered++;
+      }
+      if (!it.isMaterials) prevRoom = curRoom;
+      
+      itemNum++;
+      const qtyDisplay = qty % 1 === 0 ? qty : qty.toFixed(2).replace(/\.?0+$/, '');
       itemRows += `<tr>
-        <td class="center">${i+1}</td>
-        <td>${esc(fullDesc)}</td>
-        <td class="center">${qty}</td>
-        <td class="num">$${unitEx.toFixed(2)}</td>
-        <td class="num">$${lineTax.toFixed(2)}</td>
-        <td class="num">$${lineInc.toFixed(2)}</td>
+        <td class="center"></td>
+        <td>${esc(desc)}</td>
+        <td class="center">${qtyDisplay}</td>
+        <td class="num">${unitEx.toFixed(2)}</td>
+        <td class="center">x</td>
+        <td class="num pi-totals-col">${lineInc.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}</td>
       </tr>`;
+      rowsRendered++;
     });
   } else if (inv.type === 'PO' && inv.items) {
     const items = Array.isArray(inv.items) ? inv.items : Object.values(inv.items);
     items.forEach((it,i) => {
       const itAmt = parseFloat(it.amount)||0;
       const itEx = exGST(itAmt);
-      const itTax = itAmt - itEx;
       itemRows += `<tr>
-        <td class="center">${i+1}</td>
+        <td class="center"></td>
         <td>${esc(it.desc||'')}</td>
         <td class="center">1</td>
-        <td class="num">$${itEx.toFixed(2)}</td>
-        <td class="num">$${itTax.toFixed(2)}</td>
-        <td class="num">$${itAmt.toFixed(2)}</td>
+        <td class="num">${itEx.toFixed(2)}</td>
+        <td class="center">x</td>
+        <td class="num pi-totals-col">${itAmt.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}</td>
       </tr>`;
+      rowsRendered++;
     });
   } else if (inv.type === 'PROGRESS' && inv.progressItems) {
     const items = Array.isArray(inv.progressItems) ? inv.progressItems : Object.values(inv.progressItems);
     items.forEach((it,i) => {
       const itAmt = parseFloat(it.amount)||0;
       const itEx = exGST(itAmt);
-      const itTax = itAmt - itEx;
       const desc = `${it.desc||''}${it.pct?` (${it.pct}% completed)`:''}`;
       itemRows += `<tr>
-        <td class="center">${i+1}</td>
+        <td class="center"></td>
         <td>${esc(desc)}</td>
         <td class="center">1</td>
-        <td class="num">$${itEx.toFixed(2)}</td>
-        <td class="num">$${itTax.toFixed(2)}</td>
-        <td class="num">$${itAmt.toFixed(2)}</td>
+        <td class="num">${itEx.toFixed(2)}</td>
+        <td class="center">x</td>
+        <td class="num pi-totals-col">${itAmt.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}</td>
       </tr>`;
+      rowsRendered++;
     });
   } else {
-    // NORMAL - single line item from note or address
     const desc = inv.note || (inv.address ? `Tiling work at ${inv.address}` : 'Tiling services');
     itemRows = `<tr>
-      <td class="center">1</td>
+      <td class="center"></td>
       <td>${esc(desc.split('\n')[0].slice(0,200))}</td>
       <td class="center">1</td>
-      <td class="num">$${sub.toFixed(2)}</td>
-      <td class="num">$${tax.toFixed(2)}</td>
-      <td class="num">$${amt.toFixed(2)}</td>
+      <td class="num">${sub.toFixed(2)}</td>
+      <td class="center">x</td>
+      <td class="num pi-totals-col">${amt.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}</td>
     </tr>`;
+    rowsRendered = 1;
   }
   
-  // Company name with K & M styled
-  const coNameHTML = co.name && co.name.toLowerCase().includes('k&m')
-    ? `<span style="color:#000">K</span><span class="amp"> & </span><span style="color:#000">M</span><br><span style="font-size:14px;font-weight:600;letter-spacing:1px">${esc(co.name.replace(/K\s*&\s*M\s*/i,'').trim() || 'TILING')}</span>`
-    : `<span>${esc(co.name||'K&M Tiling')}</span>`;
+  // Add blank rows to fill table (visual balance like reference)
+  const minRows = 14;
+  for (let i = rowsRendered; i < minRows; i++) {
+    const shadedClass = (i % 2 === 1) ? '' : 'shaded';
+    itemRows += `<tr class="pi-blank-row"><td></td><td></td><td></td><td></td><td></td><td class="pi-totals-col"></td></tr>`;
+  }
+  
+  // Format money with commas
+  const fmtMoney = n => n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  
+  // Logo: use embedded LOGO_DATA_URL if available, else fallback text
+  const logoHTML = (typeof LOGO_DATA_URL !== 'undefined') 
+    ? `<img src="${LOGO_DATA_URL}" class="pi-logo" alt="K&M Tiling Bathurst"/>`
+    : `<div style="font-size:30px;font-weight:800">${esc(co.name||'K&M Tiling Bathurst')}</div>`;
+  
+  // Builder address block (left side)
+  const builderAddrHTML = (b.businessAddress || b.postalAddress)
+    ? esc(b.businessAddress || b.postalAddress).replace(/\n/g,'<br>')
+    : '';
   
   const html = `<div class="print-invoice">
-    <div class="pi-header">
-      <div>
-        <div class="pi-title">TAX INVOICE</div>
-        ${co.abn?`<div style="font-size:11px;color:#6B7280;margin-top:6px">ABN: ${esc(co.abn)}</div>`:''}
+    <!-- Top: TAX INVOICE + Logo -->
+    <div class="pi-top">
+      <div class="pi-title">TAX INVOICE</div>
+      <div>${logoHTML}</div>
+    </div>
+    
+    <!-- Info: 3 columns - builder | invoice details | company details -->
+    <div class="pi-info">
+      <div class="pi-info-left">
+        <div class="pi-customer-name">${esc(inv.builderName||'')}</div>
+        ${builderAddrHTML ? `<div class="pi-value">${builderAddrHTML}</div>` : ''}
       </div>
-      <div style="text-align:right">
-        <div class="pi-co-name">${coNameHTML}</div>
-        ${co.address?`<div style="font-size:11px;color:#555;margin-top:8px;line-height:1.5">${esc(co.address).replace(/\n/g,'<br>')}</div>`:''}
-        ${co.phone?`<div style="font-size:11px;color:#555;margin-top:4px">Tel: ${esc(co.phone)}</div>`:''}
-        ${co.email?`<div style="font-size:11px;color:#555">${esc(co.email)}</div>`:''}
+      <div class="pi-info-mid">
+        <div class="pi-label">Invoice Date</div>
+        <div class="pi-value">${fDAu(inv.invoiceDate)}</div>
+        <div class="pi-label">Invoice Number</div>
+        <div class="pi-value">${esc(inv.invoiceNum||'—')}</div>
+        <div class="pi-label">Job Address</div>
+        <div class="pi-value">${esc(inv.address||'')}</div>
+        <div class="pi-label">ABN</div>
+        <div class="pi-value">${esc(co.abn||'')}</div>
+      </div>
+      <div class="pi-info-right">
+        <div class="pi-co-name">${esc(co.name||'K&M Tiling Bathurst PTY LTD')}</div>
+        <div class="pi-value" style="margin-top:4px">${esc(co.address||'').replace(/\n/g,'<br>')}</div>
+        ${co.phone ? `<div class="pi-value" style="margin-top:8px">${esc(co.phone)}</div>` : ''}
       </div>
     </div>
     
-    <div class="pi-meta">
-      <div>
-        <div class="pi-meta-label">BILL TO</div>
-        <div class="pi-customer">${esc(inv.builderName||'')}</div>
-        <div class="pi-meta-value">
-          ${b.contactPerson?`${esc(b.contactPerson)}<br>`:''}
-          ${inv.address?`<b>Job Address:</b> ${esc(inv.address)}<br>`:''}
-          ${b.businessAddress?`${esc(b.businessAddress).replace(/\n/g,'<br>')}<br>`:''}
-          ${b.abn?`ABN: ${esc(b.abn)}<br>`:''}
-          ${b.contact?`Tel: ${esc(b.contact)}<br>`:''}
-          ${b.invoiceEmail||b.email?`Email: ${esc(b.invoiceEmail||b.email)}`:''}
-        </div>
-      </div>
-      <div style="text-align:right">
-        <div style="margin-bottom:10px">
-          <div class="pi-meta-label">INVOICE #</div>
-          <div class="pi-meta-value" style="font-size:14px;font-weight:700">${esc(inv.invoiceNum||'—')}</div>
-        </div>
-        <div style="margin-bottom:10px">
-          <div class="pi-meta-label">INVOICE DATE</div>
-          <div class="pi-meta-value">${fDAu(inv.invoiceDate)}</div>
-        </div>
-        ${inv.dueDate?`<div>
-          <div class="pi-meta-label">DUE DATE</div>
-          <div class="pi-meta-value">${fDAu(inv.dueDate)}</div>
-        </div>`:''}
-        ${inv.poNumber?`<div style="margin-top:10px">
-          <div class="pi-meta-label">PO #</div>
-          <div class="pi-meta-value">${esc(inv.poNumber)}</div>
-        </div>`:''}
-      </div>
-    </div>
-    
+    <!-- Items table -->
     <table>
       <thead>
         <tr>
-          <th class="center" style="width:50px">ITEM #</th>
+          <th class="center" style="width:48px">ITEM #</th>
           <th>DESCRIPTION</th>
-          <th class="center" style="width:50px">QTY</th>
-          <th class="num" style="width:90px">UNIT PRICE</th>
-          <th class="num" style="width:80px">TAX</th>
-          <th class="num" style="width:100px">TOTAL</th>
+          <th class="center" style="width:60px">QTY</th>
+          <th class="num" style="width:80px">UNIT PRICE</th>
+          <th class="center" style="width:40px">TAX</th>
+          <th class="num pi-totals-col" style="width:90px">TOTAL</th>
         </tr>
       </thead>
       <tbody>
@@ -1645,51 +1903,58 @@ function printInvoice(id) {
       </tbody>
     </table>
     
-    <div class="pi-totals">
-      <div class="pi-totals-row">
-        <span>Subtotal (ex GST)</span>
-        <span>$${sub.toFixed(2)}</span>
+    <!-- Bottom: comments (left) + totals (right) -->
+    <div class="pi-bottom">
+      <div class="pi-comments">
+        <div class="pi-comments-header">Other Comments or Special Instructions</div>
+        <div class="pi-comments-body">
+          <p>1.Terms of Payment: Payment is due within 14 days from the date of invoice. ${dueStr ? `(${dueStr})` : ''}</p>
+          <p>2.Please note our banking details for direct deposit:</p>
+          <p style="margin-top:14px">
+            <b>${esc(co.name||'K&M Tiling Bathurst')}</b><br>
+            BSB: ${esc(co.bsb||'')}<br>
+            ACC: ${esc(co.acc||'')}
+          </p>
+          ${inv.note ? `<p style="margin-top:10px;font-size:9px;color:#666">${esc(inv.note).replace(/\n/g,'<br>')}</p>` : ''}
+        </div>
       </div>
-      <div class="pi-totals-row">
-        <span>Tax Rate</span>
-        <span>10.00%</span>
+      <div class="pi-totals">
+        <div class="pi-totals-row shaded">
+          <span>SUBTOTAL</span>
+          <span>${fmtMoney(sub)}</span>
+        </div>
+        <div class="pi-totals-row">
+          <span>TAXABLE</span>
+          <span>${fmtMoney(sub)}</span>
+        </div>
+        <div class="pi-totals-row shaded">
+          <span>TAX RATE</span>
+          <span style="border:1px solid #999;padding:0 4px">10.000%</span>
+        </div>
+        <div class="pi-totals-row">
+          <span>TAX</span>
+          <span>${fmtMoney(tax)}</span>
+        </div>
+        <div class="pi-totals-row shaded">
+          <span>OTHER</span>
+          <span>&nbsp;</span>
+        </div>
+        <div class="pi-totals-row total">
+          <span>TOTAL</span>
+          <span><span class="dollar">$</span>${fmtMoney(amt)}</span>
+        </div>
       </div>
-      <div class="pi-totals-row">
-        <span>GST</span>
-        <span>$${tax.toFixed(2)}</span>
-      </div>
-      <div class="pi-totals-row total">
-        <span>TOTAL (inc GST)</span>
-        <span>$${amt.toFixed(2)}</span>
-      </div>
-      ${paid > 0.01 ? `<div class="pi-totals-row" style="color:#059669;margin-top:8px">
-        <span>Paid</span>
-        <span>-$${paid.toFixed(2)}</span>
-      </div>
-      <div class="pi-totals-row" style="font-weight:700;color:${rem>0.01?'#DC2626':'#059669'}">
-        <span>Balance Due</span>
-        <span>$${rem.toFixed(2)}</span>
-      </div>` : ''}
     </div>
     
+    <!-- Make payable + footer -->
     <div class="pi-footer">
-      <div class="pi-comments">
-        <b>OTHER COMMENTS</b>
-        ${inv.note ? esc(inv.note).replace(/\n/g,'<br>') : '—'}
-      </div>
-      <div class="pi-bank">
-        <b>PAYMENT DETAILS</b>
-        Make all payments payable to:<br>
-        <strong>${esc(co.name||'')}</strong><br><br>
-        ${co.bsb?`BSB: ${esc(co.bsb)}<br>`:''}
-        ${co.acc?`Account: ${esc(co.acc)}<br>`:''}
-        ${inv.invoiceNum?`Reference: ${esc(inv.invoiceNum)}`:''}
-      </div>
+      <div class="payable">Make all checks payable to</div>
+      <div class="payable-co">${esc(co.name||'K&M Tiling Bathurst PTY LTD')}</div>
     </div>
     
     <div class="pi-thanks">
       If you have any questions about this invoice, please contact<br>
-      ${co.contactPerson||'Kathleen'} · ${co.phone||''} · ${co.contactEmail||co.email||''}
+      ${esc(co.contactPerson||'Kathleen')}, ${esc(co.contactEmail||co.email||'accounts@knmtilingbathurst.com')}
       <div class="big">Thank You For Your Business!</div>
     </div>
   </div>`;
@@ -1739,7 +2004,10 @@ function renderBuilders() {
 }
 
 // ── Rate Sheet (extracted from 내수용 sheets, NEW + RENO) ────────────────────
-const RATE_SHEET = {"NEW":[{"cat":"Tiling","desc":"Lay Timber look Tiles / m²","rate":77.0},{"cat":"Tiling","desc":"Lay Tiles 300*300 or 300*600 or 450*450  / m²","rate":65.0},{"cat":"Tiling","desc":"Lay Subway Tiles / m²","rate":85.0},{"cat":"Tiling","desc":"Lay Tiles 150*150 or 200*200 / m²","rate":80.0},{"cat":"Tiling","desc":"Lay Tiles 200*600 or 150*600 / m²","rate":72.0},{"cat":"Tiling","desc":"Lay Tiles 600*600 or 400*600 / m²","rate":67.0},{"cat":"Tiling","desc":"Lay Tiles 450*900 / m²","rate":75.0},{"cat":"Tiling","desc":"Lay Tiles 100*100 / m² (시트가 아닐 경우)","rate":100.0},{"cat":"Travertine","desc":"Travertine 12mm thick stack bond","rate":90.0},{"cat":"Travertine","desc":"Travertine 12mm thick brick bond","rate":95.0},{"cat":"Travertine","desc":"Travertine 12mm thick French pattern","rate":115.0},{"cat":"Sealing","desc":"Sealer labour + materials","rate":35.0},{"cat":"Stone","desc":"Crazy paver tiling 20T","rate":150.0},{"cat":"Stone","desc":"Stone 30T stack bond","rate":130.0},{"cat":"Stone","desc":"stone 30T Brick bond","rate":150.0},{"cat":"Stone","desc":"Stone 30T french pattern","rate":170.0},{"cat":"Tiling","desc":"Tiling 600x1200x12T","rate":100.0},{"cat":"Tiling","desc":"Tiling 600x1200x20T","rate":134.0},{"cat":"Tiling","desc":"Lay Tiles_Hexagon 300*260 or 270*280 / m²","rate":80.0},{"cat":"Tiling","desc":"Extra) Brick Pattern / m²","rate":5.0},{"cat":"Tiling","desc":"Extra) Herringbone Pattern / m²","rate":20.0},{"cat":"Tactile","desc":"Lay Tactiles lin m","rate":80.0},{"cat":"Stair","desc":"Stair / lin m","rate":100.0},{"cat":"Riser","desc":"Riser Tiling / lin m","rate":40.0},{"cat":"Skirting","desc":"Fix Skirting Tiles/ lin m","rate":30.0},{"cat":"Skirting","desc":"Fix Coving tiles / lin m","rate":40.0},{"cat":"Coping","desc":"Pool coping tiling / Lin m","rate":50.0},{"cat":"Mosaic","desc":"Fix Mosaic Tiles / m² (300*300 sheet)","rate":95.0},{"cat":"Mosaic","desc":"Fix Medium- Large Piece Mosaic Tiles / m²","rate":100.0},{"cat":"Mosaic","desc":"Fix Small Piece Mosaic Tiles / m²","rate":110.0},{"cat":"Border","desc":"Fix border/Capping/Feature Strip Tiles / lin m","rate":50.0},{"cat":"Niche, Nib wall, Window","desc":"Shower/Bath Niche with Chrome square edge tile trim / ea Nib wall / Niche/ Window Tiling / ea","rate":140.0},{"cat":"Mitre","desc":"Tile Mitre (Silicone Finish) / lin m, inc. material","rate":160.0},{"cat":"Mitre","desc":"Tile Mitre (Resin Finish) / lin m, inc. material","rate":250.0},{"cat":"Threshold","desc":"Fix Tiles to Thresholds (inc riser&tread) / lin m","rate":80.0},{"cat":"Bath","desc":"Enclose sides of bath with masonry or Hebel ready for tiling. (Includes the Supply of aHebel)","rate":500.0},{"cat":"Waterproofing","desc":"Waterproofing / m²","rate":70.0},{"cat":"Waterproofing","desc":"Waterproofing / m² (3 coat)","rate":80.0},{"cat":"Waterproofing","desc":"Commercial Waterproofing Internal /m2","rate":65.0},{"cat":"Waterproofing","desc":"Commercial Waterproofing External /m2","rate":80.0},{"cat":"Screeding","desc":"Screeding(50mm thick) / m²","rate":90.0},{"cat":"Screeding","desc":"Screeding(60mm thick) / m²","rate":110.0},{"cat":"Screeding","desc":"Screeding(100mm thick) / m²","rate":130.0},{"cat":"Screeding","desc":"Screeding / m²","rate":65.0},{"cat":"Screeding","desc":"Screeding for vinyl flooring","rate":100.0},{"cat":"Screeding","desc":"Screeding (Commercial) up to 60mm thick/m2","rate":110.0},{"cat":"Silicone","desc":"Silicone_Internal / m² (inc.materials)","rate":9.0},{"cat":"Silicone","desc":"Silicone_External / m² (inc.materials)","rate":12.0},{"cat":"Strip drain","desc":"Install Strip Drain / ea","rate":50.0},{"cat":"Strip drain","desc":"Install Strip Drain (Commercial) LM","rate":30.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (300x600 & 1.5mm gap)","rate":45.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (300x300 & 1.5mm gap)","rate":60.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (200x200 & 1.5mm gap)","rate":75.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (100x300 & 1.5mm gap)","rate":70.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (100x200 & 1.5mm gap)","rate":90.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (100x100 & 1.5mm gap)","rate":110.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (600x600 & 3.0 mm gap)","rate":50.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (300x600 & 3.0 mm gap)","rate":60.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (300x300 & 3.0mm gap)","rate":70.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (200x200 & 3.0mm gap)","rate":85.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (100x100 & 100x200 & 3.0mm gap)","rate":130.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (Kitkat mosaic & 3.0mm gap)","rate":160.0},{"cat":"Epoxy","desc":"Coving tile","rate":80.0},{"cat":"Protection","desc":"Supply and install of Ramboard","rate":17.0},{"cat":"Supply angle","desc":"오리어스 L Mill-  (8,9,10, 11, 12mm)","rate":15.4},{"cat":"Supply angle","desc":"오리어스 L  BS, MS, WT, BL, MB --  (8,9,10, 11, 12mm)","rate":22.0},{"cat":"Supply angle","desc":"오리어스 L  MS, MB --  (15, 18, 22 mm)","rate":27.5},{"cat":"Supply angle","desc":"오리어스 스퀘어 BS- (11,12mm)","rate":38.5},{"cat":"Supply angle","desc":"DTA Square angle","rate":32.0},{"cat":"Supply angle","desc":"Solid 40x40x1.6","rate":35.0},{"cat":"Supply angle","desc":"Flat bar","rate":50.0},{"cat":"Supply waste","desc":"오리어스 Tile insert waste- chrome","rate":38.5},{"cat":"Supply waste","desc":"오리어스 Standard chrome waste","rate":22.0},{"cat":"Supply waste","desc":"오리어스  Clearout 101C","rate":33.0},{"cat":"Supply waste","desc":"Sedek 316 -Tile insert Chrome","rate":41.8},{"cat":"Supply waste","desc":"Sedek 316 -Tile insert Black","rate":47.3},{"cat":"Supply waste","desc":"Sedek 316 - Line chrome","rate":34.1},{"cat":"Supply waste","desc":"Sedek 316 - Line black","rate":49.5},{"cat":"Supply strip drain","desc":"Tile insert silver","rate":260.0},{"cat":"Supply strip drain","desc":"Tile insert Black","rate":273.0},{"cat":"Supply strip drain","desc":"Line grate silver","rate":245.0},{"cat":"Supply strip drain","desc":"Line grate black","rate":260.0},{"cat":"Supply strip drain","desc":"최소 단위 1m , 0.8 LM 시켜도 260불 ***","rate":NaN},{"cat":"Supply Glue","desc":"Promaxset 20kg","rate":37.0},{"cat":"Supply Glue","desc":"External glue","rate":45.0},{"cat":"Supply Glue","desc":"Kerapoxy adhesive 10kg","rate":300.0},{"cat":"Supply Grout","desc":"Ardex 20kg","rate":100.0},{"cat":"Supply Grout","desc":"Ardex 5kg","rate":45.0},{"cat":"Supply Grout","desc":"Ardex WJ50 20 kg","rate":100.0},{"cat":"Supply Grout","desc":"Ultracolor plus 5kg","rate":45.0},{"cat":"Supply Epoxy","desc":"Kerapoxy ez design 3kg","rate":165.0},{"cat":"Supply Epoxy","desc":"Kerapoxy cleaner (그라우트 한통당 1개)","rate":40.0},{"cat":"Supply sands","desc":"Sands & cements 0-25mm set down / m2","rate":15.4},{"cat":"Supply sands","desc":"Sands & cements 35 mm set down / m2","rate":23.0},{"cat":"Supply sands","desc":"Sands & cements 35 mm set down / m2- Dubbo Mudgee","rate":33.0},{"cat":"Supply sands","desc":"Sands & cements over 45mm set down / m2","rate":40.0},{"cat":"Supply sands","desc":"Sands & cements over 45mm set down / m2- Dubbo Mudgee","rate":50.0},{"cat":"Labour rate","desc":"Tiler / hr","rate":80.0},{"cat":"Labour rate","desc":"Labourer / hr","rate":60.0},{"cat":"Accomodation","desc":"per person per day","rate":250.0},{"cat":"Labour","desc":"Labour $ 60/hr  Trades: $80 per hour","rate":NaN}],"RENO":[{"cat":"Tiling","desc":"Lay Timber look Tiles / m²","rate":87.0},{"cat":"Tiling","desc":"Lay Tiles 300*300 or 300*600 or 450*450  / m²","rate":75.0},{"cat":"Tiling","desc":"Lay Subway Tiles / m²","rate":110.0},{"cat":"Tiling","desc":"Lay Tiles 100*100 / m²","rate":125.0},{"cat":"Tiling","desc":"Lay Subway Tiles 100*200 / m²","rate":115.0},{"cat":"Tiling","desc":"Lay Tiles 150*150 or 200*200 / m²","rate":90.0},{"cat":"Tiling","desc":"Lay Tiles 200*600 or 150*600 / m²","rate":82.0},{"cat":"Tiling","desc":"Lay Tiles 600*600 / m²","rate":77.0},{"cat":"Tiling","desc":"Lay Tiles 450*900 / m²","rate":80.0},{"cat":"Travertine","desc":"Travertine 12mm thick stack bond","rate":NaN},{"cat":"Travertine","desc":"Travertine 12mm thick brick bond","rate":NaN},{"cat":"Travertine","desc":"Travertine 12mm thick French pattern","rate":NaN},{"cat":"Sealing","desc":"Sealer labour + materials","rate":NaN},{"cat":"Stone","desc":"Stone tile glue supply","rate":NaN},{"cat":"Stone","desc":"Stone 30T stack bond","rate":NaN},{"cat":"Stone","desc":"stone 30T Brick bond","rate":NaN},{"cat":"Stone","desc":"Stone 30T french pattern","rate":NaN},{"cat":"Tiling","desc":"Tiling 600x1200x12T","rate":NaN},{"cat":"Tiling","desc":"Tiling 600x1200x20T","rate":NaN},{"cat":"Tiling","desc":"Lay Tiles_Hexagon 300*260 or 270*280 / m²","rate":85.0},{"cat":"Tiling","desc":"Extra) Brick Pattern / m²","rate":10.0},{"cat":"Tiling","desc":"Extra) Herringbone Pattern / m²","rate":25.0},{"cat":"Stair","desc":"Stair / lin m (300x600 기준, step 하고 라이저에 한장씩 붙는 기준)","rate":105.0},{"cat":"Stair","desc":"Stair / lin m (<300x300, 한장으로 안끝나는 경우)","rate":130.0},{"cat":"Skirting","desc":"Fix Skirting Tiles/ lin m","rate":30.0},{"cat":"Skirting","desc":"Fix Coving tiles / lin m","rate":40.0},{"cat":"Mosaic","desc":"Fix Mosaic Tiles / m² (300*300 sheet)","rate":100.0},{"cat":"Mosaic","desc":"Fix Medium- Large Piece Mosaic Tiles / m²","rate":110.0},{"cat":"Mosaic","desc":"Fix Small Piece Mosaic Tiles / m²","rate":120.0},{"cat":"Riser","desc":"Riser Tiling / Lin m","rate":40.0},{"cat":"Border","desc":"Fix border/Capping/Feature Strip Tiles / lin m","rate":55.0},{"cat":"Niche, Nib wall, Window","desc":"Shower/Bath Niche with Chrome square edge tile trim / ea","rate":140.0},{"cat":"Mitre","desc":"Tile mitre (grout/ silicone finish) / lin m","rate":160.0},{"cat":"Mitre","desc":"Tile mitre (resin finish) / lin m","rate":210.0},{"cat":"Bath","desc":"Enclose sides of bath with masonry or Hebel ready for tiling. (Includes the Supply of aHebel)","rate":500.0},{"cat":"Threshold","desc":"Fix Tiles to Thresholds (inc riser&tread) / lin m","rate":80.0},{"cat":"Waterproofing","desc":"Waterproofing / m²","rate":65.0},{"cat":"Waterproofing","desc":"Waterproofing / m² (3 coat)","rate":NaN},{"cat":"Waterproofing","desc":"Commercial Waterproofing Internal /m2","rate":NaN},{"cat":"Waterproofing","desc":"Commercial Waterproofing External /m2","rate":NaN},{"cat":"Screeding","desc":"Screeding(50mm thick) / m²","rate":100.0},{"cat":"Screeding","desc":"Screeding / m²","rate":80.0},{"cat":"Screeding","desc":"Screeding for vinyl flooring","rate":100.0},{"cat":"Screeding","desc":"Screeding (Commercial) up to 60mm thick/m2","rate":110.0},{"cat":"Screeding","desc":"Screeding / m² - upper level","rate":90.0},{"cat":"Silicone","desc":"Silicone_Internal / m² (inc.materials)","rate":9.0},{"cat":"Silicone","desc":"Silicone_External / m² (inc.materials)","rate":12.0},{"cat":"Strip drain","desc":"Install Strip Drain / ea","rate":50.0},{"cat":"Strip drain","desc":"Install Strip Drain (Commercial) LM (BLACONY ONLY)","rate":30.0},{"cat":"Rubbish","desc":"Tile Rubbish Removal per bathroom","rate":350.0},{"cat":"Supply angle","desc":"오리어스 L Mill-  (8,9,10, 11, 12mm)","rate":15.4},{"cat":"Supply angle","desc":"오리어스 L  BS, MS, WT, BL, MB --  (8,9,10, 11, 12mm)","rate":22.0},{"cat":"Supply angle","desc":"오리어스 L  MS, MB --  (15, 18, 22 mm)","rate":27.5},{"cat":"Supply angle","desc":"오리어스 스퀘어 BS- (11,12mm)","rate":38.5},{"cat":"Supply angle","desc":"DTA Square angle","rate":27.5},{"cat":"Supply angle","desc":"Solid 40x40x1.6","rate":35.0},{"cat":"Supply angle","desc":"Flat bar","rate":50.0},{"cat":"Supply waste","desc":"오리어스 Tile insert waste- chrome","rate":38.5},{"cat":"Supply waste","desc":"오리어스 Standard chrome waste","rate":22.0},{"cat":"Supply waste","desc":"오리어스  Clearout 101C","rate":33.0},{"cat":"Supply waste","desc":"Sedek 316 -Tile insert Chrome","rate":41.8},{"cat":"Supply waste","desc":"Sedek 316 -Tile insert Black","rate":47.3},{"cat":"Supply waste","desc":"Sedek 316 - Line chrome","rate":34.1},{"cat":"Supply waste","desc":"Sedek 316 - Line black","rate":49.5},{"cat":"Supply strip drain","desc":"Tile insert silver","rate":260.0},{"cat":"Supply strip drain","desc":"Tile insert Black","rate":273.0},{"cat":"Supply strip drain","desc":"Line grate silver","rate":245.0},{"cat":"Supply strip drain","desc":"Line grate black","rate":260.0},{"cat":"Supply strip drain","desc":"최소 단위 1m , 0.8 LM 시켜도 260불 ***","rate":NaN},{"cat":"Supply Glue","desc":"Promaxset 20kg","rate":37.0},{"cat":"Supply Glue","desc":"External glue","rate":45.0},{"cat":"Supply Grout","desc":"Ardex 20kg","rate":100.0},{"cat":"Supply Grout","desc":"Ardex 5kg","rate":45.0},{"cat":"Supply Epoxy","desc":"Kerapoxy ez design 3kg","rate":165.0},{"cat":"Supply Epoxy","desc":"Kerapoxy cleaner (그라우트 한통당 1개)","rate":40.0},{"cat":"Supply sands","desc":"Sands & cements 0-25mm set down / m2","rate":15.4},{"cat":"Supply sands","desc":"Sands & cements 35 mm set down / m2","rate":23.0},{"cat":"Supply sands","desc":"Sands & cements 35 mm set down / m2- Dubbo Mudgee","rate":33.0},{"cat":"Supply sands","desc":"Sands & cements over 45mm set down / m2","rate":40.0},{"cat":"Supply sands","desc":"Sands & cements over 45mm set down / m2- Dubbo Mudgee","rate":50.0},{"cat":"Labour rate","desc":"Tiler / hr","rate":80.0},{"cat":"Labour rate","desc":"Labourer / hr","rate":60.0},{"cat":"Accomodation","desc":"per person per day","rate":250.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (300x600 & 1.5mm gap)","rate":45.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (300x300 & 1.5mm gap)","rate":60.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (200x200 & 1.5mm gap)","rate":75.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (100x300 & 1.5mm gap)","rate":70.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (100x200 & 1.5mm gap)","rate":90.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (100x100 & 1.5mm gap)","rate":110.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (300x600 & 3.0 mm gap)","rate":60.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (300x300 & 3.0mm gap)","rate":70.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (200x200 & 3.0mm gap)","rate":85.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (100x100 & 3.0mm gap)","rate":130.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (Kitkat mosaic & 3.0mm gap)","rate":160.0}]};
+const RATE_SHEET = {"NEW":[{"cat":"Tiling","desc":"Lay Timber look Tiles / m²","rate":77.0},{"cat":"Tiling","desc":"Lay Tiles 300x300  / m²","rate":65.0},{"cat":"Tiling","desc":"Lay Tiles 300x600  / m²","rate":65.0},{"cat":"Tiling","desc":"Lay Tiles 450x450  / m²","rate":65.0},{"cat":"Tiling","desc":"Lay Subway Tiles / m²","rate":85.0},{"cat":"Tiling","desc":"Lay Tiles 150x150 / m²","rate":80.0},{"cat":"Tiling","desc":"Lay Tiles 200x200 / m²","rate":80.0},{"cat":"Tiling","desc":"Lay Tiles 200x600 / m²","rate":72.0},{"cat":"Tiling","desc":"Lay Tiles 150x600 / m²","rate":72.0},{"cat":"Tiling","desc":"Lay Tiles 600x600 / m²","rate":67.0},{"cat":"Tiling","desc":"Lay Tiles 400x600 / m²","rate":67.0},{"cat":"Tiling","desc":"Lay Tiles 450x900 / m²","rate":75.0},{"cat":"Tiling","desc":"Lay Tiles 100x100 / m² (시트가 아닐 경우)","rate":100.0},{"cat":"Travertine","desc":"Travertine 12mm thick stack bond","rate":90.0},{"cat":"Travertine","desc":"Travertine 12mm thick brick bond","rate":95.0},{"cat":"Travertine","desc":"Travertine 12mm thick French pattern","rate":115.0},{"cat":"Sealing","desc":"Sealer labour + materials","rate":35.0},{"cat":"Stone","desc":"Crazy paver tiling 20T","rate":150.0},{"cat":"Stone","desc":"Stone 30T stack bond","rate":130.0},{"cat":"Stone","desc":"stone 30T Brick bond","rate":150.0},{"cat":"Stone","desc":"Stone 30T french pattern","rate":170.0},{"cat":"Tiling","desc":"Tiling 600x1200x12T","rate":100.0},{"cat":"Tiling","desc":"Tiling 600x1200x20T","rate":134.0},{"cat":"Tiling","desc":"Lay Tiles_Hexagon 300x260 / m²","rate":80.0},{"cat":"Tiling","desc":"Lay Tiles_Hexagon 270x280 / m²","rate":80.0},{"cat":"Tiling","desc":"Extra) Brick Pattern / m²","rate":5.0},{"cat":"Tiling","desc":"Extra) Herringbone Pattern / m²","rate":20.0},{"cat":"Tactile","desc":"Lay Tactiles lin m","rate":80.0},{"cat":"Stair","desc":"Stair / lin m","rate":100.0},{"cat":"Riser","desc":"Riser Tiling / lin m","rate":40.0},{"cat":"Skirting","desc":"Fix Skirting Tiles/ lin m","rate":30.0},{"cat":"Skirting","desc":"Fix Coving tiles / lin m","rate":40.0},{"cat":"Coping","desc":"Pool coping tiling / Lin m","rate":50.0},{"cat":"Mosaic","desc":"Fix Mosaic Tiles / m² (300x300 sheet)","rate":95.0},{"cat":"Mosaic","desc":"Fix Medium- Large Piece Mosaic Tiles / m²","rate":100.0},{"cat":"Mosaic","desc":"Fix Small Piece Mosaic Tiles / m²","rate":110.0},{"cat":"Border","desc":"Fix border/Capping/Feature Strip Tiles / lin m","rate":50.0},{"cat":"Niche, Nib wall, Window","desc":"Shower/Bath Niche with Chrome square edge tile trim / ea Nib wall / Niche/ Window Tiling / ea","rate":140.0},{"cat":"Mitre","desc":"Tile Mitre (Silicone Finish) / lin m, inc. material","rate":160.0},{"cat":"Mitre","desc":"Tile Mitre (Resin Finish) / lin m, inc. material","rate":250.0},{"cat":"Threshold","desc":"Fix Tiles to Thresholds (inc riser&tread) / lin m","rate":80.0},{"cat":"Bath","desc":"Enclose sides of bath with masonry or Hebel ready for tiling. (Includes the Supply of aHebel)","rate":500.0},{"cat":"Waterproofing","desc":"Waterproofing / m²","rate":70.0},{"cat":"Waterproofing","desc":"Waterproofing / m² (3 coat)","rate":80.0},{"cat":"Waterproofing","desc":"Commercial Waterproofing Internal /m2","rate":65.0},{"cat":"Waterproofing","desc":"Commercial Waterproofing External /m2","rate":80.0},{"cat":"Screeding","desc":"Screeding(50mm thick) / m²","rate":90.0},{"cat":"Screeding","desc":"Screeding(60mm thick) / m²","rate":110.0},{"cat":"Screeding","desc":"Screeding(100mm thick) / m²","rate":130.0},{"cat":"Screeding","desc":"Screeding / m²","rate":65.0},{"cat":"Screeding","desc":"Screeding for vinyl flooring","rate":100.0},{"cat":"Screeding","desc":"Screeding (Commercial) up to 60mm thick/m2","rate":110.0},{"cat":"Silicone","desc":"Silicone_Internal / m² (inc.materials)","rate":9.0},{"cat":"Silicone","desc":"Silicone_External / m² (inc.materials)","rate":12.0},{"cat":"Strip drain","desc":"Install Strip Drain / ea","rate":50.0},{"cat":"Strip drain","desc":"Install Strip Drain (Commercial) LM","rate":30.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (300x600 & 1.5mm gap)","rate":45.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (300x300 & 1.5mm gap)","rate":60.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (200x200 & 1.5mm gap)","rate":75.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (100x300 & 1.5mm gap)","rate":70.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (100x200 & 1.5mm gap)","rate":90.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (100x100 & 1.5mm gap)","rate":110.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (600x600 & 3.0 mm gap)","rate":50.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (300x600 & 3.0 mm gap)","rate":60.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (300x300 & 3.0mm gap)","rate":70.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (200x200 & 3.0mm gap)","rate":85.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (100x100 & 100x200 & 3.0mm gap)","rate":130.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (Kitkat mosaic & 3.0mm gap)","rate":160.0},{"cat":"Epoxy","desc":"Coving tile","rate":80.0},{"cat":"Protection","desc":"Supply and install of Ramboard","rate":17.0},{"cat":"Supply angle","desc":"오리어스 L Mill-  (8,9,10, 11, 12mm)","rate":15.4},{"cat":"Supply angle","desc":"오리어스 L  BS, MS, WT, BL, MB --  (8,9,10, 11, 12mm)","rate":22.0},{"cat":"Supply angle","desc":"오리어스 L  MS, MB --  (15, 18, 22 mm)","rate":27.5},{"cat":"Supply angle","desc":"오리어스 스퀘어 BS- (11,12mm)","rate":38.5},{"cat":"Supply angle","desc":"DTA Square angle","rate":32.0},{"cat":"Supply angle","desc":"Solid 40x40x1.6","rate":35.0},{"cat":"Supply angle","desc":"Flat bar","rate":50.0},{"cat":"Supply waste","desc":"오리어스 Tile insert waste- chrome","rate":38.5},{"cat":"Supply waste","desc":"오리어스 Standard chrome waste","rate":22.0},{"cat":"Supply waste","desc":"오리어스  Clearout 101C","rate":33.0},{"cat":"Supply waste","desc":"Sedek 316 -Tile insert Chrome","rate":41.8},{"cat":"Supply waste","desc":"Sedek 316 -Tile insert Black","rate":47.3},{"cat":"Supply waste","desc":"Sedek 316 - Line chrome","rate":34.1},{"cat":"Supply waste","desc":"Sedek 316 - Line black","rate":49.5},{"cat":"Supply strip drain","desc":"Tile insert silver","rate":260.0},{"cat":"Supply strip drain","desc":"Tile insert Black","rate":273.0},{"cat":"Supply strip drain","desc":"Line grate silver","rate":245.0},{"cat":"Supply strip drain","desc":"Line grate black","rate":260.0},{"cat":"Supply strip drain","desc":"최소 단위 1m , 0.8 LM 시켜도 260불 xxx","rate":NaN},{"cat":"Supply Glue","desc":"Promaxset 20kg","rate":37.0},{"cat":"Supply Glue","desc":"External glue","rate":45.0},{"cat":"Supply Glue","desc":"Kerapoxy adhesive 10kg","rate":300.0},{"cat":"Supply Grout","desc":"Ardex 20kg","rate":100.0},{"cat":"Supply Grout","desc":"Ardex 5kg","rate":45.0},{"cat":"Supply Grout","desc":"Ardex WJ50 20 kg","rate":100.0},{"cat":"Supply Grout","desc":"Ultracolor plus 5kg","rate":45.0},{"cat":"Supply Epoxy","desc":"Kerapoxy ez design 3kg","rate":165.0},{"cat":"Supply Epoxy","desc":"Kerapoxy cleaner (그라우트 한통당 1개)","rate":40.0},{"cat":"Supply sands","desc":"Sands & cements 0-25mm set down / m2","rate":15.4},{"cat":"Supply sands","desc":"Sands & cements 35 mm set down / m2","rate":23.0},{"cat":"Supply sands","desc":"Sands & cements 35 mm set down / m2- Dubbo Mudgee","rate":33.0},{"cat":"Supply sands","desc":"Sands & cements over 45mm set down / m2","rate":40.0},{"cat":"Supply sands","desc":"Sands & cements over 45mm set down / m2- Dubbo Mudgee","rate":50.0},{"cat":"Labour rate","desc":"Tiler / hr","rate":80.0},{"cat":"Labour rate","desc":"Labourer / hr","rate":60.0},{"cat":"Accomodation","desc":"per person per day","rate":250.0},{"cat":"Labour","desc":"Labour $ 60/hr  Trades: $80 per hour","rate":NaN}],"RENO":[{"cat":"Tiling","desc":"Lay Timber look Tiles / m²","rate":87.0},{"cat":"Tiling","desc":"Lay Tiles 300x300  / m²","rate":75.0},{"cat":"Tiling","desc":"Lay Tiles 300x600  / m²","rate":75.0},{"cat":"Tiling","desc":"Lay Tiles 450x450  / m²","rate":75.0},{"cat":"Tiling","desc":"Lay Subway Tiles / m²","rate":110.0},{"cat":"Tiling","desc":"Lay Tiles 100x100 / m²","rate":125.0},{"cat":"Tiling","desc":"Lay Subway Tiles 100x200 / m²","rate":115.0},{"cat":"Tiling","desc":"Lay Tiles 150x150 / m²","rate":90.0},{"cat":"Tiling","desc":"Lay Tiles 200x200 / m²","rate":90.0},{"cat":"Tiling","desc":"Lay Tiles 200x600 / m²","rate":82.0},{"cat":"Tiling","desc":"Lay Tiles 150x600 / m²","rate":82.0},{"cat":"Tiling","desc":"Lay Tiles 600x600 / m²","rate":77.0},{"cat":"Tiling","desc":"Lay Tiles 450x900 / m²","rate":80.0},{"cat":"Travertine","desc":"Travertine 12mm thick stack bond","rate":NaN},{"cat":"Travertine","desc":"Travertine 12mm thick brick bond","rate":NaN},{"cat":"Travertine","desc":"Travertine 12mm thick French pattern","rate":NaN},{"cat":"Sealing","desc":"Sealer labour + materials","rate":NaN},{"cat":"Stone","desc":"Stone tile glue supply","rate":NaN},{"cat":"Stone","desc":"Stone 30T stack bond","rate":NaN},{"cat":"Stone","desc":"stone 30T Brick bond","rate":NaN},{"cat":"Stone","desc":"Stone 30T french pattern","rate":NaN},{"cat":"Tiling","desc":"Tiling 600x1200x12T","rate":NaN},{"cat":"Tiling","desc":"Tiling 600x1200x20T","rate":NaN},{"cat":"Tiling","desc":"Lay Tiles_Hexagon 300x260 / m²","rate":85.0},{"cat":"Tiling","desc":"Lay Tiles_Hexagon 270x280 / m²","rate":85.0},{"cat":"Tiling","desc":"Extra) Brick Pattern / m²","rate":10.0},{"cat":"Tiling","desc":"Extra) Herringbone Pattern / m²","rate":25.0},{"cat":"Stair","desc":"Stair / lin m (300x600 기준, step 하고 라이저에 한장씩 붙는 기준)","rate":105.0},{"cat":"Stair","desc":"Stair / lin m (<300x300, 한장으로 안끝나는 경우)","rate":130.0},{"cat":"Skirting","desc":"Fix Skirting Tiles/ lin m","rate":30.0},{"cat":"Skirting","desc":"Fix Coving tiles / lin m","rate":40.0},{"cat":"Mosaic","desc":"Fix Mosaic Tiles / m² (300x300 sheet)","rate":100.0},{"cat":"Mosaic","desc":"Fix Medium- Large Piece Mosaic Tiles / m²","rate":110.0},{"cat":"Mosaic","desc":"Fix Small Piece Mosaic Tiles / m²","rate":120.0},{"cat":"Riser","desc":"Riser Tiling / Lin m","rate":40.0},{"cat":"Border","desc":"Fix border/Capping/Feature Strip Tiles / lin m","rate":55.0},{"cat":"Niche, Nib wall, Window","desc":"Shower/Bath Niche with Chrome square edge tile trim / ea","rate":140.0},{"cat":"Mitre","desc":"Tile mitre (grout/ silicone finish) / lin m","rate":160.0},{"cat":"Mitre","desc":"Tile mitre (resin finish) / lin m","rate":210.0},{"cat":"Bath","desc":"Enclose sides of bath with masonry or Hebel ready for tiling. (Includes the Supply of aHebel)","rate":500.0},{"cat":"Threshold","desc":"Fix Tiles to Thresholds (inc riser&tread) / lin m","rate":80.0},{"cat":"Waterproofing","desc":"Waterproofing / m²","rate":65.0},{"cat":"Waterproofing","desc":"Waterproofing / m² (3 coat)","rate":NaN},{"cat":"Waterproofing","desc":"Commercial Waterproofing Internal /m2","rate":NaN},{"cat":"Waterproofing","desc":"Commercial Waterproofing External /m2","rate":NaN},{"cat":"Screeding","desc":"Screeding(50mm thick) / m²","rate":100.0},{"cat":"Screeding","desc":"Screeding / m²","rate":80.0},{"cat":"Screeding","desc":"Screeding for vinyl flooring","rate":100.0},{"cat":"Screeding","desc":"Screeding (Commercial) up to 60mm thick/m2","rate":110.0},{"cat":"Screeding","desc":"Screeding / m² - upper level","rate":90.0},{"cat":"Silicone","desc":"Silicone_Internal / m² (inc.materials)","rate":9.0},{"cat":"Silicone","desc":"Silicone_External / m² (inc.materials)","rate":12.0},{"cat":"Strip drain","desc":"Install Strip Drain / ea","rate":50.0},{"cat":"Strip drain","desc":"Install Strip Drain (Commercial) LM (BLACONY ONLY)","rate":30.0},{"cat":"Rubbish","desc":"Tile Rubbish Removal per bathroom","rate":350.0},{"cat":"Supply angle","desc":"오리어스 L Mill-  (8,9,10, 11, 12mm)","rate":15.4},{"cat":"Supply angle","desc":"오리어스 L  BS, MS, WT, BL, MB --  (8,9,10, 11, 12mm)","rate":22.0},{"cat":"Supply angle","desc":"오리어스 L  MS, MB --  (15, 18, 22 mm)","rate":27.5},{"cat":"Supply angle","desc":"오리어스 스퀘어 BS- (11,12mm)","rate":38.5},{"cat":"Supply angle","desc":"DTA Square angle","rate":27.5},{"cat":"Supply angle","desc":"Solid 40x40x1.6","rate":35.0},{"cat":"Supply angle","desc":"Flat bar","rate":50.0},{"cat":"Supply waste","desc":"오리어스 Tile insert waste- chrome","rate":38.5},{"cat":"Supply waste","desc":"오리어스 Standard chrome waste","rate":22.0},{"cat":"Supply waste","desc":"오리어스  Clearout 101C","rate":33.0},{"cat":"Supply waste","desc":"Sedek 316 -Tile insert Chrome","rate":41.8},{"cat":"Supply waste","desc":"Sedek 316 -Tile insert Black","rate":47.3},{"cat":"Supply waste","desc":"Sedek 316 - Line chrome","rate":34.1},{"cat":"Supply waste","desc":"Sedek 316 - Line black","rate":49.5},{"cat":"Supply strip drain","desc":"Tile insert silver","rate":260.0},{"cat":"Supply strip drain","desc":"Tile insert Black","rate":273.0},{"cat":"Supply strip drain","desc":"Line grate silver","rate":245.0},{"cat":"Supply strip drain","desc":"Line grate black","rate":260.0},{"cat":"Supply strip drain","desc":"최소 단위 1m , 0.8 LM 시켜도 260불 xxx","rate":NaN},{"cat":"Supply Glue","desc":"Promaxset 20kg","rate":37.0},{"cat":"Supply Glue","desc":"External glue","rate":45.0},{"cat":"Supply Grout","desc":"Ardex 20kg","rate":100.0},{"cat":"Supply Grout","desc":"Ardex 5kg","rate":45.0},{"cat":"Supply Epoxy","desc":"Kerapoxy ez design 3kg","rate":165.0},{"cat":"Supply Epoxy","desc":"Kerapoxy cleaner (그라우트 한통당 1개)","rate":40.0},{"cat":"Supply sands","desc":"Sands & cements 0-25mm set down / m2","rate":15.4},{"cat":"Supply sands","desc":"Sands & cements 35 mm set down / m2","rate":23.0},{"cat":"Supply sands","desc":"Sands & cements 35 mm set down / m2- Dubbo Mudgee","rate":33.0},{"cat":"Supply sands","desc":"Sands & cements over 45mm set down / m2","rate":40.0},{"cat":"Supply sands","desc":"Sands & cements over 45mm set down / m2- Dubbo Mudgee","rate":50.0},{"cat":"Labour rate","desc":"Tiler / hr","rate":80.0},{"cat":"Labour rate","desc":"Labourer / hr","rate":60.0},{"cat":"Accomodation","desc":"per person per day","rate":250.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (300x600 & 1.5mm gap)","rate":45.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (300x300 & 1.5mm gap)","rate":60.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (200x200 & 1.5mm gap)","rate":75.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (100x300 & 1.5mm gap)","rate":70.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (100x200 & 1.5mm gap)","rate":90.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (100x100 & 1.5mm gap)","rate":110.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (300x600 & 3.0 mm gap)","rate":60.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (300x300 & 3.0mm gap)","rate":70.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (200x200 & 3.0mm gap)","rate":85.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (100x100 & 3.0mm gap)","rate":130.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (Kitkat mosaic & 3.0mm gap)","rate":160.0}]};
+
+// ── Embedded K&M Logo (transparent background, base64) ──────────────────────
+const LOGO_DATA_URL = 'data:image/png;base64,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';
 
 // ── Builder Bulk Import (K&M Tiling builder list) ─────────────────────────────
 const BUILDER_SEED = [
@@ -2175,11 +2443,14 @@ function renderStats() {
   const out = invoices.filter(i => i.status==='INVOICE' || i.status==='ONGOING').reduce((s,i)=>s+Math.max(0,remaining(i)),0);
   const ov = invoices.filter(isOverdue).reduce((s,i)=>s+Math.max(0,remaining(i)),0);
   const ret = invoices.filter(i=>i.status==='RETENTION').reduce((s,i)=>s+Math.max(0,remaining(i)),0);
-  const pd = invoices.reduce((s,i)=>s+totalPaid(i),0);
-  const mo = invoices.filter(i=>(i.invoiceDate||'').startsWith(today.slice(0,7))).reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
+  const pd = invoices.filter(i=>i.status!=='DRAFT').reduce((s,i)=>s+totalPaid(i),0);
+  const mo = invoices.filter(i=>i.status!=='DRAFT' && (i.invoiceDate||'').startsWith(today.slice(0,7))).reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
+  const drafts = invoices.filter(i=>i.status==='DRAFT');
+  const draftCount = drafts.length;
+  const draftAmt = drafts.reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
 
   const bs = {};
-  invoices.forEach(i => {
+  invoices.filter(i=>i.status!=='DRAFT').forEach(i => {
     const b = i.builderName||'기타';
     if (!bs[b]) bs[b] = {total:0,paid:0,outstanding:0,count:0};
     bs[b].count++; bs[b].total += parseFloat(i.amount)||0;
@@ -2188,8 +2459,8 @@ function renderStats() {
   });
 
   const monthly = {};
-  invoices.forEach(i => { const m=(i.invoiceDate||'').slice(0,7); if(m){monthly[m]=(monthly[m]||0)+(parseFloat(i.amount)||0);} });
-  const sortedM = Object.entries(monthly).sort((a,b)=>a[0].localeCompare(b[0])).slice(-12); // last 12 months chronologically
+  invoices.filter(i=>i.status!=='DRAFT').forEach(i => { const m=(i.invoiceDate||'').slice(0,7); if(m){monthly[m]=(monthly[m]||0)+(parseFloat(i.amount)||0);} });
+  const sortedM = Object.entries(monthly).sort((a,b)=>a[0].localeCompare(b[0])).slice(-12);
   const maxM = Math.max(1, ...sortedM.map(([_,v])=>v));
 
   // Top 8 builders by total
@@ -2204,6 +2475,11 @@ function renderStats() {
         <div style="font-size:17px;font-weight:800;color:${c}">${fA(v)}</div>
         <div style="font-size:10px;color:var(--text-4);margin-top:2px">${fAex(v)} ex</div>
       </div>`).join('')}
+    ${draftCount > 0 ? `<div class="stat-card" style="border-top:3px dashed #DC2626;cursor:pointer" onclick="curFilter='DRAFT';showTab('invoices');renderInv()" title="DRAFT 인보이스 보기">
+      <div style="font-size:11px;color:var(--text-3);margin-bottom:4px">📝 임시저장</div>
+      <div style="font-size:17px;font-weight:800;color:#DC2626">${draftCount}건</div>
+      <div style="font-size:10px;color:var(--text-4);margin-top:2px">${fA(draftAmt)}</div>
+    </div>` : ''}
   </div>
   
   <!-- Monthly Bar Chart -->
