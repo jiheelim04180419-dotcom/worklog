@@ -130,6 +130,9 @@ body{background:var(--bg);color:var(--text);min-height:100vh;transition:backgrou
 .type-toggle{display:flex;gap:8px;margin-bottom:14px}
 .bar-wrap{height:6px;background:#F3F4F6;border-radius:3px;overflow:hidden;margin:4px 0}
 .bar-fill{height:100%;border-radius:3px}
+.btn-build{background:transparent;color:var(--text-3);transition:all .15s}
+.btn-build.active{background:#fff;color:#4F46E5;box-shadow:0 1px 3px rgba(0,0,0,0.1)}
+body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
 
 /* ─────────────────────────────────────────────────────────────────────────
    PRINT INVOICE (forced light theme for printing)
@@ -324,9 +327,16 @@ body{background:var(--bg);color:var(--text);min-height:100vh;transition:backgrou
 <div class="modal" id="inv-modal">
 <div class="mbox">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
-    <h3 id="im-title" style="font-size:16px;font-weight:800;color:#111827">새 인보이스</h3>
+    <h3 id="im-title" style="font-size:16px;font-weight:800;color:var(--text)">새 인보이스</h3>
     <button onclick="closeIM()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#9CA3AF">×</button>
   </div>
+  
+  <!-- NEW / RENO toggle (Q1 A안) -->
+  <div style="display:flex;gap:8px;margin-bottom:14px;background:var(--card-bg-alt);padding:6px;border-radius:10px">
+    <button class="btn-build" id="bt-NEW" onclick="setBuildType('NEW')" style="flex:1;padding:10px;border-radius:7px;border:none;cursor:pointer;font-weight:700;font-family:inherit;font-size:13px">🏗️ NEW 새 건물</button>
+    <button class="btn-build" id="bt-RENO" onclick="setBuildType('RENO')" style="flex:1;padding:10px;border-radius:7px;border:none;cursor:pointer;font-weight:700;font-family:inherit;font-size:13px">🔨 RENO 리노베이션</button>
+  </div>
+  
   <div class="type-toggle">
     <button class="ttp active" id="tt-normal" onclick="setType('NORMAL')">일반</button>
     <button class="ttp" id="tt-po" onclick="setType('PO')">PO 기반</button>
@@ -348,27 +358,25 @@ body{background:var(--bg);color:var(--text);min-height:100vh;transition:backgrou
     <div><label class="label">인보이스 날짜</label><input type="date" class="input" id="f-id"/></div>
   </div>
   <div class="mb"><label class="label">만기일</label><input type="date" class="input" id="f-dd"/></div>
-  <div id="f-amt-row" class="mb">
-    <label class="label">금액 *</label>
+  
+  <!-- LINE ITEMS (New rate sheet-based system) -->
+  <div class="mb" style="background:var(--card-bg-alt);border:1px solid var(--border);border-radius:10px;padding:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <label class="label" style="margin:0">📋 작업 항목</label>
+      <div style="display:flex;gap:6px">
+        <button class="btn-secondary" style="padding:5px 10px;font-size:12px" onclick="toggleLegacyAmount()" id="toggle-legacy-btn">💵 단순 금액으로</button>
+        <button class="btn-gold" style="padding:5px 10px;font-size:12px" onclick="addLineItem()">+ 항목 추가</button>
+      </div>
+    </div>
+    <div id="line-items-list"></div>
+    <div id="line-items-total" style="margin-top:8px;padding:10px;background:var(--card-bg);border-radius:8px;font-size:13px;display:none"></div>
+  </div>
+  
+  <!-- Legacy simple amount (for backward compat or when no line items) -->
+  <div id="f-amt-row" class="mb" style="display:none">
+    <label class="label">금액 (라인 아이템 없을 때만) *</label>
     <input type="number" step="0.01" class="input" id="f-am" placeholder="0.00 (inc.GST)" oninput="updPayInfo()"/>
-    <div id="f-gst-info" style="font-size:11px;color:#9CA3AF;margin-top:4px"></div>
-  </div>
-  <div id="f-items-row" class="mb" style="display:none">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-      <label class="label" style="margin:0">PO 항목</label>
-      <button class="btn-gold" style="padding:5px 10px;font-size:12px" onclick="addItem()">+ 항목추가</button>
-    </div>
-    <div id="items-list"></div>
-    <div id="items-total" style="text-align:right;font-size:14px;font-weight:700;padding:6px 0;color:#4F46E5"></div>
-  </div>
-  <div id="f-prog-row" class="mb" style="display:none">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-      <label class="label" style="margin:0">진행 항목 (이번 청구분만 금액 입력)</label>
-      <button class="btn-gold" style="padding:5px 10px;font-size:12px" onclick="addProg()">+ 항목추가</button>
-    </div>
-    <div style="font-size:11px;color:#9CA3AF;margin-bottom:8px">💡 완료%는 누적, 이번 금액은 이번 회차에 청구할 금액</div>
-    <div id="prog-list"></div>
-    <div id="prog-total" style="text-align:right;font-size:14px;font-weight:700;padding:6px 0;color:#F59E0B"></div>
+    <div id="f-gst-info" style="font-size:11px;color:var(--text-4);margin-top:4px"></div>
   </div>
   
   <!-- Payments -->
@@ -404,6 +412,20 @@ body{background:var(--bg);color:var(--text);min-height:100vh;transition:backgrou
   <div class="mb"><label class="label">Business Address</label><input class="input" id="bf-ba" placeholder="사업장 주소"/></div>
   <div class="mb"><label class="label">Postal Address</label><input class="input" id="bf-pa" placeholder="우편 주소"/></div>
   <div class="mb"><label class="label">ABN</label><input class="input" id="bf-a" placeholder="ABN"/></div>
+  
+  <!-- Custom Rates (Q4) -->
+  <div class="mb" style="background:var(--card-bg-alt);border:1px solid var(--border);border-radius:10px;padding:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <label class="label" style="margin:0">⭐ 빌더별 커스텀 단가 (선택)</label>
+      <button class="btn-secondary" style="padding:4px 10px;font-size:11px" onclick="toggleCustomRates()" id="cr-toggle-btn">▼ 펼치기</button>
+    </div>
+    <div id="custom-rates-panel" style="display:none">
+      <div style="font-size:11px;color:var(--text-3);margin-bottom:8px">이 빌더에게 특별한 단가를 적용할 항목을 추가하세요. 인보이스 작성 시 자동 적용됩니다.</div>
+      <div id="custom-rates-list"></div>
+      <button class="btn-secondary" style="padding:6px 10px;font-size:12px;margin-top:6px;width:100%" onclick="addCustomRate()">+ 커스텀 단가 추가</button>
+    </div>
+  </div>
+  
   <div class="row2" style="gap:10px"><button class="btn-secondary" style="flex:1" onclick="closeBM()">취소</button><button class="btn-primary" style="flex:2" onclick="saveBuilder()">💾 저장</button></div>
 </div>
 </div>
@@ -481,6 +503,9 @@ async function fbDel(path) {
 
 // ── State ─────────────────────────────────────────────────────────────────────
 let invoices = [], builders = [], companies = [], curFilter = 'INVOICE', curType = 'NORMAL', editId = null, editBId = null, invItems = [], progItems = [], invPayments = [];
+let lineItems = []; // New rate-sheet-based line items
+let curBuildType = 'NEW'; // NEW or RENO
+let useLegacyAmount = false; // Use simple amount field instead of line items
 const today = new Date().toISOString().split('T')[0];
 const fA = n => new Intl.NumberFormat('en-AU',{style:'currency',currency:'AUD'}).format(n||0);
 const fD = d => d ? new Date(d+'T00:00:00').toLocaleDateString('en-AU',{day:'2-digit',month:'short',year:'numeric'}) : '—';
@@ -762,7 +787,9 @@ function renderInv() {
           || (i.invoiceNum||'').toLowerCase().includes(q)
           || (i.projectName||'').toLowerCase().includes(q)
           || (i.note||'').toLowerCase().includes(q)
-          || (i.poNumber||'').toLowerCase().includes(q);
+          || (i.poNumber||'').toLowerCase().includes(q)
+          || (i.invoiceDate||'').includes(q)
+          || (i.startDate||'').includes(q);
     }
     return true;
   }).sort((a,b) => {
@@ -909,8 +936,29 @@ function buildDetailHTML(inv) {
     ${inv.startDate?`<div style="font-size:11px;color:#9CA3AF;margin-top:4px">🚀 Start: ${fD(inv.startDate)}${inv.dueDate?`  ⏰ Due: ${fD(inv.dueDate)}`:''}</div>`:''}
     ${inv.poNumber?`<div style="font-size:12px;color:#7C3AED;margin-top:4px">PO #${esc(inv.poNumber)}</div>`:''}
     ${inv.note?`<div style="font-size:12px;color:#555;margin-top:8px;white-space:pre-wrap">📝 ${esc(inv.note)}</div>`:''}
-    ${inv.type==='PO'&&inv.items?(Array.isArray(inv.items)?inv.items:Object.values(inv.items)).map(it=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;color:#555;margin-top:4px"><span>${esc(it.desc)}</span><span style="font-weight:700">${fA(it.amount)}</span></div>`).join(''):''}
-    ${inv.type==='PROGRESS'&&inv.progressItems?(Array.isArray(inv.progressItems)?inv.progressItems:Object.values(inv.progressItems)).map(it=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;color:#555;gap:8px;margin-top:4px"><span style="flex:1">${esc(it.desc)}${it.pct?` <span style="color:#92400E;font-weight:700">(${esc(String(it.pct))}%)</span>`:''}</span><span style="font-weight:700">${parseFloat(it.amount)>0?fA(it.amount):'—'}</span></div>`).join(''):''}
+    ${inv.lineItems && Object.keys(inv.lineItems).length ? (() => {
+      const items = Array.isArray(inv.lineItems) ? inv.lineItems : Object.values(inv.lineItems);
+      if (!items.length) return '';
+      const bt = inv.buildType || 'NEW';
+      let h = `<div style="margin-top:10px;padding-top:8px;border-top:1px dashed var(--border-2)">
+        <div style="font-size:10px;color:var(--text-4);font-weight:700;margin-bottom:6px">📋 작업 항목 <span style="background:${bt==='NEW'?'#DBEAFE':'#FEF3C7'};color:${bt==='NEW'?'#1E40AF':'#92400E'};padding:1px 6px;border-radius:4px;margin-left:4px">${bt}</span></div>`;
+      items.forEach((it,i) => {
+        const lineEx = (parseFloat(it.qty)||0) * (parseFloat(it.unitPrice)||0);
+        const lineInc = lineEx * 1.1;
+        const fullDesc = (it.desc||'') + (it.materials ? ' (Materials: glue, grout, sand&cement)' : '');
+        h += `<div style="font-size:12px;color:var(--text-2);padding:4px 0;border-bottom:1px dotted var(--border-2)">
+          <div style="display:flex;justify-content:space-between;gap:8px">
+            <span style="flex:1">${i+1}. ${esc(fullDesc)}${it.pct?` <span style="color:#92400E;font-weight:700">(${esc(String(it.pct))}%)</span>`:''}</span>
+            <span style="font-weight:700;white-space:nowrap">${fA(lineInc)}</span>
+          </div>
+          <div style="font-size:10px;color:var(--text-4);margin-left:14px">${it.qty} × $${parseFloat(it.unitPrice).toFixed(2)} ex GST ${it.cat?` · ${esc(it.cat)}`:''}</div>
+        </div>`;
+      });
+      h += `</div>`;
+      return h;
+    })() : ''}
+    ${!inv.lineItems && inv.type==='PO' && inv.items ? (Array.isArray(inv.items)?inv.items:Object.values(inv.items)).map(it=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;color:#555;margin-top:4px"><span>${esc(it.desc)}</span><span style="font-weight:700">${fA(it.amount)}</span></div>`).join(''):''}
+    ${!inv.lineItems && inv.type==='PROGRESS' && inv.progressItems ? (Array.isArray(inv.progressItems)?inv.progressItems:Object.values(inv.progressItems)).map(it=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;color:#555;gap:8px;margin-top:4px"><span style="flex:1">${esc(it.desc)}${it.pct?` <span style="color:#92400E;font-weight:700">(${esc(String(it.pct))}%)</span>`:''}</span><span style="font-weight:700">${parseFloat(it.amount)>0?fA(it.amount):'—'}</span></div>`).join(''):''}
     <div style="display:flex;gap:8px;margin-top:10px">
       <button class="btn-primary" style="flex:1;padding:8px;font-size:12px;background:#10B981" onclick="printInvoice('${inv.id}')" title="인쇄용 인보이스 생성">🖨️ 인쇄 / PDF</button>
       <button class="btn-secondary" style="flex:1;padding:8px;font-size:12px" onclick="openIM('${inv.id}')">✏️ 수정</button>
@@ -937,7 +985,8 @@ function toggleD(id) {
 
 // ── Invoice CRUD ──────────────────────────────────────────────────────────────
 function openIM(id) {
-  editId = id; invItems = []; progItems = []; invPayments = [];
+  editId = id; invItems = []; progItems = []; invPayments = []; lineItems = [];
+  useLegacyAmount = false;
   const inv = id ? invoices.find(i=>i.id===id) : null;
   document.getElementById('im-title').textContent = inv ? '인보이스 수정' : '새 인보이스';
   document.getElementById('f-b').value = inv?.builderName||'';
@@ -960,16 +1009,45 @@ function openIM(id) {
   document.getElementById('f-co').value = coId;
   
   setType(inv?.type||'NORMAL');
-  if (inv?.type==='PO' && inv.items) {
-    invItems = Array.isArray(inv.items) ? [...inv.items] : Object.values(inv.items);
-    renderItems();
+  
+  // Build type (NEW/RENO) - default to NEW for new invoices
+  setBuildType(inv?.buildType || 'NEW');
+  
+  // Load line items
+  if (inv?.lineItems) {
+    lineItems = (Array.isArray(inv.lineItems) ? inv.lineItems : Object.values(inv.lineItems))
+      .map(li => ({
+        cat: li.cat || '',
+        desc: li.desc || '',
+        qty: parseFloat(li.qty) || 1,
+        unitPrice: parseFloat(li.unitPrice) || 0,
+        materials: !!li.materials,
+        pct: li.pct || ''
+      }));
+    useLegacyAmount = false;
+  } else if (inv && inv.amount && !inv.items && !inv.progressItems) {
+    // Existing invoice with just an amount (no items)
+    useLegacyAmount = true;
+  } else if (inv?.type === 'PO' && inv.items) {
+    // Convert legacy PO items to line items
+    const items = Array.isArray(inv.items) ? inv.items : Object.values(inv.items);
+    lineItems = items.map(it => ({
+      cat: '', desc: it.desc || '', qty: 1, 
+      unitPrice: exGST(parseFloat(it.amount)||0),  // legacy items had inc GST amount; convert
+      materials: false, pct: ''
+    }));
+  } else if (inv?.type === 'PROGRESS' && inv.progressItems) {
+    const items = Array.isArray(inv.progressItems) ? inv.progressItems : Object.values(inv.progressItems);
+    lineItems = items.map(it => ({
+      cat: '', desc: it.desc || '', qty: 1,
+      unitPrice: exGST(parseFloat(it.amount)||0),
+      materials: false, pct: it.pct || ''
+    }));
   }
-  if (inv?.type==='PROGRESS' && inv.progressItems) {
-    progItems = Array.isArray(inv.progressItems) ? [...inv.progressItems] : Object.values(inv.progressItems);
-    renderProg();
-  }
+  
   if (!inv) suggestInvNum();
   
+  renderLineItems();
   renderPayments();
   updPayInfo();
   
@@ -998,9 +1076,7 @@ function renderPayments() {
   document.getElementById('payments-list').innerHTML = h;
 }
 function updPayInfo() {
-  const amt = parseFloat(document.getElementById('f-am').value) || 
-              invItems.reduce((s,i)=>s+(parseFloat(i.amount)||0),0) ||
-              progItems.reduce((s,i)=>s+(parseFloat(i.amount)||0),0) || 0;
+  const amt = (typeof getInvoiceAmount === 'function' ? getInvoiceAmount() : 0) || 0;
   document.getElementById('f-gst-info').innerHTML = amt > 0
     ? `inc.GST <b>${fA(amt)}</b> · ex.GST <b>${fAex(amt)}</b> · GST <b>${fA(amt - exGST(amt))}</b>`
     : '';
@@ -1042,56 +1118,168 @@ function setType(t) {
   document.getElementById('tt-normal').classList.toggle('active', t==='NORMAL');
   document.getElementById('tt-po').classList.toggle('active', t==='PO');
   document.getElementById('tt-prog').classList.toggle('active', t==='PROGRESS');
-  document.getElementById('f-amt-row').style.display = (t==='NORMAL') ? 'block' : 'none';
-  document.getElementById('f-items-row').style.display = (t==='PO') ? 'block' : 'none';
   document.getElementById('f-po-row').style.display = (t==='PO') ? 'block' : 'none';
-  document.getElementById('f-prog-row').style.display = (t==='PROGRESS') ? 'block' : 'none';
   document.getElementById('f-proj-row').style.display = (t==='PROGRESS') ? 'block' : 'none';
+  // Re-render line items if PROGRESS to show/hide pct fields
+  renderLineItems();
 }
 
-function addItem() { invItems.push({desc:'',amount:''}); renderItems(); }
-function renderItems() {
-  let h = '';
-  invItems.forEach((it,i) => {
-    h += `<div style="display:flex;gap:8px;margin-bottom:8px;align-items:center">
-      <input class="input" style="flex:2" value="${esc(it.desc)}" placeholder="항목 설명" oninput="invItems[${i}].desc=this.value;calcTotal()" aria-label="항목 설명"/>
-      <input type="number" class="input" style="flex:1" value="${it.amount}" placeholder="금액" oninput="invItems[${i}].amount=this.value;calcTotal()" aria-label="항목 금액"/>
-      <button style="background:none;border:none;color:#FCA5A5;font-size:18px;cursor:pointer" onclick="invItems.splice(${i},1);renderItems()" aria-label="항목 삭제">×</button>
-    </div>`;
-  });
-  document.getElementById('items-list').innerHTML = h;
-  calcTotal();
+// ── Build Type (NEW / RENO) ──────────────────────────────────────────────────
+function setBuildType(bt) {
+  curBuildType = bt;
+  document.getElementById('bt-NEW').classList.toggle('active', bt==='NEW');
+  document.getElementById('bt-RENO').classList.toggle('active', bt==='RENO');
+  renderLineItems(); // refresh dropdowns
 }
-function calcTotal() {
-  const t = invItems.reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
-  document.getElementById('items-total').innerHTML = t > 0 ? `합계: ${fA(t)} <span style="color:#9CA3AF;font-weight:400">(${fAex(t)} ex)</span>` : '';
+
+// ── Toggle Legacy Amount Mode (for simple invoices without line items) ──────
+function toggleLegacyAmount() {
+  useLegacyAmount = !useLegacyAmount;
+  document.getElementById('f-amt-row').style.display = useLegacyAmount ? 'block' : 'none';
+  document.getElementById('toggle-legacy-btn').textContent = useLegacyAmount ? '📋 라인 아이템 사용' : '💵 단순 금액으로';
+  if (useLegacyAmount) {
+    // Hide line items entirely when in legacy mode
+    document.getElementById('line-items-list').style.display = 'none';
+    document.getElementById('line-items-total').style.display = 'none';
+  } else {
+    document.getElementById('line-items-list').style.display = 'block';
+    renderLineItems();
+  }
   updPayInfo();
 }
 
-// ── Progress Items (percentage-based) ────────────────────────────────────────
-function addProg() { progItems.push({desc:'',pct:'',amount:''}); renderProg(); }
-function renderProg() {
-  let h = '';
-  progItems.forEach((it,i) => {
-    h += `<div style="background:#FFFBEB;border:1px solid #FDE68A;border-radius:8px;padding:8px;margin-bottom:8px">
-      <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
-        <input class="input" style="flex:1" value="${esc(it.desc)}" placeholder="항목명 (예: Floor Tiling)" oninput="progItems[${i}].desc=this.value" aria-label="진행 항목명"/>
-        <button style="background:none;border:none;color:#FCA5A5;font-size:18px;cursor:pointer" onclick="progItems.splice(${i},1);renderProg()" aria-label="진행 항목 삭제">×</button>
-      </div>
-      <div style="display:flex;gap:6px;align-items:center">
-        <input type="number" class="input" style="flex:1" value="${it.pct||''}" placeholder="완료 %" max="100" oninput="progItems[${i}].pct=this.value" aria-label="완료 퍼센트"/>
-        <input type="number" step="0.01" class="input" style="flex:1" value="${it.amount||''}" placeholder="이번 금액" oninput="progItems[${i}].amount=this.value;calcProgTotal()" aria-label="이번 청구 금액"/>
-      </div>
-    </div>`;
-  });
-  document.getElementById('prog-list').innerHTML = h;
-  calcProgTotal();
+// ── Line Items (Rate Sheet-based) ────────────────────────────────────────────
+function addLineItem() {
+  lineItems.push({cat:'', desc:'', qty:1, unitPrice:0, materials:false, pct:''});
+  renderLineItems();
 }
-function calcProgTotal() {
-  const t = progItems.reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
-  const allDone = progItems.length>0 && progItems.every(i=>parseFloat(i.pct)>=100);
-  document.getElementById('prog-total').innerHTML = t > 0 ? `합계: ${fA(t)} <span style="color:#9CA3AF;font-weight:400">(${fAex(t)} ex)</span>${allDone?' ✓ 전체완료':' (진행중)'}` : '';
+
+function pickRate(idx, optKey) {
+  if (!optKey) return;
+  const [bt, itemIdx] = optKey.split('|');
+  const rates = RATE_SHEET[bt];
+  if (!rates) return;
+  const r = rates[parseInt(itemIdx)];
+  if (!r) return;
+  
+  // Check for builder-specific custom rate
+  const builderName = document.getElementById('f-b').value.trim();
+  const builder = builders.find(b => b.name === builderName);
+  let finalRate = r.rate;
+  if (builder && builder.customRates) {
+    const cr = (Array.isArray(builder.customRates) ? builder.customRates : Object.values(builder.customRates))
+      .find(c => c.desc === r.desc && c.buildType === bt);
+    if (cr && cr.rate) finalRate = parseFloat(cr.rate);
+  }
+  
+  lineItems[idx].cat = r.cat;
+  lineItems[idx].desc = r.desc;
+  lineItems[idx].unitPrice = finalRate;
+  renderLineItems();
+}
+
+function buildRateOptions() {
+  const rates = RATE_SHEET[curBuildType] || [];
+  // Group by category
+  const groups = {};
+  rates.forEach((r, i) => {
+    if (!groups[r.cat]) groups[r.cat] = [];
+    groups[r.cat].push({...r, idx: i});
+  });
+  let opts = '<option value="">— 항목 선택 —</option>';
+  Object.entries(groups).forEach(([cat, items]) => {
+    opts += `<optgroup label="${esc(cat)}">`;
+    items.forEach(it => {
+      opts += `<option value="${curBuildType}|${it.idx}">${esc(it.desc)} ($${it.rate})</option>`;
+    });
+    opts += `</optgroup>`;
+  });
+  return opts;
+}
+
+function renderLineItems() {
+  if (useLegacyAmount) {
+    document.getElementById('line-items-list').innerHTML = '';
+    document.getElementById('line-items-total').style.display = 'none';
+    return;
+  }
+  let h = '';
+  if (!lineItems.length) {
+    h = `<div style="text-align:center;color:var(--text-4);font-size:12px;padding:14px;border:1px dashed var(--border);border-radius:8px">📋 항목이 없습니다. "+ 항목 추가" 버튼을 누르세요</div>`;
+  } else {
+    lineItems.forEach((li, i) => {
+      const lineTotalEx = (parseFloat(li.qty)||0) * (parseFloat(li.unitPrice)||0);
+      const lineTotalInc = lineTotalEx * 1.1;
+      h += `<div style="background:var(--card-bg);border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:8px">
+        <div style="display:flex;gap:6px;margin-bottom:6px;align-items:center">
+          <span style="font-size:11px;font-weight:700;color:var(--text-3);min-width:18px">#${i+1}</span>
+          <select class="select" style="flex:1;font-size:12px" onchange="pickRate(${i}, this.value)" aria-label="작업 항목 선택">${buildRateOptions()}</select>
+          <button style="background:none;border:none;color:#FCA5A5;font-size:18px;cursor:pointer;line-height:1" onclick="lineItems.splice(${i},1);renderLineItems()" aria-label="항목 삭제">×</button>
+        </div>
+        <input class="input" style="font-size:12px;margin-bottom:6px" value="${esc(li.desc||'')}" placeholder="설명 (자동 채워짐, 수정 가능)" oninput="lineItems[${i}].desc=this.value;updLineTotal(${i})"/>
+        <div style="display:flex;gap:6px;align-items:center">
+          <div style="flex:1">
+            <div style="font-size:9px;color:var(--text-4);margin-bottom:2px">수량</div>
+            <input type="number" step="0.01" class="input" style="font-size:12px" value="${li.qty||''}" placeholder="qty" oninput="lineItems[${i}].qty=this.value;updLineTotal(${i})"/>
+          </div>
+          <div style="flex:1">
+            <div style="font-size:9px;color:var(--text-4);margin-bottom:2px">단가 (ex GST)</div>
+            <input type="number" step="0.01" class="input" style="font-size:12px" value="${li.unitPrice||''}" placeholder="단가" oninput="lineItems[${i}].unitPrice=this.value;updLineTotal(${i})"/>
+          </div>
+          ${curType==='PROGRESS' ? `<div style="flex:0.7">
+            <div style="font-size:9px;color:var(--text-4);margin-bottom:2px">진행 %</div>
+            <input type="number" class="input" style="font-size:12px" max="100" value="${li.pct||''}" placeholder="%" oninput="lineItems[${i}].pct=this.value"/>
+          </div>` : ''}
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;font-size:11px;color:var(--text-3)">
+          <label style="display:flex;align-items:center;gap:4px;cursor:pointer">
+            <input type="checkbox" ${li.materials?'checked':''} onchange="lineItems[${i}].materials=this.checked;renderLineItems()"/>
+            <span>📦 Materials 포함 (glue, grout, sand&cement)</span>
+          </label>
+          <div id="line-total-${i}" style="font-weight:700;color:var(--text)">${fA(lineTotalInc)} <span style="color:var(--text-4);font-weight:400">(${lineTotalEx.toFixed(2)} ex)</span></div>
+        </div>
+      </div>`;
+    });
+  }
+  document.getElementById('line-items-list').innerHTML = h;
+  
+  // Reset all selects to show current selection (best effort)
+  // Update totals
+  updLineItemsTotal();
+}
+
+function updLineTotal(i) {
+  const li = lineItems[i];
+  if (!li) return;
+  const lineEx = (parseFloat(li.qty)||0) * (parseFloat(li.unitPrice)||0);
+  const lineInc = lineEx * 1.1;
+  const el = document.getElementById('line-total-'+i);
+  if (el) el.innerHTML = `${fA(lineInc)} <span style="color:var(--text-4);font-weight:400">(${lineEx.toFixed(2)} ex)</span>`;
+  updLineItemsTotal();
+}
+
+function updLineItemsTotal() {
+  const sub = lineItems.reduce((s,li)=> s + (parseFloat(li.qty)||0) * (parseFloat(li.unitPrice)||0), 0);
+  const gst = sub * 0.1;
+  const total = sub * 1.1;
+  const el = document.getElementById('line-items-total');
+  if (sub > 0 && !useLegacyAmount) {
+    el.style.display = 'block';
+    el.innerHTML = `<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:var(--text-3)">Subtotal (ex GST)</span><span style="font-weight:700">$${sub.toFixed(2)}</span></div>
+    <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:var(--text-3)">GST (10%)</span><span style="font-weight:700">$${gst.toFixed(2)}</span></div>
+    <div style="display:flex;justify-content:space-between;border-top:1px solid var(--border-2);padding-top:6px;margin-top:4px"><span style="font-weight:800;color:var(--text)">TOTAL (inc GST)</span><span style="font-weight:800;color:#4F46E5;font-size:15px">$${total.toFixed(2)}</span></div>`;
+  } else {
+    el.style.display = 'none';
+  }
   updPayInfo();
+}
+
+function getInvoiceAmount() {
+  // Returns the invoice total amount (inc GST)
+  if (useLegacyAmount) {
+    return parseFloat(document.getElementById('f-am').value) || 0;
+  }
+  return lineItems.reduce((s,li)=> s + (parseFloat(li.qty)||0) * (parseFloat(li.unitPrice)||0), 0) * 1.1;
 }
 
 async function saveInv() {
@@ -1099,11 +1287,13 @@ async function saveInv() {
   if (!b) return alert('빌더명을 입력하세요');
   const isPO = curType === 'PO';
   const isProg = curType === 'PROGRESS';
-  let amt;
-  if (isPO) amt = invItems.reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
-  else if (isProg) amt = progItems.reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
-  else amt = parseFloat(document.getElementById('f-am').value)||0;
-  if (!amt) return alert('금액을 입력하세요');
+  
+  // Compute amount from line items or legacy amount field
+  const amt = getInvoiceAmount();
+  if (!amt && amt !== 0) return alert('금액을 입력하세요');
+  if (Math.abs(amt) < 0.01 && !lineItems.length && !useLegacyAmount) {
+    return alert('작업 항목을 추가하거나 단순 금액 모드로 전환하세요');
+  }
   
   const coId = document.getElementById('f-co').value;
   const invNum = document.getElementById('f-n').value.trim();
@@ -1117,18 +1307,31 @@ async function saveInv() {
   let status = document.getElementById('f-st').value;
   // Auto-status: progress with incomplete items → ONGOING; fully paid → PAID
   if (isProg && status === 'INVOICE') {
-    const allDone = progItems.length>0 && progItems.every(i=>parseFloat(i.pct)>=100);
+    const allDone = lineItems.length>0 && lineItems.every(i=>parseFloat(i.pct)>=100);
     if (!allDone) status = 'ONGOING';
   }
-  if (status === 'INVOICE' && totalPay >= amt - 0.01) {
+  if (status === 'INVOICE' && totalPay >= amt - 0.01 && amt > 0) {
     if (confirm(`입금액이 청구액과 일치합니다. 상태를 PAID로 변경할까요?`)) status = 'PAID';
   }
   
   // Backward-compat: also write latest payment to depositDate/depositAmount
   const lastPay = cleanPayments[cleanPayments.length-1] || {};
   
+  // Clean line items
+  const cleanLineItems = useLegacyAmount ? [] : lineItems
+    .filter(li => parseFloat(li.qty) > 0 && (parseFloat(li.unitPrice) >= 0))
+    .map(li => ({
+      cat: li.cat || '',
+      desc: li.desc || '',
+      qty: parseFloat(li.qty) || 1,
+      unitPrice: parseFloat(li.unitPrice) || 0,
+      materials: !!li.materials,
+      pct: isProg ? (li.pct || '') : ''
+    }));
+  
   const data = {
     type: curType,
+    buildType: curBuildType, // NEW or RENO
     companyId: coId,
     builderName: b,
     address: document.getElementById('f-a').value,
@@ -1144,8 +1347,9 @@ async function saveInv() {
     depositDate: lastPay.date || '',
     depositAmount: totalPay,
     note: document.getElementById('f-no').value,
-    items: isPO ? invItems : [],
-    progressItems: isProg ? progItems : [],
+    lineItems: cleanLineItems,
+    items: [],  // legacy field, kept empty
+    progressItems: [],  // legacy field, kept empty
     updatedAt: new Date().toISOString()
   };
   
@@ -1225,7 +1429,8 @@ function exportCSV() {
       return (i.builderName||'').toLowerCase().includes(q)
           || (i.address||'').toLowerCase().includes(q)
           || (i.invoiceNum||'').toLowerCase().includes(q)
-          || (i.note||'').toLowerCase().includes(q);
+          || (i.note||'').toLowerCase().includes(q)
+          || (i.invoiceDate||'').includes(q);
     }
     return true;
   });
@@ -1306,9 +1511,29 @@ function printInvoice(id) {
     return `${dy}/${m}/${y}`;
   };
   
-  // Build items table based on invoice type
+  // Build items table - prefer new lineItems, fall back to legacy items
   let itemRows = '';
-  if (inv.type === 'PO' && inv.items) {
+  const hasLineItems = inv.lineItems && Object.keys(inv.lineItems).length;
+  
+  if (hasLineItems) {
+    const items = Array.isArray(inv.lineItems) ? inv.lineItems : Object.values(inv.lineItems);
+    items.forEach((it,i) => {
+      const qty = parseFloat(it.qty) || 1;
+      const unitEx = parseFloat(it.unitPrice) || 0;
+      const lineEx = qty * unitEx;
+      const lineTax = lineEx * 0.1;
+      const lineInc = lineEx * 1.1;
+      const fullDesc = (it.desc||'') + (it.materials ? ' (Materials: glue, grout, sand&cement)' : '') + (it.pct ? ` (${it.pct}% completed)` : '');
+      itemRows += `<tr>
+        <td class="center">${i+1}</td>
+        <td>${esc(fullDesc)}</td>
+        <td class="center">${qty}</td>
+        <td class="num">$${unitEx.toFixed(2)}</td>
+        <td class="num">$${lineTax.toFixed(2)}</td>
+        <td class="num">$${lineInc.toFixed(2)}</td>
+      </tr>`;
+    });
+  } else if (inv.type === 'PO' && inv.items) {
     const items = Array.isArray(inv.items) ? inv.items : Object.values(inv.items);
     items.forEach((it,i) => {
       const itAmt = parseFloat(it.amount)||0;
@@ -1340,7 +1565,7 @@ function printInvoice(id) {
       </tr>`;
     });
   } else {
-    // NORMAL - single line item
+    // NORMAL - single line item from note or address
     const desc = inv.note || (inv.address ? `Tiling work at ${inv.address}` : 'Tiling services');
     itemRows = `<tr>
       <td class="center">1</td>
@@ -1512,6 +1737,9 @@ function renderBuilders() {
   }
   document.getElementById('tab-builders').innerHTML = h;
 }
+
+// ── Rate Sheet (extracted from 내수용 sheets, NEW + RENO) ────────────────────
+const RATE_SHEET = {"NEW":[{"cat":"Tiling","desc":"Lay Timber look Tiles / m²","rate":77.0},{"cat":"Tiling","desc":"Lay Tiles 300*300 or 300*600 or 450*450  / m²","rate":65.0},{"cat":"Tiling","desc":"Lay Subway Tiles / m²","rate":85.0},{"cat":"Tiling","desc":"Lay Tiles 150*150 or 200*200 / m²","rate":80.0},{"cat":"Tiling","desc":"Lay Tiles 200*600 or 150*600 / m²","rate":72.0},{"cat":"Tiling","desc":"Lay Tiles 600*600 or 400*600 / m²","rate":67.0},{"cat":"Tiling","desc":"Lay Tiles 450*900 / m²","rate":75.0},{"cat":"Tiling","desc":"Lay Tiles 100*100 / m² (시트가 아닐 경우)","rate":100.0},{"cat":"Travertine","desc":"Travertine 12mm thick stack bond","rate":90.0},{"cat":"Travertine","desc":"Travertine 12mm thick brick bond","rate":95.0},{"cat":"Travertine","desc":"Travertine 12mm thick French pattern","rate":115.0},{"cat":"Sealing","desc":"Sealer labour + materials","rate":35.0},{"cat":"Stone","desc":"Crazy paver tiling 20T","rate":150.0},{"cat":"Stone","desc":"Stone 30T stack bond","rate":130.0},{"cat":"Stone","desc":"stone 30T Brick bond","rate":150.0},{"cat":"Stone","desc":"Stone 30T french pattern","rate":170.0},{"cat":"Tiling","desc":"Tiling 600x1200x12T","rate":100.0},{"cat":"Tiling","desc":"Tiling 600x1200x20T","rate":134.0},{"cat":"Tiling","desc":"Lay Tiles_Hexagon 300*260 or 270*280 / m²","rate":80.0},{"cat":"Tiling","desc":"Extra) Brick Pattern / m²","rate":5.0},{"cat":"Tiling","desc":"Extra) Herringbone Pattern / m²","rate":20.0},{"cat":"Tactile","desc":"Lay Tactiles lin m","rate":80.0},{"cat":"Stair","desc":"Stair / lin m","rate":100.0},{"cat":"Riser","desc":"Riser Tiling / lin m","rate":40.0},{"cat":"Skirting","desc":"Fix Skirting Tiles/ lin m","rate":30.0},{"cat":"Skirting","desc":"Fix Coving tiles / lin m","rate":40.0},{"cat":"Coping","desc":"Pool coping tiling / Lin m","rate":50.0},{"cat":"Mosaic","desc":"Fix Mosaic Tiles / m² (300*300 sheet)","rate":95.0},{"cat":"Mosaic","desc":"Fix Medium- Large Piece Mosaic Tiles / m²","rate":100.0},{"cat":"Mosaic","desc":"Fix Small Piece Mosaic Tiles / m²","rate":110.0},{"cat":"Border","desc":"Fix border/Capping/Feature Strip Tiles / lin m","rate":50.0},{"cat":"Niche, Nib wall, Window","desc":"Shower/Bath Niche with Chrome square edge tile trim / ea Nib wall / Niche/ Window Tiling / ea","rate":140.0},{"cat":"Mitre","desc":"Tile Mitre (Silicone Finish) / lin m, inc. material","rate":160.0},{"cat":"Mitre","desc":"Tile Mitre (Resin Finish) / lin m, inc. material","rate":250.0},{"cat":"Threshold","desc":"Fix Tiles to Thresholds (inc riser&tread) / lin m","rate":80.0},{"cat":"Bath","desc":"Enclose sides of bath with masonry or Hebel ready for tiling. (Includes the Supply of aHebel)","rate":500.0},{"cat":"Waterproofing","desc":"Waterproofing / m²","rate":70.0},{"cat":"Waterproofing","desc":"Waterproofing / m² (3 coat)","rate":80.0},{"cat":"Waterproofing","desc":"Commercial Waterproofing Internal /m2","rate":65.0},{"cat":"Waterproofing","desc":"Commercial Waterproofing External /m2","rate":80.0},{"cat":"Screeding","desc":"Screeding(50mm thick) / m²","rate":90.0},{"cat":"Screeding","desc":"Screeding(60mm thick) / m²","rate":110.0},{"cat":"Screeding","desc":"Screeding(100mm thick) / m²","rate":130.0},{"cat":"Screeding","desc":"Screeding / m²","rate":65.0},{"cat":"Screeding","desc":"Screeding for vinyl flooring","rate":100.0},{"cat":"Screeding","desc":"Screeding (Commercial) up to 60mm thick/m2","rate":110.0},{"cat":"Silicone","desc":"Silicone_Internal / m² (inc.materials)","rate":9.0},{"cat":"Silicone","desc":"Silicone_External / m² (inc.materials)","rate":12.0},{"cat":"Strip drain","desc":"Install Strip Drain / ea","rate":50.0},{"cat":"Strip drain","desc":"Install Strip Drain (Commercial) LM","rate":30.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (300x600 & 1.5mm gap)","rate":45.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (300x300 & 1.5mm gap)","rate":60.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (200x200 & 1.5mm gap)","rate":75.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (100x300 & 1.5mm gap)","rate":70.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (100x200 & 1.5mm gap)","rate":90.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (100x100 & 1.5mm gap)","rate":110.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (600x600 & 3.0 mm gap)","rate":50.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (300x600 & 3.0 mm gap)","rate":60.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (300x300 & 3.0mm gap)","rate":70.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (200x200 & 3.0mm gap)","rate":85.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (100x100 & 100x200 & 3.0mm gap)","rate":130.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (Kitkat mosaic & 3.0mm gap)","rate":160.0},{"cat":"Epoxy","desc":"Coving tile","rate":80.0},{"cat":"Protection","desc":"Supply and install of Ramboard","rate":17.0},{"cat":"Supply angle","desc":"오리어스 L Mill-  (8,9,10, 11, 12mm)","rate":15.4},{"cat":"Supply angle","desc":"오리어스 L  BS, MS, WT, BL, MB --  (8,9,10, 11, 12mm)","rate":22.0},{"cat":"Supply angle","desc":"오리어스 L  MS, MB --  (15, 18, 22 mm)","rate":27.5},{"cat":"Supply angle","desc":"오리어스 스퀘어 BS- (11,12mm)","rate":38.5},{"cat":"Supply angle","desc":"DTA Square angle","rate":32.0},{"cat":"Supply angle","desc":"Solid 40x40x1.6","rate":35.0},{"cat":"Supply angle","desc":"Flat bar","rate":50.0},{"cat":"Supply waste","desc":"오리어스 Tile insert waste- chrome","rate":38.5},{"cat":"Supply waste","desc":"오리어스 Standard chrome waste","rate":22.0},{"cat":"Supply waste","desc":"오리어스  Clearout 101C","rate":33.0},{"cat":"Supply waste","desc":"Sedek 316 -Tile insert Chrome","rate":41.8},{"cat":"Supply waste","desc":"Sedek 316 -Tile insert Black","rate":47.3},{"cat":"Supply waste","desc":"Sedek 316 - Line chrome","rate":34.1},{"cat":"Supply waste","desc":"Sedek 316 - Line black","rate":49.5},{"cat":"Supply strip drain","desc":"Tile insert silver","rate":260.0},{"cat":"Supply strip drain","desc":"Tile insert Black","rate":273.0},{"cat":"Supply strip drain","desc":"Line grate silver","rate":245.0},{"cat":"Supply strip drain","desc":"Line grate black","rate":260.0},{"cat":"Supply strip drain","desc":"최소 단위 1m , 0.8 LM 시켜도 260불 ***","rate":NaN},{"cat":"Supply Glue","desc":"Promaxset 20kg","rate":37.0},{"cat":"Supply Glue","desc":"External glue","rate":45.0},{"cat":"Supply Glue","desc":"Kerapoxy adhesive 10kg","rate":300.0},{"cat":"Supply Grout","desc":"Ardex 20kg","rate":100.0},{"cat":"Supply Grout","desc":"Ardex 5kg","rate":45.0},{"cat":"Supply Grout","desc":"Ardex WJ50 20 kg","rate":100.0},{"cat":"Supply Grout","desc":"Ultracolor plus 5kg","rate":45.0},{"cat":"Supply Epoxy","desc":"Kerapoxy ez design 3kg","rate":165.0},{"cat":"Supply Epoxy","desc":"Kerapoxy cleaner (그라우트 한통당 1개)","rate":40.0},{"cat":"Supply sands","desc":"Sands & cements 0-25mm set down / m2","rate":15.4},{"cat":"Supply sands","desc":"Sands & cements 35 mm set down / m2","rate":23.0},{"cat":"Supply sands","desc":"Sands & cements 35 mm set down / m2- Dubbo Mudgee","rate":33.0},{"cat":"Supply sands","desc":"Sands & cements over 45mm set down / m2","rate":40.0},{"cat":"Supply sands","desc":"Sands & cements over 45mm set down / m2- Dubbo Mudgee","rate":50.0},{"cat":"Labour rate","desc":"Tiler / hr","rate":80.0},{"cat":"Labour rate","desc":"Labourer / hr","rate":60.0},{"cat":"Accomodation","desc":"per person per day","rate":250.0},{"cat":"Labour","desc":"Labour $ 60/hr  Trades: $80 per hour","rate":NaN}],"RENO":[{"cat":"Tiling","desc":"Lay Timber look Tiles / m²","rate":87.0},{"cat":"Tiling","desc":"Lay Tiles 300*300 or 300*600 or 450*450  / m²","rate":75.0},{"cat":"Tiling","desc":"Lay Subway Tiles / m²","rate":110.0},{"cat":"Tiling","desc":"Lay Tiles 100*100 / m²","rate":125.0},{"cat":"Tiling","desc":"Lay Subway Tiles 100*200 / m²","rate":115.0},{"cat":"Tiling","desc":"Lay Tiles 150*150 or 200*200 / m²","rate":90.0},{"cat":"Tiling","desc":"Lay Tiles 200*600 or 150*600 / m²","rate":82.0},{"cat":"Tiling","desc":"Lay Tiles 600*600 / m²","rate":77.0},{"cat":"Tiling","desc":"Lay Tiles 450*900 / m²","rate":80.0},{"cat":"Travertine","desc":"Travertine 12mm thick stack bond","rate":NaN},{"cat":"Travertine","desc":"Travertine 12mm thick brick bond","rate":NaN},{"cat":"Travertine","desc":"Travertine 12mm thick French pattern","rate":NaN},{"cat":"Sealing","desc":"Sealer labour + materials","rate":NaN},{"cat":"Stone","desc":"Stone tile glue supply","rate":NaN},{"cat":"Stone","desc":"Stone 30T stack bond","rate":NaN},{"cat":"Stone","desc":"stone 30T Brick bond","rate":NaN},{"cat":"Stone","desc":"Stone 30T french pattern","rate":NaN},{"cat":"Tiling","desc":"Tiling 600x1200x12T","rate":NaN},{"cat":"Tiling","desc":"Tiling 600x1200x20T","rate":NaN},{"cat":"Tiling","desc":"Lay Tiles_Hexagon 300*260 or 270*280 / m²","rate":85.0},{"cat":"Tiling","desc":"Extra) Brick Pattern / m²","rate":10.0},{"cat":"Tiling","desc":"Extra) Herringbone Pattern / m²","rate":25.0},{"cat":"Stair","desc":"Stair / lin m (300x600 기준, step 하고 라이저에 한장씩 붙는 기준)","rate":105.0},{"cat":"Stair","desc":"Stair / lin m (<300x300, 한장으로 안끝나는 경우)","rate":130.0},{"cat":"Skirting","desc":"Fix Skirting Tiles/ lin m","rate":30.0},{"cat":"Skirting","desc":"Fix Coving tiles / lin m","rate":40.0},{"cat":"Mosaic","desc":"Fix Mosaic Tiles / m² (300*300 sheet)","rate":100.0},{"cat":"Mosaic","desc":"Fix Medium- Large Piece Mosaic Tiles / m²","rate":110.0},{"cat":"Mosaic","desc":"Fix Small Piece Mosaic Tiles / m²","rate":120.0},{"cat":"Riser","desc":"Riser Tiling / Lin m","rate":40.0},{"cat":"Border","desc":"Fix border/Capping/Feature Strip Tiles / lin m","rate":55.0},{"cat":"Niche, Nib wall, Window","desc":"Shower/Bath Niche with Chrome square edge tile trim / ea","rate":140.0},{"cat":"Mitre","desc":"Tile mitre (grout/ silicone finish) / lin m","rate":160.0},{"cat":"Mitre","desc":"Tile mitre (resin finish) / lin m","rate":210.0},{"cat":"Bath","desc":"Enclose sides of bath with masonry or Hebel ready for tiling. (Includes the Supply of aHebel)","rate":500.0},{"cat":"Threshold","desc":"Fix Tiles to Thresholds (inc riser&tread) / lin m","rate":80.0},{"cat":"Waterproofing","desc":"Waterproofing / m²","rate":65.0},{"cat":"Waterproofing","desc":"Waterproofing / m² (3 coat)","rate":NaN},{"cat":"Waterproofing","desc":"Commercial Waterproofing Internal /m2","rate":NaN},{"cat":"Waterproofing","desc":"Commercial Waterproofing External /m2","rate":NaN},{"cat":"Screeding","desc":"Screeding(50mm thick) / m²","rate":100.0},{"cat":"Screeding","desc":"Screeding / m²","rate":80.0},{"cat":"Screeding","desc":"Screeding for vinyl flooring","rate":100.0},{"cat":"Screeding","desc":"Screeding (Commercial) up to 60mm thick/m2","rate":110.0},{"cat":"Screeding","desc":"Screeding / m² - upper level","rate":90.0},{"cat":"Silicone","desc":"Silicone_Internal / m² (inc.materials)","rate":9.0},{"cat":"Silicone","desc":"Silicone_External / m² (inc.materials)","rate":12.0},{"cat":"Strip drain","desc":"Install Strip Drain / ea","rate":50.0},{"cat":"Strip drain","desc":"Install Strip Drain (Commercial) LM (BLACONY ONLY)","rate":30.0},{"cat":"Rubbish","desc":"Tile Rubbish Removal per bathroom","rate":350.0},{"cat":"Supply angle","desc":"오리어스 L Mill-  (8,9,10, 11, 12mm)","rate":15.4},{"cat":"Supply angle","desc":"오리어스 L  BS, MS, WT, BL, MB --  (8,9,10, 11, 12mm)","rate":22.0},{"cat":"Supply angle","desc":"오리어스 L  MS, MB --  (15, 18, 22 mm)","rate":27.5},{"cat":"Supply angle","desc":"오리어스 스퀘어 BS- (11,12mm)","rate":38.5},{"cat":"Supply angle","desc":"DTA Square angle","rate":27.5},{"cat":"Supply angle","desc":"Solid 40x40x1.6","rate":35.0},{"cat":"Supply angle","desc":"Flat bar","rate":50.0},{"cat":"Supply waste","desc":"오리어스 Tile insert waste- chrome","rate":38.5},{"cat":"Supply waste","desc":"오리어스 Standard chrome waste","rate":22.0},{"cat":"Supply waste","desc":"오리어스  Clearout 101C","rate":33.0},{"cat":"Supply waste","desc":"Sedek 316 -Tile insert Chrome","rate":41.8},{"cat":"Supply waste","desc":"Sedek 316 -Tile insert Black","rate":47.3},{"cat":"Supply waste","desc":"Sedek 316 - Line chrome","rate":34.1},{"cat":"Supply waste","desc":"Sedek 316 - Line black","rate":49.5},{"cat":"Supply strip drain","desc":"Tile insert silver","rate":260.0},{"cat":"Supply strip drain","desc":"Tile insert Black","rate":273.0},{"cat":"Supply strip drain","desc":"Line grate silver","rate":245.0},{"cat":"Supply strip drain","desc":"Line grate black","rate":260.0},{"cat":"Supply strip drain","desc":"최소 단위 1m , 0.8 LM 시켜도 260불 ***","rate":NaN},{"cat":"Supply Glue","desc":"Promaxset 20kg","rate":37.0},{"cat":"Supply Glue","desc":"External glue","rate":45.0},{"cat":"Supply Grout","desc":"Ardex 20kg","rate":100.0},{"cat":"Supply Grout","desc":"Ardex 5kg","rate":45.0},{"cat":"Supply Epoxy","desc":"Kerapoxy ez design 3kg","rate":165.0},{"cat":"Supply Epoxy","desc":"Kerapoxy cleaner (그라우트 한통당 1개)","rate":40.0},{"cat":"Supply sands","desc":"Sands & cements 0-25mm set down / m2","rate":15.4},{"cat":"Supply sands","desc":"Sands & cements 35 mm set down / m2","rate":23.0},{"cat":"Supply sands","desc":"Sands & cements 35 mm set down / m2- Dubbo Mudgee","rate":33.0},{"cat":"Supply sands","desc":"Sands & cements over 45mm set down / m2","rate":40.0},{"cat":"Supply sands","desc":"Sands & cements over 45mm set down / m2- Dubbo Mudgee","rate":50.0},{"cat":"Labour rate","desc":"Tiler / hr","rate":80.0},{"cat":"Labour rate","desc":"Labourer / hr","rate":60.0},{"cat":"Accomodation","desc":"per person per day","rate":250.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (300x600 & 1.5mm gap)","rate":45.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (300x300 & 1.5mm gap)","rate":60.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (200x200 & 1.5mm gap)","rate":75.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (100x300 & 1.5mm gap)","rate":70.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (100x200 & 1.5mm gap)","rate":90.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (100x100 & 1.5mm gap)","rate":110.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (300x600 & 3.0 mm gap)","rate":60.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (300x300 & 3.0mm gap)","rate":70.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (200x200 & 3.0mm gap)","rate":85.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (100x100 & 3.0mm gap)","rate":130.0},{"cat":"Epoxy","desc":"Epoxy Grouting/m2 (Kitkat mosaic & 3.0mm gap)","rate":160.0}]};
 
 // ── Builder Bulk Import (K&M Tiling builder list) ─────────────────────────────
 const BUILDER_SEED = [
@@ -1844,6 +2072,8 @@ function renderDL() {
   document.getElementById('bdl').innerHTML = builders.map(b=>`<option value="${esc(b.name)}"/>`).join('');
 }
 
+let customRatesEditing = []; // array of {desc, buildType, rate}
+
 function openBM(id) {
   editBId = id;
   const b = id ? builders.find(b=>b.id===id) : null;
@@ -1858,13 +2088,69 @@ function openBM(id) {
   document.getElementById('bf-ba').value = b?.businessAddress||'';
   document.getElementById('bf-pa').value = b?.postalAddress||'';
   document.getElementById('bf-a').value = b?.abn||'';
+  
+  // Custom rates
+  customRatesEditing = b?.customRates ? 
+    (Array.isArray(b.customRates) ? [...b.customRates] : Object.values(b.customRates))
+      .map(c => ({desc: c.desc||'', buildType: c.buildType||'NEW', rate: c.rate||0}))
+    : [];
+  document.getElementById('custom-rates-panel').style.display = customRatesEditing.length ? 'block' : 'none';
+  document.getElementById('cr-toggle-btn').textContent = customRatesEditing.length ? '▲ 접기' : '▼ 펼치기';
+  renderCustomRates();
+  
   document.getElementById('b-modal').classList.add('open');
 }
 function closeBM() { document.getElementById('b-modal').classList.remove('open'); }
 
+function toggleCustomRates() {
+  const panel = document.getElementById('custom-rates-panel');
+  const open = panel.style.display === 'none';
+  panel.style.display = open ? 'block' : 'none';
+  document.getElementById('cr-toggle-btn').textContent = open ? '▲ 접기' : '▼ 펼치기';
+}
+
+function addCustomRate() {
+  customRatesEditing.push({desc:'', buildType:'NEW', rate:0});
+  renderCustomRates();
+}
+
+function renderCustomRates() {
+  let h = '';
+  if (!customRatesEditing.length) {
+    h = `<div style="text-align:center;color:var(--text-4);font-size:11px;padding:10px">아직 커스텀 단가가 없습니다</div>`;
+  } else {
+    customRatesEditing.forEach((cr, i) => {
+      const rates = RATE_SHEET[cr.buildType] || [];
+      const opts = rates.map((r,idx) => `<option value="${esc(r.desc)}" ${cr.desc===r.desc?'selected':''}>${esc(r.desc)} ($${r.rate} 기본)</option>`).join('');
+      h += `<div style="background:var(--card-bg);border:1px solid var(--border);border-radius:6px;padding:8px;margin-bottom:6px">
+        <div style="display:flex;gap:4px;align-items:center;margin-bottom:5px">
+          <select class="select" style="flex:0.4;font-size:11px;padding:6px" onchange="customRatesEditing[${i}].buildType=this.value;renderCustomRates()">
+            <option value="NEW" ${cr.buildType==='NEW'?'selected':''}>NEW</option>
+            <option value="RENO" ${cr.buildType==='RENO'?'selected':''}>RENO</option>
+          </select>
+          <select class="select" style="flex:1;font-size:11px;padding:6px" onchange="customRatesEditing[${i}].desc=this.value">
+            <option value="">— 항목 선택 —</option>${opts}
+          </select>
+          <button style="background:none;border:none;color:#FCA5A5;font-size:18px;cursor:pointer;line-height:1" onclick="customRatesEditing.splice(${i},1);renderCustomRates()">×</button>
+        </div>
+        <div style="display:flex;gap:4px;align-items:center">
+          <span style="font-size:10px;color:var(--text-4);min-width:60px">커스텀 단가:</span>
+          <input type="number" step="0.01" class="input" style="font-size:11px;padding:6px" value="${cr.rate||''}" placeholder="단가 (ex GST)" oninput="customRatesEditing[${i}].rate=this.value"/>
+        </div>
+      </div>`;
+    });
+  }
+  document.getElementById('custom-rates-list').innerHTML = h;
+}
+
 async function saveBuilder() {
   const n = document.getElementById('bf-n').value.trim();
   if (!n) return alert('빌더명을 입력하세요');
+  // Clean custom rates (drop incomplete)
+  const cleanCustomRates = customRatesEditing
+    .filter(c => c.desc && parseFloat(c.rate) > 0)
+    .map(c => ({desc: c.desc, buildType: c.buildType||'NEW', rate: parseFloat(c.rate)}));
+  
   const data = {
     name: n,
     billingType: document.getElementById('bf-bt').value,
@@ -1875,7 +2161,8 @@ async function saveBuilder() {
     invoiceEmail: document.getElementById('bf-ie').value,
     businessAddress: document.getElementById('bf-ba').value,
     postalAddress: document.getElementById('bf-pa').value,
-    abn: document.getElementById('bf-a').value
+    abn: document.getElementById('bf-a').value,
+    customRates: cleanCustomRates
   };
   if (editBId) await fbSet('invoiceBuilders/'+editBId, data);
   else await fbPush('invoiceBuilders', data);
