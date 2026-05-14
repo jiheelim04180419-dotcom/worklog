@@ -670,17 +670,10 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
       </div>
       
       <!-- Total + Add button -->
-      <div style="background:#92400E;color:#fff;border-radius:8px;margin-top:8px;padding:10px 12px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-          <span style="font-size:11px;font-weight:600;opacity:0.85">실제 자재비 (inc GST)</span>
-          <span id="mat-grand-inc" style="font-size:13px;font-weight:700;opacity:0.95">$0.00</span>
-        </div>
-        <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid rgba(255,255,255,0.2);padding-top:6px">
-          <span style="font-size:12px;font-weight:800">📦 인보이스 라인 (ex GST) →</span>
-          <span id="mat-grand-total" style="font-size:15px;font-weight:900">$0.00</span>
-        </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:#92400E;color:#fff;border-radius:8px;margin-top:8px">
+        <span style="font-size:12px;font-weight:700">📦 Total Materials (ex GST)</span>
+        <span id="mat-grand-total" style="font-size:14px;font-weight:800">$0.00</span>
       </div>
-      <p style="margin:6px 0 0;font-size:10px;color:#92400E;line-height:1.5">💡 위쪽 inc GST = 실제 자재 구매가격. 아래 ex GST = 인보이스에 추가될 금액 (인보이스 합계에서 GST 자동 추가됨)</p>
       <button class="btn-primary" style="width:100%;margin-top:8px;padding:8px;font-size:12px;background:#92400E;border-color:#92400E" onclick="addCalculatedMaterials()">➕ 계산된 Materials 항목 추가</button>
     </div>
     
@@ -1298,7 +1291,6 @@ function buildDetailHTML(inv) {
       let itemNum = 0;
       items.forEach((it) => {
         const lineEx = (parseFloat(it.qty)||0) * (parseFloat(it.unitPrice)||0);
-        const lineInc = lineEx * 1.1;
         let desc;
         if (it.isMaterials) {
           desc = `Materials(${it.desc||''})`;
@@ -1321,7 +1313,7 @@ function buildDetailHTML(inv) {
         h += `<div style="font-size:12px;color:var(--text-2);padding:4px 0;border-bottom:1px dotted var(--border-2);${isMat?'background:#FFFBEB;padding-left:6px;border-radius:4px;margin:4px 0':''}">
           <div style="display:flex;justify-content:space-between;gap:8px">
             <span style="flex:1">${isMat?'📦':itemNum+'.'} ${esc(desc)}${it.pct?` <span style="color:#92400E;font-weight:700">(${esc(String(it.pct))}%)</span>`:''}</span>
-            <span style="font-weight:700;white-space:nowrap">${fA(lineInc)}</span>
+            <span style="font-weight:700;white-space:nowrap">${fA(lineEx)} <span style="font-size:9px;color:var(--text-4);font-weight:400">ex</span></span>
           </div>
           ${!isMat?`<div style="font-size:10px;color:var(--text-4);margin-left:14px">${it.qty} × $${parseFloat(it.unitPrice).toFixed(2)} ex GST ${it.cat?` · ${esc(it.cat)}`:''}</div>`:''}
         </div>`;
@@ -2125,17 +2117,11 @@ function calcMaterials() {
   const scTotal = scSqm * 25;
   document.getElementById('mat-sc-total').textContent = '$' + scTotal.toFixed(2);
   
-  // Grand total
-  // Sub-totals above use real-world prices (inc GST) as multipliers ($37/bag, $9 or $12/m², $25/m²).
-  // grandInc = total user paid (inc GST). grandEx = invoice line item value (ex GST, /1.1).
-  // Invoice's bottom GST calc adds 10% back to grandEx → matches grandInc.
-  const grandInc = glueTotal + groutTotal + siliconeTotal + fwTotal + scTotal;
-  const grand = grandInc / 1.1;
+  // Grand total — all sub-totals are ex-GST (user enters ex-GST values)
+  const grand = glueTotal + groutTotal + siliconeTotal + fwTotal + scTotal;
   document.getElementById('mat-grand-total').textContent = '$' + grand.toFixed(2);
-  const incEl = document.getElementById('mat-grand-inc');
-  if (incEl) incEl.textContent = '$' + grandInc.toFixed(2);
   
-  return {glueTotal, groutTotal, siliconeTotal, fwTotal, scTotal, grand, grandInc,
+  return {glueTotal, groutTotal, siliconeTotal, fwTotal, scTotal, grand,
           glueMode, glueBags: parseFloat(document.getElementById('mat-glue-bags').value) || 0,
           silWall: wall, silFloor: floor, silRate: rate,
           fwQty, fwRate, scSqm};
@@ -2253,7 +2239,7 @@ function renderLineItems() {
             <input class="input" style="flex:1;font-size:11px;padding:6px 8px" value="${esc(li.desc||'')}" oninput="lineItems[${i}].desc=this.value;updLineTotal(${i})"/>
             <span style="font-size:11px;color:#92400E">)</span>
             <input type="number" step="0.01" class="input" style="width:90px;font-size:11px;padding:6px" value="${li.unitPrice||''}" placeholder="총액 ex" oninput="lineItems[${i}].unitPrice=this.value;lineItems[${i}].qty=1;updLineTotal(${i})"/>
-            <span id="line-total-${i}" style="min-width:80px;text-align:right;font-weight:700;font-size:11px;color:#92400E">${fA(lineTotalInc)}</span>
+            <span id="line-total-${i}" style="min-width:80px;text-align:right;font-weight:700;font-size:11px;color:#92400E">${fA(lineTotalEx)}<div style="font-size:9px;color:#A78B4B;font-weight:400">ex GST</div></span>
             <div style="display:flex;flex-direction:column;gap:1px">
               <button style="background:none;border:none;color:#92400E;font-size:11px;cursor:${i===0?'not-allowed':'pointer'};line-height:1;padding:1px 3px;opacity:${i===0?'0.3':'1'}" onclick="moveLineItem(${i}, -1)" aria-label="위로" title="위로">▲</button>
               <button style="background:none;border:none;color:#92400E;font-size:11px;cursor:${i===lineItems.length-1?'not-allowed':'pointer'};line-height:1;padding:1px 3px;opacity:${i===lineItems.length-1?'0.3':'1'}" onclick="moveLineItem(${i}, 1)" aria-label="아래로" title="아래로">▼</button>
@@ -2276,7 +2262,7 @@ function renderLineItems() {
               </label>
             </div>
           </div>
-          <span id="line-total-${i}" style="min-width:75px;text-align:right;font-weight:700;font-size:11px;color:var(--text)">${fA(lineTotalInc)}${li.noTax?'<div style="font-size:9px;color:#0891B2;font-weight:400">(no tax)</div>':''}</span>
+          <span id="line-total-${i}" style="min-width:75px;text-align:right;font-weight:700;font-size:11px;color:var(--text)">${fA(lineTotalEx)}<div style="font-size:9px;color:var(--text-4);font-weight:400">${li.noTax?'(no tax)':'ex GST'}</div></span>
           <div style="display:flex;flex-direction:column;gap:1px">
             <button style="background:none;border:none;color:var(--text-3);font-size:11px;cursor:${i===0?'not-allowed':'pointer'};line-height:1;padding:1px 3px;opacity:${i===0?'0.3':'1'}" onclick="moveLineItem(${i}, -1)" aria-label="위로" title="위로">▲</button>
             <button style="background:none;border:none;color:var(--text-3);font-size:11px;cursor:${i===lineItems.length-1?'not-allowed':'pointer'};line-height:1;padding:1px 3px;opacity:${i===lineItems.length-1?'0.3':'1'}" onclick="moveLineItem(${i}, 1)" aria-label="아래로" title="아래로">▼</button>
@@ -2294,14 +2280,9 @@ function updLineTotal(i) {
   const li = lineItems[i];
   if (!li) return;
   const lineEx = (parseFloat(li.qty)||0) * (parseFloat(li.unitPrice)||0);
-  const lineInc = li.noTax ? lineEx : lineEx * 1.1;
   const el = document.getElementById('line-total-'+i);
   if (el) {
-    if (li.noTax) {
-      el.innerHTML = `${fA(lineInc)}<div style="font-size:9px;color:#0891B2;font-weight:400">(no tax)</div>`;
-    } else {
-      el.innerHTML = `${fA(lineInc)} <span style="color:var(--text-4);font-weight:400">(${lineEx.toFixed(2)} ex)</span>`;
-    }
+    el.innerHTML = `${fA(lineEx)}<div style="font-size:9px;color:var(--text-4);font-weight:400">${li.noTax?'(no tax)':'ex GST'}</div>`;
   }
   updLineItemsTotal();
 }
