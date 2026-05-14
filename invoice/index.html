@@ -631,12 +631,14 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
           </select>
           <span id="mat-silicone-total" style="min-width:80px;text-align:right;font-weight:700;font-size:11px;color:#92400E">$0.00</span>
         </div>
-        <div id="mat-silicone-sqm-row" style="display:flex;align-items:center;gap:6px;padding-left:86px">
+        <div id="mat-silicone-sqm-row" style="display:flex;align-items:center;gap:6px;padding-left:86px;flex-wrap:wrap">
           <input type="number" step="0.01" class="input" id="mat-silicone-wall" style="width:80px;font-size:11px;padding:4px 6px" placeholder="벽 m²" oninput="calcMaterials()"/>
           <span style="font-size:10px;color:#92400E">+</span>
           <input type="number" step="0.01" class="input" id="mat-silicone-floor" style="width:80px;font-size:11px;padding:4px 6px" placeholder="바닥 m²" oninput="calcMaterials()"/>
+          <button type="button" onclick="autoFillSiliconeSqm()" style="background:#FEF3C7;color:#92400E;border:1px solid #FDE68A;border-radius:6px;padding:3px 8px;font-size:10px;font-weight:700;cursor:pointer" title="라인 항목에서 벽/바닥 타일링 항목들의 수량을 자동으로 합산">📐 라인에서 가져오기</button>
           <span id="mat-silicone-formula" style="font-size:10px;color:#92400E">= 0 m² × $9</span>
         </div>
+        <div id="mat-silicone-info" style="display:none;font-size:10px;color:#059669;margin-top:4px;padding-left:86px"></div>
         <div id="mat-silicone-flat-row" style="display:none;padding-left:86px">
           <input type="number" step="0.01" class="input" id="mat-silicone-flat" style="width:120px;font-size:11px;padding:4px 6px" placeholder="금액 $ (ex GST)" oninput="calcMaterials()"/>
         </div>
@@ -2009,22 +2011,64 @@ function onSiliconeModeChange() {
   calcMaterials();
 }
 
-// Auto-fill sand & cement screeding sqm from line items matching "Screeding"
+// Auto-fill sand & cement screeding sqm from line items matching floor tiling work
+// Includes: Screeding, Floor Tiling, Direct stick tiling, Wall and floor Tiling
 function autoFillScreedingSqm() {
-  const screedingItems = lineItems.filter(li => 
-    !li.isMaterials && /screeding/i.test(li.desc || '')
-  );
-  if (screedingItems.length === 0) {
-    alert('현재 라인 항목에 "Screeding"이 포함된 항목이 없습니다.\n\n예: "Floor Screeding", "Screeding&Floor Tiling" 등의 항목을 먼저 추가해주세요.');
+  const floorItems = lineItems.filter(li => {
+    if (li.isMaterials) return false;
+    const d = li.desc || '';
+    return /screeding|direct stick|floor tiling|wall and floor/i.test(d);
+  });
+  if (floorItems.length === 0) {
+    alert('현재 라인 항목에 바닥 타일링 항목이 없습니다.\n\n다음 중 하나가 포함된 항목이 필요해요:\n  • Screeding\n  • Floor Tiling\n  • Direct stick tiling\n  • Wall and floor Tiling');
     return;
   }
-  const totalSqm = screedingItems.reduce((sum, li) => sum + (parseFloat(li.qty) || 0), 0);
+  const totalSqm = floorItems.reduce((sum, li) => sum + (parseFloat(li.qty) || 0), 0);
   document.getElementById('mat-sc-sqm').value = totalSqm.toFixed(2);
   
-  // Show info about which items were summed
   const info = document.getElementById('mat-sc-info');
-  const lines = screedingItems.map(li => `  • ${li.desc} (${li.qty} m²)`).join('\n').replace(/\n/g, '<br>');
-  info.innerHTML = `✓ ${screedingItems.length}개 항목 합산: ${totalSqm.toFixed(2)} m²<br>${lines}`;
+  const lines = floorItems.map(li => `  • ${esc(li.desc)} (${li.qty} m²)`).join('<br>');
+  info.innerHTML = `✓ ${floorItems.length}개 항목 합산: ${totalSqm.toFixed(2)} m²<br>${lines}`;
+  info.style.display = 'block';
+  
+  calcMaterials();
+}
+
+// Auto-fill silicone wall + floor sqm from line items
+// Wall items: Wall Tiling, Splashback, Wall and floor Tiling
+// Floor items: Floor Tiling, Screeding, Direct stick tiling, Wall and floor Tiling
+function autoFillSiliconeSqm() {
+  const wallItems = lineItems.filter(li => {
+    if (li.isMaterials) return false;
+    const d = li.desc || '';
+    return /wall tiling|splashback|wall and floor/i.test(d);
+  });
+  const floorItems = lineItems.filter(li => {
+    if (li.isMaterials) return false;
+    const d = li.desc || '';
+    return /floor tiling|screeding|direct stick|wall and floor/i.test(d);
+  });
+  
+  if (wallItems.length === 0 && floorItems.length === 0) {
+    alert('현재 라인 항목에 벽 또는 바닥 타일링 항목이 없습니다.\n\n실리콘 계산에 포함되는 항목:\n  벽: Wall Tiling, Splashback, Wall and floor Tiling\n  바닥: Floor Tiling, Screeding, Direct stick tiling, Wall and floor Tiling');
+    return;
+  }
+  
+  const wallSqm = wallItems.reduce((sum, li) => sum + (parseFloat(li.qty) || 0), 0);
+  const floorSqm = floorItems.reduce((sum, li) => sum + (parseFloat(li.qty) || 0), 0);
+  
+  document.getElementById('mat-silicone-wall').value = wallSqm.toFixed(2);
+  document.getElementById('mat-silicone-floor').value = floorSqm.toFixed(2);
+  
+  const info = document.getElementById('mat-silicone-info');
+  let html = '';
+  if (wallItems.length > 0) {
+    html += `<div><strong>벽 ${wallSqm.toFixed(2)} m²:</strong><br>${wallItems.map(li => `  • ${esc(li.desc)} (${li.qty} m²)`).join('<br>')}</div>`;
+  }
+  if (floorItems.length > 0) {
+    html += `<div style="margin-top:4px"><strong>바닥 ${floorSqm.toFixed(2)} m²:</strong><br>${floorItems.map(li => `  • ${esc(li.desc)} (${li.qty} m²)`).join('<br>')}</div>`;
+  }
+  info.innerHTML = html;
   info.style.display = 'block';
   
   calcMaterials();
@@ -2121,6 +2165,8 @@ function addCalculatedMaterials() {
   document.getElementById('mat-fw-type').value = '0';
   const scInfo = document.getElementById('mat-sc-info');
   if (scInfo) { scInfo.style.display = 'none'; scInfo.innerHTML = ''; }
+  const silInfo = document.getElementById('mat-silicone-info');
+  if (silInfo) { silInfo.style.display = 'none'; silInfo.innerHTML = ''; }
   onGlueModeChange();
   onSiliconeModeChange();
   
