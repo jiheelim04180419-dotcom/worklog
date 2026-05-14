@@ -278,6 +278,38 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
   @page { size: A4 portrait; margin: 12mm; }
 }
 
+/* ── Print preview MODAL (on-screen, not actually printing) ──────────────── */
+/* Sticky header so the close button is always reachable */
+#print-modal .mbox {
+  position: relative;
+}
+#print-modal .mbox > .no-print:first-of-type {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: #fff;
+  padding-top: 12px !important;
+  margin-bottom: 12px !important;
+}
+/* Mobile: horizontal scroll the preview so it looks like the desktop A4 page,
+   not a squashed mobile-width version. The print-invoice itself maintains its
+   820px max-width, and the user can pinch-zoom or scroll horizontally. */
+@media (max-width: 768px) {
+  #print-modal .mbox {
+    padding: 12px 8px !important;
+  }
+  #print-area {
+    overflow-x: auto;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+  }
+  #print-area .print-invoice {
+    min-width: 760px;  /* keep desktop layout, scrollable */
+    margin: 0;
+    padding: 18px 22px;
+  }
+}
+
 /* ─────────────────────────────────────────────────────────────────────────
    RESPONSIVE: Mobile (default) is base; tweak narrow phones and desktop
    ───────────────────────────────────────────────────────────────────────── */
@@ -498,7 +530,7 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
       <div id="pick-tile-options" style="display:none;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:6px;padding:6px 8px;margin-bottom:6px">
         <div style="font-size:10px;color:#065F46;font-weight:700;margin-bottom:4px">✏️ 사이즈 & 패턴 (선택사항 - 빈 칸이면 추가 안 됨):</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
-          <select id="pick-tile-size" class="select" style="flex:1;min-width:120px;font-size:11px;padding:5px 7px">
+          <select id="pick-tile-size" class="select" style="flex:1;min-width:110px;font-size:11px;padding:5px 7px" onchange="onTileSizeChange()">
             <option value="">— 사이즈/타입 —</option>
             <option value="300x300">300x300</option>
             <option value="300x600">300x600</option>
@@ -513,7 +545,12 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
             <option value="Mosaic">Mosaic</option>
             <option value="Hexagon">Hexagon</option>
           </select>
-          <select id="pick-tile-pattern" class="select" style="flex:1;min-width:120px;font-size:11px;padding:5px 7px">
+          <select id="pick-mosaic-piece" class="select" style="display:none;flex:1;min-width:110px;font-size:11px;padding:5px 7px;background:#FEF3C7;border-color:#FCD34D" onchange="onMosaicPieceChange()">
+            <option value="">— Mosaic 사이즈 —</option>
+            <option value="Small">Small piece</option>
+            <option value="Large">Large piece</option>
+          </select>
+          <select id="pick-tile-pattern" class="select" style="flex:1;min-width:110px;font-size:11px;padding:5px 7px">
             <option value="">— 패턴 —</option>
             <option value="stack">stack</option>
             <option value="brick">brick</option>
@@ -1170,10 +1207,17 @@ function renderInv() {
             ${notePrev?`<div class="note-preview" style="margin-top:3px">📝 ${esc(notePrev)}</div>`:''}
           </div>
           <div style="flex-shrink:0;text-align:right;min-width:110px">
-            <div style="font-size:15px;font-weight:800;color:${amt<0?'#DC2626':'#111827'};line-height:1.1">${fA(amt)}</div>
-            <div style="font-size:10px;color:#9CA3AF;line-height:1.2">${fAex(amt)} ex</div>
+            ${isPartial && !isRetention && rem > 0.01 ? `
+              <!-- Partial payment: emphasize remaining balance, de-emphasize total -->
+              <div style="font-size:11px;color:#9CA3AF;text-decoration:line-through;line-height:1.1">${fA(amt)}</div>
+              <div style="font-size:9px;color:#059669;line-height:1.2">입금 ${fA(paid)}</div>
+              <div style="font-size:18px;font-weight:800;color:#DC2626;line-height:1.1;margin-top:2px;padding:3px 6px;background:#FEF2F2;border-radius:6px;display:inline-block">${fA(rem)}</div>
+              <div style="font-size:9px;color:#DC2626;font-weight:700;line-height:1.2;margin-top:1px">⚠️ 잔액</div>
+            ` : `
+              <div style="font-size:15px;font-weight:800;color:${amt<0?'#DC2626':'#111827'};line-height:1.1">${fA(amt)}</div>
+              <div style="font-size:10px;color:#9CA3AF;line-height:1.2">${fAex(amt)} ex</div>
+            `}
             <div style="margin-top:4px"><span class="pill pill-${ss}" style="font-size:10px;padding:2px 6px">${ss}</span></div>
-            ${isPartial && !isRetention?`<div style="font-size:10px;color:#059669;margin-top:3px;line-height:1.2">입금 ${fA(paid)}</div><div style="font-size:10px;color:${rem>0?'#DC2626':'#059669'};line-height:1.2">잔액 ${fA(rem)}</div>`:''}
             ${isRetention?`<div style="font-size:10px;color:#3730A3;font-weight:700;margin-top:3px;line-height:1.2">보류 ${fA(rem>0?rem:amt)}</div>`:''}
             ${(inv.status==='INVOICE'||inv.status==='ONGOING'||inv.status==='RETENTION') && rem > 0.01 ? `<button onclick="event.stopPropagation();quickPay('${inv.id}')" style="margin-top:6px;background:#10B981;color:#fff;border:none;border-radius:6px;padding:4px 8px;font-size:11px;font-weight:600;cursor:pointer" title="빠른 입금 추가">💰 입금</button>` : ''}
           </div>
@@ -1275,6 +1319,7 @@ function buildDetailHTML(inv) {
     <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
       ${inv.status === 'DRAFT' ? `<button class="btn-primary" style="flex:1;min-width:90px;padding:8px;font-size:12px" onclick="publishDraft('${inv.id}', false)" title="기존 날짜 그대로 발행">🚀 발행</button>
       <button class="btn-primary" style="flex:1.3;min-width:120px;padding:8px;font-size:12px;background:#F59E0B" onclick="publishDraft('${inv.id}', true)" title="오늘 날짜로 변경 후 발행 (만기일도 오늘+14일로 재계산)">📅 오늘날짜로 발행</button>` : ''}
+      ${inv.status === 'INVOICE' ? `<button style="flex:1;min-width:100px;padding:8px;font-size:11px;background:#FEF3C7;color:#92400E;border:1px solid #FDE68A;border-radius:9px;cursor:pointer" onclick="revertToDraft('${inv.id}')" title="실수로 발행했을 때 DRAFT로 복구">↩️ Draft로 되돌리기</button>` : ''}
       <button class="btn-primary" style="flex:1;min-width:90px;padding:8px;font-size:12px;background:#10B981" onclick="printInvoice('${inv.id}')" title="인쇄용 인보이스 생성">🖨️ 인쇄 / PDF</button>
       <button class="btn-secondary" style="flex:1;min-width:70px;padding:8px;font-size:12px" onclick="openIM('${inv.id}')">✏️ 수정</button>
       <button style="background:#FEF2F2;color:#DC2626;border:1px solid #FECACA;border-radius:9px;padding:8px 14px;font-size:12px;cursor:pointer" onclick="delInv('${inv.id}')" aria-label="삭제">🗑</button>
@@ -1325,6 +1370,23 @@ async function publishDraft(id, useToday) {
       await fbSet('invoiceCompanies/'+co.id, upd);
     }
   }
+  await loadAll();
+}
+
+// Revert an INVOICE back to DRAFT (in case of accidental publish)
+async function revertToDraft(id) {
+  const inv = invoices.find(i => i.id === id);
+  if (!inv) return;
+  if (inv.status === 'DRAFT') return alert('이미 DRAFT 상태입니다.');
+  
+  const fAu = s => { if (!s) return ''; const [y,m,d] = s.split('-'); return `${d}/${m}/${y}`; };
+  const msg = `⚠️ ${inv.invoiceNum || '(번호없음)'} 인보이스를 DRAFT로 되돌리시겠습니까?\n\n현재 상태: ${inv.status}\n빌더: ${inv.builderName || ''}\n금액: $${(parseFloat(inv.amount)||0).toFixed(2)}\n날짜: ${fAu(inv.invoiceDate)}\n\n⚠️ 주의:\n  • 이 인보이스가 이미 빌더에게 전달됐다면 혼동을 일으킬 수 있습니다.\n  • 인보이스 번호는 그대로 유지됩니다.\n  • 입금 내역은 그대로 유지됩니다.\n\n진짜로 되돌리시겠습니까?`;
+  
+  if (!confirm(msg)) return;
+  
+  const updated = {...inv, status: 'DRAFT', updatedAt: new Date().toISOString()};
+  delete updated.id;
+  await fbSet('invoices/'+id, updated);
   await loadAll();
 }
 
@@ -1398,6 +1460,8 @@ function openIM(id) {
     document.getElementById('pick-tile-options').style.display = 'none';
     if (document.getElementById('pick-tile-size')) document.getElementById('pick-tile-size').value = '';
     if (document.getElementById('pick-tile-pattern')) document.getElementById('pick-tile-pattern').value = '';
+    const mosaicSel = document.getElementById('pick-mosaic-piece');
+    if (mosaicSel) { mosaicSel.style.display = 'none'; mosaicSel.value = ''; }
   }
   
   // Load payments (with backward-compat migration)
@@ -1622,6 +1686,39 @@ function isItemSizable(desc) {
   return SIZABLE_BASE_ITEMS.includes(desc);
 }
 
+// When size dropdown changes — show/hide Mosaic piece sub-selector + hide pattern for Mosaic
+function onTileSizeChange() {
+  const size = document.getElementById('pick-tile-size').value;
+  const mosaicSel = document.getElementById('pick-mosaic-piece');
+  const patternSel = document.getElementById('pick-tile-pattern');
+  if (!mosaicSel || !patternSel) return;
+  if (size === 'Mosaic') {
+    mosaicSel.style.display = '';
+    // Pattern doesn't apply to Mosaic — hide and clear
+    patternSel.style.display = 'none';
+    patternSel.value = '';
+  } else {
+    mosaicSel.style.display = 'none';
+    mosaicSel.value = '';
+    patternSel.style.display = '';
+  }
+}
+
+// When Mosaic piece (Small/Large) changes — auto-adjust rate based on typical pricing
+// From rate sheet: Small piece $110 (NEW) / $120 (RENO), Large piece $100 (NEW) / $110 (RENO)
+function onMosaicPieceChange() {
+  const piece = document.getElementById('pick-mosaic-piece').value;
+  if (!piece) return;
+  const rateMap = {
+    NEW:  { Small: 110, Large: 100 },
+    RENO: { Small: 120, Large: 110 }
+  };
+  const newRate = rateMap[curBuildType]?.[piece];
+  if (newRate) {
+    document.getElementById('pick-unit').value = newRate;
+  }
+}
+
 // Parse multi-component item descriptions like "A / B / C / ea" or "X / Y / lm"
 // Returns {components, unit} if 2+ components exist before the unit, else null
 function parseComponentDesc(desc) {
@@ -1645,6 +1742,8 @@ function onPickItemChange() {
     tilePanel.style.display = 'none';
     document.getElementById('pick-tile-size').value = '';
     document.getElementById('pick-tile-pattern').value = '';
+    const mosaicSel = document.getElementById('pick-mosaic-piece');
+    if (mosaicSel) { mosaicSel.style.display = 'none'; mosaicSel.value = ''; }
   }
   
   const v = document.getElementById('pick-item').value;
@@ -1772,7 +1871,13 @@ function addFromPicker() {
   if (tilePanel && tilePanel.style.display !== 'none') {
     const size = document.getElementById('pick-tile-size').value;
     const pattern = document.getElementById('pick-tile-pattern').value;
-    if (size) desc += ' ' + size;
+    const mosaicPiece = document.getElementById('pick-mosaic-piece').value;
+    if (size === 'Mosaic') {
+      // "Wall Tiling Small Mosaic" / "Wall Tiling Large Mosaic" / "Wall Tiling Mosaic"
+      desc += mosaicPiece ? ' ' + mosaicPiece + ' Mosaic' : ' Mosaic';
+    } else if (size) {
+      desc += ' ' + size;
+    }
     if (pattern) desc += ' ' + pattern;
   }
   
@@ -1817,6 +1922,8 @@ function addFromPicker() {
     tlPanel.style.display = 'none';
     document.getElementById('pick-tile-size').value = '';
     document.getElementById('pick-tile-pattern').value = '';
+    const mosaicSel = document.getElementById('pick-mosaic-piece');
+    if (mosaicSel) { mosaicSel.style.display = 'none'; mosaicSel.value = ''; }
   }
   // Clear search filter so all items show again for next pick
   const searchEl = document.getElementById('pick-search');
@@ -2171,7 +2278,15 @@ async function saveInv(asDraft) {
     if (existing && existing.status && existing.status !== 'DRAFT') {
       status = existing.status; // preserve existing status (PAID, RETENTION, etc.)
     } else {
-      status = 'INVOICE'; // new invoice or publishing a draft
+      // New invoice OR publishing a draft → confirm before publishing
+      const fAu = s => { if (!s) return ''; const [y,m,d] = s.split('-'); return `${d}/${m}/${y}`; };
+      const invDate = document.getElementById('f-id').value;
+      const invNum = document.getElementById('f-n').value.trim() || '(자동번호)';
+      const msg = existing
+        ? `📄 ${invNum} 인보이스를 발행하시겠습니까?\n\n  • 빌더: ${b}\n  • 금액: $${amt.toFixed(2)}\n  • 날짜: ${fAu(invDate)}\n  • 상태: DRAFT → INVOICE\n\n발행 후에도 'Draft로 되돌리기' 버튼으로 복구할 수 있습니다.`
+        : `📄 새 인보이스를 발행하시겠습니까?\n\n  • 빌더: ${b}\n  • 금액: $${amt.toFixed(2)}\n  • 날짜: ${fAu(invDate)}\n  • 인보이스 번호가 자동 부여됩니다.\n\n실수했다면 'Draft로 되돌리기' 버튼으로 복구할 수 있습니다.`;
+      if (!confirm(msg)) return;
+      status = 'INVOICE';
     }
     if (isProg && status === 'INVOICE') {
       const allDone = lineItems.length>0 && lineItems.every(i=>parseFloat(i.pct)>=100);
