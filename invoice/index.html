@@ -144,15 +144,45 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
 .print-invoice .pi-title { font-size: 32px; font-weight: 300; letter-spacing: 1px; color: #1a1a1a; text-transform: uppercase; }
 .print-invoice .pi-logo { max-width: 220px; max-height: 75px; }
 
-.print-invoice .pi-info { display: flex; margin-bottom: 28px; font-size: 11px; gap: 14px; }
-.print-invoice .pi-info-left { flex: 1.5; padding-right: 14px; }
-.print-invoice .pi-info-mid { flex: 1; }
-.print-invoice .pi-info-right { flex: 1.1; text-align: left; }
+.print-invoice .pi-info { display: flex; margin-bottom: 14px; font-size: 11px; gap: 24px; }
+.print-invoice .pi-info-left { flex: 1.4; padding-right: 14px; }
+.print-invoice .pi-info-right { flex: 1; text-align: left; }
 .print-invoice .pi-billto-tag { display: inline-block; font-size: 9px; font-weight: 700; letter-spacing: 1.2px; color: #6b7280; text-transform: uppercase; margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1.5px solid #1a1a1a; }
 .print-invoice .pi-customer-name { font-size: 17px; font-weight: 700; margin-bottom: 6px; color: #1a1a1a; line-height: 1.2; }
 .print-invoice .pi-label { font-weight: 700; font-size: 10.5px; color: #1a1a1a; letter-spacing: 0.2px; }
 .print-invoice .pi-value { color: #1a1a1a; margin-top: 1px; line-height: 1.55; }
 .print-invoice .pi-co-name { font-weight: 700; font-size: 11.5px; color: #1a1a1a; }
+
+/* Horizontal meta bar (Invoice Date / Number / Job Address / ABN) */
+.print-invoice .pi-meta-bar {
+  display: flex;
+  border-top: 1.5px solid #1a1a1a;
+  border-bottom: 1.5px solid #1a1a1a;
+  margin-bottom: 18px;
+  background: #FAFAFA;
+}
+.print-invoice .pi-meta-cell {
+  flex: 1;
+  padding: 8px 12px;
+  border-right: 1px solid #E5E7EB;
+  min-width: 0;
+}
+.print-invoice .pi-meta-cell:last-child { border-right: none; }
+.print-invoice .pi-meta-label {
+  font-size: 8.5px;
+  font-weight: 700;
+  color: #6B7280;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-bottom: 3px;
+}
+.print-invoice .pi-meta-value {
+  font-size: 11px;
+  font-weight: 600;
+  color: #1a1a1a;
+  word-break: break-word;
+  line-height: 1.3;
+}
 
 .print-invoice table { width: 100%; border-collapse: collapse; margin-bottom: 0; font-size: 11px; }
 .print-invoice thead tr { border-bottom: 1.5px solid #1a1a1a; }
@@ -277,10 +307,11 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
   .no-print { display: none !important; }
   .print-invoice { 
     padding: 0 !important; 
-    max-width: 100% !important;
-    width: 100% !important;
+    /* Explicit mm widths to GUARANTEE fit even if browser uses larger margin */
+    width: 180mm !important;
+    max-width: 180mm !important;
     box-sizing: border-box !important;
-    margin: 0 !important;
+    margin: 0 auto !important;
     font-size: 10px !important;
     overflow: hidden !important;
   }
@@ -294,16 +325,15 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
   .print-invoice .pi-title { font-size: 26px !important; }
   .print-invoice .pi-logo { max-width: 180px !important; max-height: 60px !important; }
   
-  /* Info row: 3 cols flex, all must shrink */
+  /* Info row: 2 cols flex (BILL TO | Company info) */
   .print-invoice .pi-info { 
-    gap: 8px !important; 
-    margin-bottom: 18px !important;
+    gap: 16px !important; 
+    margin-bottom: 12px !important;
     font-size: 10px !important;
     display: flex !important;
     width: 100% !important;
   }
   .print-invoice .pi-info-left,
-  .print-invoice .pi-info-mid,
   .print-invoice .pi-info-right { 
     word-wrap: break-word !important; 
     overflow-wrap: break-word !important;
@@ -313,15 +343,37 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
     overflow: hidden !important;
   }
   .print-invoice .pi-info-left { flex: 1.4 1 0 !important; padding-right: 6px !important; }
-  .print-invoice .pi-info-mid { flex: 1 1 0 !important; }
-  .print-invoice .pi-info-right { flex: 1.1 1 0 !important; }
+  .print-invoice .pi-info-right { flex: 1 1 0 !important; }
   .print-invoice .pi-customer-name { font-size: 14px !important; }
   .print-invoice .pi-co-name { font-size: 10.5px !important; line-height: 1.3 !important; }
   
-  /* TABLE — force fixed layout so columns don't overflow */
+  /* Horizontal meta bar in print */
+  .print-invoice .pi-meta-bar {
+    display: flex !important;
+    margin-bottom: 14px !important;
+    width: 100% !important;
+  }
+  .print-invoice .pi-meta-cell {
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
+    padding: 6px 9px !important;
+    overflow: hidden !important;
+  }
+  .print-invoice .pi-meta-label {
+    font-size: 8px !important;
+    letter-spacing: 0.4px !important;
+    margin-bottom: 2px !important;
+  }
+  .print-invoice .pi-meta-value {
+    font-size: 10px !important;
+    word-break: break-word !important;
+  }
+  
+  /* TABLE — force fixed layout and explicit width to prevent overflow */
   .print-invoice table { 
     table-layout: fixed !important; 
-    width: 100% !important;
+    width: 180mm !important;
+    max-width: 180mm !important;
     border-collapse: collapse !important;
   }
   .print-invoice th, .print-invoice td { 
@@ -372,16 +424,17 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
   .print-invoice tr { page-break-inside: avoid !important; page-break-after: auto !important; }
   .print-invoice .pi-room-header { page-break-after: avoid !important; }
   
-  /* BXBT template — similar safety */
+  /* BXBT template — explicit 180mm width */
   .bxbt-invoice {
     padding: 0 !important;
-    width: 100% !important;
-    max-width: 100% !important;
+    width: 180mm !important;
+    max-width: 180mm !important;
     box-sizing: border-box !important;
     overflow: hidden !important;
+    margin: 0 auto !important;
   }
-  .bxbt-redbar { width: 100% !important; margin-left: 0 !important; }
-  .bxbt-invoice table { table-layout: fixed !important; width: 100% !important; }
+  .bxbt-redbar { width: 180mm !important; margin-left: 0 !important; }
+  .bxbt-invoice table { table-layout: fixed !important; width: 180mm !important; max-width: 180mm !important; }
   .bxbt-invoice td, .bxbt-invoice th { 
     word-wrap: break-word !important; 
     word-break: break-word !important;
@@ -849,12 +902,23 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
         <option value="Materials">Materials</option>
       </select>
       <input class="input" id="f-am-desc" style="font-size:12px;padding:6px;margin-bottom:6px" placeholder="직접 입력 (예: Wall and floor Tiling at Lot 123)"/>
-      <div style="display:flex;gap:8px;align-items:center;padding:4px 6px;background:#FFFBEB;border-radius:6px;border:1px solid #FDE68A">
-        <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:#92400E;cursor:pointer;font-weight:700">
+      <div style="background:#FFFBEB;border-radius:6px;border:1px solid #FDE68A;padding:6px 8px">
+        <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:#92400E;cursor:pointer;font-weight:700;margin-bottom:0">
           <input type="checkbox" id="f-am-incmat" style="margin:0" onchange="onSimpleIncMatToggle()"/>
           📦 inc. Materials
         </label>
-        <input class="input" id="f-am-incmat-text" style="flex:1;font-size:11px;padding:4px 7px;display:none" value="silicone" placeholder="silicone, glue, etc."/>
+        <div id="f-am-incmat-panel" style="display:none;margin-top:6px">
+          <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:5px">
+            <button type="button" onclick="toggleSimpleMatChip('silicone', this)" class="sm-mat-chip" style="background:#fff;border:1px solid #FDE68A;color:#92400E;border-radius:12px;padding:3px 9px;font-size:10px;cursor:pointer;font-weight:600">silicone</button>
+            <button type="button" onclick="toggleSimpleMatChip('grout', this)" class="sm-mat-chip" style="background:#fff;border:1px solid #FDE68A;color:#92400E;border-radius:12px;padding:3px 9px;font-size:10px;cursor:pointer;font-weight:600">grout</button>
+            <button type="button" onclick="toggleSimpleMatChip('glue', this)" class="sm-mat-chip" style="background:#fff;border:1px solid #FDE68A;color:#92400E;border-radius:12px;padding:3px 9px;font-size:10px;cursor:pointer;font-weight:600">glue</button>
+            <button type="button" onclick="toggleSimpleMatChip('Waterproofing', this)" class="sm-mat-chip" style="background:#fff;border:1px solid #FDE68A;color:#92400E;border-radius:12px;padding:3px 9px;font-size:10px;cursor:pointer;font-weight:600">Waterproofing</button>
+            <button type="button" onclick="toggleSimpleMatChip('Sand&cement', this)" class="sm-mat-chip" style="background:#fff;border:1px solid #FDE68A;color:#92400E;border-radius:12px;padding:3px 9px;font-size:10px;cursor:pointer;font-weight:600">Sand&cement</button>
+            <button type="button" onclick="toggleSimpleMatChip('Angle', this)" class="sm-mat-chip" style="background:#fff;border:1px solid #FDE68A;color:#92400E;border-radius:12px;padding:3px 9px;font-size:10px;cursor:pointer;font-weight:600">Angle</button>
+            <button type="button" onclick="toggleSimpleMatChip('Floor waste', this)" class="sm-mat-chip" style="background:#fff;border:1px solid #FDE68A;color:#92400E;border-radius:12px;padding:3px 9px;font-size:10px;cursor:pointer;font-weight:600">Floor waste</button>
+          </div>
+          <input class="input" id="f-am-incmat-text" style="width:100%;font-size:11px;padding:5px 8px" value="" placeholder="여기에 자동으로 들어옴 (직접 수정도 가능)"/>
+        </div>
       </div>
     </div>
     <label class="label">💵 금액 (ex GST) *</label>
@@ -1662,8 +1726,25 @@ function openIM(id) {
   if (document.getElementById('f-am-desc')) document.getElementById('f-am-desc').value = restoreSimpleDesc;
   if (document.getElementById('f-am-incmat')) document.getElementById('f-am-incmat').checked = !!restoreSimpleMaterials;
   if (document.getElementById('f-am-incmat-text')) {
-    document.getElementById('f-am-incmat-text').value = restoreSimpleMaterials || 'silicone';
-    document.getElementById('f-am-incmat-text').style.display = restoreSimpleMaterials ? 'block' : 'none';
+    document.getElementById('f-am-incmat-text').value = restoreSimpleMaterials || '';
+  }
+  if (document.getElementById('f-am-incmat-panel')) {
+    document.getElementById('f-am-incmat-panel').style.display = restoreSimpleMaterials ? 'block' : 'none';
+  }
+  // Reset chip states based on current materials text
+  if (restoreSimpleMaterials) {
+    const present = restoreSimpleMaterials.split(',').map(s => s.trim().toLowerCase());
+    document.querySelectorAll('.sm-mat-chip').forEach(btn => {
+      const name = btn.textContent.trim().toLowerCase();
+      const isActive = present.includes(name);
+      btn.style.background = isActive ? '#92400E' : '#fff';
+      btn.style.color = isActive ? '#fff' : '#92400E';
+    });
+  } else {
+    document.querySelectorAll('.sm-mat-chip').forEach(btn => {
+      btn.style.background = '#fff';
+      btn.style.color = '#92400E';
+    });
   }
   // Reset top-picker materials checkbox
   if (document.getElementById('pick-incmat')) document.getElementById('pick-incmat').checked = false;
@@ -1944,7 +2025,7 @@ function updateProgressThisPct(i, val) {
     li.qty = round2((parseFloat(li.thisPct) || 0) / 100);
     li.unitPrice = parseFloat(li.totalAmount);
   }
-  renderLineItems();
+  updProgressLineDisplay(i);
 }
 
 // User updated "새 누적%" → recalculate thisPct = newCum - prev
@@ -1961,7 +2042,29 @@ function updateProgressCumPct(i, val) {
     li.qty = round2((parseFloat(li.thisPct) || 0) / 100);
     li.unitPrice = parseFloat(li.totalAmount);
   }
-  renderLineItems();
+  updProgressLineDisplay(i);
+}
+
+// Light update — just update the computed display + cumulative input, no full re-render
+function updProgressLineDisplay(i) {
+  const li = lineItems[i];
+  if (!li) return;
+  // Update line total cell (existing function)
+  updLineTotal(i);
+  // Update line items total row
+  updLineItemsTotal();
+}
+
+// Light update for totalAmount input
+function updateProgressTotalAmount(i, val) {
+  const li = lineItems[i];
+  if (!li) return;
+  li.totalAmount = val;
+  if (li.totalAmount) {
+    li.qty = round2((parseFloat(li.thisPct) || 0) / 100);
+    li.unitPrice = parseFloat(li.totalAmount);
+  }
+  updProgressLineDisplay(i);
 }
 
 // Set the same cumulative% for ALL non-materials line items at once
@@ -2004,8 +2107,26 @@ function onSimpleDescPick(v) {
 // Toggle the inc.materials text input visibility in simple mode
 function onSimpleIncMatToggle() {
   const cb = document.getElementById('f-am-incmat');
+  const panel = document.getElementById('f-am-incmat-panel');
+  if (cb && panel) panel.style.display = cb.checked ? 'block' : 'none';
+}
+
+// Toggle a material chip on/off — adds/removes from the comma-separated text field
+function toggleSimpleMatChip(name, btn) {
   const txt = document.getElementById('f-am-incmat-text');
-  if (cb && txt) txt.style.display = cb.checked ? 'block' : 'none';
+  if (!txt) return;
+  const cur = txt.value.split(',').map(s => s.trim()).filter(s => s);
+  const idx = cur.findIndex(s => s.toLowerCase() === name.toLowerCase());
+  if (idx >= 0) {
+    cur.splice(idx, 1);
+    btn.style.background = '#fff';
+    btn.style.color = '#92400E';
+  } else {
+    cur.push(name);
+    btn.style.background = '#92400E';
+    btn.style.color = '#fff';
+  }
+  txt.value = cur.join(', ');
 }
 
 // Build the final description for legacy/simple mode (combining picker + checkbox)
@@ -2281,7 +2402,7 @@ function onPickItemChange() {
     const listEl = document.getElementById('pick-components-list');
     listEl.innerHTML = parsed.components.map((c, i) =>
       `<label style="display:flex;align-items:center;gap:4px;font-size:12px;color:#4F46E5;cursor:pointer;font-weight:600">
-        <input type="checkbox" class="pick-comp-cb" data-comp="${esc(c)}" checked/>${esc(c)}
+        <input type="checkbox" class="pick-comp-cb" data-comp="${esc(c)}"/>${esc(c)}
       </label>`
     ).join('');
     componentsPanel.style.display = 'block';
@@ -3073,38 +3194,53 @@ function renderLineItems() {
         
         if (isProgressInv) {
           // Progress mode: totalAmount × thisPct% = lineTotal; cumulativePct shown after desc
+          // AUTO-INIT: if line was added via picker (qty/unitPrice set) but totalAmount missing,
+          // capture totalAmount = qty × unitPrice ONCE so % calculation can work
+          if (!li.totalAmount || isNaN(parseFloat(li.totalAmount))) {
+            const computedFromQtyUnit = round2((parseFloat(li.qty)||0) * (parseFloat(li.unitPrice)||0));
+            if (computedFromQtyUnit > 0) li.totalAmount = computedFromQtyUnit;
+          }
+          // Default thisPct = 0 (no charge by default) — user must explicitly enter to charge
+          if (li.thisPct === '' || li.thisPct === null || li.thisPct === undefined) {
+            li.thisPct = 0;
+            // cumulativePct = prevPct (no change yet)
+            if (li.cumulativePct === '' || li.cumulativePct === null || li.cumulativePct === undefined) {
+              li.cumulativePct = parseFloat(li.prevPct) || 0;
+            }
+          }
+          // Apply: qty = thisPct/100, unitPrice = totalAmount → product = charged amount
+          if (li.totalAmount) {
+            li.qty = round2((parseFloat(li.thisPct)||0) / 100);
+            li.unitPrice = parseFloat(li.totalAmount);
+          }
+          
           const totalAmt = parseFloat(li.totalAmount) || 0;
           const thisPct = parseFloat(li.thisPct) || 0;
           const cumPct = parseFloat(li.cumulativePct) || 0;
           const prevPct = parseFloat(li.prevPct) || 0;
-          // Compute qty/unitPrice for storage (qty=thisPct/100, unitPrice=totalAmt → ex matches)
-          if (totalAmt && (thisPct || thisPct === 0)) {
-            li.qty = round2(thisPct / 100);
-            li.unitPrice = totalAmt;
-          }
           const computedEx = round2((parseFloat(li.qty)||0) * (parseFloat(li.unitPrice)||0));
           h += `<div style="background:var(--card-bg);border:1px solid var(--border);border-radius:8px;padding:8px;margin-bottom:6px;display:flex;gap:6px;align-items:flex-start">
             <span style="font-size:10px;font-weight:700;color:var(--text-3);min-width:18px;padding-top:4px">#${i+1}</span>
             <div style="flex:1;min-width:0">
-              <input class="input" style="font-size:11px;padding:4px 7px;margin-bottom:3px" value="${esc(finalDesc)}" oninput="lineItems[${i}].desc=this.value;lineItems[${i}].placement='';renderLineItems()" title="설명"/>
+              <input class="input" style="font-size:11px;padding:4px 7px;margin-bottom:3px" value="${esc(finalDesc)}" oninput="lineItems[${i}].desc=this.value;lineItems[${i}].placement=''" title="설명"/>
               <div style="display:flex;gap:4px;align-items:center;font-size:10px;flex-wrap:wrap;margin-bottom:3px">
-                <span style="color:var(--text-4);min-width:40px;font-weight:700">전체:</span>
-                <input type="number" step="0.01" class="input" style="flex:1;min-width:80px;font-size:11px;padding:4px 6px" value="${li.totalAmount||''}" placeholder="전체금액 ex" oninput="lineItems[${i}].totalAmount=this.value;renderLineItems()"/>
+                <span style="color:var(--text-4);min-width:60px;font-weight:700" title="라인 총액 (자동으로 qty×단가)">📊 라인총액:</span>
+                <input type="number" step="0.01" class="input" style="flex:1;min-width:80px;font-size:11px;padding:4px 6px;background:#F9FAFB" value="${li.totalAmount ?? ''}" placeholder="자동 계산 (수정 가능)" oninput="updateProgressTotalAmount(${i}, this.value)" title="라인 전체 금액. 자동으로 채워지지만 수정 가능"/>
                 ${prevPct > 0 ? `<span style="color:#7C3AED;font-weight:700;background:#EDE9FE;padding:2px 6px;border-radius:4px">이전: ${prevPct}%</span>` : ''}
                 <label style="display:flex;align-items:center;gap:2px;cursor:pointer;color:var(--text-3);margin-left:6px">
                   <input type="checkbox" ${li.noTax?'checked':''} onchange="lineItems[${i}].noTax=this.checked;renderLineItems()" style="margin:0"/>NoTax
                 </label>
               </div>
               <div style="display:flex;gap:4px;align-items:center;font-size:10px;flex-wrap:wrap">
-                <span style="color:var(--text-4);min-width:40px;font-weight:700">청구%:</span>
-                <input type="number" step="0.01" class="input" style="width:60px;font-size:11px;padding:4px 6px" value="${li.thisPct||''}" placeholder="이번%" oninput="updateProgressThisPct(${i}, this.value)"/>
+                <span style="color:#4F46E5;min-width:60px;font-weight:700">💰 청구%:</span>
+                <input type="number" step="0.01" class="input" style="width:65px;font-size:11px;padding:4px 6px;font-weight:700;color:#4F46E5;border-color:#C7D2FE" value="${li.thisPct ?? ''}" placeholder="이번%" oninput="updateProgressThisPct(${i}, this.value)" title="이번에 청구할 % (기본 100%)"/>
                 <span style="color:var(--text-4);margin-left:6px;font-weight:700">새 누적%:</span>
-                <input type="number" step="0.01" class="input" style="width:70px;font-size:11px;padding:4px 6px" value="${li.cumulativePct||''}" placeholder="누적%" oninput="updateProgressCumPct(${i}, this.value)"/>
+                <input type="number" step="0.01" class="input" style="width:70px;font-size:11px;padding:4px 6px" value="${li.cumulativePct ?? ''}" placeholder="누적%" oninput="updateProgressCumPct(${i}, this.value)"/>
                 <span style="color:var(--text-4);font-size:9px;font-style:italic">↑ 둘 중 하나만 입력하면 자동 계산</span>
               </div>
-              <div style="font-size:10px;color:#4F46E5;margin-top:3px;font-weight:600">→ 이번 청구: ${fA(computedEx)} ex (= ${thisPct||0}% × ${fA(totalAmt)})${cumPct ? ` · 누적 ${cumPct}% Completed` : ''}</div>
+              <div style="font-size:10px;color:#4F46E5;margin-top:3px;font-weight:600">→ 이번 청구: ${fA(computedEx)} ex (= ${thisPct}% × ${fA(totalAmt)})${cumPct > 0 ? ` · 누적 ${cumPct}% Completed` : ''}</div>
             </div>
-            <span id="line-total-${i}" style="min-width:75px;text-align:right;font-weight:700;font-size:11px;color:var(--text)">${fA(computedEx)}<div style="font-size:9px;color:var(--text-4);font-weight:400">${li.noTax?'(no tax)':'ex GST'}</div></span>
+            <span id="line-total-${i}" style="min-width:90px;text-align:right;font-weight:700;font-size:11px;color:var(--text)">${fA(computedEx)}<div style="font-size:9px;color:var(--text-4);font-weight:400">${li.noTax?'(no tax)':'ex GST'}</div><div style="font-size:9px;color:var(--text-4);font-weight:400;margin-top:2px">원래: ${fA(totalAmt)}</div>${prevPct > 0 ? `<div style="font-size:9px;color:#7C3AED;font-weight:600">지난: ${fA(round2(totalAmt * prevPct / 100))}</div>` : ''}</span>
             <div style="display:flex;flex-direction:column;gap:1px">
               <button style="background:none;border:none;color:var(--text-3);font-size:11px;cursor:${i===0?'not-allowed':'pointer'};line-height:1;padding:1px 3px;opacity:${i===0?'0.3':'1'}" onclick="moveLineItem(${i}, -1)" aria-label="위로" title="위로">▲</button>
               <button style="background:none;border:none;color:var(--text-3);font-size:11px;cursor:${i===lineItems.length-1?'not-allowed':'pointer'};line-height:1;padding:1px 3px;opacity:${i===lineItems.length-1?'0.3':'1'}" onclick="moveLineItem(${i}, 1)" aria-label="아래로" title="아래로">▼</button>
@@ -3147,7 +3283,17 @@ function updLineTotal(i) {
   const lineEx = round2((parseFloat(li.qty)||0) * (parseFloat(li.unitPrice)||0));
   const el = document.getElementById('line-total-'+i);
   if (el) {
-    el.innerHTML = `${fA(lineEx)}<div style="font-size:9px;color:var(--text-4);font-weight:400">${li.noTax?'(no tax)':'ex GST'}</div>`;
+    let html = `${fA(lineEx)}<div style="font-size:9px;color:var(--text-4);font-weight:400">${li.noTax?'(no tax)':'ex GST'}</div>`;
+    // For progress invoice, also show original line total + previous billed
+    if (curType === 'PROGRESS' && li.totalAmount && !li.isMaterials) {
+      const totalAmt = parseFloat(li.totalAmount) || 0;
+      const prevPct = parseFloat(li.prevPct) || 0;
+      html += `<div style="font-size:9px;color:var(--text-4);font-weight:400;margin-top:2px">원래: ${fA(totalAmt)}</div>`;
+      if (prevPct > 0) {
+        html += `<div style="font-size:9px;color:#7C3AED;font-weight:600">지난: ${fA(round2(totalAmt * prevPct / 100))}</div>`;
+      }
+    }
+    el.innerHTML = html;
   }
   updLineItemsTotal();
 }
@@ -3891,7 +4037,7 @@ function printInvoiceKM(inv, co, b) {
     
     // Build rows: main desc as first row, Materials as separate row (if any)
     itemRows = `<tr>
-      <td></td>
+      <td class="pi-blank-room"></td>
       <td>${esc(mainDesc)}</td>
       <td class="center">1</td>
       <td class="num">${subFallback.toFixed(2)}</td>
@@ -3902,7 +4048,7 @@ function printInvoiceKM(inv, co, b) {
     if (materialsText) {
       // Separate row for Materials — no qty/price (already included in amount above)
       itemRows += `<tr>
-        <td></td>
+        <td class="pi-blank-room"></td>
         <td>Materials(${esc(materialsText)})</td>
         <td class="center"></td>
         <td class="num"></td>
@@ -3941,7 +4087,7 @@ function printInvoiceKM(inv, co, b) {
       <div>${logoHTML}</div>
     </div>
     
-    <!-- Info: 3 columns - builder (LEFT) | invoice details (MID) | company (RIGHT) -->
+    <!-- Info: 2 columns - BILL TO (LEFT) | company (RIGHT) -->
     <div class="pi-info">
       <div class="pi-info-left">
         <div class="pi-billto-tag">BILL TO</div>
@@ -3960,20 +4106,30 @@ function printInvoiceKM(inv, co, b) {
         })()}
         ${builderAddrHTML ? `<div class="pi-value">${builderAddrHTML}</div>` : ''}
       </div>
-      <div class="pi-info-mid">
-        <div class="pi-label">Invoice Date</div>
-        <div class="pi-value">${fDAu(inv.invoiceDate)}</div>
-        <div class="pi-label" style="margin-top:10px">Invoice Number</div>
-        <div class="pi-value">${esc(inv.invoiceNum||'—')}</div>
-        <div class="pi-label" style="margin-top:10px">Job Address</div>
-        <div class="pi-value">${esc(inv.address||'')}</div>
-        <div class="pi-label" style="margin-top:10px">ABN</div>
-        <div class="pi-value">${esc(co.abn||'')}</div>
-      </div>
       <div class="pi-info-right">
         <div class="pi-co-name">${esc(co.name||'K&M Tiling Bathurst PTY LTD')}</div>
         <div class="pi-value" style="margin-top:4px">${fmtAddr(co.address||'')}</div>
         ${co.phone ? `<div class="pi-value" style="margin-top:8px">${esc(co.phone)}</div>` : ''}
+      </div>
+    </div>
+    
+    <!-- Horizontal meta bar: Invoice Date / Number / Job Address / ABN -->
+    <div class="pi-meta-bar">
+      <div class="pi-meta-cell">
+        <div class="pi-meta-label">Invoice Date</div>
+        <div class="pi-meta-value">${fDAu(inv.invoiceDate)}</div>
+      </div>
+      <div class="pi-meta-cell">
+        <div class="pi-meta-label">Invoice Number</div>
+        <div class="pi-meta-value">${esc(inv.invoiceNum||'—')}</div>
+      </div>
+      <div class="pi-meta-cell" style="flex:1.5">
+        <div class="pi-meta-label">Job Address</div>
+        <div class="pi-meta-value">${esc(inv.address||'—')}</div>
+      </div>
+      <div class="pi-meta-cell">
+        <div class="pi-meta-label">ABN</div>
+        <div class="pi-meta-value">${esc(co.abn||'')}</div>
       </div>
     </div>
     
