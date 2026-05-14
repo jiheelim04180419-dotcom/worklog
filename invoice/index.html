@@ -1747,24 +1747,14 @@ function calcMaterials() {
           fwQty, fwRate, scSqm};
 }
 
-// Build a readable description from what was used
+// Build a readable description — only material names, no quantities
 function buildMaterialsDesc(c) {
   const parts = [];
-  if (c.glueTotal > 0) {
-    if (c.glueMode === 'bags') parts.push(`glue ${c.glueBags}포`);
-    else parts.push('glue');
-  }
+  if (c.glueTotal > 0) parts.push('glue');
   if (c.groutTotal > 0) parts.push('grout');
-  if (c.siliconeTotal > 0) {
-    const tag = c.silRate === 12 ? 'ext' : 'int';
-    parts.push(`silicone ${tag} ${(c.silWall + c.silFloor).toFixed(2)}m²`);
-  }
-  if (c.fwTotal > 0) {
-    const fwSel = document.getElementById('mat-fw-type');
-    const fwName = fwSel.options[fwSel.selectedIndex]?.text?.split(' ($')[0] || 'floor waste';
-    parts.push(`${fwName} ×${c.fwQty}`);
-  }
-  if (c.scTotal > 0) parts.push(`sand&cement ${c.scSqm}m²`);
+  if (c.siliconeTotal > 0) parts.push('silicone');
+  if (c.fwTotal > 0) parts.push('floor waste');
+  if (c.scTotal > 0) parts.push('sand&cement');
   return parts.length ? parts.join(', ') : '';
 }
 
