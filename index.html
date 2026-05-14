@@ -970,9 +970,9 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
             const startBal = prevEntry ? parseFloat(prevEntry.balance||0) : loanBal;
             const afterBal = startBal + savedDedTotal; // 공제로 갚음 (savedDed가 음수면 빌린 것)
             return (<>
-              {/* 대출 잔액 섹션 */}
+              {/* 선지급(가불) 잔액 섹션 */}
               <div style={{ background:"#FFF7ED",border:"1px solid #FED7AA",borderRadius:12,padding:"12px 14px",margin:"12px 0" }}>
-                <p style={{ margin:"0 0 8px",fontSize:12,fontWeight:700,color:"#C2410C" }}>💳 대출 잔액</p>
+                <p style={{ margin:"0 0 8px",fontSize:12,fontWeight:700,color:"#C2410C" }}>💳 선지급(가불) 잔액</p>
                 <div style={{ display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:4 }}>
                   <span style={{ color:"#555" }}>이전 정산 잔액</span>
                   <span style={{ fontWeight:700,color:startBal<0?"#DC2626":"#059669" }}>{fA(startBal)}</span>
@@ -989,7 +989,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                 {/* 대출 추가 (관리자만) */}
                 {isSuperAdmin && (<>
                   <div style={{ marginTop:10,borderTop:"1px solid #FED7AA",paddingTop:10 }}>
-                    <p style={{ margin:"0 0 6px",fontSize:11,fontWeight:700,color:"#C2410C" }}>잔액 조정 (대출 -, 상환 +)</p>
+                    <p style={{ margin:"0 0 6px",fontSize:11,fontWeight:700,color:"#C2410C" }}>잔액 조정 (선지급: -, 상환: +)</p>
                     <div style={{ display:"flex",gap:6 }}>
                       <input type="number" placeholder="금액 (예: -1000)" value={loanDeposit}
                         onChange={e=>setLoanDeposit(e.target.value)}
@@ -2501,11 +2501,7 @@ function SummarySection({users, leaves, periodStart, calcWage, getSavedDeduction
         </div>
       )}
 
-      {activeEmps.filter(emp => {
-        const hist = (leaves[emp.id]||{}).keepBalanceHistory || [];
-        const settled = Array.isArray(hist) ? hist : Object.values(hist);
-        return !!settled.find(h => h.periodStart === periodStart);
-      }).map((emp,ei) => {
+      {activeEmps.map((emp,ei) => {
         const lv = leaves[emp.id] || {};
         const w = calcWage(emp.id);
         // 기간별 킵잔액 (정산 전 시작잔액 + 당기입금)
@@ -2552,17 +2548,21 @@ function SummarySection({users, leaves, periodStart, calcWage, getSavedDeduction
             ) : fmt(netPay,"#10B981")}
             {splitPay0 ? <p style={{ margin:0,fontSize:12,color:"#aaa",textAlign:"center" }}>—</p> : fmt(taxAmt,"#EF4444")}
             {splitPay0 ? <p style={{ margin:0,fontSize:12,color:"#aaa",textAlign:"center" }}>—</p> : fmt(superAmt,"#8B5CF6")}
-            <p style={{ margin:0,fontSize:12,fontWeight:700,color:ka>0?"#3B82F6":ka<0?"#EF4444":"#ccc",textAlign:"center" }}>{ka!==0?fA(ka):"—"}</p>
+            <p style={{ margin:0,fontSize:12,fontWeight:700,
+                color:(w&&w.isContractor&&!w.hasFlatPay)
+                  ? (parseFloat(lv.keepBalance)||0)<0?"#EF4444":(parseFloat(lv.keepBalance)||0)>0?"#10B981":"#ccc"
+                  : ka>0?"#3B82F6":ka<0?"#EF4444":"#ccc",
+                textAlign:"center" }}>
+              {(w&&w.isContractor&&!w.hasFlatPay)
+                ? (parseFloat(lv.keepBalance)||0)!==0 ? fA(parseFloat(lv.keepBalance)) : "—"
+                : ka!==0?fA(ka):"—"}
+            </p>
           </div>
         );
       })}
       {/* 합계 행 */}
-      {activeEmps.filter(emp => {
-        const hist = (leaves[emp.id]||{}).keepBalanceHistory || [];
-        const settled = Array.isArray(hist) ? hist : Object.values(hist);
-        return !!settled.find(h => h.periodStart === periodStart);
-      }).length > 0 && (() => {
-        const settledEmps = activeEmps.filter(u => { const hist=(leaves[u.id]||{}).keepBalanceHistory||[]; const s=Array.isArray(hist)?hist:Object.values(hist); return !!s.find(h=>h.periodStart===periodStart); });
+      {activeEmps.length > 0 && (() => {
+        const settledEmps = activeEmps;
         const totNet   = settledEmps.reduce((s,u)=>{const w2=calcWage(u.id);const lv2=leaves[u.id]||{};return s+(w2&&w2.isContractor&&!w2.hasFlatPay?(parseFloat(w2.gross)||0):(parseFloat(lv2.fixedNet)||0));},0);
         const totTax   = settledEmps.reduce((s,u)=>{const w2=calcWage(u.id);const lv2=leaves[u.id]||{};return s+(w2&&w2.isContractor&&!w2.hasFlatPay?0:(parseFloat(lv2.fixedTax)||0));},0);
         const totSuper = settledEmps.reduce((s,u)=>s+(parseFloat((leaves[u.id]||{}).fixedSuper)||0),0);
