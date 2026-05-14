@@ -1288,12 +1288,13 @@ function buildDetailHTML(inv) {
       let h = `<div style="margin-top:10px;padding-top:8px;border-top:1px dashed var(--border-2)">
         <div style="font-size:10px;color:var(--text-4);font-weight:700;margin-bottom:6px">📋 작업 항목 <span style="background:${bt==='NEW'?'#DBEAFE':'#FEF3C7'};color:${bt==='NEW'?'#1E40AF':'#92400E'};padding:1px 6px;border-radius:4px;margin-left:4px">${bt}</span></div>`;
       let prevRoom = null;
+      let materialsHeaderShown = false;
       let itemNum = 0;
       items.forEach((it) => {
         const lineEx = (parseFloat(it.qty)||0) * (parseFloat(it.unitPrice)||0);
         let desc;
         if (it.isMaterials) {
-          desc = `Materials(${it.desc||''})`;
+          desc = it.desc || '';
         } else {
           desc = it.desc || '';
           if (it.placement && !desc.toLowerCase().startsWith(it.placement.toLowerCase())) {
@@ -1301,18 +1302,25 @@ function buildDetailHTML(inv) {
           }
         }
         
-        // Room header (skip for materials)
-        const curRoom = it.room || '';
-        if (!it.isMaterials && curRoom && curRoom !== prevRoom) {
-          h += `<div style="font-size:11px;font-weight:700;color:#4F46E5;margin-top:6px;margin-bottom:2px;padding-left:4px;border-left:2px solid #4F46E5">🚪 ${esc(curRoom)}</div>`;
+        // Room header (for non-materials) OR Materials header (once, before first materials line)
+        if (it.isMaterials) {
+          if (!materialsHeaderShown) {
+            h += `<div style="font-size:11px;font-weight:700;color:#92400E;margin-top:6px;margin-bottom:2px;padding-left:4px;border-left:2px solid #92400E">📦 Materials</div>`;
+            materialsHeaderShown = true;
+          }
+        } else {
+          const curRoom = it.room || '';
+          if (curRoom && curRoom !== prevRoom) {
+            h += `<div style="font-size:11px;font-weight:700;color:#4F46E5;margin-top:6px;margin-bottom:2px;padding-left:4px;border-left:2px solid #4F46E5">🚪 ${esc(curRoom)}</div>`;
+          }
+          prevRoom = curRoom;
         }
-        if (!it.isMaterials) prevRoom = curRoom;
         itemNum++;
         
         const isMat = it.isMaterials;
         h += `<div style="font-size:12px;color:var(--text-2);padding:4px 0;border-bottom:1px dotted var(--border-2);${isMat?'background:#FFFBEB;padding-left:6px;border-radius:4px;margin:4px 0':''}">
           <div style="display:flex;justify-content:space-between;gap:8px">
-            <span style="flex:1">${isMat?'📦':itemNum+'.'} ${esc(desc)}${it.pct?` <span style="color:#92400E;font-weight:700">(${esc(String(it.pct))}%)</span>`:''}</span>
+            <span style="flex:1">${isMat?'•':itemNum+'.'} ${esc(desc)}${it.pct?` <span style="color:#92400E;font-weight:700">(${esc(String(it.pct))}%)</span>`:''}</span>
             <span style="font-weight:700;white-space:nowrap">${fA(lineEx)} <span style="font-size:9px;color:var(--text-4);font-weight:400">ex</span></span>
           </div>
           ${!isMat?`<div style="font-size:10px;color:var(--text-4);margin-left:14px">${it.qty} × $${parseFloat(it.unitPrice).toFixed(2)} ex GST ${it.cat?` · ${esc(it.cat)}`:''}</div>`:''}
@@ -2720,7 +2728,7 @@ function printInvoiceBXBT(inv, co, b) {
       // For BXBT, build flat description (no grouping)
       let desc = it.desc || '';
       if (it.isMaterials) {
-        desc = `Materials(${desc})`;
+        desc = `Materials: ${desc}`;
       } else if (it.placement && !desc.toLowerCase().startsWith(it.placement.toLowerCase())) {
         desc = `${it.placement} ${desc}`;
       }
@@ -2904,14 +2912,14 @@ function printInvoiceKM(inv, co, b) {
       else taxableEx += ex;
     });
     
-    // Second pass: group items by room and render with rowspan for room column
-    // Build groups: [{room: 'Main Bathroom', items: [...]}, {room: '', items: [...]}, ...]
+    // Second pass: group items by room and render with rowspan for area column
+    // Build groups: [{room: 'Main Bathroom', items: [...]}, {room: 'Materials', items: [...]}, ...]
     const groups = [];
     let curGroup = null;
     items.forEach(it => {
       const roomKey = it.isMaterials ? '__MATERIALS__' : (it.room || '');
       if (!curGroup || curGroup.key !== roomKey) {
-        curGroup = {key: roomKey, room: it.isMaterials ? '' : (it.room || ''), items: []};
+        curGroup = {key: roomKey, room: it.isMaterials ? 'Materials' : (it.room || ''), items: []};
         groups.push(curGroup);
       }
       curGroup.items.push(it);
@@ -2925,9 +2933,7 @@ function printInvoiceKM(inv, co, b) {
         const lineEx = qty * unitEx;
         
         let desc = it.desc || '';
-        if (it.isMaterials) {
-          desc = `Materials(${desc})`;
-        } else if (it.placement && !desc.toLowerCase().startsWith(it.placement.toLowerCase())) {
+        if (!it.isMaterials && it.placement && !desc.toLowerCase().startsWith(it.placement.toLowerCase())) {
           desc = `${it.placement} ${desc}`;
         }
         if (it.pct) desc += ` (${it.pct}% completed)`;
@@ -2935,7 +2941,7 @@ function printInvoiceKM(inv, co, b) {
         const qtyDisplay = qty % 1 === 0 ? qty : qty.toFixed(2).replace(/\.?0+$/, '');
         const taxMark = it.noTax ? '' : 'x';
         
-        // First row of group gets the room cell with rowspan (replaces ITEM#)
+        // First row of group gets the area cell with rowspan
         const roomCell = (idx === 0)
           ? `<td class="pi-room-cell" rowspan="${rowsInGroup}">${esc(group.room)}</td>`
           : '';
@@ -3024,7 +3030,7 @@ function printInvoiceKM(inv, co, b) {
     <table>
       <thead>
         <tr>
-          <th class="pi-room-col" style="width:90px">ROOM</th>
+          <th class="pi-room-col" style="width:90px">AREA</th>
           <th>DESCRIPTION</th>
           <th class="center" style="width:55px">QTY</th>
           <th class="num" style="width:90px">UNIT PRICE</th>
