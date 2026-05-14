@@ -2510,7 +2510,8 @@ function SummarySection({users, leaves, periodStart, calcWage, getSavedDeduction
         const ci0 = lv.contractorInfo || {};
         const splitPay0 = !!(ci0.splitPay);
         const gstReg0 = !!(ci0.gstRegistered);
-        const netPay   = w ? (w.isContractor && !w.hasFlatPay ? Math.max(0, (parseFloat(w.gross)||0) - sd2) : (parseFloat(lv.fixedNet)||0)) : 0;
+        const sd2pre = getSavedDeductions(emp.id).reduce((s,d)=>s+(parseFloat(d.amount)||0),0);
+        const netPay   = w ? (w.isContractor && !w.hasFlatPay ? Math.max(0, (parseFloat(w.gross)||0) - sd2pre) : (parseFloat(lv.fixedNet)||0)) : 0;
         const taxAmt   = w ? (w.isContractor && !w.hasFlatPay ? 0 : (parseFloat(lv.fixedTax)||0)) : 0;
         const superAmt = w ? (w.isContractor && !w.hasFlatPay ? 0 : (parseFloat(lv.fixedSuper)||0)) : 0;
         const splitCash = (splitPay0 && w) ? (w.stats.fullDays * w.dailyRate / 2) : 0;
