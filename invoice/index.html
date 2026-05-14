@@ -670,10 +670,17 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
       </div>
       
       <!-- Total + Add button -->
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:#92400E;color:#fff;border-radius:8px;margin-top:8px">
-        <span style="font-size:12px;font-weight:700">📦 Total Materials (ex GST)</span>
-        <span id="mat-grand-total" style="font-size:14px;font-weight:800">$0.00</span>
+      <div style="background:#92400E;color:#fff;border-radius:8px;margin-top:8px;padding:10px 12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <span style="font-size:11px;font-weight:600;opacity:0.85">실제 자재비 (inc GST)</span>
+          <span id="mat-grand-inc" style="font-size:13px;font-weight:700;opacity:0.95">$0.00</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid rgba(255,255,255,0.2);padding-top:6px">
+          <span style="font-size:12px;font-weight:800">📦 인보이스 라인 (ex GST) →</span>
+          <span id="mat-grand-total" style="font-size:15px;font-weight:900">$0.00</span>
+        </div>
       </div>
+      <p style="margin:6px 0 0;font-size:10px;color:#92400E;line-height:1.5">💡 위쪽 inc GST = 실제 자재 구매가격. 아래 ex GST = 인보이스에 추가될 금액 (인보이스 합계에서 GST 자동 추가됨)</p>
       <button class="btn-primary" style="width:100%;margin-top:8px;padding:8px;font-size:12px;background:#92400E;border-color:#92400E" onclick="addCalculatedMaterials()">➕ 계산된 Materials 항목 추가</button>
     </div>
     
@@ -2119,10 +2126,16 @@ function calcMaterials() {
   document.getElementById('mat-sc-total').textContent = '$' + scTotal.toFixed(2);
   
   // Grand total
-  const grand = glueTotal + groutTotal + siliconeTotal + fwTotal + scTotal;
+  // Sub-totals above use real-world prices (inc GST) as multipliers ($37/bag, $9 or $12/m², $25/m²).
+  // grandInc = total user paid (inc GST). grandEx = invoice line item value (ex GST, /1.1).
+  // Invoice's bottom GST calc adds 10% back to grandEx → matches grandInc.
+  const grandInc = glueTotal + groutTotal + siliconeTotal + fwTotal + scTotal;
+  const grand = grandInc / 1.1;
   document.getElementById('mat-grand-total').textContent = '$' + grand.toFixed(2);
+  const incEl = document.getElementById('mat-grand-inc');
+  if (incEl) incEl.textContent = '$' + grandInc.toFixed(2);
   
-  return {glueTotal, groutTotal, siliconeTotal, fwTotal, scTotal, grand,
+  return {glueTotal, groutTotal, siliconeTotal, fwTotal, scTotal, grand, grandInc,
           glueMode, glueBags: parseFloat(document.getElementById('mat-glue-bags').value) || 0,
           silWall: wall, silFloor: floor, silRate: rate,
           fwQty, fwRate, scSqm};
