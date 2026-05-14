@@ -170,8 +170,8 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
 .print-invoice td.center { text-align: center; }
 .print-invoice .pi-totals-col { background: #FAFAFA; }
 
-.print-invoice .pi-bottom { display: flex; gap: 18px; margin-top: 6px; }
-.print-invoice .pi-comments { flex: 1.4; font-size: 10px; }
+.print-invoice .pi-bottom { display: flex; gap: 18px; margin-top: 6px; align-items: flex-start; }
+.print-invoice .pi-comments { flex: 1 1 0; min-width: 0; font-size: 10px; }
 .print-invoice .pi-comments-header { background: #1a1a1a; color: #fff; padding: 6px 10px; font-weight: 700; font-size: 10.5px; letter-spacing: 0.5px; }
 .print-invoice .pi-comments-body { border: 1px solid #1a1a1a; border-top: none; padding: 11px 12px; min-height: 110px; line-height: 1.6; }
 .print-invoice .pi-comments-body p { margin-bottom: 7px; }
@@ -268,12 +268,47 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
   .no-print { display: none !important; }
   .print-invoice { 
     padding: 0 !important; 
-    max-width: none !important;
-    page-break-after: avoid;
+    max-width: 100% !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    margin: 0 !important;
+    font-size: 10.5px !important;
   }
+  /* Ensure all children respect container width */
+  .print-invoice *, .bxbt-invoice * {
+    box-sizing: border-box !important;
+  }
+  /* Force long company name / addresses to wrap if needed */
+  .print-invoice .pi-info-right, 
+  .print-invoice .pi-info-mid,
+  .print-invoice .pi-info-left,
+  .print-invoice .pi-footer { 
+    word-wrap: break-word !important; 
+    overflow-wrap: break-word !important;
+    min-width: 0 !important;
+  }
+  /* Slightly smaller company name and totals for better fit */
+  .print-invoice .pi-co-name { font-size: 11px !important; }
+  .print-invoice .pi-totals { width: 245px !important; flex-shrink: 0; }
+  .print-invoice .pi-bottom { gap: 12px !important; }
+  /* Table cell padding tighter in print */
+  .print-invoice th, .print-invoice td { padding: 6px 6px !important; font-size: 10px !important; }
+  .print-invoice th { font-size: 9.5px !important; }
+  /* Allow descriptions to wrap inside table */
+  .print-invoice td { word-wrap: break-word; word-break: break-word; }
+  
   .print-invoice table { page-break-inside: auto; }
   .print-invoice tr { page-break-inside: avoid; page-break-after: auto; }
   .print-invoice .pi-room-header { page-break-after: avoid; }
+  
+  /* BXBT template — similar safety */
+  .bxbt-invoice {
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  .bxbt-redbar { width: 100% !important; margin-left: 0 !important; }
   
   @page { size: A4 portrait; margin: 12mm; }
 }
@@ -483,15 +518,7 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
     <div style="font-size:10px;color:#92400E">※ 주소는 아래 '현장 주소' 칸에 입력해주세요</div>
   </div>
   <datalist id="room-list">
-    <option value="Entry">
-    <option value="Ensuite">
-    <option value="Main Bathroom">
-    <option value="Toilet">
-    <option value="Laundry">
-    <option value="Kitchen">
-    <option value="Alfresco">
-    <option value="Porch">
-    <option value="Balcony">
+    <!-- Populated dynamically by renderRoomList() -->
   </datalist>
   <div class="mb"><label class="label">현장 주소 (Job Address)</label><input class="input" id="f-a" placeholder="주소"/></div>
   <!-- Hidden status field — auto-set by saveInv() based on draft vs publish -->
@@ -522,7 +549,8 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
     <div id="line-picker-row" style="background:var(--card-bg);border:1.5px solid var(--accent);border-radius:8px;padding:10px;margin-bottom:10px">
       <!-- Row 1: Room + Placement -->
       <div style="display:flex;gap:6px;margin-bottom:6px">
-        <input class="input" id="pick-room" list="room-list" style="flex:1.2;font-size:12px;padding:7px" placeholder="🚪 방 (Main Bathroom 등)" onfocus="onRoomFocus(this)" oninput="onRoomInput(this)" onblur="onRoomBlur(this)"/>
+        <input class="input" id="pick-room" list="room-list" style="flex:1.2;font-size:12px;padding:7px" placeholder="🚪 방 (직접 입력도 OK)" onfocus="onRoomFocus(this)" oninput="onRoomInput(this)" onblur="onRoomBlur(this)"/>
+        <button type="button" onclick="openRoomManager()" title="방 이름 관리" style="background:#EDE9FE;border:1px solid #C4B5FD;color:#5B21B6;border-radius:6px;padding:0 8px;font-size:14px;cursor:pointer">⚙️</button>
         <select class="select" id="pick-placement" style="flex:0.8;font-size:12px;padding:7px">
           <option value="">— 위치 —</option>
           <option value="Floor">📐 Floor</option>
@@ -872,7 +900,10 @@ async function fbDel(path) {
 }
 
 // ── State ─────────────────────────────────────────────────────────────────────
-let invoices = [], builders = [], companies = [], curFilter = 'INVOICE', curType = 'NORMAL', editId = null, editBId = null, invItems = [], progItems = [], invPayments = [];
+let invoices = [], builders = [], companies = [], customRooms = [], curFilter = 'INVOICE', curType = 'NORMAL', editId = null, editBId = null, invItems = [], progItems = [], invPayments = [];
+
+// Default room names (always shown, can't be deleted)
+const DEFAULT_ROOMS = ['Entry', 'Ensuite', 'Main Bathroom', 'Toilet', 'Laundry', 'Kitchen', 'Alfresco', 'Porch', 'Balcony'];
 let lineItems = []; // New rate-sheet-based line items
 // Materials calc multi-item state: each entry { desc, rate, qty }
 let matFwItems = [];      // floor waste items
@@ -945,9 +976,10 @@ async function loadAll() {
     invEl.innerHTML = '<div class="empty"><div style="font-size:32px;margin-bottom:10px">⏳</div><p style="font-size:13px;color:#6B7280">데이터 로딩 중...</p></div>';
   }
   
-  const [inv, bld, co] = await Promise.all([fbGet('invoices'), fbGet('invoiceBuilders'), fbGet('invoiceCompanies')]);
+  const [inv, bld, co, rms] = await Promise.all([fbGet('invoices'), fbGet('invoiceBuilders'), fbGet('invoiceCompanies'), fbGet('invoiceRooms')]);
   invoices = inv ? Object.entries(inv).map(([id,v])=>({...v,id})) : [];
   builders = bld ? Object.entries(bld).map(([id,v])=>({...v,id})) : [];
+  customRooms = rms && Array.isArray(rms) ? rms : (rms ? Object.values(rms) : []);
   if (co) {
     companies = Object.entries(co).map(([id,v])=>({...v,id}));
   } else {
@@ -977,6 +1009,7 @@ async function loadAll() {
   renderBuilders();
   renderDL();
   renderCoSel();
+  renderRoomList();
   updateBar();
 }
 
@@ -2139,6 +2172,136 @@ function onRoomBlur(el) {
   }
   delete el.dataset.prevValue;
   delete el.dataset.changed;
+}
+
+// ── Custom rooms management ─────────────────────────────────────────────────
+// Render room datalist (defaults + customRooms)
+function renderRoomList() {
+  const dl = document.getElementById('room-list');
+  if (!dl) return;
+  const all = [...DEFAULT_ROOMS, ...customRooms.filter(r => !DEFAULT_ROOMS.includes(r))];
+  dl.innerHTML = all.map(r => `<option value="${esc(r)}">`).join('');
+}
+
+// Open modal to manage custom rooms
+function openRoomManager() {
+  // Close any existing modal first
+  const existing = document.getElementById('room-mgr-modal');
+  if (existing) existing.remove();
+  
+  const modal = document.createElement('div');
+  modal.id = 'room-mgr-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+  modal.innerHTML = `
+    <div style="background:white;border-radius:12px;padding:20px;max-width:480px;width:100%;max-height:85vh;overflow-y:auto">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <h3 style="margin:0;font-size:16px;font-weight:700;color:#5B21B6">🚪 방 이름 관리</h3>
+        <button onclick="closeRoomManager()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#6B7280">×</button>
+      </div>
+      
+      <div style="background:#FEF3C7;border:1px solid #FCD34D;border-radius:8px;padding:10px;margin-bottom:14px;font-size:11px;color:#92400E">
+        💡 자주 쓰는 방 이름을 추가하면 라인 항목 입력할 때 드롭다운에서 바로 선택할 수 있어요. 기본 방 이름은 삭제할 수 없습니다.
+      </div>
+      
+      <div style="margin-bottom:14px">
+        <label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:4px">➕ 새 방 이름 추가</label>
+        <div style="display:flex;gap:6px">
+          <input id="new-room-input" type="text" class="input" style="flex:1;font-size:13px;padding:8px" placeholder="예: Powder Room, Mudroom, Walk-in Robe..." onkeydown="if(event.key==='Enter')addCustomRoom()"/>
+          <button onclick="addCustomRoom()" style="background:#7C3AED;color:white;border:none;border-radius:6px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer">추가</button>
+        </div>
+      </div>
+      
+      <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:6px">📋 현재 방 이름 목록</div>
+      <div id="room-list-display"></div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  
+  // Close on backdrop click
+  modal.addEventListener('click', e => {
+    if (e.target === modal) closeRoomManager();
+  });
+  
+  renderRoomManagerList();
+  setTimeout(() => document.getElementById('new-room-input')?.focus(), 50);
+}
+
+function closeRoomManager() {
+  const m = document.getElementById('room-mgr-modal');
+  if (m) m.remove();
+}
+
+function renderRoomManagerList() {
+  const el = document.getElementById('room-list-display');
+  if (!el) return;
+  
+  const defaults = DEFAULT_ROOMS.map(r =>
+    `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:#F3F4F6;border-radius:6px;margin-bottom:4px">
+      <span style="font-size:13px;color:#6B7280">${esc(r)} <span style="font-size:10px;color:#9CA3AF">(기본)</span></span>
+      <span style="font-size:10px;color:#9CA3AF">🔒</span>
+    </div>`
+  ).join('');
+  
+  const customs = customRooms
+    .filter(r => !DEFAULT_ROOMS.includes(r))
+    .map(r =>
+      `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:#EDE9FE;border:1px solid #C4B5FD;border-radius:6px;margin-bottom:4px">
+        <span style="font-size:13px;color:#5B21B6;font-weight:600">${esc(r)}</span>
+        <button onclick="removeCustomRoom('${esc(r).replace(/'/g, "\\'")}')" style="background:#FCA5A5;color:white;border:none;border-radius:4px;padding:3px 8px;font-size:11px;cursor:pointer">삭제</button>
+      </div>`
+    ).join('');
+  
+  el.innerHTML = defaults + (customs || '<div style="font-size:11px;color:#9CA3AF;text-align:center;padding:8px;font-style:italic">아직 추가한 방 이름이 없습니다</div>');
+}
+
+async function addCustomRoom() {
+  const input = document.getElementById('new-room-input');
+  if (!input) return;
+  const name = input.value.trim();
+  if (!name) return alert('방 이름을 입력하세요.');
+  if (name.length > 50) return alert('방 이름이 너무 깁니다 (50자 이내).');
+  
+  // Check duplicates (case-insensitive)
+  const lower = name.toLowerCase();
+  if (DEFAULT_ROOMS.some(r => r.toLowerCase() === lower)) {
+    return alert(`"${name}"은(는) 이미 기본 목록에 있습니다.`);
+  }
+  if (customRooms.some(r => r.toLowerCase() === lower)) {
+    return alert(`"${name}"은(는) 이미 추가되어 있습니다.`);
+  }
+  
+  customRooms.push(name);
+  // Save to Firebase
+  try {
+    await fbSet('invoiceRooms', customRooms);
+  } catch (e) {
+    console.error('Failed to save custom rooms:', e);
+    customRooms.pop(); // rollback
+    return alert('저장 실패. 다시 시도해주세요.');
+  }
+  
+  input.value = '';
+  renderRoomList();
+  renderRoomManagerList();
+}
+
+async function removeCustomRoom(name) {
+  if (!confirm(`"${name}"을(를) 목록에서 삭제할까요?\n(이미 사용한 인보이스에는 영향 없습니다)`)) return;
+  const idx = customRooms.indexOf(name);
+  if (idx < 0) return;
+  
+  const backup = [...customRooms];
+  customRooms.splice(idx, 1);
+  try {
+    await fbSet('invoiceRooms', customRooms);
+  } catch (e) {
+    console.error('Failed to save:', e);
+    customRooms = backup; // rollback
+    return alert('저장 실패. 다시 시도해주세요.');
+  }
+  
+  renderRoomList();
+  renderRoomManagerList();
 }
 
 // Toggle visibility of the materials-text input
