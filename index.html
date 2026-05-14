@@ -974,7 +974,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
               <div style={{ background:"#FFF7ED",border:"1px solid #FED7AA",borderRadius:12,padding:"12px 14px",margin:"12px 0" }}>
                 <p style={{ margin:"0 0 8px",fontSize:12,fontWeight:700,color:"#C2410C" }}>💳 대출 잔액</p>
                 <div style={{ display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:4 }}>
-                  <span style={{ color:"#555" }}>이전 잔액</span>
+                  <span style={{ color:"#555" }}>이전 정산 잔액</span>
                   <span style={{ fontWeight:700,color:startBal<0?"#DC2626":"#059669" }}>{fA(startBal)}</span>
                 </div>
                 {savedDedTotal>0 && <div style={{ display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:4 }}>
@@ -982,8 +982,8 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                   <span style={{ fontWeight:700,color:"#059669" }}>+{fA(savedDedTotal)}</span>
                 </div>}
                 <div style={{ borderTop:"1px solid #FED7AA",marginTop:6,paddingTop:6,display:"flex",justifyContent:"space-between",fontSize:14,fontWeight:800 }}>
-                  <span style={{ color:"#C2410C" }}>현재 잔액</span>
-                  <span style={{ color:afterBal<0?"#DC2626":"#059669" }}>{fA(afterBal)}</span>
+                  <span style={{ color:"#C2410C" }}>누적 잔액</span>
+                  <span style={{ color:loanBal<0?"#DC2626":loanBal>0?"#059669":"#9CA3AF" }}>{fA(loanBal)}</span>
                 </div>
 
                 {/* 대출 추가 (관리자만) */}
@@ -1001,8 +1001,12 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                         const amt = parseFloat(loanDeposit);
                         if (!amt) return;
                         const newBal = afterBal + amt;
-                        persist(null,null,{...leaves,[selId]:{...lv0,keepBalance:newBal}});
+                          // keepBalance에 직접 누적
+                        const currentBal = parseFloat(lv0.keepBalance)||0;
+                        const updatedBal = currentBal + amt;
+                        persist(null,null,{...leaves,[selId]:{...lv0,keepBalance:updatedBal}});
                         setLoanDeposit(''); setLoanMemo('');
+                        alert(`✅ 잔액 조정: ${amt>0?'+':''}$${amt} → 현재 ${updatedBal>=0?'+':''}$${updatedBal.toFixed(2)}`);
                       }} style={{ background:"#C2410C",color:"#fff",border:"none",borderRadius:7,padding:"7px 12px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit" }}>추가</button>
                     </div>
                   </div>
