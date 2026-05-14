@@ -506,7 +506,12 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
     <div><label class="label">회사 *</label><select class="select" id="f-co" onchange="onCoChange()"></select></div>
     <div><label class="label">인보이스 번호</label><input class="input" id="f-n" placeholder="INV-1234"/></div>
   </div>
-  <div class="mb"><label class="label">빌더명 *</label><input class="input" id="f-b" list="bdl" placeholder="빌더명 (개인 고객은 'PRIVATE')" oninput="onBChange()"/><datalist id="bdl"></datalist></div>
+  <div class="mb">
+    <label class="label">빌더명 *</label>
+    <input class="input" id="f-b" list="bdl" placeholder="빌더명 (개인 고객은 'PRIVATE')" oninput="onBChange()"/>
+    <datalist id="bdl"></datalist>
+    <div id="f-b-email" style="display:none;font-size:11px;margin-top:4px;padding:5px 8px;background:#EEF2FF;border:1px solid #C7D2FE;border-radius:6px;color:#4338CA;word-break:break-all"></div>
+  </div>
   
   <!-- Private customer panel - shown only when builder = PRIVATE -->
   <div id="f-private-panel" style="display:none;background:#FEF3C7;border:1px solid #FCD34D;border-radius:10px;padding:10px;margin-bottom:10px">
@@ -660,6 +665,19 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
         </div>
       </div>
       
+      <!-- Angle (multi-select) -->
+      <div style="background:#fff;border-radius:8px;padding:8px;margin-bottom:6px">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+          <span style="font-size:11px;font-weight:700;color:#92400E;min-width:80px">📐 Angle</span>
+          <select class="select" id="mat-angle-picker" style="flex:1;font-size:11px;padding:4px 6px">
+            <option value="">— 종류 선택 후 ➕ 추가 —</option>
+          </select>
+          <button type="button" onclick="addAngleItem()" style="background:#92400E;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer">➕</button>
+          <span id="mat-angle-total" style="min-width:80px;text-align:right;font-weight:700;font-size:11px;color:#92400E">$0.00</span>
+        </div>
+        <div id="mat-angle-list" style="padding-left:86px"></div>
+      </div>
+      
       <!-- Silicone -->
       <div style="background:#fff;border-radius:8px;padding:8px;margin-bottom:6px">
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
@@ -696,19 +714,6 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
           <span id="mat-fw-total" style="min-width:80px;text-align:right;font-weight:700;font-size:11px;color:#92400E">$0.00</span>
         </div>
         <div id="mat-fw-list" style="padding-left:86px"></div>
-      </div>
-      
-      <!-- Angle (multi-select) -->
-      <div style="background:#fff;border-radius:8px;padding:8px;margin-bottom:6px">
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
-          <span style="font-size:11px;font-weight:700;color:#92400E;min-width:80px">📐 Angle</span>
-          <select class="select" id="mat-angle-picker" style="flex:1;font-size:11px;padding:4px 6px">
-            <option value="">— 종류 선택 후 ➕ 추가 —</option>
-          </select>
-          <button type="button" onclick="addAngleItem()" style="background:#92400E;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer">➕</button>
-          <span id="mat-angle-total" style="min-width:80px;text-align:right;font-weight:700;font-size:11px;color:#92400E">$0.00</span>
-        </div>
-        <div id="mat-angle-list" style="padding-left:86px"></div>
       </div>
       
       <!-- Sand & cement -->
@@ -1549,7 +1554,20 @@ function openIM(id) {
   }
   document.getElementById('f-po').value = inv?.poNumber||'';
   document.getElementById('f-proj').value = inv?.projectName||'';
-  document.getElementById('f-no').value = inv?.note||'';
+  
+  // For legacy invoices (no simpleDesc field but has note + no lineItems):
+  // parse the note to extract simpleDesc/materials/userNote
+  let restoreSimpleDesc = inv?.simpleDesc || '';
+  let restoreSimpleMaterials = inv?.simpleMaterials || '';
+  let restoreNote = inv?.note || '';
+  const hasNewSimpleFields = inv && (inv.simpleDesc !== undefined || inv.simpleMaterials !== undefined);
+  if (!hasNewSimpleFields && !hasLineItems && incAmt && restoreNote) {
+    const parsed = parseSimpleNote(restoreNote);
+    restoreSimpleDesc = parsed.mainDesc;
+    restoreSimpleMaterials = parsed.materials;
+    restoreNote = parsed.userNote;
+  }
+  document.getElementById('f-no').value = restoreNote;
   
   // Private customer fields
   if (document.getElementById('f-private-name')) {
@@ -1559,13 +1577,13 @@ function openIM(id) {
   // Trigger private panel toggle based on current builder
   onBChange();
   
-  // Reset simple-amount picker fields (legacy mode)
+  // Restore simple-amount picker fields (legacy mode)
   if (document.getElementById('f-am-desc-picker')) document.getElementById('f-am-desc-picker').value = '';
-  if (document.getElementById('f-am-desc')) document.getElementById('f-am-desc').value = '';
-  if (document.getElementById('f-am-incmat')) document.getElementById('f-am-incmat').checked = false;
+  if (document.getElementById('f-am-desc')) document.getElementById('f-am-desc').value = restoreSimpleDesc;
+  if (document.getElementById('f-am-incmat')) document.getElementById('f-am-incmat').checked = !!restoreSimpleMaterials;
   if (document.getElementById('f-am-incmat-text')) {
-    document.getElementById('f-am-incmat-text').value = 'silicone';
-    document.getElementById('f-am-incmat-text').style.display = 'none';
+    document.getElementById('f-am-incmat-text').value = restoreSimpleMaterials || 'silicone';
+    document.getElementById('f-am-incmat-text').style.display = restoreSimpleMaterials ? 'block' : 'none';
   }
   // Reset top-picker materials checkbox
   if (document.getElementById('pick-incmat')) document.getElementById('pick-incmat').checked = false;
@@ -1712,6 +1730,20 @@ function onBChange() {
   if (privPanel) {
     const isPrivate = /^private$/i.test(bn);
     privPanel.style.display = isPrivate ? 'block' : 'none';
+  }
+  
+  // Show builder email below the input (with click-to-copy)
+  const emailEl = document.getElementById('f-b-email');
+  if (emailEl) {
+    const matchedBuilder = builders.find(bb => (bb.name||'').toLowerCase() === bn.toLowerCase());
+    const email = matchedBuilder ? (matchedBuilder.invoiceEmail || matchedBuilder.email || '') : '';
+    if (email) {
+      emailEl.style.display = 'block';
+      emailEl.innerHTML = `📧 <span onclick="copyEmail('${esc(email).replace(/'/g, "\\'")}', this)" style="cursor:pointer;text-decoration:underline;font-weight:600" title="클릭하면 복사됨">${esc(email)}</span>${matchedBuilder.contactPerson?` · 👤 ${esc(matchedBuilder.contactPerson)}`:''}`;
+    } else {
+      emailEl.style.display = 'none';
+      emailEl.innerHTML = '';
+    }
   }
   
   if (editId) return;
@@ -1907,6 +1939,27 @@ function buildSimpleDesc() {
     d = d ? `${d}\n${matLine}` : matLine;
   }
   return d;
+}
+
+// Parse legacy note text (for backwards compat with old simple-amount invoices)
+// Returns {mainDesc, materials, userNote}
+function parseSimpleNote(note) {
+  if (!note) return {mainDesc: '', materials: '', userNote: ''};
+  const lines = note.split('\n').map(l => l.trim()).filter(l => l);
+  let mainDesc = '';
+  let materials = '';
+  const otherLines = [];
+  lines.forEach(line => {
+    const m = line.match(/^Materials\((.*)\)$/);
+    if (m && !materials) {
+      materials = m[1];
+    } else if (!mainDesc) {
+      mainDesc = line;
+    } else {
+      otherLines.push(line);
+    }
+  });
+  return {mainDesc, materials, userNote: otherLines.join('\n')};
 }
 
 function toggleLegacyAmount() {
@@ -3170,9 +3223,12 @@ async function saveInv(asDraft) {
     payments: cleanPayments,
     depositDate: lastPay.date || '',
     depositAmount: totalPay,
-    note: useLegacyAmount
-      ? (buildSimpleDesc() + (document.getElementById('f-no').value ? '\n' + document.getElementById('f-no').value : '')).trim()
-      : document.getElementById('f-no').value,
+    note: document.getElementById('f-no').value,
+    // Simple amount mode: store desc/materials separately so print can render them in the table
+    simpleDesc: useLegacyAmount ? (document.getElementById('f-am-desc')?.value || '').trim() : '',
+    simpleMaterials: (useLegacyAmount && document.getElementById('f-am-incmat')?.checked)
+      ? (document.getElementById('f-am-incmat-text')?.value || 'silicone').trim()
+      : '',
     privateName: /^private$/i.test(b) ? (document.getElementById('f-private-name')?.value.trim() || '') : '',
     privateEmail: /^private$/i.test(b) ? (document.getElementById('f-private-email')?.value.trim() || '') : '',
     lineItems: cleanLineItems,
@@ -3537,7 +3593,18 @@ function printInvoiceBXBT(inv, co, b) {
     <!-- BILL TO -->
     <div class="bxbt-billto">
       <div class="bxbt-label">BILL TO</div>
-      <div class="bxbt-value"><b>${esc(/^private$/i.test(inv.builderName||'') && inv.privateName ? inv.privateName : (inv.builderName||''))}</b></div>
+      ${(() => {
+        const isPrivate = /^private$/i.test(inv.builderName||'');
+        if (isPrivate) {
+          const pName = (inv.privateName||'').trim();
+          const pEmail = (inv.privateEmail||'').trim();
+          if (pName || pEmail) {
+            return `<div class="bxbt-value"><b>${esc(pName || pEmail)}</b></div>
+              ${pName && pEmail ? `<div class="bxbt-value">${esc(pEmail)}</div>` : ''}`;
+          }
+        }
+        return `<div class="bxbt-value"><b>${esc(inv.builderName||'')}</b></div>`;
+      })()}
       ${builderAddrHTML ? `<div class="bxbt-value">${builderAddrHTML}</div>` : ''}
     </div>
     
@@ -3705,14 +3772,30 @@ function printInvoiceKM(inv, co, b) {
       });
     });
   } else {
-    // Fallback: single row from amount
+    // Fallback: single row from amount (simple amount mode or invoice with no line items)
     const amt = parseFloat(inv.amount) || 0;
     const subFallback = exGST(amt);
     taxableEx = subFallback;
-    const desc = inv.note || (inv.address ? `Tiling work at ${inv.address}` : 'Tiling services');
+    
+    // Prefer new simpleDesc/simpleMaterials fields; fall back to parsing legacy note
+    let mainDesc = (inv.simpleDesc || '').trim();
+    let materialsText = (inv.simpleMaterials || '').trim();
+    if (!mainDesc && !materialsText && inv.note) {
+      const parsed = parseSimpleNote(inv.note);
+      mainDesc = parsed.mainDesc;
+      materialsText = parsed.materials;
+    }
+    if (!mainDesc) {
+      mainDesc = inv.address ? `Tiling work at ${inv.address}` : 'Tiling services';
+    }
+    
+    // Build desc cell: main on first line, Materials on second line (smaller font)
+    const descHTML = esc(mainDesc) + (materialsText
+      ? `<div style="margin-top:3px;font-size:9.5px;color:#555">Materials(${esc(materialsText)})</div>`
+      : '');
     itemRows = `<tr>
       <td></td>
-      <td>${esc(desc.split('\n')[0].slice(0,200))}</td>
+      <td>${descHTML}</td>
       <td class="center">1</td>
       <td class="num">${subFallback.toFixed(2)}</td>
       <td class="center">x</td>
@@ -3753,7 +3836,19 @@ function printInvoiceKM(inv, co, b) {
     <div class="pi-info">
       <div class="pi-info-left">
         <div class="pi-billto-tag">BILL TO</div>
-        <div class="pi-customer-name">${esc(/^private$/i.test(inv.builderName||'') && inv.privateName ? inv.privateName : (inv.builderName||''))}</div>
+        ${(() => {
+          const isPrivate = /^private$/i.test(inv.builderName||'');
+          if (isPrivate) {
+            const pName = (inv.privateName||'').trim();
+            const pEmail = (inv.privateEmail||'').trim();
+            // If at least one of name/email provided, show those instead of "Private"
+            if (pName || pEmail) {
+              return `<div class="pi-customer-name">${esc(pName || pEmail)}</div>
+                ${pName && pEmail ? `<div class="pi-value" style="margin-top:2px">${esc(pEmail)}</div>` : ''}`;
+            }
+          }
+          return `<div class="pi-customer-name">${esc(inv.builderName||'')}</div>`;
+        })()}
         ${builderAddrHTML ? `<div class="pi-value">${builderAddrHTML}</div>` : ''}
       </div>
       <div class="pi-info-mid">
@@ -3802,7 +3897,19 @@ function printInvoiceKM(inv, co, b) {
             BSB: ${esc(co.bsb||'')}<br>
             ACC: ${esc(co.acc||'')}
           </p>
-          ${inv.note ? `<p style="margin-top:10px;font-size:9px;color:#666">${esc(inv.note).replace(/\n/g,'<br>')}</p>` : ''}
+          ${(() => {
+            // For new invoices: inv.note is purely user-added note
+            // For legacy invoices: parse out the main desc + materials (which now appear in the table)
+            let userNote = inv.note || '';
+            const hasNewFields = inv.simpleDesc !== undefined || inv.simpleMaterials !== undefined;
+            if (!hasNewFields && !hasLineItems && userNote) {
+              const parsed = parseSimpleNote(userNote);
+              userNote = parsed.userNote;
+            }
+            return userNote
+              ? `<p style="margin-top:10px;font-size:9px;color:#666">${esc(userNote).replace(/\n/g,'<br>')}</p>`
+              : '';
+          })()}
         </div>
       </div>
       <div class="pi-totals">
