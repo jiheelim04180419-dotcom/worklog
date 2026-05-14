@@ -303,6 +303,8 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
   const [partialCash, setPartialCash] = useState("");
   const [directKeep, setDirectKeep] = useState("");
   const [skipVariable, setSkipVariable] = useState(false);
+  const [loanDeposit, setLoanDeposit] = useState('');
+  const [loanMemo, setLoanMemo] = useState('');
   const [periodStart, setPeriodStart] = useState(() => {
     const BASE = new Date("2026-04-13T00:00:00");
     const now = new Date();
@@ -957,26 +959,74 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
           </>)}
 
           {/* 인보이스 직원 정산 확인 버튼 - 블록 밖에서 별도 표시 */}
-          {isSuperAdmin && wage && wage.isContractor && !wage.hasFlatPay && (() => {
+          {wage && wage.isContractor && !wage.hasFlatPay && (() => {
             const lv0 = leaves[selId]||{};
+            const loanBal = parseFloat(lv0.keepBalance)||0;
+            const periodDeps = getPeriodDeposits(selId, periodStart);
+            const savedDedTotal = getSavedDeductions(selId).reduce((s,d)=>s+(parseFloat(d.amount)||0),0);
             const hist0 = Array.isArray(lv0.keepBalanceHistory)?lv0.keepBalanceHistory:Object.values(lv0.keepBalanceHistory||{});
             const isSettled0 = !!hist0.find(h=>h.periodStart===periodStart);
-            return isSettled0 ? (
-              <div style={{ margin:"12px 0",textAlign:"center",color:"#10B981",fontSize:13,fontWeight:700,background:"#F0FDF4",border:"1px solid #BBF7D0",borderRadius:10,padding:"10px 12px" }}>
-                ✅ 이 기간 정산 확인 완료
-                <button onClick={()=>{
-                  const newHist=[...hist0.filter(h=>h.periodStart!==periodStart)];
-                  persist(null,null,{...leaves,[selId]:{...lv0,keepBalanceHistory:newHist}});
-                }} style={{ marginLeft:8,fontSize:11,color:"#888",background:"none",border:"none",cursor:"pointer",fontFamily:"inherit" }}>취소</button>
+            const prevEntry = [...hist0].sort((a,b)=>b.periodStart.localeCompare(a.periodStart)).find(h=>h.periodStart<periodStart);
+            const startBal = prevEntry ? parseFloat(prevEntry.balance||0) : loanBal;
+            const afterBal = startBal + savedDedTotal; // 공제로 갚음 (savedDed가 음수면 빌린 것)
+            return (<>
+              {/* 대출 잔액 섹션 */}
+              <div style={{ background:"#FFF7ED",border:"1px solid #FED7AA",borderRadius:12,padding:"12px 14px",margin:"12px 0" }}>
+                <p style={{ margin:"0 0 8px",fontSize:12,fontWeight:700,color:"#C2410C" }}>💳 대출 잔액</p>
+                <div style={{ display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:4 }}>
+                  <span style={{ color:"#555" }}>이전 잔액</span>
+                  <span style={{ fontWeight:700,color:startBal<0?"#DC2626":"#059669" }}>{fA(startBal)}</span>
+                </div>
+                {savedDedTotal>0 && <div style={{ display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:4 }}>
+                  <span style={{ color:"#555" }}>이번 기간 공제 (상환)</span>
+                  <span style={{ fontWeight:700,color:"#059669" }}>+{fA(savedDedTotal)}</span>
+                </div>}
+                <div style={{ borderTop:"1px solid #FED7AA",marginTop:6,paddingTop:6,display:"flex",justifyContent:"space-between",fontSize:14,fontWeight:800 }}>
+                  <span style={{ color:"#C2410C" }}>현재 잔액</span>
+                  <span style={{ color:afterBal<0?"#DC2626":"#059669" }}>{fA(afterBal)}</span>
+                </div>
+
+                {/* 대출 추가 (관리자만) */}
+                {isSuperAdmin && (<>
+                  <div style={{ marginTop:10,borderTop:"1px solid #FED7AA",paddingTop:10 }}>
+                    <p style={{ margin:"0 0 6px",fontSize:11,fontWeight:700,color:"#C2410C" }}>잔액 조정 (대출 -, 상환 +)</p>
+                    <div style={{ display:"flex",gap:6 }}>
+                      <input type="number" placeholder="금액 (예: -1000)" value={loanDeposit}
+                        onChange={e=>setLoanDeposit(e.target.value)}
+                        style={{ flex:1,padding:"7px 10px",border:"1px solid #FED7AA",borderRadius:7,fontSize:13,fontFamily:"inherit",background:"#fff" }}/>
+                      <input placeholder="메모" value={loanMemo}
+                        onChange={e=>setLoanMemo(e.target.value)}
+                        style={{ flex:1,padding:"7px 10px",border:"1px solid #FED7AA",borderRadius:7,fontSize:13,fontFamily:"inherit",background:"#fff" }}/>
+                      <button onClick={()=>{
+                        const amt = parseFloat(loanDeposit);
+                        if (!amt) return;
+                        const newBal = afterBal + amt;
+                        persist(null,null,{...leaves,[selId]:{...lv0,keepBalance:newBal}});
+                        setLoanDeposit(''); setLoanMemo('');
+                      }} style={{ background:"#C2410C",color:"#fff",border:"none",borderRadius:7,padding:"7px 12px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit" }}>추가</button>
+                    </div>
+                  </div>
+                </>)}
               </div>
-            ) : (
-              <button onClick={()=>{
-                const newHist=[...hist0,{periodStart,balance:0,isContractor:true,savedAt:new Date().toISOString()}];
-                persist(null,null,{...leaves,[selId]:{...lv0,keepBalanceHistory:newHist}});
-              }} style={{ width:"100%",background:"#0F766E",color:"#fff",border:"none",borderRadius:12,padding:13,fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit",margin:"12px 0",display:"block" }}>
-                ✅ 이 기간 정산 확인
-              </button>
-            );
+
+              {/* 정산 확인 버튼 */}
+              {isSuperAdmin && (isSettled0 ? (
+                <div style={{ textAlign:"center",color:"#10B981",fontSize:13,fontWeight:700,background:"#F0FDF4",border:"1px solid #BBF7D0",borderRadius:10,padding:"10px 12px",marginBottom:8 }}>
+                  ✅ 이 기간 정산 확인 완료
+                  <button onClick={()=>{
+                    const newHist=[...hist0.filter(h=>h.periodStart!==periodStart)];
+                    persist(null,null,{...leaves,[selId]:{...lv0,keepBalanceHistory:newHist}});
+                  }} style={{ marginLeft:8,fontSize:11,color:"#888",background:"none",border:"none",cursor:"pointer",fontFamily:"inherit" }}>취소</button>
+                </div>
+              ) : (
+                <button onClick={()=>{
+                  const newHist=[...hist0,{periodStart,balance:afterBal,isContractor:true,savedAt:new Date().toISOString()}];
+                  persist(null,null,{...leaves,[selId]:{...lv0,keepBalance:afterBal,keepBalanceHistory:newHist}});
+                }} style={{ width:"100%",background:"#0F766E",color:"#fff",border:"none",borderRadius:12,padding:13,fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit",marginBottom:8,display:"block" }}>
+                  ✅ 이 기간 정산 확인 → 잔액 {fA(afterBal)}
+                </button>
+              ))}
+            </>);
           })()}
 
           {/* ── 디덕션 섹션 ── (인보이스 포함 항상 표시) */}
