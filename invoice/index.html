@@ -1045,6 +1045,22 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
 </div>
 </div>
 
+<!-- Email Save Confirm Modal (새 이메일 발견 시) -->
+<div class="modal" id="email-save-modal">
+<div class="mbox" style="max-width:420px;background:#fff;color:#111827">
+  <div style="margin-bottom:14px">
+    <h3 style="font-size:15px;font-weight:800;margin-bottom:8px">📧 새 이메일을 발견했어요</h3>
+    <p style="font-size:12px;color:#6B7280;line-height:1.5" id="esm-msg"></p>
+  </div>
+  <p style="font-size:13px;color:#374151;margin-bottom:12px" id="esm-question"></p>
+  <div style="display:flex;flex-direction:column;gap:8px">
+    <button class="btn-primary" onclick="handleEmailSave('overwrite')" title="빌더의 기본 이메일을 이걸로 변경 (다음 발송 시 자동 채움)">📌 기본 이메일로 변경</button>
+    <button class="btn-secondary" style="background:#E0F2FE;color:#075985;border:1px solid #BAE6FD;font-weight:600" onclick="handleEmailSave('add')" title="배열에 추가만. 자동 채움엔 안 들어가고 나중에 참고용">📎 추가만 (자동 채움 X)</button>
+    <button class="btn-secondary" onclick="handleEmailSave('skip')">⏭️ 저장 안 함</button>
+  </div>
+</div>
+</div>
+
 <!-- Email Compose Modal -->
 <div class="modal" id="email-modal">
 <div class="mbox" style="max-width:560px;background:#fff;color:#111827">
@@ -1680,22 +1696,41 @@ async function publishDraft(id, useToday, sendEmail) {
     if (!confirm(`${inv.invoiceNum || '(번호없음)'} 인보이스를 발행할까요?\n상태가 DRAFT → INVOICE 로 변경됩니다.\n날짜는 기존 날짜를 유지합니다.`)) return;
   }
   
+  // 인보이스 번호 충돌 검사 + 자동 재할당
+  const co = companies.find(c => c.id === inv.companyId);
+  let finalInvNum = inv.invoiceNum;
+  if (co) {
+    const padded = co.prefix.includes('BXBT') ? String(co.nextNumber).padStart(4,'0') : String(co.nextNumber);
+    const autoNum = co.prefix + padded;
+    if (!finalInvNum) {
+      // 빈 번호 → 자동 부여
+      finalInvNum = autoNum;
+    } else {
+      // 다른 발행된 인보이스(DRAFT 제외)와 번호 충돌 검사
+      const conflict = invoices.find(i => i.id !== id && i.status !== 'DRAFT' && i.invoiceNum === finalInvNum);
+      if (conflict) {
+        if (!confirm(`⚠️ 인보이스 번호 ${finalInvNum} 이(가) 이미 사용 중이에요.\n(다른 인보이스: ${conflict.builderName || ''})\n\n${autoNum} 로 변경해서 발행할까요?`)) return;
+        finalInvNum = autoNum;
+      }
+    }
+  }
+
   const updated = {
     ...inv,
     status: 'INVOICE',
+    invoiceNum: finalInvNum,
     invoiceDate: newDate,
     dueDate: newDue,
     updatedAt: new Date().toISOString()
   };
   delete updated.id;
   await fbSet('invoices/'+id, updated);
-  
-  // Increment company.nextNumber if this invoice uses the suggested number
-  const co = companies.find(c => c.id === inv.companyId);
-  if (co && inv.invoiceNum) {
-    const padded = co.prefix.includes('BXBT') ? String(co.nextNumber).padStart(4,'0') : String(co.nextNumber);
-    if (inv.invoiceNum === co.prefix + padded) {
-      const upd = {...co, nextNumber: (co.nextNumber||1)+1};
+
+  // nextNumber 자동 갱신: invoiceNum에서 숫자 추출해서 +1보다 작으면 갱신
+  if (co && finalInvNum) {
+    const num = parseInt((finalInvNum || '').replace(/\D/g, ''), 10);
+    if (!isNaN(num) && (num + 1) > (co.nextNumber || 0)) {
+      const upd = {...co, nextNumber: num + 1};
       delete upd.id;
       await fbSet('invoiceCompanies/'+co.id, upd);
     }
@@ -3590,13 +3625,13 @@ async function saveInv(asDraft, sendEmail) {
     await fbSet('invoices/'+editId, data);
   } else {
     await fbPush('invoices', data);
-    // Only increment company.nextNumber when publishing (not for drafts)
+    // Publishing(=!asDraft) → nextNumber를 invoiceNum+1보다 작으면 점프 갱신
     if (!asDraft) {
       const co = companies.find(c=>c.id===coId);
-      if (co) {
-        const padded = co.prefix.includes('BXBT') ? String(co.nextNumber).padStart(4,'0') : String(co.nextNumber);
-        if (invNum === co.prefix + padded) {
-          const updated = {...co, nextNumber: (co.nextNumber||1)+1};
+      if (co && data.invoiceNum) {
+        const num = parseInt((data.invoiceNum || '').replace(/\D/g, ''), 10);
+        if (!isNaN(num) && (num + 1) > (co.nextNumber || 0)) {
+          const updated = {...co, nextNumber: num + 1};
           delete updated.id;
           await fbSet('invoiceCompanies/'+co.id, updated);
         }
@@ -3906,6 +3941,9 @@ If you have any questions, please do not hesitate to contact us.`;
   document.getElementById('em-body').value = body;
 }
 
+// 이메일 발송 후 처리(저장 모달이 끼어들 수 있어서 분리)할 데이터를 보관
+let _pendingEmailSend = null;
+
 function openGmailWithEmail() {
   const to = document.getElementById('em-to').value.trim();
   const cc = document.getElementById('em-cc').value.trim();
@@ -3913,7 +3951,6 @@ function openGmailWithEmail() {
   const body = document.getElementById('em-body').value;
 
   // 발신 계정: 현재 인보이스의 회사 contactEmail/email 사용 → 회사별 자동 매칭
-  // (K&M 인보이스 → K&M Gmail 계정, Bathurst Tiling 인보이스 → Bathurst Gmail 계정)
   let senderEmail = '';
   if (_emailInv) {
     const co = companies.find(c => c.id === _emailInv.companyId) || companies[0] || {};
@@ -3929,19 +3966,85 @@ function openGmailWithEmail() {
   if (cc) params.set('cc', cc);
   if (su) params.set('su', su);
   if (body) params.set('body', body);
-  const url = `https://mail.google.com/mail/?${params.toString()}`;
+  const gmailUrl = `https://mail.google.com/mail/?${params.toString()}`;
+
+  // To/CC에서 빌더에 없는 새 이메일 감지
+  const inv = _emailInv;
+  let newEmails = [];
+  if (inv) {
+    const b = builders.find(x => x.name === inv.builderName);
+    if (b) {
+      const allInputEmails = [...to.split(','), ...cc.split(',')]
+        .map(s => s.trim().toLowerCase())
+        .filter(s => s && s.includes('@'));
+      const existing = new Set();
+      if (b.email) existing.add(b.email.toLowerCase());
+      if (b.invoiceEmail) existing.add(b.invoiceEmail.toLowerCase());
+      if (Array.isArray(b.additionalEmails)) b.additionalEmails.forEach(e => existing.add(String(e).toLowerCase()));
+      newEmails = [...new Set(allInputEmails.filter(e => !existing.has(e)))];
+    }
+  }
+
+  closeEmailModal();
+  _pendingEmailSend = {inv, gmailUrl};
+
+  if (newEmails.length > 0 && inv) {
+    // 새 이메일 발견 → 저장 모달
+    document.getElementById('esm-msg').textContent = newEmails.join(', ');
+    document.getElementById('esm-question').textContent = `${inv.builderName || '빌더'} 에 어떻게 저장할까요?`;
+    _pendingEmailSend.newEmails = newEmails;
+    document.getElementById('email-save-modal').classList.add('open');
+  } else {
+    // 새 이메일 없음 → 바로 발송 + 인쇄
+    finishEmailSend();
+  }
+}
+
+async function handleEmailSave(action) {
+  const pending = _pendingEmailSend;
+  if (!pending) return;
+  document.getElementById('email-save-modal').classList.remove('open');
+
+  if (action !== 'skip' && pending.inv && pending.newEmails && pending.newEmails.length > 0) {
+    const b = builders.find(x => x.name === pending.inv.builderName);
+    if (b && b.id) {
+      try {
+        if (action === 'overwrite') {
+          // 첫 번째 새 이메일을 invoiceEmail로 덮어쓰기 (기본 이메일 변경)
+          const newPrimary = pending.newEmails[0];
+          const updated = {...b, invoiceEmail: newPrimary};
+          delete updated.id;
+          await fbSet('invoiceBuilders/'+b.id, updated);
+        } else if (action === 'add') {
+          // additionalEmails 배열에 추가 (중복 제거)
+          const existingAdd = Array.isArray(b.additionalEmails) ? b.additionalEmails : [];
+          const combined = [...new Set([...existingAdd, ...pending.newEmails])];
+          const updated = {...b, additionalEmails: combined};
+          delete updated.id;
+          await fbSet('invoiceBuilders/'+b.id, updated);
+        }
+        await loadAll();
+      } catch(e) {
+        console.error('빌더 저장 실패:', e);
+      }
+    }
+  }
+
+  finishEmailSend();
+}
+
+function finishEmailSend() {
+  const pending = _pendingEmailSend;
+  if (!pending) return;
 
   // Gmail 새 창
-  window.open(url, '_blank');
+  window.open(pending.gmailUrl, '_blank');
 
-  // 인쇄 미리보기도 같이 열기 (인보이스가 저장된 상태여야 작동)
-  const inv = _emailInv;
-  closeEmailModal();
+  // 인쇄 미리보기 자동 열기
+  const inv = pending.inv;
   if (inv && inv.id) {
-    // 저장된 인보이스 → printInvoice(id) 사용 (setPrintTitle 내부에서 처리)
     setTimeout(() => printInvoice(inv.id), 200);
   } else if (inv) {
-    // 방금 발행된 인보이스 (id 없음) → 직접 라우팅
     const co = companies.find(c => c.id === inv.companyId) || companies[0] || {};
     const b = builders.find(x => x.name === inv.builderName) || {};
     setTimeout(() => {
@@ -3953,6 +4056,7 @@ function openGmailWithEmail() {
       }
     }, 200);
   }
+  _pendingEmailSend = null;
 }
 
 function closeEmailModal() {
