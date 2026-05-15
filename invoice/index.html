@@ -1082,7 +1082,7 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
   <div style="background:#FEF3C7;border:1px solid #FDE68A;border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:#92400E;line-height:1.5">
     💡 "Gmail 열기" 클릭 시 Gmail 새 창과 인쇄 미리보기가 같이 열려요.<br>
     인쇄 미리보기에서 <strong>"PDF로 저장"</strong> → Gmail 창에 드래그해서 첨부하세요.<br>
-    ⚠️ 본문 끝에 <strong>"Kind regards ~ 로고"</strong>는 Gmail 자체 서명이 알아서 붙입니다.
+    ⚠️ Gmail이 서명을 "No Signature"로 시작할 수 있어서 <strong>본문에 Kathleen 서명을 직접 포함</strong>했어요. 로고는 Gmail에서 자동 추가됩니다 (서명 드롭다운에서 로고 있는 서명 선택 시).
   </div>
   <div class="row2" style="gap:6px;flex-wrap:wrap">
     <button class="btn-secondary" style="flex:1" onclick="closeEmailModal()">취소</button>
@@ -3556,9 +3556,10 @@ async function saveInv(asDraft, sendEmail) {
   // Clean line items (with noTax field + progress fields)
   const cleanLineItems = useLegacyAmount ? [] : lineItems
     .filter(li => {
-      // For progress: keep all lines with totalAmount > 0 (even if qty=0 / 0% billed this period)
+      // For progress: keep ALL lines that have a description (even 0% / not billed this period)
+      // → preserves the full quote so user can bill remaining % on future invoices
       if (isProg && !li.isMaterials) {
-        return (parseFloat(li.totalAmount) || 0) > 0;
+        return (li.desc || '').trim().length > 0;
       }
       return (parseFloat(li.qty) > 0 || li.isMaterials) && parseFloat(li.unitPrice) >= 0;
     })
@@ -3933,10 +3934,25 @@ function updateEmailBody() {
     ? (_emailInv.projectName || _emailInv.address || '—')
     : (_emailInv.address || _emailInv.projectName || '—');
 
+  // 회사별 서명 (Gmail compose URL은 자동 서명을 보장하지 않으므로 본문에 직접 포함)
+  const co = companies.find(c => c.id === _emailInv.companyId) || companies[0] || {};
+  const contactName = co.contactPerson || co.contactName || 'Kathleen Lim';
+  const coName = co.name || '';
+  const coPhone = co.phone || '';
+  const coEmail = co.contactEmail || co.email || '';
+
   const body = `Hello,
 
 Please find the attached invoice below for ${ref}.
-If you have any questions, please do not hesitate to contact us.`;
+If you have any questions, please do not hesitate to contact us.
+
+
+Kind regards,
+
+${contactName}
+
+Accounting Manager
+${coName}${coPhone ? `\nM. ${coPhone}` : ''}${coEmail ? `\nEmail: ${coEmail}` : ''}`;
 
   document.getElementById('em-body').value = body;
 }
