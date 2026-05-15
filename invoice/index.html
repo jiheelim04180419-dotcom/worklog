@@ -633,6 +633,9 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
     <button onclick="showTab('calendar')">📅</button>
     <button onclick="toggleTheme()" id="theme-btn" title="다크 모드 (D)" aria-label="다크 모드 전환">🌙</button>
     <button onclick="openSet()" title="회사 설정">⚙️</button>
+    <button onclick="openPermModal()" id="hd-perm-btn" style="display:none" title="권한 관리 (관리자)">🔐</button>
+    <span id="hd-user-info" style="display:none;font-size:11px;color:rgba(255,255,255,0.6);padding:0 6px;align-self:center"></span>
+    <button onclick="logoutInvoice()" id="hd-logout-btn" style="display:none" title="로그아웃">🚪</button>
   </div>
 </div>
 <div class="content">
@@ -1045,6 +1048,21 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
 </div>
 </div>
 
+<!-- Permission Management Modal (관리자만) -->
+<div class="modal" id="perm-modal">
+<div class="mbox" style="max-width:520px;background:#fff;color:#111827">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;border-bottom:1px solid #E5E7EB;padding-bottom:12px">
+    <h3 style="font-size:16px;font-weight:800">🔐 인보이스 앱 권한 관리</h3>
+    <button onclick="closePermModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#9CA3AF">×</button>
+  </div>
+  <div style="background:#FEF3C7;border:1px solid #FDE68A;border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:#92400E;line-height:1.5">
+    💡 <strong>admin</strong> / <strong>superadmin</strong> 권한 가진 사용자는 자동으로 접근 가능합니다.<br>
+    그 외 직원은 아래에서 체크해야 인보이스 앱 로그인이 가능해요.
+  </div>
+  <div id="perm-list" style="max-height:50vh;overflow-y:auto"></div>
+</div>
+</div>
+
 <!-- Email Save Confirm Modal (새 이메일 발견 시) -->
 <div class="modal" id="email-save-modal">
 <div class="mbox" style="max-width:420px;background:#fff;color:#111827">
@@ -1237,8 +1255,9 @@ async function loadAll() {
 
 document.getElementById('f-id').value = today;
 
-// ─── Invoice app lock (PIN-based access control) ──────────────────────────────
-// 외부 접근 차단: 최초엔 WorkLog 슈퍼관리자 인증으로 마스터 PIN 등록, 이후엔 PIN만
+// ─── Invoice app lock (per-user PIN authentication) ───────────────────────────
+// 흐름: 1) 풀 로그인 (id+pw + canInvoice 권한 체크) → 2) PIN 등록 (최초) → 3) 이후 PIN 입력만
+//       사용자별 PIN은 invoiceUsers/{user.id}/pinHash 에 저장, 권한은 canInvoice 필드
 async function _sha256(text) {
   const enc = new TextEncoder();
   const buf = await crypto.subtle.digest('SHA-256', enc.encode(text + '|kmtiling-invoice-salt-v1'));
@@ -1260,108 +1279,83 @@ function _hideLockScreen() {
   if (overlay) overlay.remove();
 }
 
+// 사용자 데이터 (Firebase users 노드)에서 ID로 사용자 찾기
+async function _findUser(id, pw) {
+  const usersRaw = await fbGet('users');
+  const usersList = Array.isArray(usersRaw) ? usersRaw : (usersRaw ? Object.values(usersRaw) : []);
+  return usersList.find(u => u && u.id === id && (pw === undefined || u.pw === pw)) || null;
+}
+
+// 인보이스 앱 접근 권한: admin/superadmin 자동, 그 외엔 invoiceUsers/{id}/canInvoice 필요
+function _canInvoiceAccess(user, invoiceUserData) {
+  if (!user) return false;
+  if (user.role === 'admin' || user.role === 'superadmin') return true;
+  return !!(invoiceUserData && invoiceUserData.canInvoice === true);
+}
+
+// 마이그레이션: 옛 마스터 PIN(appConfig/invoicePin) → 그 등록자의 사용자별 PIN으로 이전
+async function _migrateOldMasterPin() {
+  const oldMaster = await fbGet('appConfig/invoicePin');
+  if (oldMaster && oldMaster.hash && oldMaster.createdBy) {
+    const existing = await fbGet('invoiceUsers/' + oldMaster.createdBy);
+    if (!existing || !existing.pinHash) {
+      await fbSet('invoiceUsers/' + oldMaster.createdBy, {
+        pinHash: oldMaster.hash,
+        canInvoice: true,
+        registeredAt: oldMaster.createdAt || new Date().toISOString()
+      });
+    }
+    // 옛 마스터 PIN 삭제
+    await fbSet('appConfig/invoicePin', null);
+    console.log('[migration] master PIN → invoiceUsers/' + oldMaster.createdBy);
+  }
+}
+
 async function initInvoiceAuth() {
   // 1) 세션 살아있으면 통과
   if (sessionStorage.getItem('invoice_unlocked') === 'true') return true;
 
-  // 2) Firebase에서 마스터 PIN 조회
-  const pinData = await fbGet('appConfig/invoicePin');
-  const hasPin = pinData && pinData.hash;
+  // 2) 옛 마스터 PIN 데이터가 있으면 사용자별 PIN으로 이전
+  await _migrateOldMasterPin();
+
+  // 3) 마지막 로그인 사용자 ID 기억 (같은 디바이스에서 빠른 PIN 로그인)
+  const lastUserId = localStorage.getItem('invoice_last_user_id') || '';
 
   return new Promise((resolve) => {
-    if (!hasPin) {
-      // ── 1단계: WorkLog 계정 인증 ──
-      const showStep1 = () => {
-        _showLockScreen(`
-          <div style="text-align:center;margin-bottom:14px"><div style="font-size:38px">🔐</div></div>
-          <h2 style="margin:0 0 6px;font-size:18px;font-weight:800;text-align:center;color:#1E1B4B">인보이스 앱 초기 설정</h2>
-          <p style="margin:0 0 4px;font-size:13px;color:#374151;text-align:center;font-weight:600">Step 1 / 2</p>
-          <p style="margin:0 0 18px;font-size:12px;color:#6B7280;text-align:center;line-height:1.6">
-            먼저 <strong>WorkLog 계정</strong>으로 인증해주세요.<br>
-            (관리자(admin) 권한 계정만 가능합니다)
-          </p>
-          <div style="margin-bottom:10px"><input id="lk-id" placeholder="WorkLog 아이디" autocapitalize="none" style="width:100%;padding:11px 13px;border:1.5px solid #E5E7EB;border-radius:9px;font-size:14px;font-family:inherit;box-sizing:border-box"/></div>
-          <div style="margin-bottom:14px"><input id="lk-pw" type="password" placeholder="WorkLog 비밀번호" style="width:100%;padding:11px 13px;border:1.5px solid #E5E7EB;border-radius:9px;font-size:14px;font-family:inherit;box-sizing:border-box"/></div>
-          <button id="lk-next" style="width:100%;background:#4F46E5;color:#fff;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">다음 →</button>
-          <p id="lk-err" style="color:#EF4444;font-size:12px;margin:10px 0 0;text-align:center;min-height:16px"></p>
-        `);
-        document.getElementById('lk-next').onclick = async () => {
-          const id = document.getElementById('lk-id').value.trim();
-          const pw = document.getElementById('lk-pw').value;
-          const err = document.getElementById('lk-err');
-          if (!id || !pw) { err.textContent = '아이디/비밀번호를 입력하세요'; return; }
-          const usersRaw = await fbGet('users');
-          const usersList = Array.isArray(usersRaw) ? usersRaw : (usersRaw ? Object.values(usersRaw) : []);
-          const user = usersList.find(u => u && u.id === id && u.pw === pw);
-          if (!user) { err.textContent = '❌ 아이디 또는 비밀번호가 맞지 않아요'; return; }
-          if (user.role !== 'superadmin' && user.role !== 'admin') {
-            err.textContent = '❌ 관리자(admin/superadmin) 계정만 등록할 수 있어요';
-            return;
-          }
-          // 인증 통과 → Step 2
-          showStep2(user);
-        };
-        ['lk-id','lk-pw'].forEach(i => {
-          document.getElementById(i).addEventListener('keydown', e => { if (e.key==='Enter') document.getElementById('lk-next').click(); });
-        });
-        document.getElementById('lk-id').focus();
-      };
-
-      // ── 2단계: PIN 등록 (인증 통과 후에만) ──
-      const showStep2 = (user) => {
-        _showLockScreen(`
-          <div style="text-align:center;margin-bottom:14px"><div style="font-size:38px">🔑</div></div>
-          <h2 style="margin:0 0 6px;font-size:18px;font-weight:800;text-align:center;color:#1E1B4B">PIN 등록</h2>
-          <p style="margin:0 0 4px;font-size:13px;color:#374151;text-align:center;font-weight:600">Step 2 / 2</p>
-          <p style="margin:0 0 18px;font-size:12px;color:#6B7280;text-align:center;line-height:1.6">
-            ✅ <strong>${user.name || user.id}</strong> 님 인증 완료.<br>
-            앞으로 빠르게 진입할 <strong>PIN 4자리</strong>를 등록해주세요.
-          </p>
-          <div style="margin-bottom:10px"><input id="lk-pin" type="password" inputmode="numeric" maxlength="4" placeholder="새 PIN (숫자 4자리)" style="width:100%;padding:13px;border:1.5px solid #C7D2FE;border-radius:9px;font-size:20px;font-family:inherit;box-sizing:border-box;text-align:center;letter-spacing:10px" autocomplete="new-password"/></div>
-          <div style="margin-bottom:14px"><input id="lk-pin2" type="password" inputmode="numeric" maxlength="4" placeholder="PIN 다시 입력" style="width:100%;padding:13px;border:1.5px solid #C7D2FE;border-radius:9px;font-size:20px;font-family:inherit;box-sizing:border-box;text-align:center;letter-spacing:10px" autocomplete="new-password"/></div>
-          <button id="lk-submit" style="width:100%;background:#4F46E5;color:#fff;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">🔐 등록하고 진입</button>
-          <button id="lk-back" style="width:100%;background:none;color:#6B7280;border:none;padding:8px;font-size:12px;cursor:pointer;font-family:inherit;margin-top:6px">← 뒤로</button>
-          <p id="lk-err" style="color:#EF4444;font-size:12px;margin:6px 0 0;text-align:center;min-height:16px"></p>
-        `);
-        document.getElementById('lk-submit').onclick = async () => {
-          const pin = document.getElementById('lk-pin').value;
-          const pin2 = document.getElementById('lk-pin2').value;
-          const err = document.getElementById('lk-err');
-          if (!/^\d{4}$/.test(pin)) { err.textContent = 'PIN은 숫자 4자리여야 해요'; return; }
-          if (pin !== pin2) { err.textContent = 'PIN이 일치하지 않아요'; return; }
-          const hash = await _sha256(pin);
-          await fbSet('appConfig/invoicePin', { hash, createdBy: user.id, createdAt: new Date().toISOString() });
-          sessionStorage.setItem('invoice_unlocked', 'true');
-          sessionStorage.setItem('invoice_user_id', user.id);
-          sessionStorage.setItem('invoice_user_role', user.role);
-          _hideLockScreen();
-          resolve(true);
-        };
-        document.getElementById('lk-back').onclick = () => showStep1();
-        ['lk-pin','lk-pin2'].forEach(i => {
-          document.getElementById(i).addEventListener('keydown', e => { if (e.key==='Enter') document.getElementById('lk-submit').click(); });
-        });
-        document.getElementById('lk-pin').focus();
-      };
-
-      showStep1();
-    } else {
-      // PIN 등록 완료 상태 → PIN 입력
+    // ── 화면 A: PIN 입력 (이미 PIN 등록된 사용자, 같은 디바이스) ──
+    const showPinScreen = async (userId) => {
+      const user = await _findUser(userId);
+      const invUserData = await fbGet('invoiceUsers/' + userId);
+      if (!user || !invUserData || !invUserData.pinHash) {
+        return showFullLogin(userId);
+      }
+      if (!_canInvoiceAccess(user, invUserData)) {
+        // 권한 회수된 경우
+        localStorage.removeItem('invoice_last_user_id');
+        return showFullLogin('');
+      }
       _showLockScreen(`
-        <div style="text-align:center;margin-bottom:16px"><div style="font-size:38px">🔒</div></div>
-        <h2 style="margin:0 0 6px;font-size:18px;font-weight:800;text-align:center;color:#1E1B4B">K&amp;M 인보이스</h2>
-        <p style="margin:0 0 18px;font-size:12px;color:#6B7280;text-align:center">PIN 4자리를 입력하세요</p>
-        <div style="margin-bottom:14px"><input id="lk-pin" type="password" inputmode="numeric" maxlength="4" placeholder="• • • •" autocomplete="off" style="width:100%;padding:14px 13px;border:2px solid #C7D2FE;border-radius:9px;font-size:22px;font-family:inherit;box-sizing:border-box;text-align:center;letter-spacing:14px"/></div>
+        <div style="text-align:center;margin-bottom:14px"><div style="font-size:38px">🔒</div></div>
+        <h2 style="margin:0 0 4px;font-size:18px;font-weight:800;text-align:center;color:#1E1B4B">K&amp;M 인보이스</h2>
+        <p style="margin:0 0 18px;font-size:13px;color:#6B7280;text-align:center">
+          <strong>${esc(user.name || user.id)}</strong> 님 PIN 4자리
+        </p>
+        <div style="margin-bottom:14px"><input id="lk-pin" type="password" inputmode="numeric" maxlength="4" placeholder="• • • •" autocomplete="off" style="width:100%;padding:14px;border:2px solid #C7D2FE;border-radius:9px;font-size:22px;font-family:inherit;box-sizing:border-box;text-align:center;letter-spacing:14px"/></div>
         <button id="lk-submit" style="width:100%;background:#4F46E5;color:#fff;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">진입</button>
-        <p id="lk-err" style="color:#EF4444;font-size:12px;margin:10px 0 0;text-align:center;min-height:16px"></p>
+        <button id="lk-other" style="width:100%;background:none;color:#6B7280;border:none;padding:8px;font-size:12px;cursor:pointer;font-family:inherit;margin-top:6px">다른 계정으로 로그인</button>
+        <p id="lk-err" style="color:#EF4444;font-size:12px;margin:6px 0 0;text-align:center;min-height:16px"></p>
       `);
       document.getElementById('lk-submit').onclick = async () => {
         const pin = document.getElementById('lk-pin').value;
         const err = document.getElementById('lk-err');
         if (!/^\d{4}$/.test(pin)) { err.textContent = '숫자 4자리'; return; }
         const hash = await _sha256(pin);
-        if (hash === pinData.hash) {
+        if (hash === invUserData.pinHash) {
           sessionStorage.setItem('invoice_unlocked', 'true');
+          sessionStorage.setItem('invoice_user_id', user.id);
+          sessionStorage.setItem('invoice_user_role', user.role || '');
+          sessionStorage.setItem('invoice_user_name', user.name || user.id);
+          localStorage.setItem('invoice_last_user_id', user.id);
           _hideLockScreen();
           resolve(true);
         } else {
@@ -1370,15 +1364,195 @@ async function initInvoiceAuth() {
           document.getElementById('lk-pin').focus();
         }
       };
+      document.getElementById('lk-other').onclick = () => showFullLogin('');
       document.getElementById('lk-pin').addEventListener('keydown', e => { if (e.key==='Enter') document.getElementById('lk-submit').click(); });
       document.getElementById('lk-pin').focus();
+    };
+
+    // ── 화면 B: 풀 로그인 (WorkLog ID + PW) ──
+    const showFullLogin = (defaultId) => {
+      _showLockScreen(`
+        <div style="text-align:center;margin-bottom:14px"><div style="font-size:38px">🔐</div></div>
+        <h2 style="margin:0 0 6px;font-size:18px;font-weight:800;text-align:center;color:#1E1B4B">로그인</h2>
+        <p style="margin:0 0 18px;font-size:12px;color:#6B7280;text-align:center;line-height:1.6">
+          <strong>WorkLog 계정</strong>으로 로그인해주세요.<br>
+          관리자가 권한을 부여한 사용자만 접근 가능합니다.
+        </p>
+        <div style="margin-bottom:10px"><input id="lk-id" placeholder="WorkLog 아이디" value="${esc(defaultId)}" autocapitalize="none" style="width:100%;padding:11px 13px;border:1.5px solid #E5E7EB;border-radius:9px;font-size:14px;font-family:inherit;box-sizing:border-box"/></div>
+        <div style="margin-bottom:14px"><input id="lk-pw" type="password" placeholder="WorkLog 비밀번호" style="width:100%;padding:11px 13px;border:1.5px solid #E5E7EB;border-radius:9px;font-size:14px;font-family:inherit;box-sizing:border-box"/></div>
+        <button id="lk-next" style="width:100%;background:#4F46E5;color:#fff;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">다음 →</button>
+        <p id="lk-err" style="color:#EF4444;font-size:12px;margin:10px 0 0;text-align:center;min-height:16px"></p>
+      `);
+      document.getElementById('lk-next').onclick = async () => {
+        const id = document.getElementById('lk-id').value.trim();
+        const pw = document.getElementById('lk-pw').value;
+        const err = document.getElementById('lk-err');
+        if (!id || !pw) { err.textContent = '아이디/비밀번호를 입력하세요'; return; }
+        const user = await _findUser(id, pw);
+        if (!user) { err.textContent = '❌ 아이디 또는 비밀번호가 맞지 않아요'; return; }
+        const invUserData = await fbGet('invoiceUsers/' + user.id);
+        if (!_canInvoiceAccess(user, invUserData)) {
+          err.textContent = '❌ 인보이스 앱 접근 권한이 없어요. 관리자에게 문의하세요.';
+          return;
+        }
+        // PIN 이미 등록된 경우 → 그냥 통과
+        if (invUserData && invUserData.pinHash) {
+          sessionStorage.setItem('invoice_unlocked', 'true');
+          sessionStorage.setItem('invoice_user_id', user.id);
+          sessionStorage.setItem('invoice_user_role', user.role || '');
+          sessionStorage.setItem('invoice_user_name', user.name || user.id);
+          localStorage.setItem('invoice_last_user_id', user.id);
+          _hideLockScreen();
+          resolve(true);
+        } else {
+          // PIN 미등록 → 등록 화면
+          showPinRegister(user, invUserData || {});
+        }
+      };
+      ['lk-id','lk-pw'].forEach(i => {
+        document.getElementById(i).addEventListener('keydown', e => { if (e.key==='Enter') document.getElementById('lk-next').click(); });
+      });
+      document.getElementById(defaultId ? 'lk-pw' : 'lk-id').focus();
+    };
+
+    // ── 화면 C: PIN 등록 (인증 통과 후 최초 1회) ──
+    const showPinRegister = (user, invUserData) => {
+      _showLockScreen(`
+        <div style="text-align:center;margin-bottom:14px"><div style="font-size:38px">🔑</div></div>
+        <h2 style="margin:0 0 6px;font-size:18px;font-weight:800;text-align:center;color:#1E1B4B">PIN 등록</h2>
+        <p style="margin:0 0 18px;font-size:12px;color:#6B7280;text-align:center;line-height:1.6">
+          ✅ <strong>${esc(user.name || user.id)}</strong> 님 인증 완료.<br>
+          앞으로 빠르게 진입할 <strong>PIN 4자리</strong>를 등록해주세요.
+        </p>
+        <div style="margin-bottom:10px"><input id="lk-pin" type="password" inputmode="numeric" maxlength="4" placeholder="새 PIN (숫자 4자리)" style="width:100%;padding:13px;border:1.5px solid #C7D2FE;border-radius:9px;font-size:20px;font-family:inherit;box-sizing:border-box;text-align:center;letter-spacing:10px" autocomplete="new-password"/></div>
+        <div style="margin-bottom:14px"><input id="lk-pin2" type="password" inputmode="numeric" maxlength="4" placeholder="PIN 다시 입력" style="width:100%;padding:13px;border:1.5px solid #C7D2FE;border-radius:9px;font-size:20px;font-family:inherit;box-sizing:border-box;text-align:center;letter-spacing:10px" autocomplete="new-password"/></div>
+        <button id="lk-submit" style="width:100%;background:#4F46E5;color:#fff;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">🔐 등록하고 진입</button>
+        <p id="lk-err" style="color:#EF4444;font-size:12px;margin:10px 0 0;text-align:center;min-height:16px"></p>
+      `);
+      document.getElementById('lk-submit').onclick = async () => {
+        const pin = document.getElementById('lk-pin').value;
+        const pin2 = document.getElementById('lk-pin2').value;
+        const err = document.getElementById('lk-err');
+        if (!/^\d{4}$/.test(pin)) { err.textContent = 'PIN은 숫자 4자리'; return; }
+        if (pin !== pin2) { err.textContent = 'PIN이 일치하지 않아요'; return; }
+        const hash = await _sha256(pin);
+        await fbSet('invoiceUsers/' + user.id, {
+          ...invUserData,
+          pinHash: hash,
+          canInvoice: invUserData.canInvoice === true || user.role === 'admin' || user.role === 'superadmin',
+          registeredAt: new Date().toISOString()
+        });
+        sessionStorage.setItem('invoice_unlocked', 'true');
+        sessionStorage.setItem('invoice_user_id', user.id);
+        sessionStorage.setItem('invoice_user_role', user.role || '');
+        sessionStorage.setItem('invoice_user_name', user.name || user.id);
+        localStorage.setItem('invoice_last_user_id', user.id);
+        _hideLockScreen();
+        resolve(true);
+      };
+      ['lk-pin','lk-pin2'].forEach(i => {
+        document.getElementById(i).addEventListener('keydown', e => { if (e.key==='Enter') document.getElementById('lk-submit').click(); });
+      });
+      document.getElementById('lk-pin').focus();
+    };
+
+    // 시작: 마지막 사용자 ID 있으면 PIN 화면, 없으면 풀 로그인
+    if (lastUserId) {
+      showPinScreen(lastUserId);
+    } else {
+      showFullLogin('');
     }
   });
+}
+
+// ─── 로그아웃 + 헤더 사용자 정보 표시 + 권한 관리 ────────────────────────────
+function logoutInvoice() {
+  if (!confirm('로그아웃 하시겠어요?')) return;
+  sessionStorage.removeItem('invoice_unlocked');
+  sessionStorage.removeItem('invoice_user_id');
+  sessionStorage.removeItem('invoice_user_role');
+  sessionStorage.removeItem('invoice_user_name');
+  // localStorage의 invoice_last_user_id는 유지 (다음에 PIN으로 빠르게)
+  location.reload();
+}
+
+function updateAuthHeader() {
+  const userId = sessionStorage.getItem('invoice_user_id');
+  const userName = sessionStorage.getItem('invoice_user_name') || userId;
+  const userRole = sessionStorage.getItem('invoice_user_role');
+  if (userId) {
+    const info = document.getElementById('hd-user-info');
+    if (info) { info.style.display = ''; info.textContent = '👤 ' + userName; }
+    const logout = document.getElementById('hd-logout-btn');
+    if (logout) logout.style.display = '';
+    // admin/superadmin만 권한 관리 버튼 표시
+    if (userRole === 'admin' || userRole === 'superadmin') {
+      const perm = document.getElementById('hd-perm-btn');
+      if (perm) perm.style.display = '';
+    }
+  }
+}
+
+// ─── 권한 관리 모달 (admin 전용) ─────────────────────────────────────────────
+async function openPermModal() {
+  const role = sessionStorage.getItem('invoice_user_role');
+  if (role !== 'admin' && role !== 'superadmin') return alert('권한이 없어요');
+  document.getElementById('perm-modal').classList.add('open');
+  await renderPermList();
+}
+
+function closePermModal() {
+  document.getElementById('perm-modal').classList.remove('open');
+}
+
+async function renderPermList() {
+  const listEl = document.getElementById('perm-list');
+  listEl.innerHTML = '<div style="text-align:center;padding:20px;color:#9CA3AF">⏳ 불러오는 중...</div>';
+  const usersRaw = await fbGet('users');
+  const invoiceUsersRaw = await fbGet('invoiceUsers');
+  const usersList = Array.isArray(usersRaw) ? usersRaw : (usersRaw ? Object.values(usersRaw) : []);
+  // role 우선순위로 정렬: superadmin > admin > viewadmin > employee
+  const roleOrder = { superadmin: 0, admin: 1, viewadmin: 2, employee: 3 };
+  usersList.sort((a, b) => (roleOrder[a.role] ?? 9) - (roleOrder[b.role] ?? 9));
+
+  let html = '';
+  for (const u of usersList) {
+    if (!u || !u.id) continue;
+    const invData = (invoiceUsersRaw && invoiceUsersRaw[u.id]) || {};
+    const isAutoAdmin = u.role === 'admin' || u.role === 'superadmin';
+    const canInvoice = isAutoAdmin || invData.canInvoice === true;
+    const hasPin = !!invData.pinHash;
+    const roleLabel = u.role === 'admin' ? '관리자' : u.role === 'superadmin' ? '슈퍼관리자' : u.role === 'viewadmin' ? '뷰관리자' : '직원';
+    const roleColor = isAutoAdmin ? '#7C3AED' : (u.role === 'viewadmin' ? '#0369A1' : '#6B7280');
+    html += `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid #F3F4F6;gap:10px">
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:700;font-size:13px;color:#111827">${esc(u.name || u.id)} <span style="font-size:10px;font-weight:600;color:#fff;background:${roleColor};padding:1px 6px;border-radius:4px;margin-left:4px">${roleLabel}</span></div>
+          <div style="font-size:11px;color:#6B7280;margin-top:2px">@${esc(u.id)} ${hasPin ? '· 🔑 PIN 등록됨' : '· PIN 미등록'}</div>
+        </div>
+        <div style="flex-shrink:0">
+          ${isAutoAdmin
+            ? '<span style="font-size:11px;color:#7C3AED;font-weight:600">자동 허용</span>'
+            : `<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:#374151">
+                <input type="checkbox" ${canInvoice ? 'checked' : ''} onchange="togglePerm('${esc(u.id)}', this.checked)" style="width:18px;height:18px;cursor:pointer"/>
+                ${canInvoice ? '<span style="color:#10B981;font-weight:600">허용</span>' : '<span style="color:#9CA3AF">차단</span>'}
+              </label>`}
+        </div>
+      </div>`;
+  }
+  listEl.innerHTML = html;
+}
+
+async function togglePerm(userId, granted) {
+  const existing = (await fbGet('invoiceUsers/' + userId)) || {};
+  await fbSet('invoiceUsers/' + userId, { ...existing, canInvoice: !!granted });
+  await renderPermList();
 }
 
 // 잠금 통과 후에만 데이터 로드 / 메인 앱 진입
 (async () => {
   await initInvoiceAuth();
+  updateAuthHeader();
   loadAll();
 })();
 
