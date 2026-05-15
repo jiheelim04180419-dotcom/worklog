@@ -2100,6 +2100,9 @@ function loadPrevProgress() {
     thisPct: 0,       // start at 0% this round — user will fill in
     prevPct: parseFloat(it.cumulativePct) || 0,     // remember previous cumulative %
     cumulativePct: parseFloat(it.cumulativePct) || 0,  // start equal to prev; user enters new cum %
+    // 원본 qty/단가 이어받기 (이전 인보이스에 있으면)
+    origQty: (it.origQty != null) ? (parseFloat(it.origQty) || 0) : undefined,
+    origUnitPrice: (it.origUnitPrice != null) ? (parseFloat(it.origUnitPrice) || 0) : undefined,
     room: it.room || '',
     placement: '',
     isMaterials: false,
@@ -3316,7 +3319,12 @@ function renderLineItems() {
           // capture totalAmount = qty × unitPrice ONCE so % calculation can work
           if (!li.totalAmount || isNaN(parseFloat(li.totalAmount))) {
             const computedFromQtyUnit = round2((parseFloat(li.qty)||0) * (parseFloat(li.unitPrice)||0));
-            if (computedFromQtyUnit > 0) li.totalAmount = computedFromQtyUnit;
+            if (computedFromQtyUnit > 0) {
+              li.totalAmount = computedFromQtyUnit;
+              // 원본 qty/unitPrice 보존 — 곧 qty가 thisPct/100, unitPrice가 totalAmount로 덮어써지므로
+              if (li.origQty == null) li.origQty = parseFloat(li.qty) || 0;
+              if (li.origUnitPrice == null) li.origUnitPrice = parseFloat(li.unitPrice) || 0;
+            }
           }
           // Default thisPct = 0 (no charge by default) — user must explicitly enter to charge
           if (li.thisPct === '' || li.thisPct === null || li.thisPct === undefined) {
@@ -3344,19 +3352,20 @@ function renderLineItems() {
               <div style="display:flex;gap:4px;align-items:center;font-size:10px;flex-wrap:wrap;margin-bottom:3px">
                 <span style="color:var(--text-4);min-width:60px;font-weight:700" title="라인 총액 (자동으로 qty×단가)">📊 라인총액:</span>
                 <input type="number" step="0.01" class="input" style="flex:1;min-width:80px;font-size:11px;padding:4px 6px;background:#F9FAFB" value="${li.totalAmount ?? ''}" placeholder="자동 계산 (수정 가능)" oninput="updateProgressTotalAmount(${i}, this.value)" title="라인 전체 금액. 자동으로 채워지지만 수정 가능"/>
+                ${(li.origQty != null && li.origUnitPrice != null && li.origQty > 0)
+                  ? `<span style="color:#6B7280;font-size:9.5px;font-style:italic;background:#F3F4F6;padding:2px 6px;border-radius:4px" title="원본 입력값 (변경 불가)">원본: ${li.origQty} × $${parseFloat(li.origUnitPrice).toFixed(2)}</span>`
+                  : ''}
                 ${prevPct > 0 ? `<span style="color:#7C3AED;font-weight:700;background:#EDE9FE;padding:2px 6px;border-radius:4px">이전: ${prevPct}%</span>` : ''}
                 <label style="display:flex;align-items:center;gap:2px;cursor:pointer;color:var(--text-3);margin-left:6px">
                   <input type="checkbox" ${li.noTax?'checked':''} onchange="lineItems[${i}].noTax=this.checked;renderLineItems()" style="margin:0"/>NoTax
                 </label>
               </div>
               <div style="display:flex;gap:4px;align-items:center;font-size:10px;flex-wrap:wrap">
-                <span style="color:var(--text-4);min-width:60px;font-weight:700" title="PDF QTY 컬럼에 표시되는 값">📐 qty:</span>
-                <input type="number" step="0.01" class="input" style="width:60px;font-size:11px;padding:4px 6px;background:#F9FAFB" value="${li.qty ?? ''}" placeholder="qty" oninput="updateProgressQty(${i}, this.value)" title="PDF의 QTY 컬럼 값 (= 청구% ÷ 100). 수정하면 청구%/누적%도 자동 갱신"/>
-                <span style="color:#4F46E5;margin-left:6px;font-weight:700">💰 청구%:</span>
+                <span style="color:#4F46E5;min-width:60px;font-weight:700">💰 청구%:</span>
                 <input type="number" step="0.01" class="input" style="width:65px;font-size:11px;padding:4px 6px;font-weight:700;color:#4F46E5;border-color:#C7D2FE" value="${li.thisPct ?? ''}" placeholder="이번%" oninput="updateProgressThisPct(${i}, this.value)" title="이번에 청구할 %"/>
                 <span style="color:var(--text-4);margin-left:6px;font-weight:700">새 누적%:</span>
                 <input type="number" step="0.01" class="input" style="width:70px;font-size:11px;padding:4px 6px" value="${li.cumulativePct ?? ''}" placeholder="누적%" oninput="updateProgressCumPct(${i}, this.value)"/>
-                <span style="color:var(--text-4);font-size:9px;font-style:italic">↑ 셋 중 하나만 입력하면 자동 계산</span>
+                <span style="color:var(--text-4);font-size:9px;font-style:italic">↑ 둘 중 하나만 입력하면 자동 계산</span>
               </div>
               <div style="font-size:10px;color:#4F46E5;margin-top:3px;font-weight:600">→ 이번 청구: ${fA(computedEx)} ex (= ${thisPct}% × ${fA(totalAmt)})${cumPct > 0 ? ` · 누적 ${cumPct}% Completed` : ''}</div>
             </div>
@@ -3591,6 +3600,9 @@ async function saveInv(asDraft, sendEmail) {
       thisPct: isProg ? (parseFloat(li.thisPct) || 0) : 0,
       prevPct: isProg ? (parseFloat(li.prevPct) || 0) : 0,
       cumulativePct: isProg ? (parseFloat(li.cumulativePct) || 0) : 0,
+      // 원본 qty/단가 보존 (PROGRESS는 qty/unitPrice가 % 계산용으로 덮어써지므로)
+      origQty: (isProg && li.origQty != null) ? (parseFloat(li.origQty) || 0) : undefined,
+      origUnitPrice: (isProg && li.origUnitPrice != null) ? (parseFloat(li.origUnitPrice) || 0) : undefined,
       room: li.room || '',
       placement: li.placement || '',
       isMaterials: !!li.isMaterials,
