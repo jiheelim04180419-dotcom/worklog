@@ -1079,11 +1079,7 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
     </div>
   </div>
   <div class="mb"><label class="label">본문 (편집 가능)</label><textarea class="input" id="em-body" style="height:140px;resize:vertical;font-family:inherit"></textarea></div>
-  <div style="background:#FEF3C7;border:1px solid #FDE68A;border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:#92400E;line-height:1.5">
-    💡 "Gmail 열기" 클릭 시 Gmail 새 창과 인쇄 미리보기가 같이 열려요.<br>
-    인쇄 미리보기에서 <strong>"PDF로 저장"</strong> → Gmail 창에 드래그해서 첨부하세요.<br>
-    ⚠️ Gmail이 서명을 "No Signature"로 시작할 수 있어서 <strong>본문에 Kathleen 서명을 직접 포함</strong>했어요. 로고는 Gmail에서 자동 추가됩니다 (서명 드롭다운에서 로고 있는 서명 선택 시).
-  </div>
+  <div id="em-hint" style="background:#FEF3C7;border:1px solid #FDE68A;border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:#92400E;line-height:1.5"></div>
   <div class="row2" style="gap:6px;flex-wrap:wrap">
     <button class="btn-secondary" style="flex:1" onclick="closeEmailModal()">취소</button>
     <button class="btn-primary" style="flex:2" onclick="openGmailWithEmail()">📧 Gmail 열기 + 인쇄</button>
@@ -2129,6 +2125,24 @@ function updateProgressThisPct(i, val) {
     li.qty = round2((parseFloat(li.thisPct) || 0) / 100);
     li.unitPrice = parseFloat(li.totalAmount);
   }
+  updProgressLineDisplay(i);
+}
+
+// User updated "qty" → recalculate thisPct = qty * 100, cum = prev + thisPct
+function updateProgressQty(i, val) {
+  const li = lineItems[i];
+  if (!li) return;
+  const newQty = parseFloat(val);
+  if (isNaN(newQty)) {
+    li.qty = 0;
+    li.thisPct = 0;
+  } else {
+    li.qty = newQty;
+    li.thisPct = round2(newQty * 100);
+    const prev = parseFloat(li.prevPct) || 0;
+    li.cumulativePct = round2(prev + li.thisPct);
+  }
+  if (li.totalAmount) li.unitPrice = parseFloat(li.totalAmount);
   updProgressLineDisplay(i);
 }
 
@@ -3336,11 +3350,13 @@ function renderLineItems() {
                 </label>
               </div>
               <div style="display:flex;gap:4px;align-items:center;font-size:10px;flex-wrap:wrap">
-                <span style="color:#4F46E5;min-width:60px;font-weight:700">💰 청구%:</span>
-                <input type="number" step="0.01" class="input" style="width:65px;font-size:11px;padding:4px 6px;font-weight:700;color:#4F46E5;border-color:#C7D2FE" value="${li.thisPct ?? ''}" placeholder="이번%" oninput="updateProgressThisPct(${i}, this.value)" title="이번에 청구할 % (기본 100%)"/>
+                <span style="color:var(--text-4);min-width:60px;font-weight:700" title="PDF QTY 컬럼에 표시되는 값">📐 qty:</span>
+                <input type="number" step="0.01" class="input" style="width:60px;font-size:11px;padding:4px 6px;background:#F9FAFB" value="${li.qty ?? ''}" placeholder="qty" oninput="updateProgressQty(${i}, this.value)" title="PDF의 QTY 컬럼 값 (= 청구% ÷ 100). 수정하면 청구%/누적%도 자동 갱신"/>
+                <span style="color:#4F46E5;margin-left:6px;font-weight:700">💰 청구%:</span>
+                <input type="number" step="0.01" class="input" style="width:65px;font-size:11px;padding:4px 6px;font-weight:700;color:#4F46E5;border-color:#C7D2FE" value="${li.thisPct ?? ''}" placeholder="이번%" oninput="updateProgressThisPct(${i}, this.value)" title="이번에 청구할 %"/>
                 <span style="color:var(--text-4);margin-left:6px;font-weight:700">새 누적%:</span>
                 <input type="number" step="0.01" class="input" style="width:70px;font-size:11px;padding:4px 6px" value="${li.cumulativePct ?? ''}" placeholder="누적%" oninput="updateProgressCumPct(${i}, this.value)"/>
-                <span style="color:var(--text-4);font-size:9px;font-style:italic">↑ 둘 중 하나만 입력하면 자동 계산</span>
+                <span style="color:var(--text-4);font-size:9px;font-style:italic">↑ 셋 중 하나만 입력하면 자동 계산</span>
               </div>
               <div style="font-size:10px;color:#4F46E5;margin-top:3px;font-weight:600">→ 이번 청구: ${fA(computedEx)} ex (= ${thisPct}% × ${fA(totalAmt)})${cumPct > 0 ? ` · 누적 ${cumPct}% Completed` : ''}</div>
             </div>
@@ -3934,14 +3950,20 @@ function updateEmailBody() {
     ? (_emailInv.projectName || _emailInv.address || '—')
     : (_emailInv.address || _emailInv.projectName || '—');
 
-  // 회사별 서명 (Gmail compose URL은 자동 서명을 보장하지 않으므로 본문에 직접 포함)
+  // 회사별 서명 분기:
+  // - Bathurst Tiling (BXBT) : 로고 없음 → 본문에 서명 포함
+  // - K&M : 로고 있는 Gmail 서명 사용 → 본문에는 서명 X (Gmail 서명 드롭다운에서 선택)
   const co = companies.find(c => c.id === _emailInv.companyId) || companies[0] || {};
-  const contactName = co.contactPerson || co.contactName || 'Kathleen Lim';
-  const coName = co.name || '';
-  const coPhone = co.phone || '';
-  const coEmail = co.contactEmail || co.email || '';
+  const isBathurst = (co.prefix || '').toUpperCase().includes('BXBT');
 
-  const body = `Hello,
+  let body;
+  if (isBathurst) {
+    // 본문에 서명 포함
+    const contactName = co.contactPerson || co.contactName || 'Kathleen Lim';
+    const coName = co.name || '';
+    const coPhone = co.phone || '';
+    const coEmail = co.contactEmail || co.email || '';
+    body = `Hello,
 
 Please find the attached invoice below for ${ref}.
 If you have any questions, please do not hesitate to contact us.
@@ -3953,8 +3975,25 @@ ${contactName}
 
 Accounting Manager
 ${coName}${coPhone ? `\nM. ${coPhone}` : ''}${coEmail ? `\nEmail: ${coEmail}` : ''}`;
+  } else {
+    // 본문에 서명 X (Gmail의 서명 드롭다운에서 로고 있는 서명을 선택)
+    body = `Hello,
+
+Please find the attached invoice below for ${ref}.
+If you have any questions, please do not hesitate to contact us.`;
+  }
 
   document.getElementById('em-body').value = body;
+
+  // 안내문구도 회사별로 동적 업데이트
+  const hint = document.getElementById('em-hint');
+  if (hint) {
+    if (isBathurst) {
+      hint.innerHTML = '💡 "Gmail 열기" 클릭 시 Gmail 새 창과 인쇄 미리보기가 같이 열려요.<br>인쇄 미리보기에서 <strong>"PDF로 저장"</strong> → Gmail 창에 드래그해서 첨부하세요.<br>📝 <strong>Bathurst Tiling</strong>은 로고가 없어서 <strong>본문에 서명 자동 포함</strong>됐어요.';
+    } else {
+      hint.innerHTML = '💡 "Gmail 열기" 클릭 시 Gmail 새 창과 인쇄 미리보기가 같이 열려요.<br>인쇄 미리보기에서 <strong>"PDF로 저장"</strong> → Gmail 창에 드래그해서 첨부하세요.<br>🖼️ <strong>K&amp;M</strong>은 Gmail 보내기 직전 <strong>서명 드롭다운에서 "로고 있는 서명" 선택</strong>해주세요. (본문엔 서명 없음)';
+    }
+  }
 }
 
 // 이메일 발송 후 처리(저장 모달이 끼어들 수 있어서 분리)할 데이터를 보관
