@@ -4195,14 +4195,8 @@ function printInvoiceBXBT(inv, co, b) {
       
       const qtyDisplay = (qty === 0) ? '0' : (qty % 1 === 0 ? qty : qty.toFixed(2).replace(/\.?0+$/, ''));
       
-      // Original line amount hint for progress
-      const totalAmt = parseFloat(it.totalAmount) || 0;
-      const origHint = (isProgressTypeBXBT && !it.isMaterials && totalAmt > 0 && totalAmt !== lineEx)
-        ? `<div style="font-size:8.5px;color:#888;margin-top:2px">원래: ${fmtMoney(totalAmt)}</div>`
-        : '';
-      
       itemRows += `<tr>
-        <td>${esc(desc)}${origHint}</td>
+        <td>${esc(desc)}</td>
         <td class="center">${qtyDisplay}</td>
         <td class="num">${unitEx.toFixed(2)}</td>
         <td class="num">${fmtMoney(lineEx)}</td>
@@ -4451,20 +4445,14 @@ function printInvoiceKM(inv, co, b) {
         const qtyDisplay = (qty === 0) ? '0' : (qty % 1 === 0 ? qty : qty.toFixed(2).replace(/\.?0+$/, ''));
         const taxMark = it.noTax ? '' : 'x';
         
-        // For progress invoice with original line amount: show small "원래 $X" hint in description cell
-        const totalAmt = parseFloat(it.totalAmount) || 0;
-        const origHint = (isProgressType && !it.isMaterials && totalAmt > 0 && totalAmt !== lineEx)
-          ? `<div style="font-size:8.5px;color:#888;margin-top:2px">원래: ${fmtMoney(totalAmt)}</div>`
-          : '';
-        
         // First row of group gets the area cell with rowspan
         const roomCell = (idx === 0)
           ? `<td class="pi-room-cell" rowspan="${rowsInGroup}">${esc(group.room)}</td>`
           : '';
-        
+
         itemRows += `<tr>
           ${roomCell}
-          <td>${esc(desc)}${origHint}</td>
+          <td>${esc(desc)}</td>
           <td class="center">${qtyDisplay}</td>
           <td class="num">${unitEx.toFixed(2)}</td>
           <td class="center">${taxMark}</td>
