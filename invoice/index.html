@@ -692,7 +692,7 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
   <div class="mb"><label class="label">현장 주소 (Job Address)</label><input class="input" id="f-a" placeholder="주소"/></div>
   <!-- Hidden status field — auto-set by saveInv() based on draft vs publish -->
   <input type="hidden" id="f-st" value="INVOICE"/>
-  <div id="f-po-row" class="mb"><label class="label">PO 번호</label><input class="input" id="f-po" placeholder="PO Number"/></div>
+  <div id="f-po-row" class="mb"><label class="label">PO 번호 (선택)</label><input class="input" id="f-po" placeholder="PO Number (있을 때만 입력)"/></div>
   <div id="f-proj-row" class="mb" style="display:none">
     <label class="label">프로젝트명 (Project)</label>
     <div style="display:flex;gap:6px;align-items:center">
@@ -2030,7 +2030,8 @@ function setType(t) {
   document.getElementById('tt-normal').classList.toggle('active', t==='NORMAL');
   document.getElementById('tt-po').classList.toggle('active', t==='PO');
   document.getElementById('tt-prog').classList.toggle('active', t==='PROGRESS');
-  document.getElementById('f-po-row').style.display = (t==='PO') ? 'block' : 'none';
+  // PO 번호는 모든 타입에서 입력 가능 (선택사항)
+  document.getElementById('f-po-row').style.display = 'block';
   document.getElementById('f-proj-row').style.display = (t==='PROGRESS') ? 'block' : 'none';
   if (t === 'PROGRESS') checkPrevProgressInvoice();
   // Re-render line items if PROGRESS to show/hide pct fields
@@ -3631,7 +3632,8 @@ async function saveInv(asDraft, sendEmail) {
     invoiceDate: document.getElementById('f-id').value,
     dueDate: dueDate,
     amount: amt,
-    poNumber: isPO ? document.getElementById('f-po').value : '',
+    // PO 번호는 모든 타입에서 입력 가능 (선택사항)
+    poNumber: document.getElementById('f-po').value || '',
     projectName: isProg ? document.getElementById('f-proj').value : '',
     payments: cleanPayments,
     depositDate: lastPay.date || '',
