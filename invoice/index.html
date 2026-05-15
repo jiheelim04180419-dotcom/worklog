@@ -1298,7 +1298,7 @@ async function initInvoiceAuth() {
         const usersList = Array.isArray(usersRaw) ? usersRaw : (usersRaw ? Object.values(usersRaw) : []);
         const user = usersList.find(u => u && u.id === id && u.pw === pw);
         if (!user) { err.textContent = '아이디/비밀번호가 맞지 않아요'; return; }
-        if (user.role !== 'superadmin') { err.textContent = '슈퍼관리자 계정이 아니에요'; return; }
+        if (user.role !== 'superadmin' && user.role !== 'admin') { err.textContent = '관리자(admin/superadmin) 계정이 아니에요'; return; }
         const hash = await _sha256(pin);
         await fbSet('appConfig/invoicePin', { hash, createdBy: user.id, createdAt: new Date().toISOString() });
         sessionStorage.setItem('invoice_unlocked', 'true');
