@@ -719,6 +719,11 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
     
     <!-- TOP PICKER: all selections happen here -->
     <div id="line-picker-row" style="background:var(--card-bg);border:1.5px solid var(--accent);border-radius:8px;padding:10px;margin-bottom:10px">
+      <!-- Row 0: Section/Floor (옵션, 룸 상위 그룹) -->
+      <div style="display:flex;gap:6px;margin-bottom:6px">
+        <input class="input" id="pick-section" list="section-list" style="flex:1;font-size:12px;padding:7px" placeholder="🏢 빌딩/층 (예: Ground floor, Second floor) — 선택"/>
+        <datalist id="section-list"></datalist>
+      </div>
       <!-- Row 1: Room + Placement -->
       <div style="display:flex;gap:6px;margin-bottom:6px">
         <input class="input" id="pick-room" list="room-list" style="flex:1.2;font-size:12px;padding:7px" placeholder="🚪 방 (직접 입력도 OK)" onfocus="onRoomFocus(this)" oninput="onRoomInput(this)" onblur="onRoomBlur(this)"/>
@@ -1710,7 +1715,6 @@ function setupInvTab() {
         <option value="number-desc">번호 ↓ (최신)</option>
         <option value="number-asc">번호 ↑</option>
       </select>
-      <button class="btn-secondary" style="padding:10px 14px" onclick="exportCSV()" title="CSV 내보내기">📁 CSV</button>
       <button class="btn-gold" onclick="openIM(null)" title="새 인보이스 (N)">+ 추가</button>
     </div>
     <div class="filter-bar" id="inv-filter-bar"></div>
@@ -2202,12 +2206,13 @@ function openIM(id) {
     document.getElementById('materials-calc').style.display = 'none';
     document.getElementById('materials-toggle-btn').textContent = '📦 Materials';
   }
-  // Per-invoice room memory: set pick-room to the LAST line item's room (so consecutive entries
-  // stay in same room). For new invoices, start blank. For existing invoices, use last line's room.
+  // Per-invoice room/section memory: 마지막 라인의 section/room을 입력 칸에 자동 채움
   if (document.getElementById('pick-room')) {
-    const lastRoom = lineItems.length ? (lineItems[lineItems.length-1].room || '') : '';
-    document.getElementById('pick-room').value = lastRoom;
+    const last = lineItems.length ? lineItems[lineItems.length-1] : null;
+    document.getElementById('pick-room').value = last ? (last.room || '') : '';
     document.getElementById('pick-placement').value = '';
+    const psec = document.getElementById('pick-section');
+    if (psec) psec.value = last ? (last.section || '') : '';
   }
   // Clear search filter
   if (document.getElementById('pick-search')) document.getElementById('pick-search').value = '';
@@ -2449,6 +2454,7 @@ function loadPrevProgress() {
     // 원본 qty/단가 이어받기 (이전 인보이스에 있으면)
     origQty: (it.origQty != null) ? (parseFloat(it.origQty) || 0) : undefined,
     origUnitPrice: (it.origUnitPrice != null) ? (parseFloat(it.origUnitPrice) || 0) : undefined,
+    section: it.section || '',
     room: it.room || '',
     placement: '',
     isMaterials: false,
@@ -3064,6 +3070,7 @@ function addFromPicker() {
     return alert('수량을 입력하세요');
   }
   
+  const section = (document.getElementById('pick-section')?.value || '').trim();
   const room = document.getElementById('pick-room').value.trim();
   const placement = document.getElementById('pick-placement').value;
   const noTax = document.getElementById('pick-notax').checked;
@@ -3124,6 +3131,7 @@ function addFromPicker() {
     desc: finalDesc,        // store the final combined desc
     qty, unitPrice: unit,
     materials: false, pct: '',
+    section,                // 빌딩/층 (옵션, 빈 칸이면 그룹화 없음)
     room,
     placement: '',          // already baked into desc, clear so re-render doesn't double-prefix
     isMaterials: false,
@@ -3595,8 +3603,28 @@ function lineDescForPrint(li) {
   return d;
 }
 
+function refreshSectionList() {
+  // 모든 인보이스 lineItems에서 사용된 section을 모아 datalist에 표시
+  const set = new Set();
+  invoices.forEach(inv => {
+    const items = inv.lineItems;
+    if (!items) return;
+    const arr = Array.isArray(items) ? items : Object.values(items);
+    arr.forEach(li => {
+      if (li && li.section) set.add(String(li.section).trim());
+    });
+  });
+  // 현재 작성 중인 lineItems의 section도 포함
+  (lineItems || []).forEach(li => { if (li && li.section) set.add(String(li.section).trim()); });
+  const dl = document.getElementById('section-list');
+  if (dl) {
+    dl.innerHTML = Array.from(set).filter(Boolean).sort().map(s => `<option value="${esc(s)}">`).join('');
+  }
+}
+
 function renderLineItems() {
   refreshLinePicker();
+  refreshSectionList();
   if (useLegacyAmount) {
     document.getElementById('line-items-list').innerHTML = '';
     document.getElementById('line-items-total').style.display = 'none';
@@ -3617,11 +3645,19 @@ function renderLineItems() {
     h = `<div style="text-align:center;color:var(--text-4);font-size:12px;padding:14px;border:1px dashed var(--border);border-radius:8px">📋 항목이 없습니다. 위에서 선택 후 ➕ 추가를 누르세요</div>`;
   } else {
     let prevRoom = null;
+    let prevSection = null;
     lineItems.forEach((li, i) => {
       const lineTotalEx = round2((parseFloat(li.qty)||0) * (parseFloat(li.unitPrice)||0));
       const lineTotalInc = li.noTax ? lineTotalEx : round2(lineTotalEx * 1.1);
       const finalDesc = lineDescFinal(li);
-      
+
+      // Section separator (룸 상위 그룹)
+      if (!li.isMaterials && li.section && li.section !== prevSection) {
+        h += `<div style="font-size:12px;font-weight:700;color:#5B21B6;margin-top:10px;margin-bottom:4px;padding:6px 10px;background:#EDE9FE;border-radius:5px;border-left:4px solid #7C3AED">🏢 ${esc(li.section)}</div>`;
+        prevRoom = null;  // 새 section이면 룸도 다시 표시
+      }
+      if (!li.isMaterials) prevSection = li.section || null;
+
       // Room separator (visual only, not interactive)
       if (!li.isMaterials && li.room && li.room !== prevRoom) {
         h += `<div style="font-size:11px;font-weight:700;color:#4F46E5;margin-top:8px;margin-bottom:4px;padding:4px 8px;background:#EEF2FF;border-radius:4px;border-left:3px solid #4F46E5">🚪 ${esc(li.room)}</div>`;
@@ -3949,6 +3985,7 @@ async function saveInv(asDraft, sendEmail) {
       // 원본 qty/단가 보존 (PROGRESS는 qty/unitPrice가 % 계산용으로 덮어써지므로)
       origQty: (isProg && li.origQty != null) ? (parseFloat(li.origQty) || 0) : undefined,
       origUnitPrice: (isProg && li.origUnitPrice != null) ? (parseFloat(li.origUnitPrice) || 0) : undefined,
+      section: (li.section || '').trim(),  // 빌딩/층 등 룸 상위 그룹 (선택)
       room: li.room || '',
       placement: li.placement || '',
       isMaterials: !!li.isMaterials,
@@ -4170,6 +4207,7 @@ function previewInv() {
       thisPct: isProgPrev ? (parseFloat(li.thisPct) || 0) : 0,
       prevPct: isProgPrev ? (parseFloat(li.prevPct) || 0) : 0,
       cumulativePct: isProgPrev ? (parseFloat(li.cumulativePct) || 0) : 0,
+      section: (li.section || '').trim(),
       room: li.room || '',
       placement: li.placement || '',
       isMaterials: !!li.isMaterials,
@@ -4532,7 +4570,14 @@ function printInvoiceBXBT(inv, co, b) {
   if (hasLineItems) {
     const items = Array.isArray(inv.lineItems) ? inv.lineItems : Object.values(inv.lineItems);
     const isProgressTypeBXBT = inv.type === 'PROGRESS';
+    let prevSection = null;
     items.forEach(it => {
+      // Section 헤더 행 (빌딩/층 등) — section 바뀔 때마다
+      if (!it.isMaterials && it.section && it.section !== prevSection) {
+        itemRows += `<tr class="bxbt-po-row"><td><b>${esc(it.section)}</b></td><td></td><td></td><td></td></tr>`;
+        rowsRendered++;
+        prevSection = it.section;
+      }
       const qty = (isProgressTypeBXBT && !it.isMaterials)
         ? (parseFloat(it.qty) || 0)
         : (parseFloat(it.qty) || 1);
@@ -4771,21 +4816,34 @@ function printInvoiceKM(inv, co, b) {
       else taxableEx += ex;
     });
     
-    // Second pass: group items by room and render with rowspan for area column
-    // Build groups: [{room: 'Main Bathroom', items: [...]}, {room: 'Materials', items: [...]}, ...]
-    const groups = [];
+    // Second pass: group by SECTION (빌딩/층) → then by ROOM → items
+    // sections: [{name, roomGroups: [{key, room, items: [...]}, ...]}, ...]
+    const sections = [];
+    let curSection = null;
     let curGroup = null;
     items.forEach(it => {
+      const sectionKey = it.isMaterials ? (curSection ? curSection.key : '') : (it.section || '');
       const roomKey = it.isMaterials ? '__MATERIALS__' : (it.room || '');
-      if (!curGroup || curGroup.key !== roomKey) {
-        curGroup = {key: roomKey, room: it.isMaterials ? 'Materials' : (it.room || ''), items: []};
-        groups.push(curGroup);
+      if (!curSection || curSection.key !== sectionKey) {
+        curSection = { key: sectionKey, name: sectionKey, roomGroups: [] };
+        sections.push(curSection);
+        curGroup = null;
+      }
+      if (!curGroup || curGroup.key !== roomKey || curGroup._sectionKey !== sectionKey) {
+        curGroup = {key: roomKey, _sectionKey: sectionKey, room: it.isMaterials ? 'Materials' : (it.room || ''), items: []};
+        curSection.roomGroups.push(curGroup);
       }
       curGroup.items.push(it);
     });
-    
+
     // isProgressType은 위에서 이미 정의됨
-    groups.forEach(group => {
+    sections.forEach(sec => {
+      // Section 헤더 행 (이름 있을 때만)
+      if (sec.name) {
+        itemRows += `<tr><td colspan="6" style="background:#F3F4F6;font-weight:700;font-size:11px;padding:6px 8px;color:#1F2937;border-top:1.5px solid #1a1a1a">${esc(sec.name)}</td></tr>`;
+        rowsRendered++;
+      }
+      sec.roomGroups.forEach(group => {
       const rowsInGroup = group.items.length;
       group.items.forEach((it, idx) => {
         // Progress non-materials lines: allow qty=0; others default to 1
@@ -4831,7 +4889,8 @@ function printInvoiceKM(inv, co, b) {
         </tr>`;
         rowsRendered++;
       });
-    });
+      });  // sec.roomGroups.forEach
+    });    // sections.forEach
   } else {
     // Fallback: single row from amount (simple amount mode or invoice with no line items)
     const amt = parseFloat(inv.amount) || 0;
