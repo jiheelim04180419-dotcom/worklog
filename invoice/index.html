@@ -1173,6 +1173,7 @@ function copyEmail(email, el) {
   });
 }
 let searchQ = '';
+let searchScope = 'all'; // 'all' = 전체 인보이스에서 검색 (기본), 'tab' = 현재 탭에서만
 let invLimit = 50;
 let invSort = 'auto'; // auto | amount | builder | number
 const INV_PAGE = 50;
@@ -1699,6 +1700,7 @@ function setupInvTab() {
   if (invTabReady) return;
   document.getElementById('tab-invoices').innerHTML = `
     <div class="search-row">
+      <button id="search-scope-btn" onclick="toggleSearchScope()" title="ON: 전체 인보이스에서 검색 / OFF: 현재 탭에서만 검색" style="padding:10px 14px;border:1.5px solid;border-radius:10px;font-weight:700;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0">🌐 전체</button>
       <input class="input" id="inv-search" aria-label="인보이스 검색" placeholder="🔍 빌더 / 주소 / 번호 / 메모  (단축키: /)"/>
       <select class="select" id="inv-sort" style="width:auto;min-width:130px" aria-label="정렬">
         <option value="auto">자동 정렬</option>
@@ -1724,7 +1726,30 @@ function setupInvTab() {
     invSort = e.target.value;
     renderInv();
   });
+  updateSearchScopeBtn();
   invTabReady = true;
+}
+
+function toggleSearchScope() {
+  searchScope = searchScope === 'all' ? 'tab' : 'all';
+  updateSearchScopeBtn();
+  renderInv();
+}
+
+function updateSearchScopeBtn() {
+  const btn = document.getElementById('search-scope-btn');
+  if (!btn) return;
+  if (searchScope === 'all') {
+    btn.textContent = '🌐 전체';
+    btn.style.background = '#4F46E5';
+    btn.style.color = '#fff';
+    btn.style.borderColor = '#4F46E5';
+  } else {
+    btn.textContent = '📁 현재 탭';
+    btn.style.background = '#fff';
+    btn.style.color = '#6B7280';
+    btn.style.borderColor = '#E5E7EB';
+  }
 }
 
 // ── Invoice List ──────────────────────────────────────────────────────────────
@@ -1755,8 +1780,9 @@ function renderInv() {
   };
   
   const filtered = invoices.filter(i => {
-    // When searching, ignore tab filter — search across ALL invoices regardless of which tab is active
     if (searchQ) {
+      // 검색 scope 체크: 'tab'이면 현재 탭 필터도 적용, 'all'이면 무시 (전체)
+      if (searchScope === 'tab' && !matchesFilter(i)) return false;
       const q = searchQ.toLowerCase();
       return (i.builderName||'').toLowerCase().includes(q)
           || (i.address||'').toLowerCase().includes(q)
@@ -1767,7 +1793,7 @@ function renderInv() {
           || (i.invoiceDate||'').includes(q)
           || (i.startDate||'').includes(q);
     }
-    // No search: apply tab filter normally
+    // 검색어 없음 → 탭 필터 적용
     if (!matchesFilter(i)) return false;
     return true;
   }).sort((a,b) => {
@@ -1792,8 +1818,9 @@ function renderInv() {
   });
 
   // Update filter bar
+  const scopeLabel = searchScope === 'all' ? '🌐 전체에서' : `📁 ${curFilter} 탭에서만`;
   document.getElementById('inv-filter-bar').innerHTML = searchQ
-    ? `<div style="padding:6px 10px;background:#FEF3C7;border:1px solid #FCD34D;border-radius:6px;font-size:12px;color:#92400E;font-weight:700;display:inline-flex;align-items:center;gap:6px">🔍 전체에서 검색 중: "${esc(searchQ)}" (${filtered.length}건) <button onclick="document.getElementById('inv-search').value='';searchQ='';renderInv()" style="background:#92400E;color:white;border:none;border-radius:4px;padding:2px 8px;cursor:pointer;font-size:11px">✕ 검색 해제</button></div>`
+    ? `<div style="padding:6px 10px;background:#FEF3C7;border:1px solid #FCD34D;border-radius:6px;font-size:12px;color:#92400E;font-weight:700;display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap">🔍 ${scopeLabel} 검색 중: "${esc(searchQ)}" (${filtered.length}건) <button onclick="document.getElementById('inv-search').value='';searchQ='';renderInv()" style="background:#92400E;color:white;border:none;border-radius:4px;padding:2px 8px;cursor:pointer;font-size:11px">✕ 검색 해제</button></div>`
     : sts.map(s =>
     `<button class="fbtn${curFilter===s?' active':''}" onclick="curFilter='${s}';invLimit=${INV_PAGE};renderInv()">${lblFor(s)}(${countFor(s)})</button>`
   ).join('');

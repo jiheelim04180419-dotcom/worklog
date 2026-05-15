@@ -1059,6 +1059,16 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                 </>)}
               </div>
 
+              {/* 정산 확인 완료 → 인보이스 직원에게 PDF 인보이스 발행 버튼 */}
+              {isSettled0 && wage.isContractor && (() => {
+                const empUser = users.find(x => x.id === selId);
+                return empUser ? (
+                  <div style={{ marginBottom: 8 }}>
+                    <InvoiceButton u={empUser} s={wage} periodLogs={wage.periodLogs||[]} startDate={wpStart} endDate={wpEnd} leaveData={lv0} />
+                  </div>
+                ) : null;
+              })()}
+
               {/* 정산 확인 버튼 */}
               {isSuperAdmin && (isSettled0 ? (
                 <div style={{ textAlign:"center",color:"#10B981",fontSize:13,fontWeight:700,background:"#F0FDF4",border:"1px solid #BBF7D0",borderRadius:10,padding:"10px 12px",marginBottom:8 }}>
