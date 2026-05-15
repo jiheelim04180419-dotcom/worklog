@@ -967,7 +967,7 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
     <div id="payments-summary" style="font-size:12px;font-weight:700;padding:6px 0;color:#065F46"></div>
   </div>
   <div class="mb"><label class="label">메모</label><textarea class="input" id="f-no" style="height:60px;resize:none" placeholder="메모"></textarea></div>
-  <div class="row2" style="gap:6px;flex-wrap:wrap"><button class="btn-secondary" style="flex:1;min-width:60px" onclick="closeIM()">취소</button><button class="btn-secondary" style="flex:1;min-width:80px;background:#E0F2FE;color:#075985;border:1px solid #BAE6FD;font-weight:700" onclick="previewInv()" title="인쇄될 모습 미리보기">👁️ 미리보기</button><button class="btn-secondary" style="flex:1.3;min-width:90px;background:#FEF3C7;color:#92400E;border:1px solid #FDE68A;font-weight:700" onclick="saveInv(true)" title="발행 안 하고 임시 저장">📝 임시저장</button><button class="btn-primary" style="flex:1.7;min-width:80px" onclick="saveInv(false)">💾 발행</button></div>
+  <div class="row2" style="gap:6px;flex-wrap:wrap"><button class="btn-secondary" style="flex:1;min-width:60px" onclick="closeIM()">취소</button><button class="btn-secondary" style="flex:1;min-width:80px;background:#E0F2FE;color:#075985;border:1px solid #BAE6FD;font-weight:700" onclick="previewInv()" title="인쇄될 모습 미리보기">👁️ 미리보기</button><button class="btn-secondary" style="flex:1.3;min-width:90px;background:#FEF3C7;color:#92400E;border:1px solid #FDE68A;font-weight:700" onclick="saveInv(true)" title="발행 안 하고 임시 저장">📝 임시저장</button><button class="btn-primary" style="flex:1.3;min-width:80px" onclick="saveInv(false)">💾 발행</button><button class="btn-primary" style="flex:1.7;min-width:120px;background:#7C3AED" onclick="saveInv(false, true)" title="발행 후 바로 이메일 모달 열기">📧 발행+이메일</button></div>
 </div>
 </div>
 
@@ -1041,6 +1041,36 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
   <div id="print-area"></div>
   <div class="no-print" style="margin-top:14px;padding-top:14px;border-top:1px solid #E5E7EB;font-size:11px;color:#6B7280">
     💡 "인쇄" 클릭 → 브라우저 인쇄창 → "PDF로 저장" 선택하면 PDF로 다운로드됩니다.
+  </div>
+</div>
+</div>
+
+<!-- Email Compose Modal -->
+<div class="modal" id="email-modal">
+<div class="mbox" style="max-width:560px;background:#fff;color:#111827">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;border-bottom:1px solid #E5E7EB;padding-bottom:12px">
+    <h3 style="font-size:16px;font-weight:800">📧 이메일 보내기</h3>
+    <button onclick="closeEmailModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#9CA3AF">×</button>
+  </div>
+  <div class="mb"><label class="label">받는 사람 (콤마로 여러 명 가능)</label><input class="input" id="em-to" placeholder="recipient@example.com"></div>
+  <div class="mb"><label class="label">참조 (CC, 선택)</label><input class="input" id="em-cc" placeholder="cc@example.com"></div>
+  <div class="mb"><label class="label">제목</label><input class="input" id="em-subject"></div>
+  <div class="mb">
+    <label class="label">본문 참조 항목</label>
+    <div style="display:flex;gap:14px;font-size:13px;padding:6px 0">
+      <label style="display:flex;align-items:center;gap:5px;cursor:pointer"><input type="radio" name="em-ref" id="em-ref-address" onchange="updateEmailBody()" checked>주소</label>
+      <label style="display:flex;align-items:center;gap:5px;cursor:pointer"><input type="radio" name="em-ref" id="em-ref-project" onchange="updateEmailBody()">프로젝트명</label>
+    </div>
+  </div>
+  <div class="mb"><label class="label">본문 (편집 가능)</label><textarea class="input" id="em-body" style="height:140px;resize:vertical;font-family:inherit"></textarea></div>
+  <div style="background:#FEF3C7;border:1px solid #FDE68A;border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:#92400E;line-height:1.5">
+    💡 "Gmail 열기" 클릭 시 Gmail 새 창과 인쇄 미리보기가 같이 열려요.<br>
+    인쇄 미리보기에서 <strong>"PDF로 저장"</strong> → Gmail 창에 드래그해서 첨부하세요.<br>
+    ⚠️ 본문 끝에 <strong>"Kind regards ~ 로고"</strong>는 Gmail 자체 서명이 알아서 붙입니다.
+  </div>
+  <div class="row2" style="gap:6px;flex-wrap:wrap">
+    <button class="btn-secondary" style="flex:1" onclick="closeEmailModal()">취소</button>
+    <button class="btn-primary" style="flex:2" onclick="openGmailWithEmail()">📧 Gmail 열기 + 인쇄</button>
   </div>
 </div>
 </div>
@@ -1616,8 +1646,10 @@ function buildDetailHTML(inv) {
     ${!inv.lineItems && inv.type==='PROGRESS' && inv.progressItems ? (Array.isArray(inv.progressItems)?inv.progressItems:Object.values(inv.progressItems)).map(it=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;color:#555;gap:8px;margin-top:4px"><span style="flex:1">${esc(it.desc)}${it.pct?` <span style="color:#92400E;font-weight:700">(${esc(String(it.pct))}%)</span>`:''}</span><span style="font-weight:700">${parseFloat(it.amount)>0?fA(it.amount):'—'}</span></div>`).join(''):''}
     <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
       ${inv.status === 'DRAFT' ? `<button class="btn-primary" style="flex:1;min-width:90px;padding:8px;font-size:12px" onclick="publishDraft('${inv.id}', false)" title="기존 날짜 그대로 발행">🚀 발행</button>
-      <button class="btn-primary" style="flex:1.3;min-width:120px;padding:8px;font-size:12px;background:#F59E0B" onclick="publishDraft('${inv.id}', true)" title="오늘 날짜로 변경 후 발행 (만기일도 오늘+14일로 재계산)">📅 오늘날짜로 발행</button>` : ''}
-      ${inv.status === 'INVOICE' ? `<button style="flex:1;min-width:100px;padding:8px;font-size:11px;background:#FEF3C7;color:#92400E;border:1px solid #FDE68A;border-radius:9px;cursor:pointer" onclick="revertToDraft('${inv.id}')" title="실수로 발행했을 때 DRAFT로 복구">↩️ Draft로 되돌리기</button>` : ''}
+      <button class="btn-primary" style="flex:1.3;min-width:120px;padding:8px;font-size:12px;background:#F59E0B" onclick="publishDraft('${inv.id}', true)" title="오늘 날짜로 변경 후 발행 (만기일도 오늘+14일로 재계산)">📅 오늘날짜로 발행</button>
+      <button class="btn-primary" style="flex:1.3;min-width:130px;padding:8px;font-size:12px;background:#7C3AED" onclick="publishDraft('${inv.id}', true, true)" title="오늘 날짜로 발행 + 이메일 모달 열기">📧 발행+이메일</button>` : ''}
+      ${inv.status === 'INVOICE' ? `<button style="flex:1;min-width:100px;padding:8px;font-size:11px;background:#FEF3C7;color:#92400E;border:1px solid #FDE68A;border-radius:9px;cursor:pointer" onclick="revertToDraft('${inv.id}')" title="실수로 발행했을 때 DRAFT로 복구">↩️ Draft로 되돌리기</button>
+      <button class="btn-primary" style="flex:1;min-width:100px;padding:8px;font-size:12px;background:#7C3AED" onclick="composeEmailById('${inv.id}')" title="이메일 재발송">📧 이메일</button>` : ''}
       <button class="btn-primary" style="flex:1;min-width:90px;padding:8px;font-size:12px;background:#10B981" onclick="printInvoice('${inv.id}')" title="인쇄용 인보이스 생성">🖨️ 인쇄 / PDF</button>
       <button class="btn-secondary" style="flex:1;min-width:70px;padding:8px;font-size:12px" onclick="openIM('${inv.id}')">✏️ 수정</button>
       <button style="background:#FEF2F2;color:#DC2626;border:1px solid #FECACA;border-radius:9px;padding:8px 14px;font-size:12px;cursor:pointer" onclick="delInv('${inv.id}')" aria-label="삭제">🗑</button>
@@ -1627,7 +1659,7 @@ function buildDetailHTML(inv) {
 
 // Publish a DRAFT → INVOICE
 // useToday=true: also update invoiceDate to today (and recompute dueDate = today + 14)
-async function publishDraft(id, useToday) {
+async function publishDraft(id, useToday, sendEmail) {
   const inv = invoices.find(i => i.id === id);
   if (!inv) return;
   
@@ -1669,6 +1701,12 @@ async function publishDraft(id, useToday) {
     }
   }
   await loadAll();
+
+  // 발행+이메일: 이메일 모달 띄움
+  if (sendEmail) {
+    const updatedInv = invoices.find(i => i.id === id);
+    if (updatedInv) composeEmailForInvoice(updatedInv);
+  }
 }
 
 // Revert an INVOICE back to DRAFT (in case of accidental publish)
@@ -3421,7 +3459,7 @@ function getInvoiceAmount() {
   }, 0));
 }
 
-async function saveInv(asDraft) {
+async function saveInv(asDraft, sendEmail) {
   const b = document.getElementById('f-b').value.trim();
   if (!b) return alert('빌더명을 입력하세요');
   const isPO = curType === 'PO';
@@ -3567,6 +3605,15 @@ async function saveInv(asDraft) {
   }
   closeIM();
   await loadAll();
+
+  // 발행+이메일: 발행 직후 이메일 모달 띄움
+  if (sendEmail && !asDraft) {
+    // editId가 있으면 그 인보이스, 없으면 방금 생성된 데이터 객체 사용
+    const inv = editId
+      ? (invoices.find(i => i.id === editId) || {...data, id: editId})
+      : {...data};
+    composeEmailForInvoice(inv);
+  }
 }
 
 async function delInv(id) {
@@ -3778,12 +3825,110 @@ function printInvoice(id) {
   if (!inv) return alert('인보이스를 찾을 수 없어요');
   const co = companies.find(c => c.id === inv.companyId) || companies[0] || {};
   const b = builders.find(b => b.name === inv.builderName) || {};
-  
+
   // Route based on company prefix
   if (co.prefix && co.prefix.includes('BXBT')) {
     return printInvoiceBXBT(inv, co, b);
   }
   return printInvoiceKM(inv, co, b);
+}
+
+// ── Email compose helpers ───────────────────────────────────────────────────
+let _emailInv = null;  // 현재 모달에 띄운 인보이스 데이터 (Gmail 열기 시 인쇄에 사용)
+
+function composeEmailById(id) {
+  const inv = invoices.find(i => i.id === id);
+  if (!inv) return alert('인보이스를 찾을 수 없어요');
+  composeEmailForInvoice(inv);
+}
+
+function composeEmailForInvoice(inv) {
+  _emailInv = inv;
+  const b = builders.find(x => x.name === inv.builderName) || {};
+  const co = companies.find(c => c.id === inv.companyId) || companies[0] || {};
+
+  // 받는 사람 (빌더 invoiceEmail 우선, 없으면 email, 그것도 없으면 빈 칸)
+  const defaultTo = b.invoiceEmail || b.email || (inv.privateEmail || '') || '';
+
+  // 제목: Payment request DD/MM/YY 회사명(Pty Ltd 제거)
+  const t = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  const todayStr = `${pad(t.getDate())}/${pad(t.getMonth()+1)}/${String(t.getFullYear()).slice(-2)}`;
+  const coShort = (co.name || '').replace(/\s*Pty\s*Ltd\.?$/i, '').trim();
+  const subject = `Payment request ${todayStr} ${coShort}`;
+
+  // 모달 값 채우기
+  document.getElementById('em-to').value = defaultTo;
+  document.getElementById('em-cc').value = '';
+  document.getElementById('em-subject').value = subject;
+
+  // 참조 위치: 프로젝트명이 있으면 프로젝트, 없으면 주소
+  if (inv.projectName) {
+    document.getElementById('em-ref-project').checked = true;
+  } else {
+    document.getElementById('em-ref-address').checked = true;
+  }
+
+  updateEmailBody();
+  document.getElementById('email-modal').classList.add('open');
+}
+
+function updateEmailBody() {
+  if (!_emailInv) return;
+  const useProject = document.getElementById('em-ref-project').checked;
+  const ref = useProject
+    ? (_emailInv.projectName || _emailInv.address || '—')
+    : (_emailInv.address || _emailInv.projectName || '—');
+
+  const body = `Hello,
+
+Please find the attached invoice below for ${ref}.
+If you have any questions, please do not hesitate to contact us.`;
+
+  document.getElementById('em-body').value = body;
+}
+
+function openGmailWithEmail() {
+  const to = document.getElementById('em-to').value.trim();
+  const cc = document.getElementById('em-cc').value.trim();
+  const su = document.getElementById('em-subject').value;
+  const body = document.getElementById('em-body').value;
+
+  // Gmail Compose URL (multi-account 지원: /mail/u/0/ 대신 /mail/ 사용)
+  const params = new URLSearchParams();
+  params.set('view', 'cm');
+  params.set('fs', '1');
+  if (to) params.set('to', to);
+  if (cc) params.set('cc', cc);
+  if (su) params.set('su', su);
+  if (body) params.set('body', body);
+  const url = `https://mail.google.com/mail/?${params.toString()}`;
+
+  // Gmail 새 창
+  window.open(url, '_blank');
+
+  // 인쇄 미리보기도 같이 열기 (인보이스가 저장된 상태여야 작동)
+  const inv = _emailInv;
+  closeEmailModal();
+  if (inv && inv.id) {
+    // 저장된 인보이스 → printInvoice(id) 사용
+    setTimeout(() => printInvoice(inv.id), 200);
+  } else if (inv) {
+    // 방금 발행된 인보이스 (id 없음) → 직접 라우팅
+    const co = companies.find(c => c.id === inv.companyId) || companies[0] || {};
+    const b = builders.find(x => x.name === inv.builderName) || {};
+    setTimeout(() => {
+      if (co.prefix && co.prefix.includes('BXBT')) {
+        printInvoiceBXBT(inv, co, b);
+      } else {
+        printInvoiceKM(inv, co, b);
+      }
+    }, 200);
+  }
+}
+
+function closeEmailModal() {
+  document.getElementById('email-modal').classList.remove('open');
 }
 
 // ── BXBT (Bathurst Tiling) invoice template ──────────────────────────────────
