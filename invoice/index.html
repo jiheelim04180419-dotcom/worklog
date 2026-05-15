@@ -4232,6 +4232,11 @@ function printInvoiceBXBT(inv, co, b) {
     itemRows += `<tr class="bxbt-po-row"><td><b>PO Number ${esc(poNum)}</b></td><td></td><td></td><td></td></tr>`;
     rowsRendered++;
   }
+  // Project name bold header row (PROGRESS invoices)
+  if (inv.projectName) {
+    itemRows += `<tr class="bxbt-po-row"><td><b>Project: ${esc(inv.projectName)}</b></td><td></td><td></td><td></td></tr>`;
+    rowsRendered++;
+  }
   
   const hasLineItems = inv.lineItems && Object.keys(inv.lineItems).length;
   if (hasLineItems) {
@@ -4628,7 +4633,7 @@ function printInvoiceKM(inv, co, b) {
       </div>
     </div>
     
-    <!-- Horizontal meta bar: Invoice Date / Number / Job Address / ABN -->
+    <!-- Horizontal meta bar: Invoice Date / Number / [Project] / [PO] / Job Address / ABN -->
     <div class="pi-meta-bar">
       <div class="pi-meta-cell">
         <div class="pi-meta-label">Invoice Date</div>
@@ -4638,6 +4643,14 @@ function printInvoiceKM(inv, co, b) {
         <div class="pi-meta-label">Invoice Number</div>
         <div class="pi-meta-value">${esc(inv.invoiceNum||'—')}</div>
       </div>
+      ${inv.projectName ? `<div class="pi-meta-cell">
+        <div class="pi-meta-label">Project</div>
+        <div class="pi-meta-value">${esc(inv.projectName)}</div>
+      </div>` : ''}
+      ${(() => { const po = extractPONumber(inv); return po ? `<div class="pi-meta-cell">
+        <div class="pi-meta-label">PO #</div>
+        <div class="pi-meta-value">${esc(po)}</div>
+      </div>` : ''; })()}
       <div class="pi-meta-cell" style="flex:1.5">
         <div class="pi-meta-label">Job Address</div>
         <div class="pi-meta-value">${esc(inv.address||'—')}</div>
