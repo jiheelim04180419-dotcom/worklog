@@ -1064,7 +1064,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                 const empUser = users.find(x => x.id === selId);
                 return empUser ? (
                   <div style={{ marginBottom: 8 }}>
-                    <InvoiceButton u={empUser} s={wage} periodLogs={wage.periodLogs||[]} startDate={wpStart} endDate={wpEnd} leaveData={lv0} />
+                    <InvoiceButton u={empUser} s={wage} periodLogs={wage.periodLogs||[]} startDate={wpStart} endDate={wpEnd} leaveData={lv0} companies={companies} />
                   </div>
                 ) : null;
               })()}
@@ -1473,7 +1473,7 @@ const inv = {
   th2:        { background: "#1a4fa8", color: "#fff", padding: "5px 8px", fontWeight: 700 },
   tdRow:      { borderBottom: "1px solid #e0e6f0", padding: "4px 8px" },
 };
-function InvoiceButton({ u, s, periodLogs, startDate, endDate, leaveData, onInvoiceSent }) {
+function InvoiceButton({ u, s, periodLogs, startDate, endDate, leaveData, onInvoiceSent, companies }) {
   const [show, setShow]             = useState(false);
   const [deductDesc, setDeductDesc] = useState("Deduction");
   const [deductAmt, setDeductAmt]   = useState("");
@@ -1484,25 +1484,35 @@ function InvoiceButton({ u, s, periodLogs, startDate, endDate, leaveData, onInvo
   const workDesc   = ci.workDesc || "Work";
   const invoiceNum = ci.invoiceNum || "10001";
   const deductNum  = parseFloat(deductAmt) || 0;
-  const fullAmt    = s.fulltimeDays * dailyRate;
-  const travelLogs = periodLogs.filter(l => l.travel && (l.travel.allowance || l.travel.hasDinner));
+  // wage.stats 안에 실제 카운트가 있음 (s.fulltimeDays가 아니라 s.stats.fullDays)
+  const fullDays    = (s.stats && s.stats.fullDays) || 0;
+  const partHours   = (s.stats && s.stats.partHours) || 0;
+  const otHours     = (s.stats && s.stats.otHours) || 0;
+  const travelTotal = (s.stats && s.stats.travelTotal) || 0;
+  const fullAmt    = fullDays * dailyRate;
+  const travelLogs = (periodLogs||[]).filter(l => l.travel && (l.travel.allowance || l.travel.hasDinner));
   const trvlCnt    = travelLogs.length;
-  const trvlUnit   = trvlCnt > 0 ? s.travelTotal / trvlCnt : 0;
-  const bizLogs    = periodLogs.filter(l => l.travel && l.travel.hasDinner);
+  const trvlUnit   = trvlCnt > 0 ? travelTotal / trvlCnt : 0;
+  const bizLogs    = (periodLogs||[]).filter(l => l.travel && l.travel.hasDinner);
   const bizAmt     = bizLogs.length * 25;
-  const ptAmt      = s.parttimeHours * ptRate;
-  const otAmt      = s.overtimeHours * otRate;
-  const subtotal   = fullAmt + s.travelTotal + ptAmt + otAmt - deductNum;
+  const ptAmt      = partHours * ptRate;
+  const otAmt      = otHours * otRate;
+  const subtotal   = fullAmt + travelTotal + ptAmt + otAmt - deductNum;
   const displayName  = ci.nameEn || (u.name || "").toUpperCase();
-  const contactEmail = ci.email  || ci.billToEmail || "";
+  // Bill To: 직원에 저장된 ci.billTo*가 비어있으면 selectedCompanyId로 매칭해서 자동 채움
+  const selCo = (companies || []).find(c => c.id === ci.selectedCompanyId);
+  const billToName    = ci.billToName    || (selCo && selCo.name)    || "";
+  const billToAddress = ci.billToAddress || (selCo && selCo.address) || "";
+  const billToEmail   = ci.billToEmail   || (selCo && selCo.email)   || "";
+  const contactEmail = ci.email  || billToEmail || "";
 
   const buildHTML = () => {
     const rows = [
-      { desc: workDesc,                         qty: s.fulltimeDays  || "",  unit: s.fulltimeDays  ? dailyRate : "",  amt: fullAmt    || "" },
-      { desc: "Travel allowance",               qty: trvlCnt         || "",  unit: trvlCnt         ? trvlUnit  : "",  amt: s.travelTotal || "" },
-      { desc: "Business trip",                  qty: bizLogs.length  || "",  unit: bizLogs.length  ? 25        : "",  amt: bizAmt     || "" },
-      { desc: "Half time " + workDesc,          qty: s.parttimeHours ? fmt(s.parttimeHours)+"h" : "", unit: ptAmt ? ptRate : "", amt: ptAmt || "" },
-      { desc: "Over time " + workDesc,          qty: s.overtimeHours ? fmt(s.overtimeHours)+"h" : "", unit: otAmt ? otRate : "", amt: otAmt || "" },
+      { desc: workDesc,                         qty: fullDays      || "",  unit: fullDays      ? dailyRate : "",  amt: fullAmt    || "" },
+      { desc: "Travel allowance",               qty: trvlCnt       || "",  unit: trvlCnt       ? trvlUnit  : "",  amt: travelTotal || "" },
+      { desc: "Business trip",                  qty: bizLogs.length|| "",  unit: bizLogs.length? 25        : "",  amt: bizAmt     || "" },
+      { desc: "Half time " + workDesc,          qty: partHours ? fmt(partHours)+"h" : "", unit: ptAmt ? ptRate : "", amt: ptAmt || "" },
+      { desc: "Over time " + workDesc,          qty: otHours   ? fmt(otHours)+"h"   : "", unit: otAmt ? otRate : "", amt: otAmt || "" },
       { desc: deductDesc || "Deduction",        qty: "",              unit: "",                         amt: deductNum ? -deductNum : "" },
     ];
     const fmtC = (v) => { if (v === "" || v === 0) return "–"; const n = parseFloat(v); return isNaN(n) ? String(v) : n.toFixed(2); };
@@ -1534,7 +1544,7 @@ table{border-collapse:collapse}td,th{padding:4px 8px}
   <tr><td class="itd">${invoiceNum}</td><td class="itd">${today}</td></tr></table></div>
 </div>
 <div style="margin-bottom:12px"><div class="bhdr">BILL TO</div>
-<div class="binfo">${ci.billToName||""}${addrLines(ci.billToAddress)}${ci.billToEmail?`<br/>${ci.billToEmail}`:""}</div></div>
+<div class="binfo">${billToName||""}${addrLines(billToAddress)}${billToEmail?`<br/>${billToEmail}`:""}</div></div>
 <table style="width:100%">
 <thead><tr>
 <th class="th2" style="text-align:left;width:52%">DESCRIPTION</th>
@@ -1559,13 +1569,13 @@ ${contactEmail?`<p style="text-align:center;margin-top:20px;font-size:10px;color
   const iframeRef = useRef(null);
 
   const buildPlainText = () => {
-    const lines = [`INVOICE #${invoiceNum}  DATE: ${today}`,`FROM: ${displayName}`,ci.address?ci.address:"",ci.phone?`Phone: ${ci.phone}`:"",ci.abn?`ABN: ${ci.abn}`:"","",`BILL TO: ${ci.billToName||""}`,ci.billToAddress||"","","DESCRIPTION                    QTY   UNIT     AMOUNT","─────────────────────────────────────────────────────"];
+    const lines = [`INVOICE #${invoiceNum}  DATE: ${today}`,`FROM: ${displayName}`,ci.address?ci.address:"",ci.phone?`Phone: ${ci.phone}`:"",ci.abn?`ABN: ${ci.abn}`:"","",`BILL TO: ${billToName||""}`,billToAddress||"","","DESCRIPTION                    QTY   UNIT     AMOUNT","─────────────────────────────────────────────────────"];
     const addRow = (desc,qty,unit,amt) => { if(!qty&&!amt)return; lines.push(`${desc.padEnd(30)} ${String(qty||"").padStart(5)}  ${String(unit?parseFloat(unit).toFixed(2):"").padStart(7)}  ${String(amt?parseFloat(amt).toFixed(2):"–").padStart(8)}`); };
-    if(s.fulltimeDays)addRow(workDesc,s.fulltimeDays,dailyRate,fullAmt);
-    if(s.travelTotal>0)addRow("Travel allowance",trvlCnt,trvlUnit,s.travelTotal);
+    if(fullDays)addRow(workDesc,fullDays,dailyRate,fullAmt);
+    if(travelTotal>0)addRow("Travel allowance",trvlCnt,trvlUnit,travelTotal);
     if(bizLogs.length)addRow("Business trip",bizLogs.length,25,bizAmt);
-    if(s.parttimeHours)addRow("Half time "+workDesc,fmt(s.parttimeHours)+"h",ptRate,ptAmt);
-    if(s.overtimeHours)addRow("Over time "+workDesc,fmt(s.overtimeHours)+"h",otRate,otAmt);
+    if(partHours)addRow("Half time "+workDesc,fmt(partHours)+"h",ptRate,ptAmt);
+    if(otHours)addRow("Over time "+workDesc,fmt(otHours)+"h",otRate,otAmt);
     if(deductNum)addRow(deductDesc||"Deduction","","",-deductNum);
     lines.push("─────────────────────────────────────────────────────");
     lines.push(`${"TOTAL".padEnd(40)} $${subtotal.toFixed(2)}`);
@@ -1576,7 +1586,7 @@ ${contactEmail?`<p style="text-align:center;margin-top:20px;font-size:10px;color
   const sendEmail = () => {
     const subject=encodeURIComponent(`Invoice #${invoiceNum} - ${displayName} - ${startDate} to ${endDate}`);
     const body=encodeURIComponent(buildPlainText());
-    const to=ci.billToEmail||"";
+    const to=billToEmail||"";
     window.location.href=`mailto:${to}?subject=${subject}&body=${body}`;
     if(onInvoiceSent)onInvoiceSent();
   };
@@ -1585,6 +1595,17 @@ ${contactEmail?`<p style="text-align:center;margin-top:20px;font-size:10px;color
     const filename="invoice_"+invoiceNum+"_"+(ci.nameEn||u.name||"")+".html";
     try{const file=new File([html],filename,{type:"text/html"});if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:"Invoice #"+invoiceNum});if(onInvoiceSent)onInvoiceSent();return;}}catch(e){}
     sendEmail();
+  };
+
+  // 인쇄 / PDF 저장 — invoice 앱과 같은 흐름. iframe 컨텐츠를 브라우저 인쇄로
+  const printInvoice = () => {
+    const f = iframeRef.current;
+    if (!f) return;
+    try {
+      if (f.contentDocument) f.contentDocument.title = `INV-${invoiceNum}`;
+    } catch(e) {}
+    f.contentWindow.focus();
+    f.contentWindow.print();
   };
 
   const fmtCell=(v)=>{if(v===""||v===0)return"–";const n=parseFloat(v);return isNaN(n)?String(v):n.toFixed(2);};
@@ -1598,11 +1619,15 @@ ${contactEmail?`<p style="text-align:center;margin-top:20px;font-size:10px;color
       <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 12px",borderBottom:"1px solid #eee",background:"#fff",flexShrink:0,gap:6 }}>
         <button style={styles.iconBtn} onClick={() => setShow(false)}>{Icon.x}</button>
         <span style={{ fontWeight:700,fontSize:14,flex:1,textAlign:"center" }}>인보이스 #{invoiceNum}</span>
-        <button style={{ background:"#1a4fa8",color:"#fff",border:"none",borderRadius:8,padding:"8px 14px",fontSize:13,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap" }}
-          onClick={shareInvoice}>📤 공유 / 저장</button>
+        <div style={{ display:"flex",gap:6,flexShrink:0 }}>
+          <button style={{ background:"#10B981",color:"#fff",border:"none",borderRadius:8,padding:"8px 12px",fontSize:13,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap" }}
+            onClick={printInvoice}>🖨️ 인쇄/PDF</button>
+          <button style={{ background:"#1a4fa8",color:"#fff",border:"none",borderRadius:8,padding:"8px 12px",fontSize:13,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap" }}
+            onClick={shareInvoice}>📤 공유</button>
+        </div>
       </div>
       <div style={{ padding:"7px 14px",background:"#f0f5ff",borderBottom:"1px solid #c5d8ff",fontSize:11,color:"#3b5fc0",flexShrink:0 }}>
-        📤 공유/저장 → <strong>iOS:</strong> "파일에 저장" 또는 이메일 선택 &nbsp;·&nbsp; <strong>Android:</strong> 파일 저장 또는 이메일
+        🖨️ <strong>인쇄/PDF</strong>: 인쇄창 → "PDF로 저장" 선택 &nbsp;·&nbsp; 📤 <strong>공유</strong>: 이메일/파일 앱으로
       </div>
       <div style={{ padding:"8px 14px",background:"#f8f4ff",borderBottom:"1px solid #e0d6ff",flexShrink:0 }}>
         <p style={{ fontSize:11,fontWeight:600,color:"#5a3e9b",marginBottom:4 }}>➖ Deduction</p>
