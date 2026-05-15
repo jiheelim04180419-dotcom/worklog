@@ -2030,9 +2030,9 @@ function setType(t) {
   document.getElementById('tt-normal').classList.toggle('active', t==='NORMAL');
   document.getElementById('tt-po').classList.toggle('active', t==='PO');
   document.getElementById('tt-prog').classList.toggle('active', t==='PROGRESS');
-  // PO 번호는 모든 타입에서 입력 가능 (선택사항)
+  // PO 번호 / 프로젝트명은 모든 타입에서 입력 가능 (선택사항)
   document.getElementById('f-po-row').style.display = 'block';
-  document.getElementById('f-proj-row').style.display = (t==='PROGRESS') ? 'block' : 'none';
+  document.getElementById('f-proj-row').style.display = 'block';
   if (t === 'PROGRESS') checkPrevProgressInvoice();
   // Re-render line items if PROGRESS to show/hide pct fields
   renderLineItems();
@@ -3634,7 +3634,8 @@ async function saveInv(asDraft, sendEmail) {
     amount: amt,
     // PO 번호는 모든 타입에서 입력 가능 (선택사항)
     poNumber: document.getElementById('f-po').value || '',
-    projectName: isProg ? document.getElementById('f-proj').value : '',
+    // 프로젝트명은 모든 타입에서 입력 가능 (선택사항)
+    projectName: document.getElementById('f-proj').value || '',
     payments: cleanPayments,
     depositDate: lastPay.date || '',
     depositAmount: totalPay,
