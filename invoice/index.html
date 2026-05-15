@@ -1034,6 +1034,7 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
   <div class="no-print" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;border-bottom:1px solid #E5E7EB;padding-bottom:12px">
     <h3 style="font-size:16px;font-weight:800">📄 인쇄용 인보이스</h3>
     <div style="display:flex;gap:8px">
+      <button class="btn-primary" style="background:#7C3AED" onclick="downloadInvoicePDF()" title="브라우저 인쇄를 거치지 않고 PDF 직접 생성 (모바일에서 URL/날짜 없는 깨끗한 PDF)">📄 PDF 다운로드</button>
       <button class="btn-primary" style="background:#10B981" onclick="doPrint()">🖨️ 인쇄</button>
       <button onclick="closePrint()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#9CA3AF">×</button>
     </div>
@@ -1086,6 +1087,9 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
   </div>
 </div>
 </div>
+
+<!-- html2pdf.js for mobile-friendly PDF download (bypasses iOS print system) -->
+<script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
 
 <script>
 // ── Firebase REST API ─────────────────────────────────────────────────────────
@@ -3873,6 +3877,61 @@ function closePrint() {
 }
 function doPrint() {
   window.print();
+}
+
+// 모바일/PC 공통 — 브라우저 인쇄 시스템 우회해서 깨끗한 PDF 생성
+// (iOS는 인쇄/PDF 저장에 URL/날짜 강제 추가 → 이 함수로 우회)
+function downloadInvoicePDF() {
+  if (typeof html2pdf === 'undefined') {
+    alert('PDF 라이브러리를 불러오는 중이에요. 잠시 후 다시 시도해주세요.');
+    return;
+  }
+  const element = document.querySelector('#print-area .print-invoice, #print-area .bxbt-invoice');
+  if (!element) return alert('PDF로 변환할 인보이스가 없어요. 먼저 인쇄 미리보기를 띄워주세요.');
+
+  const filename = (document.title || 'invoice') + '.pdf';
+
+  // 클론한 element에 인쇄용 스타일 강제 적용 (화면용 스타일이 아니라)
+  const opt = {
+    margin: 0,
+    filename: filename,
+    image: { type: 'jpeg', quality: 0.95 },
+    html2canvas: {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: '#ffffff',
+      // A4 폭 (210mm) 기준 픽셀 폭
+      windowWidth: 794,
+      onclone: function(clonedDoc) {
+        // 클론된 문서에 print media 스타일을 강제 적용
+        const style = clonedDoc.createElement('style');
+        style.textContent = `
+          .print-invoice, .bxbt-invoice {
+            width: 100% !important;
+            max-width: 100% !important;
+            padding: 14mm 15mm !important;
+            margin: 0 !important;
+            box-sizing: border-box !important;
+            font-size: 11px !important;
+            background: #fff !important;
+          }
+          .print-invoice table, .bxbt-invoice table {
+            width: 100% !important;
+            max-width: 100% !important;
+            table-layout: fixed !important;
+          }
+        `;
+        clonedDoc.head.appendChild(style);
+      }
+    },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true },
+    pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+  };
+
+  html2pdf().set(opt).from(element).save().catch(err => {
+    console.error('PDF 생성 실패:', err);
+    alert('PDF 생성 중 오류가 발생했어요. 콘솔을 확인해주세요.');
+  });
 }
 
 // Helper: extract "PO Number 11392/3535" from note or use inv.poNumber
