@@ -4755,13 +4755,18 @@ function printInvoiceKM(inv, co, b) {
   let itemRows = '';
   let rowsRendered = 0;
   const hasLineItems = inv.lineItems && Object.keys(inv.lineItems).length;
-  
+  const isProgressType = inv.type === 'PROGRESS';
+
   if (hasLineItems) {
     const items = Array.isArray(inv.lineItems) ? inv.lineItems : Object.values(inv.lineItems);
-    
-    // First pass: compute totals
+
+    // First pass: compute totals — PROGRESS 모드에선 qty=0인 항목(0% 청구)을 0으로 처리,
+    // 다른 모드에선 qty 미입력 시 1로 폴백 (기존 동작 유지)
     items.forEach(it => {
-      const ex = (parseFloat(it.qty) || 1) * (parseFloat(it.unitPrice) || 0);
+      const qty = (isProgressType && !it.isMaterials)
+        ? (parseFloat(it.qty) || 0)
+        : (parseFloat(it.qty) || 1);
+      const ex = qty * (parseFloat(it.unitPrice) || 0);
       if (it.noTax) nonTaxableEx += ex;
       else taxableEx += ex;
     });
@@ -4779,7 +4784,7 @@ function printInvoiceKM(inv, co, b) {
       curGroup.items.push(it);
     });
     
-    const isProgressType = inv.type === 'PROGRESS';
+    // isProgressType은 위에서 이미 정의됨
     groups.forEach(group => {
       const rowsInGroup = group.items.length;
       group.items.forEach((it, idx) => {
