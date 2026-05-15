@@ -3805,6 +3805,7 @@ function previewInv() {
 // ── Print Invoice (router: K&M template vs BXBT template) ────────────────────
 function closePrint() {
   document.getElementById('print-modal').classList.remove('open');
+  restoreDocTitle();
 }
 function doPrint() {
   window.print();
@@ -3820,11 +3821,28 @@ function extractPONumber(inv) {
 }
 
 // Router
+// PDF 저장 시 기본 파일명을 인보이스 번호로 — print 시 document.title 임시 변경
+let _originalDocTitle = null;
+function setPrintTitle(inv) {
+  if (inv && inv.invoiceNum) {
+    if (_originalDocTitle === null) _originalDocTitle = document.title;
+    document.title = inv.invoiceNum;
+  }
+}
+function restoreDocTitle() {
+  if (_originalDocTitle !== null) {
+    document.title = _originalDocTitle;
+    _originalDocTitle = null;
+  }
+}
+
 function printInvoice(id) {
   const inv = invoices.find(i => i.id === id);
   if (!inv) return alert('인보이스를 찾을 수 없어요');
   const co = companies.find(c => c.id === inv.companyId) || companies[0] || {};
   const b = builders.find(b => b.name === inv.builderName) || {};
+
+  setPrintTitle(inv);
 
   // Route based on company prefix
   if (co.prefix && co.prefix.includes('BXBT')) {
@@ -3894,10 +3912,19 @@ function openGmailWithEmail() {
   const su = document.getElementById('em-subject').value;
   const body = document.getElementById('em-body').value;
 
-  // Gmail Compose URL (multi-account 지원: /mail/u/0/ 대신 /mail/ 사용)
+  // 발신 계정: 현재 인보이스의 회사 contactEmail/email 사용 → 회사별 자동 매칭
+  // (K&M 인보이스 → K&M Gmail 계정, Bathurst Tiling 인보이스 → Bathurst Gmail 계정)
+  let senderEmail = '';
+  if (_emailInv) {
+    const co = companies.find(c => c.id === _emailInv.companyId) || companies[0] || {};
+    senderEmail = co.contactEmail || co.email || '';
+  }
+
+  // Gmail Compose URL
   const params = new URLSearchParams();
   params.set('view', 'cm');
   params.set('fs', '1');
+  if (senderEmail) params.set('authuser', senderEmail);
   if (to) params.set('to', to);
   if (cc) params.set('cc', cc);
   if (su) params.set('su', su);
@@ -3911,13 +3938,14 @@ function openGmailWithEmail() {
   const inv = _emailInv;
   closeEmailModal();
   if (inv && inv.id) {
-    // 저장된 인보이스 → printInvoice(id) 사용
+    // 저장된 인보이스 → printInvoice(id) 사용 (setPrintTitle 내부에서 처리)
     setTimeout(() => printInvoice(inv.id), 200);
   } else if (inv) {
     // 방금 발행된 인보이스 (id 없음) → 직접 라우팅
     const co = companies.find(c => c.id === inv.companyId) || companies[0] || {};
     const b = builders.find(x => x.name === inv.builderName) || {};
     setTimeout(() => {
+      setPrintTitle(inv);
       if (co.prefix && co.prefix.includes('BXBT')) {
         printInvoiceBXBT(inv, co, b);
       } else {
