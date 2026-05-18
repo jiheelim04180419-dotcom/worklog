@@ -1483,7 +1483,18 @@ function InvoiceButton({ u, s, periodLogs, startDate, endDate, leaveData, onInvo
   const [d2Desc, setD2Desc]   = useState("Keep adjustment");
   const [d2Amt,  setD2Amt]    = useState("");
   const ci         = (leaveData && leaveData.contractorInfo) || {};
-  const dailyRate  = parseFloat(ci.dailyRate) || 0;
+  // dailyRate: contractorRateHistory(startDate 시점 기준)가 우선, 없으면 ci.dailyRate
+  const dailyRate  = (() => {
+    const hist = leaveData?.contractorRateHistory;
+    const arr = Array.isArray(hist) ? hist : (hist ? Object.values(hist) : []);
+    if (arr.length > 0) {
+      const applicable = arr
+        .filter(r => r && r.from && r.dailyRate && (!startDate || r.from <= startDate))
+        .sort((a, b) => (b.from||'').localeCompare(a.from||''))[0];
+      if (applicable) return parseFloat(applicable.dailyRate) || 0;
+    }
+    return parseFloat(ci.dailyRate) || 0;
+  })();
   const ptRate     = dailyRate > 0 ? dailyRate / 9 : 0;
   const otRate     = dailyRate > 0 ? dailyRate / 8 : 0;
   const workDesc   = ci.workDesc || "Work";
@@ -1503,9 +1514,10 @@ function InvoiceButton({ u, s, periodLogs, startDate, endDate, leaveData, onInvo
   // Work description: "wall and floor tiling 6D7H" 식으로
   const workDescFull = `${workDesc}${fullDays?` ${fullDays}D`:""}${otHours?` ${otHours}H`:""}${partHours?` (PT ${fmt(partHours)}h)`:""}`.trim();
   const subtotal   = workAmt + travelTotal - d1Num - d2Num;
-  const displayName  = ci.nameEn || (u.name || "").toUpperCase();
-  // Bill To: 회사 정보 (selectedCompanyId 우선)
-  const selCo = (companies || []).find(c => c.id === ci.selectedCompanyId);
+  // 영문 이름: ci.nameEn → u.id (영문 ID) → u.name (한글 fallback)
+  const displayName  = ci.nameEn || u.id || u.name || "";
+  // Bill To: 회사 정보 (selectedCompanyId 우선, 없으면 첫 번째 회사로 자동 매칭)
+  const selCo = (companies || []).find(c => c.id === ci.selectedCompanyId) || (companies || [])[0];
   const billToName    = (selCo && selCo.name)    || ci.billToName    || "";
   const billToAddress = (selCo && selCo.address) || ci.billToAddress || "";
   const billToEmail   = (selCo && selCo.email)   || ci.billToEmail   || "";
@@ -3117,7 +3129,10 @@ function HomeTab({ user, users, logs, leaves, isAdmin, onJumpToLog }) {
   const todayLogs=isAdmin?logs.filter(l=>l.date===todayStr):logs.filter(l=>l.userId===user.id&&l.date===todayStr);
   const staffUsers=isAdmin?users.filter(u=>u.role==="employee"):[];
   const loggedIds=new Set(selectedLogs.map(l=>l.userId));
-  const missingStaff=staffUsers.filter(u=>!loggedIds.has(u.id));
+  // 주말(토/일)은 미등록 알림 표시 안 함 — 평일에만
+  const _selDow=new Date(selectedDate+"T00:00:00").getDay();
+  const _isWeekend=_selDow===0||_selDow===6;
+  const missingStaff=_isWeekend?[]:staffUsers.filter(u=>!loggedIds.has(u.id));
   return (
     <div style={styles.page}>
       <div style={styles.greeting}>

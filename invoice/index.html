@@ -1876,7 +1876,7 @@ function renderInv() {
         <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start">
           <div style="min-width:0;flex:1">
             <div style="font-size:14px;font-weight:700;color:#111827;line-height:1.3">
-              ${coBadge}<span onclick="event.stopPropagation();filterByBuilder('${esc(inv.builderName||'').replace(/'/g,"\\'")}')" style="cursor:pointer;border-bottom:1px dashed transparent" onmouseover="this.style.borderBottomColor='currentColor'" onmouseout="this.style.borderBottomColor='transparent'" title="이 빌더만 보기">${esc(inv.builderName||'—')}</span>
+              ${coBadge}<span onclick="event.stopPropagation();filterByBuilder('${esc(inv.builderName||'').replace(/'/g,"\\'")}')" style="cursor:pointer;border-bottom:1px dashed transparent" onmouseover="this.style.borderBottomColor='currentColor'" onmouseout="this.style.borderBottomColor='transparent'" title="이 빌더만 보기">${esc(inv.builderName||'—')}</span>${(/^private$/i.test(inv.builderName||'') && (inv.privateName||inv.privateEmail)) ? ` <span style="font-size:12px;color:#6B7280;font-weight:500">(${esc(inv.privateName || inv.privateEmail)})</span>` : ''}
               ${inv.type==='PO'?` <span style="background:#EDE9FE;color:#7C3AED;border-radius:3px;padding:0 4px;font-size:9px;font-weight:700">PO</span>`:''}
               ${inv.type==='PROGRESS'?` <span style="background:#FEF3C7;color:#92400E;border-radius:3px;padding:0 4px;font-size:9px;font-weight:700">%</span>`:''}
               ${isRetention?` <span style="color:#3730A3">🔒</span>`:''}
@@ -2290,6 +2290,9 @@ function openIM(id) {
   updPayInfo();
   
   document.getElementById('inv-modal').classList.add('open');
+  // 모달 열릴 때 항상 맨 위로 스크롤
+  const mbox = document.querySelector('#inv-modal .mbox');
+  if (mbox) mbox.scrollTop = 0;
 }
 function closeIM() { document.getElementById('inv-modal').classList.remove('open'); }
 
@@ -5494,7 +5497,9 @@ async function saveAllCo() {
 }
 
 function renderDL() {
-  document.getElementById('bdl').innerHTML = builders.map(b=>`<option value="${esc(b.name)}"/>`).join('');
+  // ABC 정렬 (인보이스 작성 모달의 빌더 선택 datalist)
+  const sorted = [...builders].sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  document.getElementById('bdl').innerHTML = sorted.map(b=>`<option value="${esc(b.name)}"/>`).join('');
 }
 
 let customRatesEditing = []; // array of {desc, buildType, rate}
