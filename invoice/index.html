@@ -6506,12 +6506,13 @@ function renderCalendar() {
     const invs = byDay[d] || [];
     const total = invs.reduce((s,i)=>s+(parseFloat(i.amount)||0), 0);
     const isToday = `${calMonth}-${String(d).padStart(2,'0')}` === today;
-    cells += `<div style="aspect-ratio:1;border:1px solid var(--border-2);border-radius:6px;padding:4px;background:${isToday?'#EEF2FF':'var(--card-bg)'};display:flex;flex-direction:column;cursor:${invs.length?'pointer':'default'};font-size:11px" ${invs.length?`onclick="filterByDate('${calMonth}-${String(d).padStart(2,'0')}')"`:''}>
+    // 모바일 좁은 셀에서 텍스트가 넘쳐 grid 가 오버플로우되는 거 방지 — min-width:0 + overflow:hidden
+    cells += `<div style="aspect-ratio:1;border:1px solid var(--border-2);border-radius:6px;padding:4px;background:${isToday?'#EEF2FF':'var(--card-bg)'};display:flex;flex-direction:column;cursor:${invs.length?'pointer':'default'};font-size:11px;min-width:0;overflow:hidden" ${invs.length?`onclick="filterByDate('${calMonth}-${String(d).padStart(2,'0')}')"`:''}>
       <div style="font-weight:${isToday?'800':'600'};color:${isToday?'#4F46E5':'var(--text-2)'}">${d}</div>
-      ${invs.length?`<div style="font-size:10px;color:var(--text-3);margin-top:2px">${invs.length}건</div><div style="font-size:9px;color:#059669;margin-top:auto;font-weight:700">${total>=1000?'$'+(total/1000).toFixed(1)+'k':fA(total)}</div>`:''}
+      ${invs.length?`<div class="cal-cnt" style="font-size:10px;color:var(--text-3);margin-top:2px">${invs.length}건</div><div class="cal-amt" style="font-size:9px;color:#059669;margin-top:auto;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${total>=1000?'$'+(total/1000).toFixed(1)+'k':fA(total)}</div>`:''}
     </div>`;
   }
-  
+
   document.getElementById('tab-calendar').innerHTML = `
     <div class="card" style="margin-bottom:12px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
@@ -6519,10 +6520,10 @@ function renderCalendar() {
         <div style="font-size:15px;font-weight:800;color:var(--text)">${monthName}</div>
         <button class="btn-secondary" style="padding:6px 12px" onclick="calMove(1)">›</button>
       </div>
-      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:6px">
+      <div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;margin-bottom:6px">
         ${['일','월','화','수','목','금','토'].map((d,i)=>`<div style="text-align:center;font-size:10px;font-weight:700;color:${i===0?'#DC2626':i===6?'#2563EB':'var(--text-3)'}">${d}</div>`).join('')}
       </div>
-      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px">${cells}</div>
+      <div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px">${cells}</div>
     </div>
     <div style="font-size:11px;color:var(--text-3);text-align:center;padding:8px">날짜 클릭 시 그 날 발행한 인보이스 보기</div>
   `;
