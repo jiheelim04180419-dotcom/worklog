@@ -2632,7 +2632,7 @@ function MgmtMemberForm({ member, onSave, onClose }) {
 function SummarySection({users, leaves, periodStart, calcWage, getSavedDeductions, getKeepBalance, getKeepBalanceAtPeriod, getPeriodDeposits, EMP_COLORS, fA, C, selId, setSelId, setSubView}) {
   const activeEmps = users.filter(u => !u.resignedDate && u.role === "employee");
   const fmtD = (ps) => { const d=new Date(ps+"T00:00:00"); d.setDate(d.getDate()+13); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); };
-  const fmt = (v, color) => <p style={{ margin:0,fontSize:12,fontWeight:700,color:v?color:"#ccc",textAlign:"center" }}>{v?fA(v):"—"}</p>;
+  const fmt = (v, color) => <p style={{ margin:0,fontSize:12,fontWeight:700,color:v?color:"#ccc",textAlign:"center",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis" }}>{v?fA(v):"—"}</p>;
 
   // 카일+사라 공동 계산 설정 (Firebase에서 읽기)
   const [jConfig, setJConfig] = React.useState({total:'', d20:'', d27:'', showCalc:false});
@@ -2657,7 +2657,7 @@ function SummarySection({users, leaves, periodStart, calcWage, getSavedDeduction
       <div style={{ background:"#EFF6FF",borderRadius:10,padding:"8px 14px",marginBottom:8,fontSize:12,color:"#1D4ED8",fontWeight:600 }}>
         📅 {periodStart} ~ {fmtD(periodStart)} 정산 요약
       </div>
-      <div style={{ display:"grid",gridTemplateColumns:"90px 1fr 1fr 1fr 1fr",gap:4,padding:"6px 10px",marginBottom:4 }}>
+      <div style={{ display:"grid",gridTemplateColumns:"80px repeat(4, minmax(0,1fr))",gap:4,padding:"6px 10px",marginBottom:4 }}>
         {["이름","Net Pay","Tax","Super","정산후킵"].map(h=>(
           <p key={h} style={{ margin:0,fontSize:10,fontWeight:700,color:"#888",textAlign:"center" }}>{h}</p>
         ))}
@@ -2725,11 +2725,11 @@ function SummarySection({users, leaves, periodStart, calcWage, getSavedDeduction
         const ka = keep + v2;  // 시작잔액 + 당기입금 + 변동분
         return (
           <div key={emp.id} onClick={()=>{ setSelId(emp.id); setSubView("calc"); }}
-            style={{ display:"grid",gridTemplateColumns:"90px 1fr 1fr 1fr 1fr",gap:4,
+            style={{ display:"grid",gridTemplateColumns:"80px repeat(4, minmax(0,1fr))",gap:4,
               background:selId===emp.id?"#EFF6FF":"#fff",borderRadius:10,padding:"10px",
               marginBottom:6,boxShadow:"0 1px 3px #0000000a",
               border:`1.5px solid ${selId===emp.id?col:"#F0F0F0"}`,cursor:"pointer",
-              borderLeft:`4px solid ${col}` }}>
+              borderLeft:`4px solid ${col}`,alignItems:"center" }}>
             <div style={{ display:"flex",alignItems:"center",gap:6 }}>
               <div style={{ width:24,height:24,borderRadius:"50%",background:col,color:"#fff",fontSize:11,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0 }}>{emp.name[0]}</div>
               <div>
@@ -2749,7 +2749,7 @@ function SummarySection({users, leaves, periodStart, calcWage, getSavedDeduction
                 color:(w&&w.isContractor&&!w.hasFlatPay)
                   ? (parseFloat(lv.keepBalance)||0)<0?"#EF4444":(parseFloat(lv.keepBalance)||0)>0?"#10B981":"#ccc"
                   : ka>0?"#3B82F6":ka<0?"#EF4444":"#ccc",
-                textAlign:"center" }}>
+                textAlign:"center",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis" }}>
               {(w&&w.isContractor&&!w.hasFlatPay)
                 ? (parseFloat(lv.keepBalance)||0)!==0 ? fA(parseFloat(lv.keepBalance)) : "—"
                 : ka!==0?fA(ka):"—"}
@@ -2776,16 +2776,16 @@ function SummarySection({users, leaves, periodStart, calcWage, getSavedDeduction
             : w2.excessPartH*w2.partHourlyRate+w2.excessOtH*w2.otHourlyRate-w2.deficitH*w2.partHourlyRate+w2.travel-sd2;
           return s + keep + v2;
         }, 0);
-        const cell = (v, color) => <p style={{ margin:0,fontSize:12,fontWeight:800,color:v?color:"#ccc",textAlign:"center" }}>{v?fA(v):"—"}</p>;
+        const cell = (v, color) => <p style={{ margin:0,fontSize:12,fontWeight:800,color:v?color:"#ccc",textAlign:"center",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis" }}>{v?fA(v):"—"}</p>;
         return (
-          <div style={{ display:"grid",gridTemplateColumns:"90px 1fr 1fr 1fr 1fr",gap:4,
+          <div style={{ display:"grid",gridTemplateColumns:"80px repeat(4, minmax(0,1fr))",gap:4,
             background:"#F8FAFF",borderRadius:10,padding:"10px",marginTop:4,
-            borderTop:"2px solid #E5E7EB" }}>
-            <p style={{ margin:0,fontSize:11,fontWeight:700,color:"#555",display:"flex",alignItems:"center" }}>합계</p>
+            borderTop:"2px solid #E5E7EB",alignItems:"center" }}>
+            <p style={{ margin:0,fontSize:11,fontWeight:700,color:"#555" }}>합계</p>
             {cell(totNet,"#10B981")}
             {cell(totTax,"#EF4444")}
             {cell(totSuper,"#8B5CF6")}
-            <p style={{ margin:0,fontSize:12,fontWeight:800,color:totKeep>0?"#3B82F6":totKeep<0?"#EF4444":"#ccc",textAlign:"center" }}>{totKeep!==0?fA(totKeep):"—"}</p>
+            <p style={{ margin:0,fontSize:12,fontWeight:800,color:totKeep>0?"#3B82F6":totKeep<0?"#EF4444":"#ccc",textAlign:"center",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis" }}>{totKeep!==0?fA(totKeep):"—"}</p>
           </div>
         );
       })()}

@@ -92,6 +92,11 @@ body{background:var(--bg);color:var(--text);min-height:100vh;transition:backgrou
 .filter-bar{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;margin-bottom:10px;scrollbar-width:none}
 .filter-bar::-webkit-scrollbar{display:none}
 .bbar{position:fixed;bottom:0;left:0;right:0;background:rgba(30,27,75,0.97);backdrop-filter:blur(10px);padding:8px 12px;display:flex;justify-content:space-around;z-index:100;gap:8px}
+/* 인보이스/빌더/통계 외 탭에선 하단 미수금 바 숨김 — 정산/캘린더 페이지에선 무관한 정보 */
+body[data-active-tab="partners"] .bbar,
+body[data-active-tab="calendar"] .bbar { display: none }
+body[data-active-tab="partners"] .content,
+body[data-active-tab="calendar"] .content { padding-bottom: 20px }
 .bstat{text-align:center;min-width:0;flex:1}
 .bstat-l{font-size:10px;color:rgba(255,255,255,0.4);white-space:nowrap}
 .bstat-v{font-size:14px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -1657,6 +1662,8 @@ function showTab(t) {
     const m = oc.match(/showTab\('(\w+)'\)/);
     b.classList.toggle('active', m && m[1]===t);
   });
+  // body 에 현재 탭 표시 — 정산 탭에서는 인보이스 통계 하단바를 숨기기 위해 CSS 가 사용
+  document.body.dataset.activeTab = t;
   if (t==='stats') renderStats();
   if (t==='calendar') renderCalendar();
   if (t==='partners') renderPartners();
