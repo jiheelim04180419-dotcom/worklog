@@ -2892,39 +2892,49 @@ function onTilePatternChange() {
   recomputeDynamicRate();
 }
 
-// Recompute unit price: size-based rate (overrides base if matching size) + pattern adjustment
-// Examples:
-//   NEW Wall Tiling ($65) + brick = $70
-//   NEW Wall Tiling 600x600: base $65 → size override $67 (from "Lay Tiles 600x600")
-//   RENO Wall Tiling + 100x100 + brick = $125 + $10 = $135
+// Recompute unit price: base rate + (size differential vs Lay Tiles 300x300 baseline) + pattern adjustment
+// Examples (NEW):
+//   Wall Tiling base $65, 600x600 → 65 + (67 - 65) = $67
+//   Screeding&Floor Tiling base $155, 200x200 → 155 + (80 - 65) = $170
+//   Splashback base $85, 600x600 → 85 + (67 - 65) = $87
+//   Wall Tiling + brick → 65 + (0 size diff) + $5 = $70
+// 핵심: 사이즈 베이스라인은 "Lay Tiles 300x300" (= 300x600 동가).
+// 선택한 사이즈가 그 베이스라인보다 비싸면 차액을 base에 더함.
 function recomputeDynamicRate() {
   const itemSel = document.getElementById('pick-item');
   if (!itemSel || !itemSel.value) return;
-  
-  // Get current selected item's base info
-  const rates = RATE_SHEET[curBuildType] || RATE_SHEET.NEW || [];
-  const r = rates.find(x => x.cat + '|' + x.desc === itemSel.value);
+
+  // pick-item value 포맷: "RENO|10" (buildType|index) - onPickItemChange 와 동일하게 파싱
+  const [bt, itemIdx] = itemSel.value.split('|');
+  const rates = RATE_SHEET[bt] || RATE_SHEET[curBuildType] || RATE_SHEET.NEW || [];
+  const r = rates[parseInt(itemIdx)];
   if (!r || !r.rate || isNaN(r.rate)) return;
   if (!isItemSizable(r.desc)) return; // only apply dynamic rate to sizable items
-  
+
   let finalRate = r.rate;
-  
+
   // Apply builder-specific override on base first
   const builderName = document.getElementById('f-b').value.trim();
   const builder = builders.find(b => b.name === builderName);
   if (builder && builder.customRates) {
     const cr = (Array.isArray(builder.customRates) ? builder.customRates : Object.values(builder.customRates))
-      .find(c => c.desc === r.desc && c.buildType === curBuildType);
+      .find(c => c.desc === r.desc && c.buildType === bt);
     if (cr && cr.rate) finalRate = parseFloat(cr.rate);
   }
-  
-  // Size-based override: look up "Lay Tiles XxX" rate matching selected size
+
+  // 사이즈 차액 적용: (선택 사이즈 rate) - (300x300 베이스라인 rate)
   const size = document.getElementById('pick-tile-size').value;
   if (size && size !== 'Mosaic') {
     const sizeRate = lookupSizeRate(rates, size);
-    if (sizeRate !== null) finalRate = sizeRate;
+    const baselineRate = lookupSizeRate(rates, '300x300');
+    if (sizeRate !== null && baselineRate !== null) {
+      finalRate = round2(finalRate + (sizeRate - baselineRate));
+    } else if (sizeRate !== null) {
+      // 베이스라인 못 찾으면 안전하게 fallback: 그냥 sizeRate 로 대체 (기존 동작)
+      finalRate = sizeRate;
+    }
   }
-  
+
   // Add pattern adjustment from rate sheet
   const pattern = document.getElementById('pick-tile-pattern').value;
   if (pattern === 'brick') {
@@ -2938,7 +2948,7 @@ function recomputeDynamicRate() {
       finalRate = round2(finalRate + hbRate.rate);
     }
   }
-  
+
   document.getElementById('pick-unit').value = finalRate;
 }
 
