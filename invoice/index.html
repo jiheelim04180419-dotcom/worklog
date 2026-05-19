@@ -1258,6 +1258,29 @@ function totalPaid(inv) {
 function remaining(inv) {
   return (parseFloat(inv.amount)||0) - totalPaid(inv);
 }
+// 청구일 → 마지막 입금일 까지 며칠 걸렸는지 (full paid 인 경우만 계산 의미 있음)
+function _daysToPaid(inv) {
+  if (!inv || !inv.invoiceDate) return null;
+  const pays = getPayments(inv).filter(p => p.date && parseFloat(p.amount) > 0);
+  if (!pays.length) return null;
+  const lastPayDate = pays.map(p => p.date).sort().pop();
+  if (!lastPayDate) return null;
+  const inv_d = new Date(inv.invoiceDate + 'T00:00:00');
+  const pay_d = new Date(lastPayDate + 'T00:00:00');
+  const days = Math.round((pay_d - inv_d) / (24*60*60*1000));
+  return days >= 0 ? days : null;
+}
+// 빌더별 평균 결제 일수 (PAID 상태 인보이스 기준)
+function avgPaymentDays(builderName) {
+  if (!builderName) return null;
+  const samples = invoices
+    .filter(i => i.builderName === builderName && i.status === 'PAID')
+    .map(_daysToPaid)
+    .filter(d => d != null);
+  if (samples.length === 0) return null;
+  const avg = samples.reduce((a,b) => a+b, 0) / samples.length;
+  return { avg: Math.round(avg), n: samples.length };
+}
 
 const DEFAULT_COMPANIES = [
   {id:'co1', name:'K&M Tiling Bathurst PTY LTD', prefix:'INV-', nextNumber:1541, address:'10/51 Hampden Park Rd, Kelso NSW 2795', abn:'51624778196', phone:'0402 595 744 / 0422 048 463', bsb:'032814', acc:'576638', contactEmail:'accounts@knmtilingbathurst.com', contactName:'Kathleen'},
@@ -5522,12 +5545,16 @@ function renderBuilders() {
       const emailToShow = b.invoiceEmail || b.email || '';
       const co = companies.find(c=>c.id===b.defaultCompany);
       const billLabel = b.billingType==='MONTHLY' ? '월별' : '건별';
+      const avgPay = avgPaymentDays(b.name);
+      // 평균 결제일수: 빠르면 초록, 보통이면 회색, 느리면 주황
+      const avgColor = avgPay ? (avgPay.avg <= 21 ? '#059669' : avgPay.avg <= 45 ? '#6B7280' : '#C2410C') : '#9CA3AF';
       h += `<div class="card" onclick="openBM('${b.id}')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
         <div style="min-width:0;flex:1">
           <div style="font-size:14px;font-weight:700;color:#111827;margin-bottom:2px">${esc(b.name)}<span class="bill-badge bill-${b.billingType||'PER_JOB'}">${billLabel}</span>${co?` <span class="co-badge ${co.id==='co2'?'co2':''}">${esc(co.prefix.replace('-',''))}</span>`:''}</div>
           ${b.contactPerson?`<div style="font-size:12px;color:#6B7280">👤 ${esc(b.contactPerson)}</div>`:''}
           ${emailToShow?`<div style="font-size:11px;color:#9CA3AF;margin-top:2px;word-break:break-all">📧 <span onclick="event.stopPropagation();copyEmail('${esc(emailToShow)}', this)" style="color:#4F46E5;cursor:pointer;text-decoration:underline" title="클릭하면 복사됨">${esc(emailToShow)}</span></div>`:''}
           ${b.contact?`<div style="font-size:11px;color:#9CA3AF">📞 <a href="tel:${esc(b.contact.replace(/\s/g,''))}" onclick="event.stopPropagation()" style="color:#4F46E5;text-decoration:none">${esc(b.contact)}</a></div>`:''}
+          ${avgPay ? `<div style="font-size:11px;color:${avgColor};margin-top:3px;font-weight:600" title="PAID 상태 ${avgPay.n}건의 청구일→마지막 입금일 평균">⏱️ 평균 ${avgPay.avg}일 후 입금 <span style="color:#9CA3AF;font-weight:400">(${avgPay.n}건)</span></div>` : ''}
         </div>
         <div style="text-align:right;flex-shrink:0">
           <div style="font-size:13px;font-weight:700;color:${out>0?'#DC2626':'#059669'}">${out>0?fA(out):'✅ 완납'}</div>
