@@ -5915,30 +5915,81 @@ async function saveBuilder() {
 
 // ── Stats ─────────────────────────────────────────────────────────────────────
 // ─── Partner Ledger (Kyle/Max 운영자 정산) ──────────────────────────────────
+// 데이터 구조 (한 영수증 = 한 행):
+//   { type: 'spend'|'cash', person: 'kyle'|'max', date: 'YYYY-MM-DD',
+//     amount: number, note: string, updatedAt: ISO }
+// 음수 amount = 환급(리펀드)
 let partnerEntries = [];
+let _partnerFilter = 'all';   // 'all' | 'kyle' | 'max'
+let _partnerView = 'period';  // 'period' (기간별 집계) | 'raw' (전체 목록)
+let _expandedPeriods = new Set();
+let _editingPartnerId = null;
+
+// WorkLog 와 동일한 2주 기간 base (2026-04-13 월요일)
+const PARTNER_PERIOD_BASE_STR = '2026-04-13';
+function getPartnerPeriodStart(dateStr) {
+  if (!dateStr) return null;
+  const base = new Date(PARTNER_PERIOD_BASE_STR + 'T00:00:00');
+  const d = new Date(dateStr + 'T00:00:00');
+  const diffDays = Math.floor((d - base) / (24*60*60*1000));
+  const cycles = Math.floor(diffDays / 14);
+  const ps = new Date(base);
+  ps.setDate(ps.getDate() + cycles * 14);
+  return `${ps.getFullYear()}-${String(ps.getMonth()+1).padStart(2,'0')}-${String(ps.getDate()).padStart(2,'0')}`;
+}
+function _periodEndOf(ps) {
+  const d = new Date(ps + 'T00:00:00');
+  d.setDate(d.getDate() + 13);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+// 로컬 date 포맷터 (DD/MM/YYYY)
+function _pFD(d) {
+  if (!d) return '';
+  const [y,m,dd] = d.split('-');
+  return `${dd}/${m}/${y}`;
+}
 
 async function loadPartnerEntries() {
   const raw = await fbGet('partnerLedger');
   partnerEntries = raw ? Object.entries(raw).map(([id,v])=>({...v,id})) : [];
-  // 최신 날짜순
-  partnerEntries.sort((a,b)=> (b.date||b.from||'').localeCompare(a.date||a.from||''));
+}
+
+function _filterByPerson(arr) {
+  if (_partnerFilter === 'all') return arr;
+  return arr.filter(e => e.person === _partnerFilter);
 }
 
 function renderPartners() {
   loadPartnerEntries().then(() => {
     const el = document.getElementById('tab-partners');
 
-    // 누적 계산
-    const spends = partnerEntries.filter(e=>e.type==='spend');
-    const cashes = partnerEntries.filter(e=>e.type==='cash');
-    const spentKyle = spends.reduce((s,e)=>s+(parseFloat(e.kyle)||0), 0);
-    const spentMax  = spends.reduce((s,e)=>s+(parseFloat(e.max)||0), 0);
-    const cashKyle  = cashes.reduce((s,e)=>s+(parseFloat(e.kyle)||0), 0);
-    const cashMax   = cashes.reduce((s,e)=>s+(parseFloat(e.max)||0), 0);
-    // 회사돈 순사용 = 개인결제 + 캐시인출
-    const totalKyle = spentKyle + cashKyle;
-    const totalMax  = spentMax  + cashMax;
-    const diff = totalMax - totalKyle;  // 양수면 Max가 더 사용, 음수면 Kyle이 더 사용
+    const spends = partnerEntries.filter(e => e.type === 'spend');
+    const cashes = partnerEntries.filter(e => e.type === 'cash');
+
+    // 기간별 집계
+    const periodMap = {};
+    spends.forEach(e => {
+      const ps = getPartnerPeriodStart(e.date);
+      if (!ps) return;
+      if (!periodMap[ps]) periodMap[ps] = {kyle:0, max:0, entries:[]};
+      periodMap[ps][e.person] = (periodMap[ps][e.person] || 0) + (parseFloat(e.amount) || 0);
+      periodMap[ps].entries.push(e);
+    });
+
+    // 누적 받을 금액 (양수 차액 합 / 음수 차액 절대값 합)
+    let cumKyleReceive = 0, cumMaxReceive = 0;
+    Object.values(periodMap).forEach(p => {
+      const d = p.max - p.kyle;
+      if (d > 0) cumKyleReceive += d;
+      else if (d < 0) cumMaxReceive += (-d);
+    });
+    const finalDiff = cumKyleReceive - cumMaxReceive;
+
+    // 참고: 단순 누적
+    const spentKyle = spends.filter(e => e.person === 'kyle').reduce((s,e) => s + (parseFloat(e.amount)||0), 0);
+    const spentMax  = spends.filter(e => e.person === 'max').reduce((s,e) => s + (parseFloat(e.amount)||0), 0);
+    const cashKyle = cashes.filter(e => e.person === 'kyle').reduce((s,e) => s + (parseFloat(e.amount)||0), 0);
+    const cashMax  = cashes.filter(e => e.person === 'max').reduce((s,e) => s + (parseFloat(e.amount)||0), 0);
 
     el.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:8px;flex-wrap:wrap">
@@ -5949,75 +6000,167 @@ function renderPartners() {
         </div>
       </div>
 
-      <!-- 누적 요약 -->
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:18px">
+      <!-- 누적 정산 카드 -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:14px">
         <div style="background:#EEF2FF;border:1px solid #C7D2FE;border-radius:12px;padding:14px">
-          <div style="font-size:11px;color:#4338CA;font-weight:700;letter-spacing:0.5px">KYLE 누적</div>
-          <div style="font-size:20px;font-weight:800;color:#1E3A8A;margin-top:4px">${fA(totalKyle)}</div>
-          <div style="font-size:10px;color:#6B7280;margin-top:4px">개인결제 ${fA(spentKyle)} · 캐시 ${fA(cashKyle)}</div>
+          <div style="font-size:11px;color:#4338CA;font-weight:700;letter-spacing:0.5px">KYLE 받을 누적</div>
+          <div style="font-size:20px;font-weight:800;color:#1E3A8A;margin-top:4px">${fA(cumKyleReceive)}</div>
+          <div style="font-size:10px;color:#6B7280;margin-top:4px">개인사용 ${fA(spentKyle)} · 캐시 ${fA(cashKyle)}</div>
         </div>
         <div style="background:#FEF3C7;border:1px solid #FDE68A;border-radius:12px;padding:14px">
-          <div style="font-size:11px;color:#92400E;font-weight:700;letter-spacing:0.5px">MAX 누적</div>
-          <div style="font-size:20px;font-weight:800;color:#7C2D12;margin-top:4px">${fA(totalMax)}</div>
-          <div style="font-size:10px;color:#6B7280;margin-top:4px">개인결제 ${fA(spentMax)} · 캐시 ${fA(cashMax)}</div>
+          <div style="font-size:11px;color:#92400E;font-weight:700;letter-spacing:0.5px">MAX 받을 누적</div>
+          <div style="font-size:20px;font-weight:800;color:#7C2D12;margin-top:4px">${fA(cumMaxReceive)}</div>
+          <div style="font-size:10px;color:#6B7280;margin-top:4px">개인사용 ${fA(spentMax)} · 캐시 ${fA(cashMax)}</div>
         </div>
-        <div style="background:${Math.abs(diff)<0.01?'#F0FDF4':'#FEF2F2'};border:1px solid ${Math.abs(diff)<0.01?'#BBF7D0':'#FECACA'};border-radius:12px;padding:14px">
-          <div style="font-size:11px;color:${Math.abs(diff)<0.01?'#166534':'#DC2626'};font-weight:700;letter-spacing:0.5px">차액</div>
-          <div style="font-size:20px;font-weight:800;color:${Math.abs(diff)<0.01?'#166534':'#DC2626'};margin-top:4px">${fA(Math.abs(diff))}</div>
-          <div style="font-size:10px;color:#6B7280;margin-top:4px">${Math.abs(diff)<0.01 ? '✅ 정산 완료' : (diff > 0 ? 'Max가 Kyle보다 더 사용' : 'Kyle이 Max보다 더 사용')}</div>
+        <div style="background:${Math.abs(finalDiff)<0.01?'#F0FDF4':'#FEF2F2'};border:1px solid ${Math.abs(finalDiff)<0.01?'#BBF7D0':'#FECACA'};border-radius:12px;padding:14px">
+          <div style="font-size:11px;color:${Math.abs(finalDiff)<0.01?'#166534':'#DC2626'};font-weight:700;letter-spacing:0.5px">최종 차이</div>
+          <div style="font-size:20px;font-weight:800;color:${Math.abs(finalDiff)<0.01?'#166534':'#DC2626'};margin-top:4px">${fA(Math.abs(finalDiff))}</div>
+          <div style="font-size:10px;color:#6B7280;margin-top:4px">${Math.abs(finalDiff)<0.01 ? '✅ 정산 완료' : (finalDiff > 0 ? 'Kyle 이 더 받아야 함' : 'Max 가 더 받아야 함')}</div>
         </div>
       </div>
 
-      <!-- 개인결제 섹션 -->
-      <div style="background:var(--card-bg);border-radius:12px;padding:14px;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,0.05)">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-          <h3 style="margin:0;font-size:14px;font-weight:700;color:#4338CA">📊 개인 결제 사용 내역 (${spends.length}건)</h3>
-        </div>
-        ${renderLedgerTable(spends, 'spend')}
+      <!-- 필터 + 뷰 토글 -->
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:center;padding:8px;background:var(--card-bg-alt);border-radius:8px">
+        <span style="font-size:12px;font-weight:700;color:var(--text-3)">사람:</span>
+        <button onclick="_partnerFilter='all';renderPartners()" style="background:${_partnerFilter==='all'?'#4F46E5':'#fff'};color:${_partnerFilter==='all'?'#fff':'#4F46E5'};border:1px solid #4F46E5;padding:5px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">전체</button>
+        <button onclick="_partnerFilter='kyle';renderPartners()" style="background:${_partnerFilter==='kyle'?'#1E3A8A':'#fff'};color:${_partnerFilter==='kyle'?'#fff':'#1E3A8A'};border:1px solid #1E3A8A;padding:5px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">🟦 Kyle</button>
+        <button onclick="_partnerFilter='max';renderPartners()" style="background:${_partnerFilter==='max'?'#7C2D12':'#fff'};color:${_partnerFilter==='max'?'#fff':'#7C2D12'};border:1px solid #7C2D12;padding:5px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">🟧 Max</button>
+        <span style="flex:1"></span>
+        <span style="font-size:12px;font-weight:700;color:var(--text-3)">뷰:</span>
+        <button onclick="_partnerView='period';renderPartners()" style="background:${_partnerView==='period'?'#4F46E5':'#fff'};color:${_partnerView==='period'?'#fff':'#4F46E5'};border:1px solid #4F46E5;padding:5px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">📊 기간별</button>
+        <button onclick="_partnerView='raw';renderPartners()" style="background:${_partnerView==='raw'?'#4F46E5':'#fff'};color:${_partnerView==='raw'?'#fff':'#4F46E5'};border:1px solid #4F46E5;padding:5px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">📋 전체 목록</button>
       </div>
+
+      <!-- 메인 영역 -->
+      ${_partnerView === 'period' ? _renderPartnerPeriodTable(periodMap) : _renderPartnerRawList(spends)}
 
       <!-- 캐시 섹션 -->
-      <div style="background:var(--card-bg);border-radius:12px;padding:14px;box-shadow:0 1px 4px rgba(0,0,0,0.05)">
+      <div style="background:var(--card-bg);border-radius:12px;padding:14px;margin-top:14px;box-shadow:0 1px 4px rgba(0,0,0,0.05)">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-          <h3 style="margin:0;font-size:14px;font-weight:700;color:#92400E">💵 캐시 인출 내역 (${cashes.length}건)</h3>
+          <h3 style="margin:0;font-size:14px;font-weight:700;color:#92400E">💵 캐시 인출 내역 (${_filterByPerson(cashes).length}건)</h3>
         </div>
-        ${renderLedgerTable(cashes, 'cash')}
+        ${_renderPartnerCashTable(_filterByPerson(cashes))}
       </div>
     `;
   });
 }
 
-function renderLedgerTable(entries, type) {
-  if (!entries.length) {
-    return `<p style="color:var(--text-4);font-size:12px;text-align:center;padding:20px;margin:0">기록이 없어요. 위 버튼으로 추가하세요.</p>`;
+function _togglePartnerPeriod(ps) {
+  if (_expandedPeriods.has(ps)) _expandedPeriods.delete(ps);
+  else _expandedPeriods.add(ps);
+  renderPartners();
+}
+
+function _renderPartnerPeriodTable(periodMap) {
+  const sortedKeys = Object.keys(periodMap).sort((a,b) => b.localeCompare(a));
+  if (sortedKeys.length === 0) {
+    return `<div style="text-align:center;padding:40px;color:var(--text-4);font-size:13px;background:var(--card-bg);border-radius:12px">📋 기록이 없어요. 위 버튼으로 추가하세요.</div>`;
   }
-  const isSpend = type === 'spend';
+  let rowsHTML = '';
+  for (const ps of sortedKeys) {
+    const p = periodMap[ps];
+    const pe = _periodEndOf(ps);
+    const diff = p.max - p.kyle;
+    const receiver = diff > 0 ? 'Kyle' : (diff < 0 ? 'Max' : '-');
+    const receiverColor = diff > 0 ? '#1E3A8A' : (diff < 0 ? '#7C2D12' : 'var(--text-4)');
+    const isExpanded = _expandedPeriods.has(ps);
+    const visible = _filterByPerson(p.entries);
+    if (_partnerFilter !== 'all' && visible.length === 0) continue;
+    rowsHTML += `
+      <tr style="border-bottom:1px solid var(--border-2);cursor:pointer" onclick="_togglePartnerPeriod('${ps}')">
+        <td style="padding:7px 8px;color:var(--text-2);white-space:nowrap">${_pFD(ps)} ~ ${_pFD(pe)}</td>
+        <td style="padding:7px 8px;text-align:right;color:${p.kyle!==0?'#1E3A8A':'var(--text-4)'};font-variant-numeric:tabular-nums">${p.kyle!==0?fA(p.kyle):'—'}</td>
+        <td style="padding:7px 8px;text-align:right;color:${p.max!==0?'#7C2D12':'var(--text-4)'};font-variant-numeric:tabular-nums">${p.max!==0?fA(p.max):'—'}</td>
+        <td style="padding:7px 8px;text-align:right;font-weight:700;color:${receiverColor};font-variant-numeric:tabular-nums">${diff!==0?fA(Math.abs(diff)):'—'}</td>
+        <td style="padding:7px 8px;font-weight:700;color:${receiverColor};white-space:nowrap">${receiver==='-'?'-':'👈 '+receiver}</td>
+        <td style="padding:7px 8px;text-align:center;color:var(--text-3);font-size:11px">${visible.length}건</td>
+        <td style="padding:7px 8px;text-align:center;color:var(--text-3);font-size:14px">${isExpanded?'▼':'▶'}</td>
+      </tr>`;
+    if (isExpanded) {
+      rowsHTML += `<tr><td colspan="7" style="padding:0;background:#FAFAFA"><div style="padding:8px 16px">${_renderEntriesInPeriod(visible)}</div></td></tr>`;
+    }
+  }
   return `
-    <div style="overflow-x:auto">
+    <div style="background:var(--card-bg);border-radius:12px;padding:8px;box-shadow:0 1px 4px rgba(0,0,0,0.05);overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:760px">
+        <thead>
+          <tr style="background:var(--card-bg-alt);text-align:left">
+            <th style="padding:8px;border-bottom:1px solid var(--border);font-weight:700">기간</th>
+            <th style="padding:8px;border-bottom:1px solid var(--border);font-weight:700;text-align:right;color:#1E3A8A">Kyle 사용</th>
+            <th style="padding:8px;border-bottom:1px solid var(--border);font-weight:700;text-align:right;color:#7C2D12">Max 사용</th>
+            <th style="padding:8px;border-bottom:1px solid var(--border);font-weight:700;text-align:right">차액</th>
+            <th style="padding:8px;border-bottom:1px solid var(--border);font-weight:700">받을 사람</th>
+            <th style="padding:8px;border-bottom:1px solid var(--border);font-weight:700;text-align:center;width:60px">건수</th>
+            <th style="padding:8px;border-bottom:1px solid var(--border);width:40px"></th>
+          </tr>
+        </thead>
+        <tbody>${rowsHTML}</tbody>
+      </table>
+    </div>
+  `;
+}
+
+function _renderEntriesInPeriod(entries) {
+  if (!entries.length) return '<p style="color:var(--text-4);font-size:11px;padding:6px;margin:0">기록 없음</p>';
+  const sorted = [...entries].sort((a,b) => (a.date||'').localeCompare(b.date||''));
+  return `
+    <table style="width:100%;border-collapse:collapse;font-size:11px">
+      <thead>
+        <tr style="text-align:left;color:var(--text-3)">
+          <th style="padding:4px 6px;font-weight:700">날짜</th>
+          <th style="padding:4px 6px;font-weight:700">사람</th>
+          <th style="padding:4px 6px;text-align:right;font-weight:700">금액</th>
+          <th style="padding:4px 6px;font-weight:700">노트</th>
+          <th style="padding:4px 6px;width:50px"></th>
+        </tr>
+      </thead>
+      <tbody>
+        ${sorted.map(e => {
+          const isKyle = e.person === 'kyle';
+          return `<tr style="border-top:1px solid #EEE">
+            <td style="padding:4px 6px;color:var(--text-2);white-space:nowrap">${e.date ? _pFD(e.date) : ''}</td>
+            <td style="padding:4px 6px;color:${isKyle?'#1E3A8A':'#7C2D12'};font-weight:700">${isKyle?'Kyle':'Max'}</td>
+            <td style="padding:4px 6px;text-align:right;color:${isKyle?'#1E3A8A':'#7C2D12'};font-variant-numeric:tabular-nums">${fA(e.amount)}</td>
+            <td style="padding:4px 6px;color:var(--text-2);font-size:10px">${esc(e.note||'')}</td>
+            <td style="padding:4px 6px;text-align:right;white-space:nowrap">
+              <button onclick="event.stopPropagation();openPartnerModal('${e.id}','spend')" style="background:none;border:none;cursor:pointer;font-size:12px;padding:1px 3px" title="수정">✏️</button>
+              <button onclick="event.stopPropagation();deletePartnerEntry('${e.id}')" style="background:none;border:none;cursor:pointer;font-size:12px;padding:1px 3px;color:#EF4444" title="삭제">🗑</button>
+            </td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+function _renderPartnerRawList(spends) {
+  const filtered = _filterByPerson(spends).sort((a,b) => (b.date||'').localeCompare(a.date||''));
+  if (!filtered.length) {
+    return `<div style="text-align:center;padding:40px;color:var(--text-4);font-size:13px;background:var(--card-bg);border-radius:12px">📋 기록이 없어요.</div>`;
+  }
+  return `
+    <div style="background:var(--card-bg);border-radius:12px;padding:8px;box-shadow:0 1px 4px rgba(0,0,0,0.05);overflow-x:auto">
+      <div style="font-size:11px;color:var(--text-3);padding:4px 8px">${filtered.length}건 (최근순)</div>
       <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:600px">
         <thead>
           <tr style="background:var(--card-bg-alt);text-align:left">
-            <th style="padding:8px;border-bottom:1px solid var(--border);font-weight:700">${isSpend?'기간':'날짜'}</th>
-            <th style="padding:8px;border-bottom:1px solid var(--border);font-weight:700;text-align:right;color:#4338CA">Kyle</th>
-            <th style="padding:8px;border-bottom:1px solid var(--border);font-weight:700;text-align:right;color:#92400E">Max</th>
-            <th style="padding:8px;border-bottom:1px solid var(--border);font-weight:700">비고</th>
-            <th style="padding:8px;border-bottom:1px solid var(--border);width:60px"></th>
+            <th style="padding:6px 8px;border-bottom:1px solid var(--border);font-weight:700">날짜</th>
+            <th style="padding:6px 8px;border-bottom:1px solid var(--border);font-weight:700">사람</th>
+            <th style="padding:6px 8px;border-bottom:1px solid var(--border);font-weight:700;text-align:right">금액</th>
+            <th style="padding:6px 8px;border-bottom:1px solid var(--border);font-weight:700">노트</th>
+            <th style="padding:6px 8px;border-bottom:1px solid var(--border);width:60px"></th>
           </tr>
         </thead>
         <tbody>
-          ${entries.map(e=>{
-            const dateStr = isSpend
-              ? `${e.from?fDAu(e.from):''}${e.to?' ~ '+fDAu(e.to):''}`
-              : (e.date ? fDAu(e.date) : '');
-            const kyle = parseFloat(e.kyle)||0;
-            const max = parseFloat(e.max)||0;
+          ${filtered.map(e => {
+            const isKyle = e.person === 'kyle';
             return `<tr style="border-bottom:1px solid var(--border-2)">
-              <td style="padding:6px 8px;color:var(--text-2);white-space:nowrap">${esc(dateStr)}</td>
-              <td style="padding:6px 8px;text-align:right;color:${kyle>0?'#4338CA':'var(--text-4)'};font-variant-numeric:tabular-nums">${kyle>0?fA(kyle):'—'}</td>
-              <td style="padding:6px 8px;text-align:right;color:${max>0?'#92400E':'var(--text-4)'};font-variant-numeric:tabular-nums">${max>0?fA(max):'—'}</td>
-              <td style="padding:6px 8px;color:var(--text-2);font-size:11px">${esc(e.note||'')}</td>
-              <td style="padding:6px 8px;text-align:right;white-space:nowrap">
-                <button onclick="openPartnerModal('${e.id}','${type}')" style="background:none;border:none;cursor:pointer;font-size:13px;padding:2px 4px" title="수정">✏️</button>
+              <td style="padding:5px 8px;color:var(--text-2);white-space:nowrap">${e.date ? _pFD(e.date) : ''}</td>
+              <td style="padding:5px 8px;color:${isKyle?'#1E3A8A':'#7C2D12'};font-weight:700">${isKyle?'Kyle':'Max'}</td>
+              <td style="padding:5px 8px;text-align:right;color:${isKyle?'#1E3A8A':'#7C2D12'};font-variant-numeric:tabular-nums">${fA(e.amount)}</td>
+              <td style="padding:5px 8px;color:var(--text-2);font-size:11px">${esc(e.note||'')}</td>
+              <td style="padding:5px 8px;text-align:right;white-space:nowrap">
+                <button onclick="openPartnerModal('${e.id}','spend')" style="background:none;border:none;cursor:pointer;font-size:13px;padding:2px 4px" title="수정">✏️</button>
                 <button onclick="deletePartnerEntry('${e.id}')" style="background:none;border:none;cursor:pointer;font-size:13px;padding:2px 4px;color:#EF4444" title="삭제">🗑</button>
               </td>
             </tr>`;
@@ -6028,13 +6171,50 @@ function renderLedgerTable(entries, type) {
   `;
 }
 
-let _editingPartnerId = null;
+function _renderPartnerCashTable(entries) {
+  if (!entries.length) {
+    return `<p style="color:var(--text-4);font-size:12px;text-align:center;padding:20px;margin:0">캐시 인출 기록이 없어요.</p>`;
+  }
+  const sorted = [...entries].sort((a,b) => (b.date||'').localeCompare(a.date||''));
+  return `
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:500px">
+        <thead>
+          <tr style="background:var(--card-bg-alt);text-align:left">
+            <th style="padding:6px 8px;border-bottom:1px solid var(--border);font-weight:700">날짜</th>
+            <th style="padding:6px 8px;border-bottom:1px solid var(--border);font-weight:700">사람</th>
+            <th style="padding:6px 8px;border-bottom:1px solid var(--border);font-weight:700;text-align:right">금액</th>
+            <th style="padding:6px 8px;border-bottom:1px solid var(--border);font-weight:700">비고</th>
+            <th style="padding:6px 8px;border-bottom:1px solid var(--border);width:60px"></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${sorted.map(e => {
+            const isKyle = e.person === 'kyle';
+            return `<tr style="border-bottom:1px solid var(--border-2)">
+              <td style="padding:5px 8px;color:var(--text-2);white-space:nowrap">${e.date ? _pFD(e.date) : ''}</td>
+              <td style="padding:5px 8px;color:${isKyle?'#1E3A8A':'#7C2D12'};font-weight:700">${isKyle?'Kyle':'Max'}</td>
+              <td style="padding:5px 8px;text-align:right;color:${isKyle?'#1E3A8A':'#7C2D12'};font-variant-numeric:tabular-nums">${fA(e.amount)}</td>
+              <td style="padding:5px 8px;color:var(--text-2);font-size:11px">${esc(e.note||'')}</td>
+              <td style="padding:5px 8px;text-align:right;white-space:nowrap">
+                <button onclick="openPartnerModal('${e.id}','cash')" style="background:none;border:none;cursor:pointer;font-size:13px;padding:2px 4px" title="수정">✏️</button>
+                <button onclick="deletePartnerEntry('${e.id}')" style="background:none;border:none;cursor:pointer;font-size:13px;padding:2px 4px;color:#EF4444" title="삭제">🗑</button>
+              </td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
 function openPartnerModal(id, type) {
   _editingPartnerId = id;
-  const e = id ? partnerEntries.find(x=>x.id===id) : null;
+  const e = id ? partnerEntries.find(x => x.id === id) : null;
   const t = e ? e.type : type;
   const isSpend = t === 'spend';
   const modal = document.getElementById('partner-modal');
+  const initialPerson = e?.person || 'kyle';
   modal.innerHTML = `
     <div class="mbox" style="max-width:480px;background:#fff;color:#111827">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;border-bottom:1px solid #E5E7EB;padding-bottom:10px">
@@ -6042,19 +6222,22 @@ function openPartnerModal(id, type) {
         <button onclick="closePartnerModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#9CA3AF">×</button>
       </div>
       <input type="hidden" id="pn-type" value="${t}"/>
-      ${isSpend ? `
-        <div class="row2">
-          <div class="mb" style="flex:1"><label class="label">기간 시작</label><input type="date" class="input" id="pn-from" value="${e?(e.from||''):''}"/></div>
-          <div class="mb" style="flex:1"><label class="label">기간 끝</label><input type="date" class="input" id="pn-to" value="${e?(e.to||''):''}"/></div>
+      <div class="mb">
+        <label class="label">사람</label>
+        <div style="display:flex;gap:8px">
+          <label style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:10px;border:2px solid #C7D2FE;border-radius:8px;cursor:pointer;background:${initialPerson==='kyle'?'#EEF2FF':'#fff'}">
+            <input type="radio" name="pn-person" value="kyle" ${initialPerson==='kyle'?'checked':''} style="margin:0"/>
+            <span style="font-weight:700;color:#1E3A8A">🟦 Kyle</span>
+          </label>
+          <label style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:10px;border:2px solid #FDE68A;border-radius:8px;cursor:pointer;background:${initialPerson==='max'?'#FEF3C7':'#fff'}">
+            <input type="radio" name="pn-person" value="max" ${initialPerson==='max'?'checked':''} style="margin:0"/>
+            <span style="font-weight:700;color:#7C2D12">🟧 Max</span>
+          </label>
         </div>
-      ` : `
-        <div class="mb"><label class="label">날짜</label><input type="date" class="input" id="pn-date" value="${e?(e.date||''):today}"/></div>
-      `}
-      <div class="row2">
-        <div class="mb" style="flex:1"><label class="label">Kyle 금액 ($)</label><input type="number" step="0.01" class="input" id="pn-kyle" placeholder="0" value="${e?(e.kyle||''):''}"/></div>
-        <div class="mb" style="flex:1"><label class="label">Max 금액 ($)</label><input type="number" step="0.01" class="input" id="pn-max" placeholder="0" value="${e?(e.max||''):''}"/></div>
       </div>
-      <div class="mb"><label class="label">비고 (선택)</label><textarea class="input" id="pn-note" style="height:60px;resize:none" placeholder="예: 카일 4일 휴무, 호텔비용 등">${e?esc(e.note||''):''}</textarea></div>
+      <div class="mb"><label class="label">날짜</label><input type="date" class="input" id="pn-date" value="${e?(e.date||''):today}"/></div>
+      <div class="mb"><label class="label">금액 ($)  <span style="font-size:10px;color:var(--text-4);font-weight:400">— 환급은 음수로 입력</span></label><input type="number" step="0.01" class="input" id="pn-amount" placeholder="0" value="${e?(e.amount||''):''}"/></div>
+      <div class="mb"><label class="label">노트 (선택)</label><textarea class="input" id="pn-note" style="height:60px;resize:none" placeholder="예: 카일 점심, Bunnings 등">${e?esc(e.note||''):''}</textarea></div>
       <div class="row2" style="gap:6px;margin-top:14px">
         <button class="btn-secondary" style="flex:1" onclick="closePartnerModal()">취소</button>
         <button class="btn-primary" style="flex:2" onclick="savePartnerEntry()">💾 저장</button>
@@ -6071,24 +6254,20 @@ function closePartnerModal() {
 
 async function savePartnerEntry() {
   const t = document.getElementById('pn-type').value;
+  const personEl = document.querySelector('input[name="pn-person"]:checked');
+  if (!personEl) return alert('Kyle 또는 Max 를 선택하세요');
+  const date = document.getElementById('pn-date').value;
+  const amount = parseFloat(document.getElementById('pn-amount').value);
+  if (!date) return alert('날짜를 입력하세요');
+  if (isNaN(amount) || amount === 0) return alert('금액을 입력하세요 (환급은 음수)');
   const data = {
     type: t,
-    kyle: parseFloat(document.getElementById('pn-kyle').value) || 0,
-    max: parseFloat(document.getElementById('pn-max').value) || 0,
+    person: personEl.value,
+    date,
+    amount,
     note: document.getElementById('pn-note').value.trim(),
     updatedAt: new Date().toISOString()
   };
-  if (t === 'spend') {
-    data.from = document.getElementById('pn-from').value;
-    data.to = document.getElementById('pn-to').value;
-    if (!data.from) return alert('기간 시작일을 입력하세요');
-  } else {
-    data.date = document.getElementById('pn-date').value;
-    if (!data.date) return alert('날짜를 입력하세요');
-  }
-  if (data.kyle === 0 && data.max === 0) {
-    return alert('Kyle 또는 Max 금액 중 하나는 입력해야 해요');
-  }
   if (_editingPartnerId) {
     await fbSet('partnerLedger/'+_editingPartnerId, data);
   } else {
