@@ -1617,8 +1617,9 @@ function updateAuthHeader() {
       const partners = document.getElementById('hd-partners-btn');
       if (partners) partners.style.display = '';
     }
-    // superadmin 만 달력 탭 노출
-    if (userRole === 'superadmin') {
+    // 최상위 관리자(role==='admin' 또는 'superadmin') 만 달력 탭 노출.
+    // 권한을 부여받은 일반 사용자(viewadmin / staff 등) 에게는 숨김.
+    if (userRole === 'admin' || userRole === 'superadmin') {
       const cal = document.getElementById('hd-calendar-btn');
       if (cal) cal.style.display = '';
     }
@@ -6812,7 +6813,22 @@ function renderStats() {
 
   const monthly = {};
   invoices.filter(i=>i.status!=='DRAFT').forEach(i => { const m=(i.invoiceDate||'').slice(0,7); if(m){monthly[m]=(monthly[m]||0)+(parseFloat(i.amount)||0);} });
-  const sortedM = Object.entries(monthly).sort((a,b)=>a[0].localeCompare(b[0])).slice(-12);
+  // 월별 / 분기별 토글 (statChartView 글로벌)
+  const chartView = (typeof statChartView !== 'undefined') ? statChartView : 'month';
+  let sortedM;
+  if (chartView === 'quarter') {
+    // 같은 분기 합산. key = 'YYYY-Q#' (예: 2026-Q2)
+    const quarterly = {};
+    Object.entries(monthly).forEach(([m, v]) => {
+      const [y, mo] = m.split('-').map(Number);
+      const q = Math.floor((mo-1)/3) + 1;
+      const key = `${y}-Q${q}`;
+      quarterly[key] = (quarterly[key]||0) + v;
+    });
+    sortedM = Object.entries(quarterly).sort((a,b)=>a[0].localeCompare(b[0])).slice(-8); // 최근 8개 분기 (2년)
+  } else {
+    sortedM = Object.entries(monthly).sort((a,b)=>a[0].localeCompare(b[0])).slice(-12);
+  }
   const maxM = Math.max(1, ...sortedM.map(([_,v])=>v));
 
   // Top 8 builders by total
@@ -6830,30 +6846,49 @@ function renderStats() {
     </div>
   </div>
   <div class="stat-grid" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr))">
-    ${[['💰 미수금',out,'#818CF8'],['🔴 연체',ov,'#f87171'],['🔒 보류금',ret,'#6366F1'],['✅ 총입금',pd,'#34d399'],['📅 이번달',mo,'#fbbf24']].map(([l,v,c])=>`
-      <div class="stat-card" style="border-top:3px solid ${c}">
+    ${[
+      ['💰 미수금', out, '#818CF8', 'INVOICE',    ''],
+      ['🔴 연체',   ov,  '#f87171', 'OVERDUE',    ''],
+      ['🔒 보류금', ret, '#6366F1', 'RETENTION',  ''],
+      ['✅ 총입금', pd,  '#34d399', 'PAID',       ''],
+      ['📅 이번달', mo,  '#fbbf24', 'ALL',        today.slice(0,7)],
+    ].map(([l,v,c,filter,search])=>`
+      <div class="stat-card" style="border-top:3px solid ${c};cursor:pointer" onclick="curFilter='${filter}';searchQ='${search}';invLimit=INV_PAGE;showTab('invoices');renderInv()" title="${l} 인보이스 보기">
         <div style="font-size:11px;color:var(--text-3);margin-bottom:4px">${l}</div>
         <div style="font-size:17px;font-weight:800;color:${c}">${fA(v)}</div>
         <div style="font-size:10px;color:var(--text-4);margin-top:2px">${fAex(v)} ex</div>
       </div>`).join('')}
-    ${draftCount > 0 ? `<div class="stat-card" style="border-top:3px dashed #DC2626;cursor:pointer" onclick="curFilter='DRAFT';showTab('invoices');renderInv()" title="DRAFT 인보이스 보기">
+    ${draftCount > 0 ? `<div class="stat-card" style="border-top:3px dashed #DC2626;cursor:pointer" onclick="curFilter='DRAFT';searchQ='';invLimit=INV_PAGE;showTab('invoices');renderInv()" title="DRAFT 인보이스 보기">
       <div style="font-size:11px;color:var(--text-3);margin-bottom:4px">📝 임시저장</div>
       <div style="font-size:17px;font-weight:800;color:#DC2626">${draftCount}건</div>
       <div style="font-size:10px;color:var(--text-4);margin-top:2px">${fA(draftAmt)}</div>
     </div>` : ''}
   </div>
-  
-  <!-- Monthly Bar Chart -->
-  <div class="card" style="margin-bottom:12px">
-    <div style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:1px;margin-bottom:14px">📊 월별 청구 매출 (최근 12개월)</div>
-    <div style="display:flex;align-items:flex-end;gap:6px;height:160px;padding-bottom:24px;border-bottom:1px solid var(--border-2);position:relative">
+
+  <!-- 청구 매출 차트 (월별 / 분기별 토글) -->
+  <div class="card" style="margin-bottom:12px;overflow:hidden">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:8px;flex-wrap:wrap">
+      <div style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:1px">📊 청구 매출 ${chartView==='quarter'?'(최근 8분기)':'(최근 12개월)'}</div>
+      <div style="display:flex;gap:4px">
+        <button onclick="statChartView='month';renderStats()" style="background:${chartView==='month'?'#4F46E5':'#fff'};color:${chartView==='month'?'#fff':'#4F46E5'};border:1px solid #4F46E5;padding:4px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">월별</button>
+        <button onclick="statChartView='quarter';renderStats()" style="background:${chartView==='quarter'?'#4F46E5':'#fff'};color:${chartView==='quarter'?'#fff':'#4F46E5'};border:1px solid #4F46E5;padding:4px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">분기별</button>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(${sortedM.length}, minmax(0,1fr));gap:6px;height:160px;padding-bottom:24px;border-bottom:1px solid var(--border-2);position:relative">
       ${sortedM.map(([m,v]) => {
         const pct = (v/maxM)*100;
-        const isThisMonth = m === today.slice(0,7);
-        return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;height:100%;justify-content:flex-end;position:relative" title="${m}: ${fA(v)}">
-          <div style="font-size:9px;color:var(--text-4);margin-bottom:4px;white-space:nowrap">${v >= 10000 ? '$'+(v/1000).toFixed(0)+'k' : ''}</div>
-          <div style="width:100%;background:${isThisMonth?'#F59E0B':'linear-gradient(180deg,#818CF8 0%,#4F46E5 100%)'};border-radius:4px 4px 0 0;height:${pct}%;min-height:2px;transition:height 0.3s"></div>
-          <div style="position:absolute;bottom:-22px;font-size:9px;color:var(--text-4);transform:rotate(-30deg);transform-origin:left">${m.slice(2).replace('-','/')}</div>
+        const isThisPeriod = chartView==='month'
+          ? (m === today.slice(0,7))
+          : (m === `${today.slice(0,4)}-Q${Math.floor((parseInt(today.slice(5,7))-1)/3)+1}`);
+        const label = chartView==='quarter' ? m.slice(2) : m.slice(2).replace('-','/');
+        // 월별(12개) 은 라벨 회전 -30deg (좁아서), 분기별(8개) 은 직립
+        const labelStyle = chartView==='quarter'
+          ? 'position:absolute;bottom:-20px;left:0;right:0;text-align:center;font-size:10px;color:var(--text-4);white-space:nowrap'
+          : 'position:absolute;bottom:-18px;left:50%;font-size:9px;color:var(--text-4);transform:translateX(-50%) rotate(-35deg);transform-origin:50% 0;white-space:nowrap';
+        return `<div style="min-width:0;overflow:visible;display:flex;flex-direction:column;align-items:center;height:100%;justify-content:flex-end;position:relative" title="${m}: ${fA(v)}">
+          <div style="font-size:9px;color:var(--text-4);margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%">${v >= 10000 ? '$'+(v/1000).toFixed(0)+'k' : ''}</div>
+          <div style="width:100%;background:${isThisPeriod?'#F59E0B':'linear-gradient(180deg,#818CF8 0%,#4F46E5 100%)'};border-radius:4px 4px 0 0;height:${pct}%;min-height:2px;transition:height 0.3s"></div>
+          <div style="${labelStyle}">${label}</div>
         </div>`;
       }).join('')}
     </div>
@@ -6890,6 +6925,9 @@ function renderStats() {
   </div>`;
   document.getElementById('tab-stats').innerHTML = h;
 }
+
+// 통계 차트 보기 모드: 'month' (12개월) | 'quarter' (8분기)
+let statChartView = 'month';
 
 // ── Calendar View ────────────────────────────────────────────────────────────
 let calMonth = null; // YYYY-MM
