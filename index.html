@@ -1066,15 +1066,23 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                 </>)}
               </div>
 
-              {/* 정산 확인 완료 → 인보이스 직원에게 PDF 인보이스 발행 버튼 */}
+              {/* 정산 확인 완료 → 인보이스 직원에게 PDF 인보이스 발행 버튼
+                  (admin·본인 모두 사용 가능 — 본인은 자기 selId 가 자동 세팅됨) */}
               {isSettled0 && wage.isContractor && (() => {
                 const empUser = users.find(x => x.id === selId);
                 return empUser ? (
                   <div style={{ marginBottom: 8 }}>
+                    {!isAdmin && <p style={{ margin:"0 0 6px",fontSize:11,color:"#059669",fontWeight:600 }}>📄 이번 기간 정산이 완료됐어요 — 인보이스를 발행할 수 있어요</p>}
                     <InvoiceButton u={empUser} s={wage} periodLogs={wage.periodLogs||[]} startDate={wpStart} endDate={wpEnd} leaveData={lv0} companies={companies} />
                   </div>
                 ) : null;
               })()}
+              {/* 정산 미완료 안내 (contractor 본인이 자기 화면 봤을 때) */}
+              {!isSettled0 && wage.isContractor && !isAdmin && (
+                <div style={{ background:"#FFFBEB",border:"1px solid #FDE68A",borderRadius:10,padding:"10px 14px",margin:"10px 0",fontSize:12,color:"#92400E",lineHeight:1.5 }}>
+                  ⏳ 이번 기간은 아직 <strong>정산 확인 전</strong>이에요. 관리자가 정산을 완료하면 여기서 인보이스 PDF를 받을 수 있어요.
+                </div>
+              )}
 
               {/* 정산 확인 버튼 */}
               {isSuperAdmin && (isSettled0 ? (
