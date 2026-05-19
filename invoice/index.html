@@ -664,7 +664,7 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
     <button class="active" onclick="showTab('invoices')"><span class="nav-emoji">📋</span><span class="nav-label">인보이스</span></button>
     <button onclick="showTab('builders')"><span class="nav-emoji">🏗️</span><span class="nav-label">빌더</span></button>
     <button onclick="showTab('stats')"><span class="nav-emoji">📊</span><span class="nav-label">통계</span></button>
-    <button onclick="showTab('calendar')" title="달력"><span class="nav-emoji">📅</span><span class="nav-label">달력</span></button>
+    <button onclick="showTab('calendar')" id="hd-calendar-btn" style="display:none" title="달력"><span class="nav-emoji">📅</span><span class="nav-label">달력</span></button>
     <button onclick="showTab('partners')" id="hd-partners-btn" style="display:none"><span class="nav-emoji">🤝</span><span class="nav-label">정산</span></button>
     <!-- 보조 액션: 오버플로우 메뉴 -->
     <div class="nav-overflow">
@@ -1461,8 +1461,16 @@ async function initInvoiceAuth() {
         }
       };
       document.getElementById('lk-other').onclick = () => showFullLogin('');
-      document.getElementById('lk-pin').addEventListener('keydown', e => { if (e.key==='Enter') document.getElementById('lk-submit').click(); });
-      document.getElementById('lk-pin').focus();
+      const _pinEl = document.getElementById('lk-pin');
+      _pinEl.addEventListener('keydown', e => { if (e.key==='Enter') document.getElementById('lk-submit').click(); });
+      // 4자리 입력되는 순간 자동 제출 — 사용자가 따로 ✓/확인 누를 필요 없게
+      _pinEl.addEventListener('input', () => {
+        if ((_pinEl.value || '').length === 4) {
+          // 한 틱 양보 — 마지막 자리가 화면에 표시되고 IME 가 정리된 후 클릭
+          setTimeout(() => document.getElementById('lk-submit').click(), 50);
+        }
+      });
+      _pinEl.focus();
     };
 
     // ── 화면 B: 풀 로그인 (WorkLog ID + PW) ──
@@ -1549,6 +1557,18 @@ async function initInvoiceAuth() {
       ['lk-pin','lk-pin2'].forEach(i => {
         document.getElementById(i).addEventListener('keydown', e => { if (e.key==='Enter') document.getElementById('lk-submit').click(); });
       });
+      // 첫 PIN 4자리 입력하면 자동으로 두 번째 칸으로 이동
+      document.getElementById('lk-pin').addEventListener('input', () => {
+        if (document.getElementById('lk-pin').value.length === 4) {
+          document.getElementById('lk-pin2').focus();
+        }
+      });
+      // 두 번째 PIN 도 4자리 완성되면 자동 제출
+      document.getElementById('lk-pin2').addEventListener('input', () => {
+        if (document.getElementById('lk-pin2').value.length === 4) {
+          setTimeout(() => document.getElementById('lk-submit').click(), 50);
+        }
+      });
       document.getElementById('lk-pin').focus();
     };
 
@@ -1589,6 +1609,11 @@ function updateAuthHeader() {
       if (perm) perm.style.display = '';
       const partners = document.getElementById('hd-partners-btn');
       if (partners) partners.style.display = '';
+    }
+    // superadmin 만 달력 탭 노출
+    if (userRole === 'superadmin') {
+      const cal = document.getElementById('hd-calendar-btn');
+      if (cal) cal.style.display = '';
     }
   }
 }
@@ -6633,8 +6658,16 @@ td{padding:7px 10px;border-bottom:1px solid #F1F5F9}
 tr:last-child td{border-bottom:none}
 tfoot td{border-top:2px solid #E5E7EB;font-weight:800;padding-top:10px}
 .foot{margin-top:30px;padding-top:16px;border-top:1px solid #E5E7EB;font-size:10px;color:#9CA3AF;text-align:center}
-@media print{body{padding:14mm 16mm}@page{margin:0}}
+.toolbar{position:sticky;top:0;background:#fff;border-bottom:1px solid #E5E7EB;padding:10px 32px;margin:-24px -32px 20px;display:flex;justify-content:space-between;align-items:center;gap:8px;z-index:10}
+.toolbar button{padding:8px 16px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:700;font-family:inherit}
+.tb-print{background:#4F46E5;color:#fff}
+.tb-close{background:#F3F4F6;color:#374151;border:1px solid #E5E7EB}
+@media print{body{padding:14mm 16mm}.toolbar{display:none}@page{margin:0}}
 </style></head><body>
+<div class="toolbar">
+  <button class="tb-close" onclick="window.close()">✕ 창 닫기</button>
+  <button class="tb-print" onclick="window.print()">🖨️ 인쇄 / PDF</button>
+</div>
 <h1>월별 리포트</h1>
 <p class="sub">K&M Tiling — ${monthLabel} · 생성일 ${fAu(today)}</p>
 
