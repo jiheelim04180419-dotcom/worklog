@@ -1329,7 +1329,24 @@ async function _migrateOldMasterPin() {
 
 async function initInvoiceAuth() {
   // 1) 세션 살아있으면 통과
-  if (sessionStorage.getItem('invoice_unlocked') === 'true') return true;
+  if (sessionStorage.getItem('invoice_unlocked') === 'true') {
+    // role 이 누락된 옛 세션(역할 추적 추가 전에 unlock된 세션)이면 Firebase 에서 보충
+    if (!sessionStorage.getItem('invoice_user_role')) {
+      const uid = sessionStorage.getItem('invoice_user_id');
+      if (uid) {
+        try {
+          const user = await _findUser(uid);
+          if (user) {
+            sessionStorage.setItem('invoice_user_role', user.role || '');
+            if (!sessionStorage.getItem('invoice_user_name')) {
+              sessionStorage.setItem('invoice_user_name', user.name || user.id);
+            }
+          }
+        } catch(e) { /* 무시 — 다음 로그인 때 정상화 */ }
+      }
+    }
+    return true;
+  }
 
   // 2) 옛 마스터 PIN 데이터가 있으면 사용자별 PIN으로 이전
   await _migrateOldMasterPin();
