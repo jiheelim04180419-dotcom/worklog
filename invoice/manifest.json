@@ -1,0 +1,25 @@
+{
+  "name": "K&M Invoice",
+  "short_name": "Invoice",
+  "description": "K&M Tiling 인보이스 매니저",
+  "start_url": "/worklog/invoice/",
+  "scope": "/worklog/invoice/",
+  "display": "standalone",
+  "background_color": "#312E81",
+  "theme_color": "#1E1B4B",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/worklog/invoice/icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/worklog/invoice/icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

@@ -1,18 +1,25 @@
 {
   "name": "K&M WorkLog",
-  "short_name": "K&M",
+  "short_name": "WorkLog",
   "description": "K&M Tiling 근무일지 & 연차 관리",
   "start_url": "/worklog/",
+  "scope": "/worklog/",
   "display": "standalone",
-  "background_color": "#f4f6fb",
-  "theme_color": "#3b7ff5",
+  "background_color": "#1E1B4B",
+  "theme_color": "#1E1B4B",
   "orientation": "portrait",
   "icons": [
     {
       "src": "/worklog/icon.png",
-      "sizes": "any",
+      "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/worklog/icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }
