@@ -6193,13 +6193,17 @@ function renderPartners() {
   loadPartnerEntries().then(() => {
     const el = document.getElementById('tab-partners');
 
-    const allSpends = partnerEntries.filter(e => e.type === 'spend');
-    const allCashes = partnerEntries.filter(e => e.type === 'cash');
-    // 검색 필터 — 표시되는 entries 만 영향. 누적 카드는 전체 데이터 기준 유지.
+    // 임시저장(drafts) 분리 — 집계/차액 계산에서 제외, 별도 섹션으로 표시
+    const drafts = partnerEntries.filter(e => e.isDraft === true);
+    const finalEntries = partnerEntries.filter(e => e.isDraft !== true);
+    const allSpends = finalEntries.filter(e => e.type === 'spend');
+    const allCashes = finalEntries.filter(e => e.type === 'cash');
+    // 검색 필터 — 표시되는 entries 만 영향. 누적 카드는 전체 정식 데이터 기준 유지.
     const spends = _filterBySearch(allSpends);
     const cashes = _filterBySearch(allCashes);
+    const visibleDrafts = _filterBySearch(_filterByPerson(drafts));
 
-    // 기간별 집계 (검색 적용 전체 데이터로 정확한 차액 계산)
+    // 기간별 집계 — 정식(non-draft) 데이터만
     const periodMap = {};
     allSpends.forEach(e => {
       const ps = getPartnerPeriodStart(e.date);
@@ -6306,6 +6310,13 @@ function renderPartners() {
         <button onclick="_partnerView='period';renderPartners()" style="background:${_partnerView==='period'?'#4F46E5':'#fff'};color:${_partnerView==='period'?'#fff':'#4F46E5'};border:1px solid #4F46E5;padding:5px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">📊 기간별</button>
         <button onclick="_partnerView='raw';renderPartners()" style="background:${_partnerView==='raw'?'#4F46E5':'#fff'};color:${_partnerView==='raw'?'#fff':'#4F46E5'};border:1px solid #4F46E5;padding:5px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">📋 전체 목록</button>
       </div>
+
+      <!-- 임시저장 섹션 — 정보 미완성 (날짜 or 금액 누락) entries. 집계 제외 -->
+      ${visibleDrafts.length > 0 ? `
+      <div style="background:#FFFBEB;border:1px dashed #FCD34D;border-radius:12px;padding:12px;margin-bottom:14px">
+        <div style="font-size:12px;font-weight:700;color:#92400E;margin-bottom:8px">📝 임시저장 (${visibleDrafts.length}건) <span style="font-size:10px;color:#A78B4B;font-weight:400">— 정보가 부족해서 집계에서 제외됨. 클릭해서 보완하세요</span></div>
+        ${_renderPartnerDraftTable(visibleDrafts)}
+      </div>` : ''}
 
       <!-- 메인 영역 -->
       ${_partnerView === 'period' ? _renderPartnerPeriodTable(periodMap) : _renderPartnerRawList(spends)}
@@ -6452,6 +6463,36 @@ function _renderPartnerRawList(spends) {
   `;
 }
 
+function _renderPartnerDraftTable(entries) {
+  if (!entries.length) return '';
+  // 날짜 있는 것 먼저, 그 다음 날짜 없는 것
+  const sorted = [...entries].sort((a,b) => {
+    if (!a.date && b.date) return 1;
+    if (a.date && !b.date) return -1;
+    return (b.date||'').localeCompare(a.date||'');
+  });
+  return `
+    <div style="display:flex;flex-direction:column;gap:5px">
+      ${sorted.map(e => {
+        const isKyle = e.person === 'kyle';
+        const dateStr = e.date ? _pFD(e.date) : '<span style="color:#DC2626;font-weight:700">날짜 미정</span>';
+        const amtStr = (e.amount && parseFloat(e.amount) !== 0)
+          ? `<span style="color:${isKyle?'#1E3A8A':'#7C2D12'};font-weight:700">${fA(e.amount)}</span>`
+          : `<span style="color:#DC2626;font-weight:700">금액 미정</span>`;
+        const type = e.type === 'cash' ? '💵' : '📊';
+        return `<div style="display:flex;gap:8px;align-items:center;padding:6px 8px;background:#fff;border:1px solid #FDE68A;border-radius:6px;font-size:11px">
+          <span title="${e.type==='cash'?'캐시':'개인결제'}">${type}</span>
+          <span style="color:${isKyle?'#1E3A8A':'#7C2D12'};font-weight:700;min-width:40px">${isKyle?'Kyle':'Max'}</span>
+          <span style="min-width:90px">${dateStr}</span>
+          <span style="min-width:80px;text-align:right">${amtStr}</span>
+          <span style="flex:1;color:var(--text-2);font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.note||'')}</span>
+          <button onclick="openPartnerModal('${e.id}','${e.type}')" style="background:none;border:none;cursor:pointer;font-size:13px;padding:2px 4px" title="수정">✏️</button>
+          <button onclick="deletePartnerEntry('${e.id}')" style="background:none;border:none;cursor:pointer;font-size:13px;padding:2px 4px;color:#EF4444" title="삭제">🗑</button>
+        </div>`;
+      }).join('')}
+    </div>
+  `;
+}
 function _renderPartnerCashTable(entries) {
   if (!entries.length) {
     return `<p style="color:var(--text-4);font-size:12px;text-align:center;padding:20px;margin:0">캐시 인출 기록이 없어요.</p>`;
@@ -6538,7 +6579,8 @@ function openPartnerModal(id, type) {
       </div>
       <div class="row2" style="gap:6px;margin-top:14px">
         <button class="btn-secondary" style="flex:1" onclick="closePartnerModal()">취소</button>
-        <button class="btn-primary" style="flex:2" onclick="savePartnerEntry()">💾 저장</button>
+        <button class="btn-secondary" style="flex:1.3;background:#FEF3C7;color:#92400E;border-color:#FDE68A" onclick="savePartnerEntry(true)" title="날짜나 금액 중 일부만 있어도 임시 저장">📝 임시저장</button>
+        <button class="btn-primary" style="flex:1.5" onclick="savePartnerEntry(false)">💾 저장</button>
       </div>
     </div>
   `;
@@ -6565,24 +6607,34 @@ function _appendPartnerNote(word) {
   el.focus();
 }
 
-async function savePartnerEntry() {
+async function savePartnerEntry(asDraft) {
   const t = document.getElementById('pn-type').value;
   const personEl = document.querySelector('input[name="pn-person"]:checked');
   if (!personEl) return alert('Kyle 또는 Max 를 선택하세요');
-  const dateRaw = document.getElementById('pn-date').value;
-  const date = _pAuToIso(dateRaw);
-  if (!date) return alert('날짜 형식이 잘못됐어요 (DD/MM/YYYY)');
-  const amount = parseFloat(document.getElementById('pn-amount').value);
-  if (isNaN(amount) || amount === 0) return alert('금액을 입력하세요 (환급은 음수)');
+  const dateRaw = (document.getElementById('pn-date').value || '').trim();
+  const date = dateRaw ? _pAuToIso(dateRaw) : '';  // 임시저장이면 빈 값 허용
+  const amountRaw = document.getElementById('pn-amount').value;
+  const amount = amountRaw === '' ? null : parseFloat(amountRaw);
+  // 검증 — 정식 저장은 둘 다 필수, 임시저장은 둘 중 하나만 있어도 OK
+  if (asDraft) {
+    if (!date && (amount == null || isNaN(amount))) {
+      return alert('임시저장이라도 날짜 또는 금액 중 하나는 입력해주세요');
+    }
+    if (dateRaw && !date) return alert('날짜 형식이 잘못됐어요 (DD/MM/YYYY)');
+  } else {
+    if (!date) return alert('날짜를 입력하세요 (DD/MM/YYYY)');
+    if (amount == null || isNaN(amount) || amount === 0) return alert('금액을 입력하세요 (환급은 음수). 정보가 부족하면 📝 임시저장을 사용하세요');
+  }
   const data = {
     type: t,
     person: personEl.value,
-    date,
-    amount,
-    // 저장 시 "개인" 단어 자동 제거 (중복 표기 방지)
+    date: date || '',           // 빈 값 허용
+    amount: (amount == null || isNaN(amount)) ? 0 : amount,
     note: document.getElementById('pn-note').value.replace(/개인\s*/g,'').replace(/\s+/g,' ').trim(),
     updatedAt: new Date().toISOString()
   };
+  if (asDraft) data.isDraft = true;
+  else data.isDraft = false;   // 명시적으로 false 로 (이전 isDraft 가 있었다면 해제)
   if (_editingPartnerId) {
     await fbSet('partnerLedger/'+_editingPartnerId, data);
   } else {
