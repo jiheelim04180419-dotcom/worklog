@@ -3073,30 +3073,72 @@ function BottomNav({ tab, setTab, isAdmin, isSuperAdmin, userHasLeave, user, log
     ...(isAdmin ? [{ key:"company", label:"회사",   emoji:"🏢" }] : []),
     ...(isSuperAdmin ? [{ key:"mgmt", label:"운영진", emoji:"⭐" }] : []),
   ];
+  // 5개 이하면 그대로, 6개 이상이면 첫 4개 + 나머지를 ⋯ 오버플로우 메뉴로
+  const MAX_PRIMARY = 5;
+  const needsOverflow = items.length > MAX_PRIMARY;
+  const primary = needsOverflow ? items.slice(0, MAX_PRIMARY - 1) : items;
+  const overflow = needsOverflow ? items.slice(MAX_PRIMARY - 1) : [];
+  const [menuOpen, setMenuOpen] = useState(false);
+  const overflowActive = overflow.some(it => it.key === tab);
+
+  const renderItem = (item, opts={}) => {
+    const active = tab === item.key;
+    return (
+      <button key={item.key} onClick={() => { setTab(item.key); if (opts.closeMenu) setMenuOpen(false); }}
+        style={{ flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:2,background:"none",border:"none",cursor:"pointer",padding:"4px 2px",position:"relative" }}>
+        <div style={{ position:"relative" }}>
+          <div style={{
+            width:40,height:40,borderRadius:12,
+            display:"flex",alignItems:"center",justifyContent:"center",
+            background: active ? C.primary+"18" : "transparent",
+            transition:"all .2s",
+          }}>
+            <span style={{ fontSize:20, filter: active ? "none" : "grayscale(30%)", opacity: active ? 1 : 0.6 }}>{item.emoji}</span>
+          </div>
+          {!!item.badge && <div style={{ position:"absolute",top:0,right:0,width:16,height:16,background:"#EF4444",borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:800,color:"#fff",border:"2px solid #fff" }}>{item.badge}</div>}
+        </div>
+        <span style={{ fontSize:10,fontWeight:active?700:500,color:active?C.primary:"#aaa",transition:"all .2s" }}>{item.label}</span>
+        {active && <div style={{ position:"absolute",top:0,left:"50%",transform:"translateX(-50%)",width:24,height:3,borderRadius:"0 0 3px 3px",background:C.primary }} />}
+      </button>
+    );
+  };
+
   return (
-    <nav style={styles.nav} className="mb-nav">
-      {items.map(item => {
-        const active = tab === item.key;
-        return (
-          <button key={item.key} onClick={() => setTab(item.key)}
-            style={{ flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:2,background:"none",border:"none",cursor:"pointer",padding:"4px 2px",position:"relative" }}>
-            <div style={{ position:"relative" }}>
+    <>
+      {menuOpen && <div onClick={()=>setMenuOpen(false)} style={{ position:"fixed",inset:0,zIndex:19 }}/>}
+      <nav style={styles.nav} className="mb-nav">
+        {primary.map(it => renderItem(it))}
+        {needsOverflow && (
+          <div style={{ flex:1,position:"relative",display:"flex",justifyContent:"center" }}>
+            <button onClick={()=>setMenuOpen(o=>!o)}
+              style={{ flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:2,background:"none",border:"none",cursor:"pointer",padding:"4px 2px",position:"relative" }}>
               <div style={{
-                width:40,height:40,borderRadius:12,
-                display:"flex",alignItems:"center",justifyContent:"center",
-                background: active ? C.primary+"18" : "transparent",
-                transition:"all .2s",
+                width:40,height:40,borderRadius:12,display:"flex",alignItems:"center",justifyContent:"center",
+                background: (overflowActive||menuOpen) ? C.primary+"18" : "transparent", transition:"all .2s"
               }}>
-                <span style={{ fontSize:20, filter: active ? "none" : "grayscale(30%)", opacity: active ? 1 : 0.6 }}>{item.emoji}</span>
+                <span style={{ fontSize:22, fontWeight:700, color: (overflowActive||menuOpen)?C.primary:"#aaa", lineHeight:1 }}>⋯</span>
               </div>
-              {!!item.badge && <div style={{ position:"absolute",top:0,right:0,width:16,height:16,background:"#EF4444",borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:800,color:"#fff",border:"2px solid #fff" }}>{item.badge}</div>}
-            </div>
-            <span style={{ fontSize:10,fontWeight:active?700:500,color:active?C.primary:"#aaa",transition:"all .2s" }}>{item.label}</span>
-            {active && <div style={{ position:"absolute",top:0,left:"50%",transform:"translateX(-50%)",width:24,height:3,borderRadius:"0 0 3px 3px",background:C.primary }} />}
-          </button>
-        );
-      })}
-    </nav>
+              <span style={{ fontSize:10,fontWeight:(overflowActive||menuOpen)?700:500,color:(overflowActive||menuOpen)?C.primary:"#aaa",transition:"all .2s" }}>더보기</span>
+              {overflowActive && <div style={{ position:"absolute",top:0,left:"50%",transform:"translateX(-50%)",width:24,height:3,borderRadius:"0 0 3px 3px",background:C.primary }} />}
+            </button>
+            {menuOpen && (
+              <div style={{ position:"absolute",bottom:"calc(100% + 8px)",right:0,background:"#fff",borderRadius:12,boxShadow:"0 8px 30px rgba(0,0,0,0.15)",padding:"6px 0",minWidth:160,zIndex:30,overflow:"hidden" }}>
+                {overflow.map(it => {
+                  const active = tab === it.key;
+                  return (
+                    <button key={it.key} onClick={() => { setTab(it.key); setMenuOpen(false); }}
+                      style={{ display:"flex",alignItems:"center",gap:10,width:"100%",border:"none",background: active ? C.primary+"15" : "none",padding:"10px 14px",cursor:"pointer",fontSize:13,fontWeight:active?700:500,color:active?C.primary:"#111827",fontFamily:"inherit",textAlign:"left" }}>
+                      <span style={{ fontSize:18 }}>{it.emoji}</span>
+                      <span>{it.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </nav>
+    </>
   );
 }
 
