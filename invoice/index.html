@@ -694,7 +694,7 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
   <datalist id="room-list">
     <!-- Populated dynamically by renderRoomList() -->
   </datalist>
-  <div class="mb"><label class="label">현장 주소 (Job Address)</label><input class="input" id="f-a" placeholder="주소" oninput="checkPrevInvoice()"/></div>
+  <div class="mb"><label class="label">현장 주소 (Job Address)</label><input class="input" id="f-a" list="addr-list" placeholder="주소" oninput="checkPrevInvoice()"/><datalist id="addr-list"></datalist></div>
   <!-- Hidden status field — auto-set by saveInv() based on draft vs publish -->
   <input type="hidden" id="f-st" value="INVOICE"/>
   <div id="f-po-row" class="mb"><label class="label">PO 번호 (선택)</label><input class="input" id="f-po" placeholder="PO Number (있을 때만 입력)" oninput="checkPrevInvoice()"/></div>
@@ -2433,12 +2433,21 @@ function findPrevInvoice() {
     (i.builderName||'').toLowerCase() === builderName.toLowerCase() &&
     hasItems(i);
 
-  // 1) PO 일치
+  // 1) PO 일치 — "/" 기준 두 번째 부분만 비교 (QLINC 등 규칙: 12345/A1 → A1이 같으면 같은 작업)
+  const poKey = (p) => {
+    const s = (p||'').toString().trim();
+    if (!s) return '';
+    const parts = s.split('/');
+    return (parts.length >= 2 ? parts[1] : s).trim().toLowerCase();
+  };
   if (poNum) {
-    const m = invoices.filter(i => sameBuilder(i) && (i.poNumber||'').toLowerCase() === poNum.toLowerCase());
-    if (m.length) {
-      m.sort((a,b) => (b.invoiceDate||'').localeCompare(a.invoiceDate||''));
-      return { inv: m[0], matchType: 'PO' };
+    const target = poKey(poNum);
+    if (target) {
+      const m = invoices.filter(i => sameBuilder(i) && poKey(i.poNumber) === target);
+      if (m.length) {
+        m.sort((a,b) => (b.invoiceDate||'').localeCompare(a.invoiceDate||''));
+        return { inv: m[0], matchType: 'PO' };
+      }
     }
   }
   // 2) 빌더 + 주소 일치
@@ -2458,7 +2467,29 @@ function findPrevInvoice() {
   return null;
 }
 
+// 같은 빌더의 최근 주소들을 datalist에 채움 (최근 20개, 중복 제거)
+function refreshAddressList() {
+  const dl = document.getElementById('addr-list');
+  if (!dl) return;
+  const bn = (document.getElementById('f-b')?.value || '').trim().toLowerCase();
+  if (!bn) { dl.innerHTML = ''; return; }
+  const seen = new Set();
+  const items = [];
+  // 날짜 역순으로 순회 → 최근 주소 우선
+  const sorted = [...invoices].sort((a,b) => (b.invoiceDate||'').localeCompare(a.invoiceDate||''));
+  for (const i of sorted) {
+    if ((i.builderName||'').toLowerCase() !== bn) continue;
+    const a = (i.address||'').trim();
+    if (!a || seen.has(a)) continue;
+    seen.add(a);
+    items.push(a);
+    if (items.length >= 20) break;
+  }
+  dl.innerHTML = items.map(a => `<option value="${esc(a)}"/>`).join('');
+}
+
 function checkPrevInvoice() {
+  refreshAddressList();
   const row = document.getElementById('prev-inv-row');
   if (!row) return;
   if (curType === 'PROGRESS') { row.style.display = 'none'; return; }
