@@ -21,6 +21,13 @@
   /* ── 전역 카드/입력 개선 ── */
   input, select, textarea, button { font-family: inherit; }
 
+  /* iOS Safari 자동 줌 방지 — input 의 font-size 가 16px 미만이면 포커스 시 자동 줌 인 */
+  @media (max-width: 480px) {
+    input, select, textarea { font-size: 16px !important; }
+    /* 버튼 터치 타겟 최소 44px */
+    button:not(.mb-nav button):not(.dt-nav-item) { min-height: 40px; }
+  }
+
   /* ── 데스크탑 레이아웃 ── */
   @media (min-width: 768px) {
     /* 앱 전체 구조 */
