@@ -5984,6 +5984,7 @@ async function saveBuilder() {
 let partnerEntries = [];
 let _partnerFilter = 'all';   // 'all' | 'kyle' | 'max'
 let _partnerView = 'period';  // 'period' (기간별 집계) | 'raw' (전체 목록)
+let _partnerSearch = '';      // 검색어 (노트 / 날짜)
 let _expandedPeriods = new Set();
 let _editingPartnerId = null;
 
@@ -6010,6 +6011,28 @@ function _pFD(d) {
   const [y,m,dd] = d.split('-');
   return `${dd}/${m}/${y}`;
 }
+// 호주식 → ISO. 'DD/MM/YYYY' (혹은 'D/M/YYYY') → 'YYYY-MM-DD'. 잘못된 입력이면 null
+function _pAuToIso(s) {
+  if (!s) return null;
+  const m = String(s).trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!m) return null;
+  const [, dd, mm, yy] = m;
+  const d = parseInt(dd,10), mo = parseInt(mm,10), y = parseInt(yy,10);
+  if (mo < 1 || mo > 12 || d < 1 || d > 31) return null;
+  return `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+}
+// 타이핑 중 슬래시 자동 삽입 (모달의 oninput 으로 호출)
+function _pAuDateMask(el) {
+  let v = el.value.replace(/[^0-9/]/g, '');
+  // 슬래시 자동 삽입: 위치 2, 5
+  const digits = v.replace(/\//g, '');
+  let out = '';
+  for (let i = 0; i < digits.length && i < 8; i++) {
+    if (i === 2 || i === 4) out += '/';
+    out += digits[i];
+  }
+  el.value = out;
+}
 
 async function loadPartnerEntries() {
   const raw = await fbGet('partnerLedger');
@@ -6020,17 +6043,39 @@ function _filterByPerson(arr) {
   if (_partnerFilter === 'all') return arr;
   return arr.filter(e => e.person === _partnerFilter);
 }
+// 검색어로 필터: 노트 substring, 또는 날짜의 어떤 표기든 (YYYY-MM-DD / DD/MM/YYYY / 부분 일치)
+function _filterBySearch(arr) {
+  const q = (_partnerSearch || '').trim().toLowerCase();
+  if (!q) return arr;
+  return arr.filter(e => {
+    const note = (e.note || '').toLowerCase();
+    if (note.includes(q)) return true;
+    const iso = (e.date || '').toLowerCase();      // 예: '2026-04-03'
+    if (iso.includes(q)) return true;
+    const au = _pFD(e.date || '').toLowerCase();   // 예: '03/04/2026'
+    if (au.includes(q)) return true;
+    return false;
+  });
+}
+// 검색 input 의 oninput
+function _partnerSearchInput(v) {
+  _partnerSearch = v || '';
+  renderPartners();
+}
 
 function renderPartners() {
   loadPartnerEntries().then(() => {
     const el = document.getElementById('tab-partners');
 
-    const spends = partnerEntries.filter(e => e.type === 'spend');
-    const cashes = partnerEntries.filter(e => e.type === 'cash');
+    const allSpends = partnerEntries.filter(e => e.type === 'spend');
+    const allCashes = partnerEntries.filter(e => e.type === 'cash');
+    // 검색 필터 — 표시되는 entries 만 영향. 누적 카드는 전체 데이터 기준 유지.
+    const spends = _filterBySearch(allSpends);
+    const cashes = _filterBySearch(allCashes);
 
-    // 기간별 집계
+    // 기간별 집계 (검색 적용 전체 데이터로 정확한 차액 계산)
     const periodMap = {};
-    spends.forEach(e => {
+    allSpends.forEach(e => {
       const ps = getPartnerPeriodStart(e.date);
       if (!ps) return;
       if (!periodMap[ps]) periodMap[ps] = {kyle:0, max:0, entries:[]};
@@ -6047,11 +6092,11 @@ function renderPartners() {
     });
     const finalDiff = cumKyleReceive - cumMaxReceive;
 
-    // 단순 누적
-    const spentKyle = spends.filter(e => e.person === 'kyle').reduce((s,e) => s + (parseFloat(e.amount)||0), 0);
-    const spentMax  = spends.filter(e => e.person === 'max').reduce((s,e) => s + (parseFloat(e.amount)||0), 0);
-    const cashKyle = cashes.filter(e => e.person === 'kyle').reduce((s,e) => s + (parseFloat(e.amount)||0), 0);
-    const cashMax  = cashes.filter(e => e.person === 'max').reduce((s,e) => s + (parseFloat(e.amount)||0), 0);
+    // 단순 누적 — 요약 카드는 검색 필터와 무관하게 전체 합계 유지
+    const spentKyle = allSpends.filter(e => e.person === 'kyle').reduce((s,e) => s + (parseFloat(e.amount)||0), 0);
+    const spentMax  = allSpends.filter(e => e.person === 'max').reduce((s,e) => s + (parseFloat(e.amount)||0), 0);
+    const cashKyle = allCashes.filter(e => e.person === 'kyle').reduce((s,e) => s + (parseFloat(e.amount)||0), 0);
+    const cashMax  = allCashes.filter(e => e.person === 'max').reduce((s,e) => s + (parseFloat(e.amount)||0), 0);
     // 캐시 차이 (인출 누적 차이)
     const cashDiff = cashKyle - cashMax;  // 양수면 Kyle이 더 가져감 → Max가 받아야
 
@@ -6113,7 +6158,11 @@ function renderPartners() {
         </div>
       </div>
 
-      <!-- 필터 + 뷰 토글 -->
+      <!-- 검색 + 필터 + 뷰 토글 -->
+      <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px">
+        <input type="text" class="input" value="${esc(_partnerSearch)}" oninput="_partnerSearchInput(this.value)" placeholder="🔍 노트 / 날짜 (예: 점심, 03/04/2026, 2026-04)" style="flex:1;font-size:13px;padding:8px 12px"/>
+        ${_partnerSearch ? `<button onclick="_partnerSearchInput('')" style="background:#F3F4F6;color:#374151;border:1px solid #E5E7EB;border-radius:8px;padding:7px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">✕ 해제</button>` : ''}
+      </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:center;padding:8px;background:var(--card-bg-alt);border-radius:8px">
         <span style="font-size:12px;font-weight:700;color:var(--text-3)">사람:</span>
         <button onclick="_partnerFilter='all';renderPartners()" style="background:${_partnerFilter==='all'?'#4F46E5':'#fff'};color:${_partnerFilter==='all'?'#fff':'#4F46E5'};border:1px solid #4F46E5;padding:5px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">전체</button>
@@ -6157,9 +6206,11 @@ function _renderPartnerPeriodTable(periodMap) {
     const diff = p.max - p.kyle;
     const receiver = diff > 0 ? 'Kyle' : (diff < 0 ? 'Max' : '-');
     const receiverColor = diff > 0 ? '#1E3A8A' : (diff < 0 ? '#7C2D12' : 'var(--text-4)');
-    const isExpanded = _expandedPeriods.has(ps);
-    const visible = _filterByPerson(p.entries);
-    if (_partnerFilter !== 'all' && visible.length === 0) continue;
+    // 검색 활성 시 매칭된 기간은 자동 펼침
+    const isExpanded = _expandedPeriods.has(ps) || !!_partnerSearch;
+    const visible = _filterBySearch(_filterByPerson(p.entries));
+    // 필터(사람 or 검색) 적용 시 해당 entries 없으면 행 숨김
+    if ((_partnerFilter !== 'all' || _partnerSearch) && visible.length === 0) continue;
     rowsHTML += `
       <tr style="border-bottom:1px solid var(--border-2);cursor:pointer" onclick="_togglePartnerPeriod('${ps}')">
         <td style="padding:7px 8px;color:var(--text-2);white-space:nowrap">${_pFD(ps)} ~ ${_pFD(pe)}</td>
@@ -6329,7 +6380,12 @@ function openPartnerModal(id, type) {
           </label>
         </div>
       </div>
-      <div class="mb"><label class="label">날짜</label><input type="date" class="input" id="pn-date" value="${e?(e.date||''):today}"/></div>
+      <div class="mb"><label class="label">날짜  <span style="font-size:10px;color:var(--text-4);font-weight:400">— DD/MM/YYYY</span></label>
+        <div style="display:flex;gap:6px;align-items:center">
+          <input type="text" inputmode="numeric" maxlength="10" class="input" id="pn-date" placeholder="DD/MM/YYYY" oninput="_pAuDateMask(this)" value="${_pFD(e?(e.date||''):today)}" style="flex:1"/>
+          <input type="date" id="pn-date-picker" value="${e?(e.date||''):today}" oninput="document.getElementById('pn-date').value=_pFD(this.value)" style="width:42px;padding:8px 4px;border:1.5px solid var(--border);border-radius:9px;background:var(--card-bg);color-scheme:light" title="달력에서 선택"/>
+        </div>
+      </div>
       <div class="mb"><label class="label">금액 ($)  <span style="font-size:10px;color:var(--text-4);font-weight:400">— 환급은 음수로 입력</span></label><input type="number" step="0.01" class="input" id="pn-amount" placeholder="0" value="${e?(e.amount||''):''}"/></div>
       <div class="mb">
         <label class="label">노트 (선택)</label>
@@ -6374,9 +6430,10 @@ async function savePartnerEntry() {
   const t = document.getElementById('pn-type').value;
   const personEl = document.querySelector('input[name="pn-person"]:checked');
   if (!personEl) return alert('Kyle 또는 Max 를 선택하세요');
-  const date = document.getElementById('pn-date').value;
+  const dateRaw = document.getElementById('pn-date').value;
+  const date = _pAuToIso(dateRaw);
+  if (!date) return alert('날짜 형식이 잘못됐어요 (DD/MM/YYYY)');
   const amount = parseFloat(document.getElementById('pn-amount').value);
-  if (!date) return alert('날짜를 입력하세요');
   if (isNaN(amount) || amount === 0) return alert('금액을 입력하세요 (환급은 음수)');
   const data = {
     type: t,
