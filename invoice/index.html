@@ -1610,15 +1610,16 @@ function updateAuthHeader() {
     if (infoWrap) infoWrap.style.display = '';
     const logout = document.getElementById('hd-logout-btn');
     if (logout) logout.style.display = '';
-    // admin/superadmin만 권한 관리 + 정산 탭 표시
+    // 정산(운영자 정산) 탭은 인보이스 앱 접근 권한이 있는 모두에게 표시.
+    // 여기까지 도달했다면 _canInvoiceAccess 가 이미 통과한 상태.
+    const partners = document.getElementById('hd-partners-btn');
+    if (partners) partners.style.display = '';
+    // 권한 관리 모달은 최상위 관리자(admin/superadmin) 만
     if (userRole === 'admin' || userRole === 'superadmin') {
       const perm = document.getElementById('hd-perm-btn');
       if (perm) perm.style.display = '';
-      const partners = document.getElementById('hd-partners-btn');
-      if (partners) partners.style.display = '';
     }
-    // 최상위 관리자(role==='admin' 또는 'superadmin') 만 달력 탭 노출.
-    // 권한을 부여받은 일반 사용자(viewadmin / staff 등) 에게는 숨김.
+    // 달력 탭도 최상위 관리자만 (그 외 사용자는 보지 않게)
     if (userRole === 'admin' || userRole === 'superadmin') {
       const cal = document.getElementById('hd-calendar-btn');
       if (cal) cal.style.display = '';
