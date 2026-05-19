@@ -6277,7 +6277,16 @@ function openPartnerModal(id, type) {
       </div>
       <div class="mb"><label class="label">날짜</label><input type="date" class="input" id="pn-date" value="${e?(e.date||''):today}"/></div>
       <div class="mb"><label class="label">금액 ($)  <span style="font-size:10px;color:var(--text-4);font-weight:400">— 환급은 음수로 입력</span></label><input type="number" step="0.01" class="input" id="pn-amount" placeholder="0" value="${e?(e.amount||''):''}"/></div>
-      <div class="mb"><label class="label">노트 (선택)</label><textarea class="input" id="pn-note" style="height:60px;resize:none" placeholder="예: 카일 점심, Bunnings 등">${e?esc(e.note||''):''}</textarea></div>
+      <div class="mb">
+        <label class="label">노트 (선택)  <span style="font-size:10px;color:var(--text-4);font-weight:400">— "개인" 글자는 자동 제거</span></label>
+        ${isSpend ? `
+        <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:5px">
+          ${['점심','버닝스','휴무','세븐','아침'].map(w => `
+            <button type="button" onclick="_appendPartnerNote('${w}')" style="background:#EEF2FF;color:#4338CA;border:1px solid #C7D2FE;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">+ ${w}</button>
+          `).join('')}
+        </div>` : ''}
+        <textarea class="input" id="pn-note" style="height:60px;resize:none" placeholder="예: 점심 맥날, Bunnings 영수증 등">${e?esc((e.note||'').replace(/개인\s*/g,'').trim()):''}</textarea>
+      </div>
       <div class="row2" style="gap:6px;margin-top:14px">
         <button class="btn-secondary" style="flex:1" onclick="closePartnerModal()">취소</button>
         <button class="btn-primary" style="flex:2" onclick="savePartnerEntry()">💾 저장</button>
@@ -6290,6 +6299,21 @@ function openPartnerModal(id, type) {
 function closePartnerModal() {
   document.getElementById('partner-modal').classList.remove('open');
   _editingPartnerId = null;
+}
+
+// 노트 단축어 추가: 빠른 입력 버튼이 호출. 이미 있는 단어면 토글 (제거)
+function _appendPartnerNote(word) {
+  const el = document.getElementById('pn-note');
+  if (!el) return;
+  const cur = (el.value || '').trim();
+  // 단어 단위 매칭 (앞뒤 공백/시작/끝)
+  const re = new RegExp(`(^|\\s)${word}(?=$|\\s)`, 'g');
+  if (re.test(cur)) {
+    el.value = cur.replace(re, '$1').replace(/\s+/g,' ').trim();
+  } else {
+    el.value = cur ? cur + ' ' + word : word;
+  }
+  el.focus();
 }
 
 async function savePartnerEntry() {
@@ -6305,7 +6329,8 @@ async function savePartnerEntry() {
     person: personEl.value,
     date,
     amount,
-    note: document.getElementById('pn-note').value.trim(),
+    // 저장 시 "개인" 단어 자동 제거 (중복 표기 방지)
+    note: document.getElementById('pn-note').value.replace(/개인\s*/g,'').replace(/\s+/g,' ').trim(),
     updatedAt: new Date().toISOString()
   };
   if (_editingPartnerId) {
