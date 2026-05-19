@@ -46,10 +46,18 @@ body{background:var(--bg);color:var(--text);min-height:100vh;transition:backgrou
 .header{background:var(--header-bg);color:var(--header-text);padding:14px 18px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,0.3)}
 .logo{font-size:17px;font-weight:800;letter-spacing:-0.3px}
 .logo small{display:block;font-size:10px;color:rgba(255,255,255,0.4);font-weight:400;margin-top:1px}
-.nav{display:flex;gap:4px}
-.nav button{padding:7px 13px;border-radius:8px;border:none;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;transition:all .15s}
+.nav{display:flex;gap:4px;align-items:center}
+.nav button{padding:7px 13px;border-radius:8px;border:none;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;transition:all .15s;min-height:34px}
 .nav button.active{background:var(--accent-light);color:#fff}
 .nav button:not(.active){background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.6)}
+.nav .nav-label{margin-left:2px}
+/* Overflow menu — secondary actions hidden under ⋯ */
+.nav-overflow{position:relative}
+.nav-overflow-btn{font-size:16px;line-height:1;padding:7px 11px !important}
+.nav-overflow-menu{display:none;position:absolute;right:0;top:calc(100% + 6px);background:#fff;color:#111827;border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,0.25);min-width:180px;z-index:200;overflow:hidden;padding:4px 0}
+.nav-overflow-menu.open{display:block}
+.nav-overflow-menu button{display:block;width:100%;text-align:left;background:none !important;color:#111827 !important;padding:10px 14px !important;font-size:13px !important;font-weight:500 !important;border-radius:0 !important;min-height:auto !important}
+.nav-overflow-menu button:hover{background:#F3F4F6 !important}
 .content{max-width:600px;margin:0 auto;padding:16px 16px 90px}
 .card{background:var(--card-bg);border-radius:14px;padding:15px 16px;margin-bottom:10px;box-shadow:0 2px 8px var(--shadow);border:1px solid var(--border)}
 .input{width:100%;padding:10px 13px;border:1.5px solid var(--border);border-radius:9px;font-size:14px;font-family:inherit;outline:none;background:var(--card-bg);color:var(--text)}
@@ -97,14 +105,15 @@ body{background:var(--bg);color:var(--text);min-height:100vh;transition:backgrou
 .icard.RETENTION{border-left-color:#6366F1;background:#EEF2FF}
 .icard.FINISH{border-left-color:#10B981;background:#F0FDF4}
 .icard.NO_PAYMENT{border-left-color:#94A3B8;background:#F8FAFC}
-/* Aging tiers (only for INVOICE / OVERDUE status) */
-.icard.age-0{background:#fff}
-.icard.age-1{background:#FFFBEB;border-left-color:#FBBF24}     /* 1-7d past due: pale yellow */
-.icard.age-2{background:#FEF3C7;border-left-color:#F59E0B}     /* 8-14d: yellow */
-.icard.age-3{background:#FDE68A;border-left-color:#D97706}     /* 15-28d: amber */
-.icard.age-4{background:#FED7AA;border-left-color:#EA580C}     /* 29-56d: orange */
-.icard.age-5{background:#FECACA;border-left-color:#DC2626}     /* 57-84d: red-pink */
-.icard.age-6{background:#FCA5A5;border-left-color:#B91C1C;color:#7F1D1D}  /* 85+d: deep red */
+/* Aging tiers (only for INVOICE / OVERDUE status)
+   2026-05 redesign: subtle background, colored left border + small badge does the warning */
+.icard.age-0{background:var(--card-bg)}
+.icard.age-1{background:var(--card-bg);border-left-color:#FBBF24;border-left-width:5px}      /* 1-7d */
+.icard.age-2{background:var(--card-bg);border-left-color:#F59E0B;border-left-width:5px}      /* 8-14d */
+.icard.age-3{background:#FFFBEB;border-left-color:#D97706;border-left-width:5px}             /* 15-28d */
+.icard.age-4{background:#FFF7ED;border-left-color:#EA580C;border-left-width:5px}             /* 29-56d */
+.icard.age-5{background:#FEF2F2;border-left-color:#DC2626;border-left-width:5px}             /* 57-84d */
+.icard.age-6{background:#FEF2F2;border-left-color:#B91C1C;border-left-width:5px}             /* 85+d */
 .aging-txt{font-size:11px;font-weight:700;white-space:nowrap}
 .aging-txt.age-1{color:#92400E}
 .aging-txt.age-2{color:#78350F}
@@ -504,13 +513,14 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
    RESPONSIVE: Mobile (default) is base; tweak narrow phones and desktop
    ───────────────────────────────────────────────────────────────────────── */
 
-/* Very narrow phones: prevent nav wrap, hide inline summary */
+/* Very narrow phones: bigger touch targets, hide labels (icons only), hide inline summary */
 @media (max-width: 480px) {
-  .header { padding: 10px 12px; }
-  .logo { font-size: 14px; }
+  .header { padding: 8px 10px; gap: 8px }
+  .logo { font-size: 14px; flex-shrink: 0 }
   .logo small { display: none; }
-  .nav { gap: 2px; }
-  .nav button { padding: 5px 8px; font-size: 11px; }
+  .nav { gap: 4px; flex: 1; justify-content: flex-end }
+  .nav button { padding: 8px 10px; font-size: 15px; min-height: 40px; min-width: 40px; line-height: 1 }
+  .nav .nav-label { display: none }  /* 모바일은 이모지만 */
   #inv-summary { display: none !important; }
   .content { padding: 12px 12px 90px; }
 }
@@ -518,7 +528,8 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
 /* Slightly wider phones: still hide inline summary (bbar shows totals) */
 @media (max-width: 600px) and (min-width: 481px) {
   #inv-summary { display: none !important; }
-  .nav button { padding: 6px 10px; font-size: 11px; }
+  .nav button { padding: 7px 11px; font-size: 13px; min-height: 36px }
+  .nav .nav-label { display: none }
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
@@ -627,16 +638,23 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
 <div class="header">
   <div class="logo">K&M Tiling<small>Invoice Manager</small></div>
   <div class="nav">
-    <button class="active" onclick="showTab('invoices')">📋 인보이스</button>
-    <button onclick="showTab('builders')">🏗️ 빌더</button>
-    <button onclick="showTab('stats')">📊 통계</button>
-    <button onclick="showTab('calendar')">📅</button>
-    <button onclick="showTab('partners')" id="hd-partners-btn" style="display:none">🤝 정산</button>
-    <button onclick="toggleTheme()" id="theme-btn" title="다크 모드 (D)" aria-label="다크 모드 전환">🌙</button>
-    <button onclick="openSet()" title="회사 설정">⚙️</button>
-    <button onclick="openPermModal()" id="hd-perm-btn" style="display:none" title="권한 관리 (관리자)">🔐</button>
-    <span id="hd-user-info" style="display:none;font-size:11px;color:rgba(255,255,255,0.6);padding:0 6px;align-self:center"></span>
-    <button onclick="logoutInvoice()" id="hd-logout-btn" style="display:none" title="로그아웃">🚪</button>
+    <!-- 주 탭: 항상 보임 -->
+    <button class="active" onclick="showTab('invoices')">📋 <span class="nav-label">인보이스</span></button>
+    <button onclick="showTab('builders')">🏗️ <span class="nav-label">빌더</span></button>
+    <button onclick="showTab('stats')">📊 <span class="nav-label">통계</span></button>
+    <button onclick="showTab('calendar')" title="달력">📅</button>
+    <button onclick="showTab('partners')" id="hd-partners-btn" style="display:none">🤝 <span class="nav-label">정산</span></button>
+    <!-- 보조 액션: 오버플로우 메뉴 -->
+    <div class="nav-overflow">
+      <button class="nav-overflow-btn" onclick="toggleNavOverflow(event)" aria-label="더보기" title="더보기">⋯</button>
+      <div class="nav-overflow-menu" id="nav-overflow-menu">
+        <button onclick="toggleTheme();closeNavOverflow()" id="theme-btn" title="테마 (D)">🌙 테마</button>
+        <button onclick="openSet();closeNavOverflow()">⚙️ 회사 설정</button>
+        <button onclick="openPermModal();closeNavOverflow()" id="hd-perm-btn" style="display:none">🔐 권한 관리</button>
+        <div id="hd-user-info-wrap" style="display:none;padding:8px 12px;border-top:1px solid rgba(0,0,0,0.06);margin-top:4px"><span id="hd-user-info" style="font-size:11px;color:var(--text-3)"></span></div>
+        <button onclick="logoutInvoice();closeNavOverflow()" id="hd-logout-btn" style="display:none">🚪 로그아웃</button>
+      </div>
+    </div>
   </div>
 </div>
 <div class="content">
@@ -1515,7 +1533,9 @@ function updateAuthHeader() {
   const userRole = sessionStorage.getItem('invoice_user_role');
   if (userId) {
     const info = document.getElementById('hd-user-info');
-    if (info) { info.style.display = ''; info.textContent = '👤 ' + userName; }
+    const infoWrap = document.getElementById('hd-user-info-wrap');
+    if (info) info.textContent = '👤 ' + userName;
+    if (infoWrap) infoWrap.style.display = '';
     const logout = document.getElementById('hd-logout-btn');
     if (logout) logout.style.display = '';
     // admin/superadmin만 권한 관리 + 정산 탭 표시
@@ -1527,6 +1547,24 @@ function updateAuthHeader() {
     }
   }
 }
+
+// 헤더 오버플로우 메뉴 (⋯ 클릭) ─────────────────────────────────────────
+function toggleNavOverflow(ev) {
+  if (ev) ev.stopPropagation();
+  const m = document.getElementById('nav-overflow-menu');
+  if (m) m.classList.toggle('open');
+}
+function closeNavOverflow() {
+  const m = document.getElementById('nav-overflow-menu');
+  if (m) m.classList.remove('open');
+}
+// 바깥 클릭으로 닫기
+document.addEventListener('click', e => {
+  const m = document.getElementById('nav-overflow-menu');
+  if (!m || !m.classList.contains('open')) return;
+  if (e.target.closest('.nav-overflow')) return;
+  m.classList.remove('open');
+});
 
 // ─── 권한 관리 모달 (admin 전용) ─────────────────────────────────────────────
 async function openPermModal() {
@@ -1924,11 +1962,10 @@ function renderInv() {
           </div>
           <div style="flex-shrink:0;text-align:right;min-width:110px">
             ${isPartial && !isRetention && rem > 0.01 ? `
-              <!-- Partial payment: emphasize remaining balance, de-emphasize total -->
-              <div style="font-size:11px;color:#9CA3AF;text-decoration:line-through;line-height:1.1">${fA(amt)}</div>
+              <!-- Partial payment: small struck-through total, deposit info, then remaining (consistent size with normal amount) -->
+              <div style="font-size:10px;color:#9CA3AF;text-decoration:line-through;line-height:1.1">${fA(amt)}</div>
               <div style="font-size:9px;color:#059669;line-height:1.2">입금 ${fA(paid)}</div>
-              <div style="font-size:18px;font-weight:800;color:#DC2626;line-height:1.1;margin-top:2px;padding:3px 6px;background:#FEF2F2;border-radius:6px;display:inline-block">${fA(rem)}</div>
-              <div style="font-size:9px;color:#DC2626;font-weight:700;line-height:1.2;margin-top:1px">⚠️ 잔액</div>
+              <div style="font-size:15px;font-weight:800;color:#DC2626;line-height:1.1;margin-top:2px">${fA(rem)} <span style="font-size:9px;color:#DC2626;font-weight:700">잔액</span></div>
             ` : `
               <div style="font-size:15px;font-weight:800;color:${amt<0?'#DC2626':'#111827'};line-height:1.1">${fA(amt)}</div>
               <div style="font-size:10px;color:#9CA3AF;line-height:1.2">${fAex(amt)} ex</div>
