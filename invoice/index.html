@@ -91,10 +91,12 @@ body{background:var(--bg);color:var(--text);min-height:100vh;transition:backgrou
 .bill-PER_JOB{background:#FEF9C3;color:#854D0E}
 .filter-bar{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;margin-bottom:10px;scrollbar-width:none}
 .filter-bar::-webkit-scrollbar{display:none}
-.bbar{position:fixed;bottom:0;left:0;right:0;background:rgba(30,27,75,0.97);backdrop-filter:blur(10px);padding:10px 20px;display:flex;justify-content:space-around;z-index:100}
-.bstat{text-align:center}
-.bstat-l{font-size:10px;color:rgba(255,255,255,0.4)}
-.bstat-v{font-size:14px;font-weight:800}
+.bbar{position:fixed;bottom:0;left:0;right:0;background:rgba(30,27,75,0.97);backdrop-filter:blur(10px);padding:8px 12px;display:flex;justify-content:space-around;z-index:100;gap:8px}
+.bstat{text-align:center;min-width:0;flex:1}
+.bstat-l{font-size:10px;color:rgba(255,255,255,0.4);white-space:nowrap}
+.bstat-v{font-size:14px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bstat-ex{display:inline;font-size:9px;color:#9CA3AF;font-weight:400;margin-left:4px}
+@media (max-width: 480px){.bstat-ex{display:none}.bstat-v{font-size:13px}}
 .icard{background:var(--card-bg);border-radius:14px;margin-bottom:10px;box-shadow:0 2px 8px var(--shadow);overflow:hidden;border-left:4px solid var(--accent);border:1px solid var(--border);border-left-width:4px}
 .icard.draft{border-left:4px dashed #DC2626;background:repeating-linear-gradient(135deg,var(--card-bg),var(--card-bg) 10px,var(--card-bg-alt) 10px,var(--card-bg-alt) 11px)}
 .icard.PAID{border-left-color:#059669;background:#F0FDF4}
@@ -126,7 +128,9 @@ body{background:var(--bg);color:var(--text);min-height:100vh;transition:backgrou
 .iaddr{font-size:12px;color:var(--text-3)}
 .iamount{font-size:17px;font-weight:900;white-space:nowrap;color:var(--text)}
 .idates{display:flex;gap:10px;font-size:11px;color:var(--text-4);margin-top:8px;flex-wrap:wrap}
-.iexpand{background:none;border:none;cursor:pointer;font-size:11px;color:var(--text-4);width:100%;padding:6px;text-align:center;border-top:1px solid var(--border-2);font-family:inherit}
+.iexpand{background:var(--card-bg-alt);border:none;cursor:pointer;font-size:11px;color:var(--text-3);width:100%;padding:8px;text-align:center;border-top:1px solid var(--border-2);font-family:inherit;font-weight:600;transition:background .15s}
+.iexpand:hover{background:var(--border-2);color:var(--text-2)}
+.iexpand:active{background:var(--border)}
 .idetail{padding:0 16px 14px;border-top:1px solid var(--border-2)}
 .empty{text-align:center;padding:48px 0;color:var(--text-4)}
 .stat-card{background:var(--card-bg);border-radius:14px;padding:14px;box-shadow:0 2px 8px var(--shadow);border:1px solid var(--border)}
@@ -523,6 +527,9 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
   .nav .nav-label { display: none }  /* 모바일은 이모지만 */
   #inv-summary { display: none !important; }
   .content { padding: 12px 12px 90px; }
+  /* iOS Safari: font-size <16px 인 input 에 포커스하면 자동 줌 — 16px 로 올려 방지 */
+  .input, .select, textarea.input, input.input { font-size: 16px !important; padding: 11px 13px }
+  .btn-primary, .btn-secondary { min-height: 44px; font-size: 15px }
 }
 
 /* Slightly wider phones: still hide inline summary (bbar shows totals) */
@@ -1725,9 +1732,10 @@ function updateBar() {
   const out = invoices.filter(i => i.status==='INVOICE' || i.status==='ONGOING').reduce((s,i)=>s+Math.max(0,remaining(i)),0);
   const ov = invoices.filter(isOverdue).reduce((s,i)=>s+Math.max(0,remaining(i)),0);
   const mo = invoices.filter(i=>(i.invoiceDate||'').startsWith(today.slice(0,7))).reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
-  document.getElementById('bs-out').innerHTML = `${fA(out)}<br><span style="font-size:9px;color:#9CA3AF;font-weight:400">${fAex(out)} ex</span>`;
-  document.getElementById('bs-ov').innerHTML = `${fA(ov)}<br><span style="font-size:9px;color:#9CA3AF;font-weight:400">${fAex(ov)} ex</span>`;
-  document.getElementById('bs-mo').innerHTML = `${fA(mo)}<br><span style="font-size:9px;color:#9CA3AF;font-weight:400">${fAex(mo)} ex</span>`;
+  // Mobile: ex 서브텍스트 숨김(.bstat-ex). 데스크탑은 같은 줄에 inline 으로 표시
+  document.getElementById('bs-out').innerHTML = `${fA(out)}<span class="bstat-ex">${fAex(out)} ex</span>`;
+  document.getElementById('bs-ov').innerHTML  = `${fA(ov)}<span class="bstat-ex">${fAex(ov)} ex</span>`;
+  document.getElementById('bs-mo').innerHTML  = `${fA(mo)}<span class="bstat-ex">${fAex(mo)} ex</span>`;
 }
 
 // ── Aging helpers ─────────────────────────────────────────────────────────────
@@ -6056,43 +6064,52 @@ function renderPartners() {
         </div>
       </div>
 
-      <!-- 개인사용(spend) 정산 카드 -->
-      <div style="font-size:11px;font-weight:700;color:var(--text-3);margin:0 0 4px 4px;letter-spacing:0.5px">📊 개인사용 정산 (기간별 차액)</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:14px">
-        <div style="background:#EEF2FF;border:1px solid #C7D2FE;border-radius:12px;padding:14px">
-          <div style="font-size:11px;color:#4338CA;font-weight:700;letter-spacing:0.5px">KYLE 받을 누적</div>
-          <div style="font-size:20px;font-weight:800;color:#1E3A8A;margin-top:4px">${fA(cumKyleReceive)}</div>
-          <div style="font-size:10px;color:#6B7280;margin-top:4px">개인사용 총 ${fA(spentKyle)}</div>
+      <!-- 통합 정산 패널 (개인사용 + 캐시 한 컴팩트 카드) -->
+      <div style="background:var(--card-bg);border-radius:12px;padding:14px;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,0.05)">
+        <!-- 개인사용 행 -->
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <span style="font-size:11px;font-weight:700;color:#4338CA">📊 개인사용</span>
+          <span style="font-size:9px;color:var(--text-4)">기간별 차액</span>
         </div>
-        <div style="background:#FEF3C7;border:1px solid #FDE68A;border-radius:12px;padding:14px">
-          <div style="font-size:11px;color:#92400E;font-weight:700;letter-spacing:0.5px">MAX 받을 누적</div>
-          <div style="font-size:20px;font-weight:800;color:#7C2D12;margin-top:4px">${fA(cumMaxReceive)}</div>
-          <div style="font-size:10px;color:#6B7280;margin-top:4px">개인사용 총 ${fA(spentMax)}</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
+          <div style="background:#EEF2FF;border-radius:10px;padding:10px;text-align:center">
+            <div style="font-size:9px;color:#4338CA;font-weight:700;letter-spacing:0.3px">KYLE 받을</div>
+            <div style="font-size:15px;font-weight:800;color:#1E3A8A;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${fA(cumKyleReceive)}</div>
+            <div style="font-size:9px;color:#6B7280;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">사용 ${fA(spentKyle)}</div>
+          </div>
+          <div style="background:#FEF3C7;border-radius:10px;padding:10px;text-align:center">
+            <div style="font-size:9px;color:#92400E;font-weight:700;letter-spacing:0.3px">MAX 받을</div>
+            <div style="font-size:15px;font-weight:800;color:#7C2D12;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${fA(cumMaxReceive)}</div>
+            <div style="font-size:9px;color:#6B7280;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">사용 ${fA(spentMax)}</div>
+          </div>
+          <div style="background:${Math.abs(finalDiff)<0.01?'#F0FDF4':'#FEF2F2'};border-radius:10px;padding:10px;text-align:center">
+            <div style="font-size:9px;color:${Math.abs(finalDiff)<0.01?'#166534':'#DC2626'};font-weight:700;letter-spacing:0.3px">차이</div>
+            <div style="font-size:15px;font-weight:800;color:${Math.abs(finalDiff)<0.01?'#166534':'#DC2626'};margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${fA(Math.abs(finalDiff))}</div>
+            <div style="font-size:9px;color:#6B7280;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${Math.abs(finalDiff)<0.01 ? '✅ 완료' : (finalDiff > 0 ? '👈 Kyle' : '👈 Max')}</div>
+          </div>
         </div>
-        <div style="background:${Math.abs(finalDiff)<0.01?'#F0FDF4':'#FEF2F2'};border:1px solid ${Math.abs(finalDiff)<0.01?'#BBF7D0':'#FECACA'};border-radius:12px;padding:14px">
-          <div style="font-size:11px;color:${Math.abs(finalDiff)<0.01?'#166534':'#DC2626'};font-weight:700;letter-spacing:0.5px">개인사용 차이</div>
-          <div style="font-size:20px;font-weight:800;color:${Math.abs(finalDiff)<0.01?'#166534':'#DC2626'};margin-top:4px">${fA(Math.abs(finalDiff))}</div>
-          <div style="font-size:10px;color:#6B7280;margin-top:4px">${Math.abs(finalDiff)<0.01 ? '✅ 정산 완료' : (finalDiff > 0 ? 'Kyle 이 더 받아야 함' : 'Max 가 더 받아야 함')}</div>
-        </div>
-      </div>
 
-      <!-- 캐시 인출 정산 카드 (개인사용과 분리) -->
-      <div style="font-size:11px;font-weight:700;color:var(--text-3);margin:0 0 4px 4px;letter-spacing:0.5px">💵 캐시 인출 (별도 정산)</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:14px">
-        <div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:12px;padding:14px">
-          <div style="font-size:11px;color:#1E40AF;font-weight:700;letter-spacing:0.5px">KYLE 캐시 인출</div>
-          <div style="font-size:20px;font-weight:800;color:#1E3A8A;margin-top:4px">${fA(cashKyle)}</div>
-          <div style="font-size:10px;color:#6B7280;margin-top:4px">${cashes.filter(e=>e.person==='kyle').length}건</div>
+        <!-- 캐시 행 (분리선 위) -->
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;padding-top:10px;border-top:1px dashed var(--border-2)">
+          <span style="font-size:11px;font-weight:700;color:#92400E">💵 캐시 인출</span>
+          <span style="font-size:9px;color:var(--text-4)">별도 정산</span>
         </div>
-        <div style="background:#FFFBEB;border:1px solid #FED7AA;border-radius:12px;padding:14px">
-          <div style="font-size:11px;color:#9A3412;font-weight:700;letter-spacing:0.5px">MAX 캐시 인출</div>
-          <div style="font-size:20px;font-weight:800;color:#7C2D12;margin-top:4px">${fA(cashMax)}</div>
-          <div style="font-size:10px;color:#6B7280;margin-top:4px">${cashes.filter(e=>e.person==='max').length}건</div>
-        </div>
-        <div style="background:${Math.abs(cashDiff)<0.01?'#F0FDF4':'#FAF5FF'};border:1px solid ${Math.abs(cashDiff)<0.01?'#BBF7D0':'#E9D5FF'};border-radius:12px;padding:14px">
-          <div style="font-size:11px;color:${Math.abs(cashDiff)<0.01?'#166534':'#6B21A8'};font-weight:700;letter-spacing:0.5px">캐시 차이</div>
-          <div style="font-size:20px;font-weight:800;color:${Math.abs(cashDiff)<0.01?'#166534':'#6B21A8'};margin-top:4px">${fA(Math.abs(cashDiff))}</div>
-          <div style="font-size:10px;color:#6B7280;margin-top:4px">${Math.abs(cashDiff)<0.01 ? '✅ 정산 완료' : (cashDiff > 0 ? 'Max 가 더 받아야 함' : 'Kyle 이 더 받아야 함')}</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+          <div style="background:#EFF6FF;border-radius:10px;padding:10px;text-align:center">
+            <div style="font-size:9px;color:#1E40AF;font-weight:700;letter-spacing:0.3px">KYLE 인출</div>
+            <div style="font-size:15px;font-weight:800;color:#1E3A8A;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${fA(cashKyle)}</div>
+            <div style="font-size:9px;color:#6B7280;margin-top:1px">${cashes.filter(e=>e.person==='kyle').length}건</div>
+          </div>
+          <div style="background:#FFFBEB;border-radius:10px;padding:10px;text-align:center">
+            <div style="font-size:9px;color:#9A3412;font-weight:700;letter-spacing:0.3px">MAX 인출</div>
+            <div style="font-size:15px;font-weight:800;color:#7C2D12;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${fA(cashMax)}</div>
+            <div style="font-size:9px;color:#6B7280;margin-top:1px">${cashes.filter(e=>e.person==='max').length}건</div>
+          </div>
+          <div style="background:${Math.abs(cashDiff)<0.01?'#F0FDF4':'#FAF5FF'};border-radius:10px;padding:10px;text-align:center">
+            <div style="font-size:9px;color:${Math.abs(cashDiff)<0.01?'#166534':'#6B21A8'};font-weight:700;letter-spacing:0.3px">차이</div>
+            <div style="font-size:15px;font-weight:800;color:${Math.abs(cashDiff)<0.01?'#166534':'#6B21A8'};margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${fA(Math.abs(cashDiff))}</div>
+            <div style="font-size:9px;color:#6B7280;margin-top:1px">${Math.abs(cashDiff)<0.01 ? '✅ 완료' : (cashDiff > 0 ? '👈 Max' : '👈 Kyle')}</div>
+          </div>
         </div>
       </div>
 
