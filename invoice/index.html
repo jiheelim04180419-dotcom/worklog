@@ -2924,32 +2924,32 @@ function recomputeDynamicRate() {
 
   // 사이즈 적용 — 두 가지 방식:
   //   (A) 콤보 항목 "Screeding&Floor Tiling": rate sheet의 기본가 무시하고
-  //       = Screeding/m² + Lay Tiles {size}/m² 로 순수 합산. 사용자가 직접 요구한 공식.
-  //       예) NEW + 200x200 = $65 + $80 = $145
+  //       항상 = Screeding/m² + Lay Tiles {size or 300x300}/m² 로 순수 합산.
+  //       사이즈 미선택 시 300x300 기본 (NEW: 65+65=130, RENO: 80+75=155).
+  //       사이즈 선택 시 그 사이즈의 Lay Tiles rate로 (NEW+200x200: 65+80=145).
   //   (B) 그 외 sizable 항목: base + (sizeRate - 300x300 baseline)
   //       예) Wall Tiling NEW + 600x600 = $65 + ($67 - $65) = $67
   const size = document.getElementById('pick-tile-size').value;
-  if (size && size !== 'Mosaic') {
+  const isScreedingCombo = /^screeding\s*&\s*floor\s+tiling/i.test(r.desc);
+
+  // (A) Screeding&Floor Tiling — 항상 합산 (사이즈 미선택이면 300x300 기본)
+  if (isScreedingCombo) {
+    const screedingRate = rates.find(x =>
+      x.rate && !isNaN(x.rate) && /^screeding\s*\/\s*m/i.test((x.desc || '').trim())
+    );
+    const effectiveSize = (size && size !== 'Mosaic') ? size : '300x300';
+    const tileRate = lookupSizeRate(rates, effectiveSize);
+    if (screedingRate && tileRate !== null) {
+      finalRate = round2(parseFloat(screedingRate.rate) + tileRate);
+    }
+  }
+  // (B) 그 외 sizable 항목 — 사이즈 선택 시 차액 방식
+  else if (size && size !== 'Mosaic') {
     const sizeRate = lookupSizeRate(rates, size);
     const baselineRate = lookupSizeRate(rates, '300x300');
-
-    // (A) Screeding&Floor Tiling: 순수 합산
-    if (/^screeding\s*&\s*floor\s+tiling/i.test(r.desc)) {
-      const screedingRate = rates.find(x =>
-        x.rate && !isNaN(x.rate) && /^screeding\s*\/\s*m/i.test((x.desc || '').trim())
-      );
-      if (screedingRate && sizeRate !== null) {
-        finalRate = round2(parseFloat(screedingRate.rate) + sizeRate);
-      } else if (sizeRate !== null && baselineRate !== null) {
-        // 폴백: 일반 차액 방식
-        finalRate = round2(finalRate + (sizeRate - baselineRate));
-      }
-    }
-    // (B) 그 외: 차액 방식
-    else if (sizeRate !== null && baselineRate !== null) {
+    if (sizeRate !== null && baselineRate !== null) {
       finalRate = round2(finalRate + (sizeRate - baselineRate));
     } else if (sizeRate !== null) {
-      // 폴백: 베이스라인 못 찾으면 그냥 sizeRate 대체
       finalRate = sizeRate;
     }
   }
@@ -3065,6 +3065,9 @@ function onPickItemChange() {
   // Check if this is a sizable base item (Floor/Wall/Splashback/Screeding&Floor Tiling)
   if (isItemSizable(r.desc) && tilePanel) {
     tilePanel.style.display = 'block';
+    // 사이즈 미선택 상태에서도 특수 로직(예: Screeding&Floor Tiling = Screeding + 300x300)이
+    // 적용되도록 즉시 한 번 recompute. 일반 항목은 그대로 base를 유지.
+    recomputeDynamicRate();
     return; // sizable items don't use component selector
   }
   
@@ -3707,6 +3710,34 @@ function buildMaterialsDesc(c) {
   return parts.length ? parts.join(', ') : '';
 }
 
+// ── Materials breakdown 인라인 편집 헬퍼 ─────────────────────────────────────
+// breakdown 항목의 amount가 바뀌면 unitPrice(총액)를 자동 재계산
+function updateMatBreakdown(lineIdx, k, val) {
+  const li = lineItems[lineIdx];
+  if (!li || !li.breakdown || !li.breakdown[k]) return;
+  li.breakdown[k].amount = parseFloat(val) || 0;
+  li.unitPrice = round2(li.breakdown.reduce((s, b) => s + (parseFloat(b.amount)||0), 0));
+  li.qty = 1;
+  updLineTotal(lineIdx);
+}
+// breakdown 항목 삭제 + 총액 재계산
+function deleteMatBreakdown(lineIdx, k) {
+  const li = lineItems[lineIdx];
+  if (!li || !li.breakdown) return;
+  li.breakdown.splice(k, 1);
+  li.unitPrice = round2(li.breakdown.reduce((s, b) => s + (parseFloat(b.amount)||0), 0));
+  li.qty = 1;
+  renderLineItems();
+}
+// breakdown 빈 항목 추가
+function addMatBreakdown(lineIdx) {
+  const li = lineItems[lineIdx];
+  if (!li) return;
+  if (!Array.isArray(li.breakdown)) li.breakdown = [];
+  li.breakdown.push({name: '', amount: 0});
+  renderLineItems();
+}
+
 // Create the Materials line item from calculator
 function addCalculatedMaterials() {
   const c = calcMaterials();
@@ -3864,15 +3895,20 @@ function renderLineItems() {
       if (!li.isMaterials) prevRoom = li.room;
       
       if (li.isMaterials) {
-        // Build breakdown display HTML (component-level)
+        // Build breakdown display HTML — each row is editable inline
         let breakdownHTML = '';
         if (li.breakdown && li.breakdown.length > 0) {
-          breakdownHTML = `<div style="padding:4px 8px 0 75px;display:flex;flex-direction:column;gap:2px">
-            ${li.breakdown.map(b => `<div style="display:flex;justify-content:space-between;font-size:10px;color:#A78B4B">
-              <span>${esc(b.name)}</span>
-              <span style="font-weight:600">${fA(b.amount)}</span>
+          breakdownHTML = `<div style="padding:4px 8px 0 75px;display:flex;flex-direction:column;gap:3px">
+            ${li.breakdown.map((b, k) => `<div style="display:flex;gap:4px;align-items:center;font-size:10px;color:#92400E">
+              <input class="input" style="flex:1;font-size:10px;padding:3px 6px;background:#FFFDF7;border-color:#FDE68A" value="${esc(b.name||'')}" oninput="lineItems[${i}].breakdown[${k}].name=this.value" placeholder="항목명"/>
+              <input type="number" step="0.01" class="input" style="width:80px;font-size:10px;padding:3px 6px;background:#FFFDF7;border-color:#FDE68A;text-align:right" value="${b.amount||0}" oninput="updateMatBreakdown(${i},${k},this.value)" placeholder="금액"/>
+              <button style="background:none;border:none;color:#FCA5A5;font-size:14px;cursor:pointer;line-height:1;padding:0 4px" onclick="deleteMatBreakdown(${i},${k})" aria-label="삭제" title="삭제">×</button>
             </div>`).join('')}
+            <button type="button" style="align-self:flex-start;background:none;border:1px dashed #FDE68A;color:#92400E;font-size:10px;font-weight:700;padding:3px 10px;border-radius:4px;cursor:pointer;font-family:inherit;margin-top:2px" onclick="addMatBreakdown(${i})">+ 항목 추가</button>
           </div>`;
+        } else {
+          // breakdown 없으면 추가 버튼만
+          breakdownHTML = `<div style="padding:4px 8px 0 75px"><button type="button" style="background:none;border:1px dashed #FDE68A;color:#92400E;font-size:10px;font-weight:700;padding:3px 10px;border-radius:4px;cursor:pointer;font-family:inherit" onclick="addMatBreakdown(${i})">+ 세부 항목 추가</button></div>`;
         }
         h += `<div style="background:#FFFBEB;border:1px solid #FDE68A;border-radius:8px;padding:8px;margin-bottom:6px">
           <div style="display:flex;gap:6px;align-items:center;margin-bottom:5px">
@@ -3962,7 +3998,7 @@ function renderLineItems() {
         h += `<div style="background:var(--card-bg);border:1px solid var(--border);border-radius:8px;padding:8px;margin-bottom:6px;display:flex;gap:6px;align-items:center">
           <span style="font-size:10px;font-weight:700;color:var(--text-3);min-width:18px">#${i+1}</span>
           <div style="flex:1;min-width:0">
-            <input class="input" style="font-size:11px;padding:4px 7px;margin-bottom:3px" value="${esc(finalDesc)}" oninput="lineItems[${i}].desc=this.value;lineItems[${i}].placement='';updLineTotal(${i})" title="설명 (편집 가능)"/>
+            <input class="input" style="font-size:11px;padding:4px 7px;margin-bottom:3px" value="${esc(finalDesc)}" oninput="lineItems[${i}].desc=this.value;lineItems[${i}].placement='';updLineTotal(${i})" title="설명 (직접 편집 가능 — 다중 컴포넌트도 텍스트로 수정)" placeholder="설명 (편집 가능)"/>
             <div style="display:flex;gap:4px;align-items:center;font-size:10px">
               <input type="number" step="0.01" class="input" style="flex:1;font-size:11px;padding:4px 6px" value="${li.qty||''}" placeholder="qty" oninput="lineItems[${i}].qty=this.value;updLineTotal(${i})"/>
               <span style="color:var(--text-4)">×</span>
