@@ -631,6 +631,7 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
     <button onclick="showTab('builders')">🏗️ 빌더</button>
     <button onclick="showTab('stats')">📊 통계</button>
     <button onclick="showTab('calendar')">📅</button>
+    <button onclick="showTab('partners')" id="hd-partners-btn" style="display:none">🤝 정산</button>
     <button onclick="toggleTheme()" id="theme-btn" title="다크 모드 (D)" aria-label="다크 모드 전환">🌙</button>
     <button onclick="openSet()" title="회사 설정">⚙️</button>
     <button onclick="openPermModal()" id="hd-perm-btn" style="display:none" title="권한 관리 (관리자)">🔐</button>
@@ -643,6 +644,7 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
   <div id="tab-builders" style="display:none"></div>
   <div id="tab-stats" style="display:none"></div>
   <div id="tab-calendar" style="display:none"></div>
+  <div id="tab-partners" style="display:none"></div>
 </div>
 <div class="bbar">
   <div class="bstat"><div class="bstat-l">미수금</div><div class="bstat-v" id="bs-out" style="color:#818CF8">$0</div></div>
@@ -1052,6 +1054,9 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
   </div>
 </div>
 </div>
+
+<!-- Partner Ledger Modal (Kyle/Max 정산) -->
+<div class="modal" id="partner-modal"></div>
 
 <!-- Permission Management Modal (관리자만) -->
 <div class="modal" id="perm-modal">
@@ -1491,10 +1496,12 @@ function updateAuthHeader() {
     if (info) { info.style.display = ''; info.textContent = '👤 ' + userName; }
     const logout = document.getElementById('hd-logout-btn');
     if (logout) logout.style.display = '';
-    // admin/superadmin만 권한 관리 버튼 표시
+    // admin/superadmin만 권한 관리 + 정산 탭 표시
     if (userRole === 'admin' || userRole === 'superadmin') {
       const perm = document.getElementById('hd-perm-btn');
       if (perm) perm.style.display = '';
+      const partners = document.getElementById('hd-partners-btn');
+      if (partners) partners.style.display = '';
     }
   }
 }
@@ -1575,7 +1582,7 @@ function filterByBuilder(name) {
 }
 
 function showTab(t) {
-  ['invoices','builders','stats','calendar'].forEach(id => {
+  ['invoices','builders','stats','calendar','partners'].forEach(id => {
     document.getElementById('tab-'+id).style.display = id===t?'block':'none';
   });
   document.querySelectorAll('.nav button').forEach(b => {
@@ -1585,6 +1592,7 @@ function showTab(t) {
   });
   if (t==='stats') renderStats();
   if (t==='calendar') renderCalendar();
+  if (t==='partners') renderPartners();
 }
 
 // ── Dark Mode ────────────────────────────────────────────────────────────────
@@ -5601,6 +5609,196 @@ async function saveBuilder() {
 }
 
 // ── Stats ─────────────────────────────────────────────────────────────────────
+// ─── Partner Ledger (Kyle/Max 운영자 정산) ──────────────────────────────────
+let partnerEntries = [];
+
+async function loadPartnerEntries() {
+  const raw = await fbGet('partnerLedger');
+  partnerEntries = raw ? Object.entries(raw).map(([id,v])=>({...v,id})) : [];
+  // 최신 날짜순
+  partnerEntries.sort((a,b)=> (b.date||b.from||'').localeCompare(a.date||a.from||''));
+}
+
+function renderPartners() {
+  loadPartnerEntries().then(() => {
+    const el = document.getElementById('tab-partners');
+
+    // 누적 계산
+    const spends = partnerEntries.filter(e=>e.type==='spend');
+    const cashes = partnerEntries.filter(e=>e.type==='cash');
+    const spentKyle = spends.reduce((s,e)=>s+(parseFloat(e.kyle)||0), 0);
+    const spentMax  = spends.reduce((s,e)=>s+(parseFloat(e.max)||0), 0);
+    const cashKyle  = cashes.reduce((s,e)=>s+(parseFloat(e.kyle)||0), 0);
+    const cashMax   = cashes.reduce((s,e)=>s+(parseFloat(e.max)||0), 0);
+    // 회사돈 순사용 = 개인결제 + 캐시인출
+    const totalKyle = spentKyle + cashKyle;
+    const totalMax  = spentMax  + cashMax;
+    const diff = totalMax - totalKyle;  // 양수면 Max가 더 사용, 음수면 Kyle이 더 사용
+
+    el.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:8px;flex-wrap:wrap">
+        <h2 style="margin:0;font-size:18px;font-weight:800;color:var(--text)">🤝 운영자 정산 (Kyle / Max)</h2>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn-secondary" style="padding:8px 12px;font-size:12px" onclick="openPartnerModal(null,'spend')" title="개인 결제 추가">+ 개인결제</button>
+          <button class="btn-secondary" style="padding:8px 12px;font-size:12px;background:#FEF3C7;color:#92400E;border-color:#FDE68A" onclick="openPartnerModal(null,'cash')" title="캐시 인출 추가">+ 캐시 인출</button>
+        </div>
+      </div>
+
+      <!-- 누적 요약 -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:18px">
+        <div style="background:#EEF2FF;border:1px solid #C7D2FE;border-radius:12px;padding:14px">
+          <div style="font-size:11px;color:#4338CA;font-weight:700;letter-spacing:0.5px">KYLE 누적</div>
+          <div style="font-size:20px;font-weight:800;color:#1E3A8A;margin-top:4px">${fA(totalKyle)}</div>
+          <div style="font-size:10px;color:#6B7280;margin-top:4px">개인결제 ${fA(spentKyle)} · 캐시 ${fA(cashKyle)}</div>
+        </div>
+        <div style="background:#FEF3C7;border:1px solid #FDE68A;border-radius:12px;padding:14px">
+          <div style="font-size:11px;color:#92400E;font-weight:700;letter-spacing:0.5px">MAX 누적</div>
+          <div style="font-size:20px;font-weight:800;color:#7C2D12;margin-top:4px">${fA(totalMax)}</div>
+          <div style="font-size:10px;color:#6B7280;margin-top:4px">개인결제 ${fA(spentMax)} · 캐시 ${fA(cashMax)}</div>
+        </div>
+        <div style="background:${Math.abs(diff)<0.01?'#F0FDF4':'#FEF2F2'};border:1px solid ${Math.abs(diff)<0.01?'#BBF7D0':'#FECACA'};border-radius:12px;padding:14px">
+          <div style="font-size:11px;color:${Math.abs(diff)<0.01?'#166534':'#DC2626'};font-weight:700;letter-spacing:0.5px">차액</div>
+          <div style="font-size:20px;font-weight:800;color:${Math.abs(diff)<0.01?'#166534':'#DC2626'};margin-top:4px">${fA(Math.abs(diff))}</div>
+          <div style="font-size:10px;color:#6B7280;margin-top:4px">${Math.abs(diff)<0.01 ? '✅ 정산 완료' : (diff > 0 ? 'Max가 Kyle보다 더 사용' : 'Kyle이 Max보다 더 사용')}</div>
+        </div>
+      </div>
+
+      <!-- 개인결제 섹션 -->
+      <div style="background:var(--card-bg);border-radius:12px;padding:14px;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,0.05)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <h3 style="margin:0;font-size:14px;font-weight:700;color:#4338CA">📊 개인 결제 사용 내역 (${spends.length}건)</h3>
+        </div>
+        ${renderLedgerTable(spends, 'spend')}
+      </div>
+
+      <!-- 캐시 섹션 -->
+      <div style="background:var(--card-bg);border-radius:12px;padding:14px;box-shadow:0 1px 4px rgba(0,0,0,0.05)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <h3 style="margin:0;font-size:14px;font-weight:700;color:#92400E">💵 캐시 인출 내역 (${cashes.length}건)</h3>
+        </div>
+        ${renderLedgerTable(cashes, 'cash')}
+      </div>
+    `;
+  });
+}
+
+function renderLedgerTable(entries, type) {
+  if (!entries.length) {
+    return `<p style="color:var(--text-4);font-size:12px;text-align:center;padding:20px;margin:0">기록이 없어요. 위 버튼으로 추가하세요.</p>`;
+  }
+  const isSpend = type === 'spend';
+  return `
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:600px">
+        <thead>
+          <tr style="background:var(--card-bg-alt);text-align:left">
+            <th style="padding:8px;border-bottom:1px solid var(--border);font-weight:700">${isSpend?'기간':'날짜'}</th>
+            <th style="padding:8px;border-bottom:1px solid var(--border);font-weight:700;text-align:right;color:#4338CA">Kyle</th>
+            <th style="padding:8px;border-bottom:1px solid var(--border);font-weight:700;text-align:right;color:#92400E">Max</th>
+            <th style="padding:8px;border-bottom:1px solid var(--border);font-weight:700">비고</th>
+            <th style="padding:8px;border-bottom:1px solid var(--border);width:60px"></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${entries.map(e=>{
+            const dateStr = isSpend
+              ? `${e.from?fDAu(e.from):''}${e.to?' ~ '+fDAu(e.to):''}`
+              : (e.date ? fDAu(e.date) : '');
+            const kyle = parseFloat(e.kyle)||0;
+            const max = parseFloat(e.max)||0;
+            return `<tr style="border-bottom:1px solid var(--border-2)">
+              <td style="padding:6px 8px;color:var(--text-2);white-space:nowrap">${esc(dateStr)}</td>
+              <td style="padding:6px 8px;text-align:right;color:${kyle>0?'#4338CA':'var(--text-4)'};font-variant-numeric:tabular-nums">${kyle>0?fA(kyle):'—'}</td>
+              <td style="padding:6px 8px;text-align:right;color:${max>0?'#92400E':'var(--text-4)'};font-variant-numeric:tabular-nums">${max>0?fA(max):'—'}</td>
+              <td style="padding:6px 8px;color:var(--text-2);font-size:11px">${esc(e.note||'')}</td>
+              <td style="padding:6px 8px;text-align:right;white-space:nowrap">
+                <button onclick="openPartnerModal('${e.id}','${type}')" style="background:none;border:none;cursor:pointer;font-size:13px;padding:2px 4px" title="수정">✏️</button>
+                <button onclick="deletePartnerEntry('${e.id}')" style="background:none;border:none;cursor:pointer;font-size:13px;padding:2px 4px;color:#EF4444" title="삭제">🗑</button>
+              </td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+let _editingPartnerId = null;
+function openPartnerModal(id, type) {
+  _editingPartnerId = id;
+  const e = id ? partnerEntries.find(x=>x.id===id) : null;
+  const t = e ? e.type : type;
+  const isSpend = t === 'spend';
+  const modal = document.getElementById('partner-modal');
+  modal.innerHTML = `
+    <div class="mbox" style="max-width:480px;background:#fff;color:#111827">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;border-bottom:1px solid #E5E7EB;padding-bottom:10px">
+        <h3 style="font-size:16px;font-weight:800">${e?'수정':'추가'} — ${isSpend?'📊 개인 결제':'💵 캐시 인출'}</h3>
+        <button onclick="closePartnerModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#9CA3AF">×</button>
+      </div>
+      <input type="hidden" id="pn-type" value="${t}"/>
+      ${isSpend ? `
+        <div class="row2">
+          <div class="mb" style="flex:1"><label class="label">기간 시작</label><input type="date" class="input" id="pn-from" value="${e?(e.from||''):''}"/></div>
+          <div class="mb" style="flex:1"><label class="label">기간 끝</label><input type="date" class="input" id="pn-to" value="${e?(e.to||''):''}"/></div>
+        </div>
+      ` : `
+        <div class="mb"><label class="label">날짜</label><input type="date" class="input" id="pn-date" value="${e?(e.date||''):today}"/></div>
+      `}
+      <div class="row2">
+        <div class="mb" style="flex:1"><label class="label">Kyle 금액 ($)</label><input type="number" step="0.01" class="input" id="pn-kyle" placeholder="0" value="${e?(e.kyle||''):''}"/></div>
+        <div class="mb" style="flex:1"><label class="label">Max 금액 ($)</label><input type="number" step="0.01" class="input" id="pn-max" placeholder="0" value="${e?(e.max||''):''}"/></div>
+      </div>
+      <div class="mb"><label class="label">비고 (선택)</label><textarea class="input" id="pn-note" style="height:60px;resize:none" placeholder="예: 카일 4일 휴무, 호텔비용 등">${e?esc(e.note||''):''}</textarea></div>
+      <div class="row2" style="gap:6px;margin-top:14px">
+        <button class="btn-secondary" style="flex:1" onclick="closePartnerModal()">취소</button>
+        <button class="btn-primary" style="flex:2" onclick="savePartnerEntry()">💾 저장</button>
+      </div>
+    </div>
+  `;
+  modal.classList.add('open');
+}
+
+function closePartnerModal() {
+  document.getElementById('partner-modal').classList.remove('open');
+  _editingPartnerId = null;
+}
+
+async function savePartnerEntry() {
+  const t = document.getElementById('pn-type').value;
+  const data = {
+    type: t,
+    kyle: parseFloat(document.getElementById('pn-kyle').value) || 0,
+    max: parseFloat(document.getElementById('pn-max').value) || 0,
+    note: document.getElementById('pn-note').value.trim(),
+    updatedAt: new Date().toISOString()
+  };
+  if (t === 'spend') {
+    data.from = document.getElementById('pn-from').value;
+    data.to = document.getElementById('pn-to').value;
+    if (!data.from) return alert('기간 시작일을 입력하세요');
+  } else {
+    data.date = document.getElementById('pn-date').value;
+    if (!data.date) return alert('날짜를 입력하세요');
+  }
+  if (data.kyle === 0 && data.max === 0) {
+    return alert('Kyle 또는 Max 금액 중 하나는 입력해야 해요');
+  }
+  if (_editingPartnerId) {
+    await fbSet('partnerLedger/'+_editingPartnerId, data);
+  } else {
+    await fbPush('partnerLedger', data);
+  }
+  closePartnerModal();
+  renderPartners();
+}
+
+async function deletePartnerEntry(id) {
+  if (!confirm('삭제할까요?')) return;
+  await fbDel('partnerLedger/'+id);
+  renderPartners();
+}
+
 function renderStats() {
   const out = invoices.filter(i => i.status==='INVOICE' || i.status==='ONGOING').reduce((s,i)=>s+Math.max(0,remaining(i)),0);
   const ov = invoices.filter(isOverdue).reduce((s,i)=>s+Math.max(0,remaining(i)),0);
