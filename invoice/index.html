@@ -6062,6 +6062,7 @@ async function saveBuilder() {
 let partnerEntries = [];
 let _partnerFilter = 'all';   // 'all' | 'kyle' | 'max'
 let _partnerView = 'period';  // 'period' (기간별 집계) | 'raw' (전체 목록)
+let _partnerSection = 'spend'; // 'spend' (개인사용) | 'cash' (캐시 인출)
 let _partnerSearch = '';      // 검색어 (노트 / 날짜)
 let _expandedPeriods = new Set();
 let _editingPartnerId = null;
@@ -6310,6 +6311,12 @@ function renderPartners() {
         ${_partnerSearch ? `<button onclick="_partnerSearchImmediate('')" style="background:#F3F4F6;color:#374151;border:1px solid #E5E7EB;border-radius:8px;padding:7px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">✕ 해제</button>` : ''}
       </div>
       <div style="margin-bottom:14px;padding:8px;background:var(--card-bg-alt);border-radius:8px;display:flex;flex-direction:column;gap:6px">
+        <!-- 종류 토글 행: 개인사용 ↔ 캐시 인출 -->
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+          <span style="font-size:11px;font-weight:700;color:var(--text-3);min-width:36px">종류</span>
+          <button onclick="_partnerSection='spend';renderPartners()" style="flex:1;min-width:120px;background:${_partnerSection==='spend'?'#4338CA':'#fff'};color:${_partnerSection==='spend'?'#fff':'#4338CA'};border:1px solid #4338CA;padding:6px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">📊 개인사용 (${allSpends.length})</button>
+          <button onclick="_partnerSection='cash';renderPartners()" style="flex:1;min-width:120px;background:${_partnerSection==='cash'?'#92400E':'#fff'};color:${_partnerSection==='cash'?'#fff':'#92400E'};border:1px solid #92400E;padding:6px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">💵 캐시 인출 (${allCashes.length})</button>
+        </div>
         <!-- 사람 필터 행 -->
         <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
           <span style="font-size:11px;font-weight:700;color:var(--text-3);min-width:36px">사람</span>
@@ -6317,12 +6324,13 @@ function renderPartners() {
           <button onclick="_partnerFilter='kyle';renderPartners()" style="flex:1;min-width:60px;background:${_partnerFilter==='kyle'?'#1E3A8A':'#fff'};color:${_partnerFilter==='kyle'?'#fff':'#1E3A8A'};border:1px solid #1E3A8A;padding:6px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">🟦 Kyle</button>
           <button onclick="_partnerFilter='max';renderPartners()" style="flex:1;min-width:60px;background:${_partnerFilter==='max'?'#7C2D12':'#fff'};color:${_partnerFilter==='max'?'#fff':'#7C2D12'};border:1px solid #7C2D12;padding:6px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">🟧 Max</button>
         </div>
-        <!-- 뷰 토글 행 -->
+        <!-- 뷰 토글 행 — 개인사용일 때만 (캐시는 단일 리스트) -->
+        ${_partnerSection==='spend' ? `
         <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
           <span style="font-size:11px;font-weight:700;color:var(--text-3);min-width:36px">뷰</span>
           <button onclick="_partnerView='period';renderPartners()" style="flex:1;min-width:100px;background:${_partnerView==='period'?'#4F46E5':'#fff'};color:${_partnerView==='period'?'#fff':'#4F46E5'};border:1px solid #4F46E5;padding:6px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">📊 기간별</button>
           <button onclick="_partnerView='raw';renderPartners()" style="flex:1;min-width:100px;background:${_partnerView==='raw'?'#4F46E5':'#fff'};color:${_partnerView==='raw'?'#fff':'#4F46E5'};border:1px solid #4F46E5;padding:6px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">📋 전체 목록</button>
-        </div>
+        </div>` : ''}
       </div>
 
       <!-- 임시저장 섹션 — 정보 미완성 (날짜 or 금액 누락) entries. 집계 제외 -->
@@ -6332,16 +6340,14 @@ function renderPartners() {
         ${_renderPartnerDraftTable(visibleDrafts)}
       </div>` : ''}
 
-      <!-- 메인 영역 -->
-      ${_partnerView === 'period' ? _renderPartnerPeriodTable(periodMap) : _renderPartnerRawList(spends)}
-
-      <!-- 캐시 섹션 -->
-      <div style="background:var(--card-bg);border-radius:12px;padding:14px;margin-top:14px;box-shadow:0 1px 4px rgba(0,0,0,0.05)">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-          <h3 style="margin:0;font-size:14px;font-weight:700;color:#92400E">💵 캐시 인출 내역 (${_filterByPerson(cashes).length}건)</h3>
-        </div>
-        ${_renderPartnerCashTable(_filterByPerson(cashes))}
-      </div>
+      <!-- 메인 영역 — 종류 토글에 따라 분기 -->
+      ${_partnerSection === 'cash'
+        ? `<div style="background:var(--card-bg);border-radius:12px;padding:8px;box-shadow:0 1px 4px rgba(0,0,0,0.05)">
+            <div style="padding:6px 10px;font-size:13px;font-weight:700;color:#92400E">💵 캐시 인출 내역 (${_filterByPerson(cashes).length}건)</div>
+            ${_renderPartnerCashTable(_filterByPerson(cashes))}
+          </div>`
+        : (_partnerView === 'period' ? _renderPartnerPeriodTable(periodMap) : _renderPartnerRawList(spends))
+      }
     `;
   });
 }
@@ -6446,24 +6452,26 @@ function _renderPartnerRawList(spends) {
   if (!filtered.length) {
     return `<div style="text-align:center;padding:40px;color:var(--text-4);font-size:13px;background:var(--card-bg);border-radius:12px">📋 기록이 없어요.</div>`;
   }
+  const _stickyTh = 'position:sticky;left:0;background:var(--card-bg-alt);z-index:2;box-shadow:1px 0 0 var(--border-2)';
+  const _stickyTd = 'position:sticky;left:0;background:var(--card-bg);z-index:1;box-shadow:1px 0 0 var(--border-2)';
   return `
     <div style="background:var(--card-bg);border-radius:12px;padding:8px;box-shadow:0 1px 4px rgba(0,0,0,0.05);overflow-x:auto">
       <div style="font-size:11px;color:var(--text-3);padding:4px 8px">${filtered.length}건 (최근순)</div>
       <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:600px">
         <thead>
-          <tr style="background:var(--card-bg-alt);text-align:left">
-            <th style="padding:6px 8px;border-bottom:1px solid var(--border);font-weight:700">날짜</th>
-            <th style="padding:6px 8px;border-bottom:1px solid var(--border);font-weight:700">사람</th>
-            <th style="padding:6px 8px;border-bottom:1px solid var(--border);font-weight:700;text-align:right">금액</th>
-            <th style="padding:6px 8px;border-bottom:1px solid var(--border);font-weight:700">노트</th>
-            <th style="padding:6px 8px;border-bottom:1px solid var(--border);width:60px"></th>
+          <tr style="text-align:left">
+            <th style="padding:6px 8px;border-bottom:1px solid var(--border);font-weight:700;${_stickyTh}">날짜</th>
+            <th style="padding:6px 8px;border-bottom:1px solid var(--border);font-weight:700;background:var(--card-bg-alt)">사람</th>
+            <th style="padding:6px 8px;border-bottom:1px solid var(--border);font-weight:700;text-align:right;background:var(--card-bg-alt)">금액</th>
+            <th style="padding:6px 8px;border-bottom:1px solid var(--border);font-weight:700;background:var(--card-bg-alt)">노트</th>
+            <th style="padding:6px 8px;border-bottom:1px solid var(--border);width:60px;background:var(--card-bg-alt)"></th>
           </tr>
         </thead>
         <tbody>
           ${filtered.map(e => {
             const isKyle = e.person === 'kyle';
             return `<tr style="border-bottom:1px solid var(--border-2)">
-              <td style="padding:5px 8px;color:var(--text-2);white-space:nowrap">${e.date ? _pFD(e.date) : ''}</td>
+              <td style="padding:5px 8px;color:var(--text-2);white-space:nowrap;font-weight:600;${_stickyTd}">${e.date ? _pFD(e.date) : ''}</td>
               <td style="padding:5px 8px;color:${isKyle?'#1E3A8A':'#7C2D12'};font-weight:700">${isKyle?'Kyle':'Max'}</td>
               <td style="padding:5px 8px;text-align:right;color:${isKyle?'#1E3A8A':'#7C2D12'};font-variant-numeric:tabular-nums">${fA(e.amount)}</td>
               <td style="padding:5px 8px;color:var(--text-2);font-size:11px">${esc(e.note||'')}</td>
@@ -6514,23 +6522,26 @@ function _renderPartnerCashTable(entries) {
     return `<p style="color:var(--text-4);font-size:12px;text-align:center;padding:20px;margin:0">캐시 인출 기록이 없어요.</p>`;
   }
   const sorted = [...entries].sort((a,b) => (b.date||'').localeCompare(a.date||''));
+  // 날짜 컬럼 sticky — 가로 스크롤해도 항상 보임
+  const _stickyTh = 'position:sticky;left:0;background:var(--card-bg-alt);z-index:2;box-shadow:1px 0 0 var(--border-2)';
+  const _stickyTd = 'position:sticky;left:0;background:var(--card-bg);z-index:1;box-shadow:1px 0 0 var(--border-2)';
   return `
     <div style="overflow-x:auto">
-      <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:500px">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:560px">
         <thead>
-          <tr style="background:var(--card-bg-alt);text-align:left">
-            <th style="padding:6px 8px;border-bottom:1px solid var(--border);font-weight:700">날짜</th>
-            <th style="padding:6px 8px;border-bottom:1px solid var(--border);font-weight:700">사람</th>
-            <th style="padding:6px 8px;border-bottom:1px solid var(--border);font-weight:700;text-align:right">금액</th>
-            <th style="padding:6px 8px;border-bottom:1px solid var(--border);font-weight:700">비고</th>
-            <th style="padding:6px 8px;border-bottom:1px solid var(--border);width:60px"></th>
+          <tr style="text-align:left">
+            <th style="padding:6px 8px;border-bottom:1px solid var(--border);font-weight:700;${_stickyTh}">날짜</th>
+            <th style="padding:6px 8px;border-bottom:1px solid var(--border);font-weight:700;background:var(--card-bg-alt)">사람</th>
+            <th style="padding:6px 8px;border-bottom:1px solid var(--border);font-weight:700;text-align:right;background:var(--card-bg-alt)">금액</th>
+            <th style="padding:6px 8px;border-bottom:1px solid var(--border);font-weight:700;background:var(--card-bg-alt)">비고</th>
+            <th style="padding:6px 8px;border-bottom:1px solid var(--border);width:60px;background:var(--card-bg-alt)"></th>
           </tr>
         </thead>
         <tbody>
           ${sorted.map(e => {
             const isKyle = e.person === 'kyle';
             return `<tr style="border-bottom:1px solid var(--border-2)">
-              <td style="padding:5px 8px;color:var(--text-2);white-space:nowrap">${e.date ? _pFD(e.date) : ''}</td>
+              <td style="padding:5px 8px;color:var(--text-2);white-space:nowrap;font-weight:600;${_stickyTd}">${e.date ? _pFD(e.date) : ''}</td>
               <td style="padding:5px 8px;color:${isKyle?'#1E3A8A':'#7C2D12'};font-weight:700">${isKyle?'Kyle':'Max'}</td>
               <td style="padding:5px 8px;text-align:right;color:${isKyle?'#1E3A8A':'#7C2D12'};font-variant-numeric:tabular-nums">${fA(e.amount)}</td>
               <td style="padding:5px 8px;color:var(--text-2);font-size:11px">${esc(e.note||'')}</td>
