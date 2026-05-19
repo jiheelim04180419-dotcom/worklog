@@ -6315,10 +6315,10 @@ function openPartnerModal(id, type) {
       <div class="mb"><label class="label">날짜</label><input type="date" class="input" id="pn-date" value="${e?(e.date||''):today}"/></div>
       <div class="mb"><label class="label">금액 ($)  <span style="font-size:10px;color:var(--text-4);font-weight:400">— 환급은 음수로 입력</span></label><input type="number" step="0.01" class="input" id="pn-amount" placeholder="0" value="${e?(e.amount||''):''}"/></div>
       <div class="mb">
-        <label class="label">노트 (선택)  <span style="font-size:10px;color:var(--text-4);font-weight:400">— "개인" 글자는 자동 제거</span></label>
+        <label class="label">노트 (선택)</label>
         ${isSpend ? `
         <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:5px">
-          ${['점심','버닝스','휴무','세븐','아침'].map(w => `
+          ${['점심','버닝스','휴무','세븐','아침','맥날','간식','물','주유','세차'].map(w => `
             <button type="button" onclick="_appendPartnerNote('${w}')" style="background:#EEF2FF;color:#4338CA;border:1px solid #C7D2FE;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">+ ${w}</button>
           `).join('')}
         </div>` : ''}
