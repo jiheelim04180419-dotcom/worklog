@@ -51,6 +51,11 @@ body{background:var(--bg);color:var(--text);min-height:100vh;transition:backgrou
 .nav button.active{background:var(--accent-light);color:#fff}
 .nav button:not(.active){background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.6)}
 .nav .nav-label{margin-left:2px}
+/* 데스크탑(>=768px) 헤더는 텍스트 위주 — 이모지 숨김. 모바일은 .nav-label 숨기고 이모지만 보임 (별도 미디어쿼리) */
+@media (min-width: 768px) {
+  .nav .nav-emoji{display:none}
+  .nav .nav-label{margin-left:0}
+}
 /* Overflow menu — secondary actions hidden under ⋯ */
 .nav-overflow{position:relative}
 .nav-overflow-btn{font-size:16px;line-height:1;padding:7px 11px !important}
@@ -73,17 +78,22 @@ body{background:var(--bg);color:var(--text);min-height:100vh;transition:backgrou
 .row2>*{flex:1}
 .mb{margin-bottom:12px}
 .pill{display:inline-block;border-radius:6px;padding:3px 8px;font-size:11px;font-weight:700}
-.pill-INVOICE{background:#EEF2FF;color:#4F46E5}
-.pill-DEPOSIT,.pill-PAID{background:#ECFDF5;color:#059669}
-.pill-CREDIT{background:#FFFBEB;color:#D97706}
-.pill-SUSPEND{background:#FFF1F2;color:#BE123C}
+/* 색 톤 단순화 — 4그룹:
+   미수금/대기  = 주황톤 (INVOICE/ONGOING/BOOKING)
+   위기/지연    = 빨강톤 (OVERDUE/SUSPEND)
+   완료         = 초록톤 (PAID/DEPOSIT/FINISH)
+   보류/중립    = 회색·인디고톤 (RETENTION/CREDIT/NO_PAYMENT/DRAFT) */
+.pill-INVOICE{background:#FFF7ED;color:#C2410C}
+.pill-ONGOING{background:#FEF3C7;color:#B45309}
+.pill-BOOKING{background:#FFEDD5;color:#9A3412}
 .pill-OVERDUE{background:#FEE2E2;color:#DC2626}
-.pill-ONGOING{background:#FEF3C7;color:#92400E}
-.pill-RETENTION{background:#E0E7FF;color:#3730A3}
-.pill-BOOKING{background:#F3E8FF;color:#6B21A8}
+.pill-SUSPEND{background:#FEE2E2;color:#B91C1C}
+.pill-PAID,.pill-DEPOSIT{background:#ECFDF5;color:#059669}
 .pill-FINISH{background:#D1FAE5;color:#065F46}
+.pill-RETENTION{background:#EEF2FF;color:#4338CA}
+.pill-CREDIT{background:#F1F5F9;color:#475569}
 .pill-NO_PAYMENT{background:#F1F5F9;color:#475569}
-.pill-DRAFT{background:#FEE2E2;color:#B91C1C;border:1px dashed #FCA5A5}
+.pill-DRAFT{background:#F3F4F6;color:#374151;border:1px dashed #9CA3AF}
 .co-badge{display:inline-block;background:#E0F2FE;color:#0369A1;border-radius:4px;padding:2px 6px;font-size:10px;font-weight:700;margin-right:4px}
 .co-badge.co2{background:#FCE7F3;color:#9D174D}
 .bill-badge{display:inline-block;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:600;margin-left:6px}
@@ -650,12 +660,12 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
 <div class="header">
   <div class="logo">K&M Tiling<small>Invoice Manager</small></div>
   <div class="nav">
-    <!-- 주 탭: 항상 보임 -->
-    <button class="active" onclick="showTab('invoices')">📋 <span class="nav-label">인보이스</span></button>
-    <button onclick="showTab('builders')">🏗️ <span class="nav-label">빌더</span></button>
-    <button onclick="showTab('stats')">📊 <span class="nav-label">통계</span></button>
-    <button onclick="showTab('calendar')" title="달력">📅</button>
-    <button onclick="showTab('partners')" id="hd-partners-btn" style="display:none">🤝 <span class="nav-label">정산</span></button>
+    <!-- 주 탭: 항상 보임 (데스크탑은 텍스트, 모바일은 이모지) -->
+    <button class="active" onclick="showTab('invoices')"><span class="nav-emoji">📋</span><span class="nav-label">인보이스</span></button>
+    <button onclick="showTab('builders')"><span class="nav-emoji">🏗️</span><span class="nav-label">빌더</span></button>
+    <button onclick="showTab('stats')"><span class="nav-emoji">📊</span><span class="nav-label">통계</span></button>
+    <button onclick="showTab('calendar')" title="달력"><span class="nav-emoji">📅</span><span class="nav-label">달력</span></button>
+    <button onclick="showTab('partners')" id="hd-partners-btn" style="display:none"><span class="nav-emoji">🤝</span><span class="nav-label">정산</span></button>
     <!-- 보조 액션: 오버플로우 메뉴 -->
     <div class="nav-overflow">
       <button class="nav-overflow-btn" onclick="toggleNavOverflow(event)" aria-label="더보기" title="더보기">⋯</button>
