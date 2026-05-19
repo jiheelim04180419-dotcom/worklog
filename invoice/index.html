@@ -6002,11 +6002,13 @@ function renderPartners() {
     });
     const finalDiff = cumKyleReceive - cumMaxReceive;
 
-    // 참고: 단순 누적
+    // 단순 누적
     const spentKyle = spends.filter(e => e.person === 'kyle').reduce((s,e) => s + (parseFloat(e.amount)||0), 0);
     const spentMax  = spends.filter(e => e.person === 'max').reduce((s,e) => s + (parseFloat(e.amount)||0), 0);
     const cashKyle = cashes.filter(e => e.person === 'kyle').reduce((s,e) => s + (parseFloat(e.amount)||0), 0);
     const cashMax  = cashes.filter(e => e.person === 'max').reduce((s,e) => s + (parseFloat(e.amount)||0), 0);
+    // 캐시 차이 (인출 누적 차이)
+    const cashDiff = cashKyle - cashMax;  // 양수면 Kyle이 더 가져감 → Max가 받아야
 
     el.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:8px;flex-wrap:wrap">
@@ -6017,22 +6019,43 @@ function renderPartners() {
         </div>
       </div>
 
-      <!-- 누적 정산 카드 -->
+      <!-- 개인사용(spend) 정산 카드 -->
+      <div style="font-size:11px;font-weight:700;color:var(--text-3);margin:0 0 4px 4px;letter-spacing:0.5px">📊 개인사용 정산 (기간별 차액)</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:14px">
         <div style="background:#EEF2FF;border:1px solid #C7D2FE;border-radius:12px;padding:14px">
           <div style="font-size:11px;color:#4338CA;font-weight:700;letter-spacing:0.5px">KYLE 받을 누적</div>
           <div style="font-size:20px;font-weight:800;color:#1E3A8A;margin-top:4px">${fA(cumKyleReceive)}</div>
-          <div style="font-size:10px;color:#6B7280;margin-top:4px">개인사용 ${fA(spentKyle)} · 캐시 ${fA(cashKyle)}</div>
+          <div style="font-size:10px;color:#6B7280;margin-top:4px">개인사용 총 ${fA(spentKyle)}</div>
         </div>
         <div style="background:#FEF3C7;border:1px solid #FDE68A;border-radius:12px;padding:14px">
           <div style="font-size:11px;color:#92400E;font-weight:700;letter-spacing:0.5px">MAX 받을 누적</div>
           <div style="font-size:20px;font-weight:800;color:#7C2D12;margin-top:4px">${fA(cumMaxReceive)}</div>
-          <div style="font-size:10px;color:#6B7280;margin-top:4px">개인사용 ${fA(spentMax)} · 캐시 ${fA(cashMax)}</div>
+          <div style="font-size:10px;color:#6B7280;margin-top:4px">개인사용 총 ${fA(spentMax)}</div>
         </div>
         <div style="background:${Math.abs(finalDiff)<0.01?'#F0FDF4':'#FEF2F2'};border:1px solid ${Math.abs(finalDiff)<0.01?'#BBF7D0':'#FECACA'};border-radius:12px;padding:14px">
-          <div style="font-size:11px;color:${Math.abs(finalDiff)<0.01?'#166534':'#DC2626'};font-weight:700;letter-spacing:0.5px">최종 차이</div>
+          <div style="font-size:11px;color:${Math.abs(finalDiff)<0.01?'#166534':'#DC2626'};font-weight:700;letter-spacing:0.5px">개인사용 차이</div>
           <div style="font-size:20px;font-weight:800;color:${Math.abs(finalDiff)<0.01?'#166534':'#DC2626'};margin-top:4px">${fA(Math.abs(finalDiff))}</div>
           <div style="font-size:10px;color:#6B7280;margin-top:4px">${Math.abs(finalDiff)<0.01 ? '✅ 정산 완료' : (finalDiff > 0 ? 'Kyle 이 더 받아야 함' : 'Max 가 더 받아야 함')}</div>
+        </div>
+      </div>
+
+      <!-- 캐시 인출 정산 카드 (개인사용과 분리) -->
+      <div style="font-size:11px;font-weight:700;color:var(--text-3);margin:0 0 4px 4px;letter-spacing:0.5px">💵 캐시 인출 (별도 정산)</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:14px">
+        <div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:12px;padding:14px">
+          <div style="font-size:11px;color:#1E40AF;font-weight:700;letter-spacing:0.5px">KYLE 캐시 인출</div>
+          <div style="font-size:20px;font-weight:800;color:#1E3A8A;margin-top:4px">${fA(cashKyle)}</div>
+          <div style="font-size:10px;color:#6B7280;margin-top:4px">${cashes.filter(e=>e.person==='kyle').length}건</div>
+        </div>
+        <div style="background:#FFFBEB;border:1px solid #FED7AA;border-radius:12px;padding:14px">
+          <div style="font-size:11px;color:#9A3412;font-weight:700;letter-spacing:0.5px">MAX 캐시 인출</div>
+          <div style="font-size:20px;font-weight:800;color:#7C2D12;margin-top:4px">${fA(cashMax)}</div>
+          <div style="font-size:10px;color:#6B7280;margin-top:4px">${cashes.filter(e=>e.person==='max').length}건</div>
+        </div>
+        <div style="background:${Math.abs(cashDiff)<0.01?'#F0FDF4':'#FAF5FF'};border:1px solid ${Math.abs(cashDiff)<0.01?'#BBF7D0':'#E9D5FF'};border-radius:12px;padding:14px">
+          <div style="font-size:11px;color:${Math.abs(cashDiff)<0.01?'#166534':'#6B21A8'};font-weight:700;letter-spacing:0.5px">캐시 차이</div>
+          <div style="font-size:20px;font-weight:800;color:${Math.abs(cashDiff)<0.01?'#166534':'#6B21A8'};margin-top:4px">${fA(Math.abs(cashDiff))}</div>
+          <div style="font-size:10px;color:#6B7280;margin-top:4px">${Math.abs(cashDiff)<0.01 ? '✅ 정산 완료' : (cashDiff > 0 ? 'Max 가 더 받아야 함' : 'Kyle 이 더 받아야 함')}</div>
         </div>
       </div>
 
