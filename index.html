@@ -28,6 +28,33 @@
     button:not(.mb-nav button):not(.dt-nav-item) { min-height: 40px; }
   }
 
+  /* ── Typography 단계화 ──
+     모든 인라인 스타일이 font-size 를 덮어쓰지만, line-height/색상/family/letter-spacing
+     은 전역 규칙으로 통일 가능. 가독성과 일관성 개선. */
+  body, p, span, div, button, input, select, textarea, label, h1, h2, h3, h4, h5, h6 {
+    line-height: 1.45;
+    letter-spacing: -0.01em;
+  }
+  /* 큰 타이틀은 좁은 자간 */
+  h1, h2 { letter-spacing: -0.02em; line-height: 1.25; }
+  /* 작은 메타 라벨 (대문자 라벨 등) — 약간 넓은 자간 */
+  p[style*="letterSpacing"], span[style*="letterSpacing"] {
+    /* 인라인 letter-spacing 이 있는 메타 라벨은 그대로 두기 */
+  }
+  /* 숫자 정렬 (tabular-nums) — 금액 표시는 모두 폭 고정 */
+  td.num, p.num, span.num, .stat-value, [class*="amount"], [class*="Amount"] {
+    font-variant-numeric: tabular-nums;
+  }
+  /* 유틸리티 클래스 — 새 컴포넌트나 향후 리팩터링 시 사용
+     .text-meta = 11px / muted / uppercase 가능
+     .text-body = 13px / normal
+     .text-title = 16px / bold
+     .text-pagetitle = 20px / extrabold */
+  .text-meta    { font-size: 11px; color: #6B7280; font-weight: 600; }
+  .text-body    { font-size: 13px; color: #1F2937; font-weight: 400; }
+  .text-title   { font-size: 16px; color: #111827; font-weight: 700; }
+  .text-pagetitle { font-size: 20px; color: #111827; font-weight: 800; letter-spacing: -0.02em; }
+
   /* ── 데스크탑 레이아웃 ── */
   @media (min-width: 768px) {
     /* 앱 전체 구조 */
