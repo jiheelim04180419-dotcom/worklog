@@ -6065,17 +6065,51 @@ function _pAuToIso(s) {
   if (mo < 1 || mo > 12 || d < 1 || d > 31) return null;
   return `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
 }
-// 타이핑 중 슬래시 자동 삽입 (모달의 oninput 으로 호출)
+// 📅 버튼 클릭 → 숨겨진 date input 의 native picker 띄움
+function _openPartnerDatePicker() {
+  const dp = document.getElementById('pn-date-picker');
+  if (!dp) return;
+  // 텍스트 칸의 현재 값을 picker 에 동기화 (사용자가 텍스트로 변경했을 때 반영)
+  const txt = document.getElementById('pn-date');
+  if (txt) {
+    const iso = _pAuToIso(txt.value);
+    if (iso) dp.value = iso;
+  }
+  if (typeof dp.showPicker === 'function') {
+    try { dp.showPicker(); return; } catch(e){}
+  }
+  dp.focus(); dp.click();
+}
+// 타이핑 중 슬래시 자동 삽입 — 커서 위치 유지 (중간 편집 가능)
 function _pAuDateMask(el) {
-  let v = el.value.replace(/[^0-9/]/g, '');
-  // 슬래시 자동 삽입: 위치 2, 5
-  const digits = v.replace(/\//g, '');
+  const origValue = el.value;
+  const origCursor = el.selectionStart != null ? el.selectionStart : origValue.length;
+  // 커서 앞에 있던 숫자 개수 — 재포맷 후 같은 숫자 개수 만큼 뒤에 커서 위치시킴
+  let digitsBeforeCursor = 0;
+  for (let i = 0; i < origCursor; i++) {
+    if (origValue[i] >= '0' && origValue[i] <= '9') digitsBeforeCursor++;
+  }
+  // 숫자만 추출, 최대 8자리 (DDMMYYYY)
+  const digits = origValue.replace(/[^0-9]/g, '').slice(0, 8);
   let out = '';
-  for (let i = 0; i < digits.length && i < 8; i++) {
+  for (let i = 0; i < digits.length; i++) {
     if (i === 2 || i === 4) out += '/';
     out += digits[i];
   }
+  if (out === origValue) return; // 변화 없으면 커서 건드리지 않음
   el.value = out;
+  // 새 커서 위치 — 같은 digitsBeforeCursor 개의 숫자 직후
+  let newCursor = out.length;
+  let digitCount = 0;
+  for (let i = 0; i < out.length; i++) {
+    if (out[i] >= '0' && out[i] <= '9') {
+      digitCount++;
+      if (digitCount === digitsBeforeCursor) { newCursor = i + 1; break; }
+    }
+    if (i === out.length - 1) newCursor = out.length;
+  }
+  if (digitsBeforeCursor === 0) newCursor = 0;
+  try { el.setSelectionRange(newCursor, newCursor); } catch(e){}
 }
 
 async function loadPartnerEntries() {
@@ -6458,9 +6492,12 @@ function openPartnerModal(id, type) {
         </div>
       </div>
       <div class="mb"><label class="label">날짜  <span style="font-size:10px;color:var(--text-4);font-weight:400">— DD/MM/YYYY</span></label>
-        <div style="display:flex;gap:6px;align-items:center">
+        <div style="display:flex;gap:6px;align-items:center;position:relative">
           <input type="text" inputmode="numeric" maxlength="10" class="input" id="pn-date" placeholder="DD/MM/YYYY" oninput="_pAuDateMask(this)" value="${_pFD(e?(e.date||''):today)}" style="flex:1"/>
-          <input type="date" id="pn-date-picker" value="${e?(e.date||''):today}" oninput="document.getElementById('pn-date').value=_pFD(this.value)" style="width:42px;padding:8px 4px;border:1.5px solid var(--border);border-radius:9px;background:var(--card-bg);color-scheme:light" title="달력에서 선택"/>
+          <button type="button" onclick="_openPartnerDatePicker()" title="달력에서 선택" style="width:42px;height:42px;padding:0;border:1.5px solid var(--border);border-radius:9px;background:var(--card-bg);cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;flex-shrink:0">📅</button>
+          <input type="date" id="pn-date-picker" value="${e?(e.date||''):today}"
+            onchange="document.getElementById('pn-date').value=_pFD(this.value)"
+            style="position:absolute;opacity:0;pointer-events:none;width:1px;height:1px;right:0;bottom:0"/>
         </div>
       </div>
       <div class="mb"><label class="label">금액 ($)  <span style="font-size:10px;color:var(--text-4);font-weight:400">— 환급은 음수로 입력</span></label><input type="number" step="0.01" class="input" id="pn-amount" placeholder="0" value="${e?(e.amount||''):''}"/></div>
