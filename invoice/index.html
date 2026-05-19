@@ -6309,15 +6309,20 @@ function renderPartners() {
         />
         ${_partnerSearch ? `<button onclick="_partnerSearchImmediate('')" style="background:#F3F4F6;color:#374151;border:1px solid #E5E7EB;border-radius:8px;padding:7px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">✕ 해제</button>` : ''}
       </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:center;padding:8px;background:var(--card-bg-alt);border-radius:8px">
-        <span style="font-size:12px;font-weight:700;color:var(--text-3)">사람:</span>
-        <button onclick="_partnerFilter='all';renderPartners()" style="background:${_partnerFilter==='all'?'#4F46E5':'#fff'};color:${_partnerFilter==='all'?'#fff':'#4F46E5'};border:1px solid #4F46E5;padding:5px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">전체</button>
-        <button onclick="_partnerFilter='kyle';renderPartners()" style="background:${_partnerFilter==='kyle'?'#1E3A8A':'#fff'};color:${_partnerFilter==='kyle'?'#fff':'#1E3A8A'};border:1px solid #1E3A8A;padding:5px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">🟦 Kyle</button>
-        <button onclick="_partnerFilter='max';renderPartners()" style="background:${_partnerFilter==='max'?'#7C2D12':'#fff'};color:${_partnerFilter==='max'?'#fff':'#7C2D12'};border:1px solid #7C2D12;padding:5px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">🟧 Max</button>
-        <span style="flex:1"></span>
-        <span style="font-size:12px;font-weight:700;color:var(--text-3)">뷰:</span>
-        <button onclick="_partnerView='period';renderPartners()" style="background:${_partnerView==='period'?'#4F46E5':'#fff'};color:${_partnerView==='period'?'#fff':'#4F46E5'};border:1px solid #4F46E5;padding:5px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">📊 기간별</button>
-        <button onclick="_partnerView='raw';renderPartners()" style="background:${_partnerView==='raw'?'#4F46E5':'#fff'};color:${_partnerView==='raw'?'#fff':'#4F46E5'};border:1px solid #4F46E5;padding:5px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">📋 전체 목록</button>
+      <div style="margin-bottom:14px;padding:8px;background:var(--card-bg-alt);border-radius:8px;display:flex;flex-direction:column;gap:6px">
+        <!-- 사람 필터 행 -->
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+          <span style="font-size:11px;font-weight:700;color:var(--text-3);min-width:36px">사람</span>
+          <button onclick="_partnerFilter='all';renderPartners()" style="flex:1;min-width:60px;background:${_partnerFilter==='all'?'#4F46E5':'#fff'};color:${_partnerFilter==='all'?'#fff':'#4F46E5'};border:1px solid #4F46E5;padding:6px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">전체</button>
+          <button onclick="_partnerFilter='kyle';renderPartners()" style="flex:1;min-width:60px;background:${_partnerFilter==='kyle'?'#1E3A8A':'#fff'};color:${_partnerFilter==='kyle'?'#fff':'#1E3A8A'};border:1px solid #1E3A8A;padding:6px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">🟦 Kyle</button>
+          <button onclick="_partnerFilter='max';renderPartners()" style="flex:1;min-width:60px;background:${_partnerFilter==='max'?'#7C2D12':'#fff'};color:${_partnerFilter==='max'?'#fff':'#7C2D12'};border:1px solid #7C2D12;padding:6px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">🟧 Max</button>
+        </div>
+        <!-- 뷰 토글 행 -->
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+          <span style="font-size:11px;font-weight:700;color:var(--text-3);min-width:36px">뷰</span>
+          <button onclick="_partnerView='period';renderPartners()" style="flex:1;min-width:100px;background:${_partnerView==='period'?'#4F46E5':'#fff'};color:${_partnerView==='period'?'#fff':'#4F46E5'};border:1px solid #4F46E5;padding:6px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">📊 기간별</button>
+          <button onclick="_partnerView='raw';renderPartners()" style="flex:1;min-width:100px;background:${_partnerView==='raw'?'#4F46E5':'#fff'};color:${_partnerView==='raw'?'#fff':'#4F46E5'};border:1px solid #4F46E5;padding:6px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">📋 전체 목록</button>
+        </div>
       </div>
 
       <!-- 임시저장 섹션 — 정보 미완성 (날짜 or 금액 누락) entries. 집계 제외 -->
@@ -6366,7 +6371,7 @@ function _renderPartnerPeriodTable(periodMap) {
     if ((_partnerFilter !== 'all' || _partnerSearch) && visible.length === 0) continue;
     rowsHTML += `
       <tr style="border-bottom:1px solid var(--border-2);cursor:pointer" onclick="_togglePartnerPeriod('${ps}')">
-        <td style="padding:7px 8px;color:var(--text-2);white-space:nowrap">${_pFD(ps)} ~ ${_pFD(pe)}</td>
+        <td style="padding:7px 8px;color:var(--text-2);white-space:nowrap;font-weight:600;position:sticky;left:0;background:var(--card-bg);z-index:1;box-shadow:1px 0 0 var(--border-2)">${_pFD(ps)} ~ ${_pFD(pe)}</td>
         <td style="padding:7px 8px;text-align:right;color:${p.kyle!==0?'#1E3A8A':'var(--text-4)'};font-variant-numeric:tabular-nums">${p.kyle!==0?fA(p.kyle):'—'}</td>
         <td style="padding:7px 8px;text-align:right;color:${p.max!==0?'#7C2D12':'var(--text-4)'};font-variant-numeric:tabular-nums">${p.max!==0?fA(p.max):'—'}</td>
         <td style="padding:7px 8px;text-align:right;font-weight:700;color:${receiverColor};font-variant-numeric:tabular-nums">${diff!==0?fA(Math.abs(diff)):'—'}</td>
@@ -6381,18 +6386,20 @@ function _renderPartnerPeriodTable(periodMap) {
   const emptyRow = !rowsHTML
     ? `<tr><td colspan="7" style="padding:32px;text-align:center;color:var(--text-4);font-size:13px">🔍 검색 결과 없음 ${_partnerSearch?`(검색어: "${esc(_partnerSearch)}")`:''}</td></tr>`
     : '';
+  // 기간 컬럼은 sticky left — 가로 스크롤 해도 항상 보임
+  const _stickyTh = 'position:sticky;left:0;background:var(--card-bg-alt);z-index:2;box-shadow:1px 0 0 var(--border-2)';
   return `
     <div style="background:var(--card-bg);border-radius:12px;padding:8px;box-shadow:0 1px 4px rgba(0,0,0,0.05);overflow-x:auto">
-      <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:760px">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:680px">
         <thead>
-          <tr style="background:var(--card-bg-alt);text-align:left">
-            <th style="padding:8px;border-bottom:1px solid var(--border);font-weight:700">기간</th>
-            <th style="padding:8px;border-bottom:1px solid var(--border);font-weight:700;text-align:right;color:#1E3A8A">Kyle 사용</th>
-            <th style="padding:8px;border-bottom:1px solid var(--border);font-weight:700;text-align:right;color:#7C2D12">Max 사용</th>
-            <th style="padding:8px;border-bottom:1px solid var(--border);font-weight:700;text-align:right">차액</th>
-            <th style="padding:8px;border-bottom:1px solid var(--border);font-weight:700">받을 사람</th>
-            <th style="padding:8px;border-bottom:1px solid var(--border);font-weight:700;text-align:center;width:60px">건수</th>
-            <th style="padding:8px;border-bottom:1px solid var(--border);width:40px"></th>
+          <tr style="text-align:left">
+            <th style="padding:8px;border-bottom:1px solid var(--border);font-weight:700;${_stickyTh}">기간</th>
+            <th style="padding:8px;border-bottom:1px solid var(--border);font-weight:700;text-align:right;color:#1E3A8A;background:var(--card-bg-alt)">Kyle 사용</th>
+            <th style="padding:8px;border-bottom:1px solid var(--border);font-weight:700;text-align:right;color:#7C2D12;background:var(--card-bg-alt)">Max 사용</th>
+            <th style="padding:8px;border-bottom:1px solid var(--border);font-weight:700;text-align:right;background:var(--card-bg-alt)">차액</th>
+            <th style="padding:8px;border-bottom:1px solid var(--border);font-weight:700;background:var(--card-bg-alt)">받을 사람</th>
+            <th style="padding:8px;border-bottom:1px solid var(--border);font-weight:700;text-align:center;width:60px;background:var(--card-bg-alt)">건수</th>
+            <th style="padding:8px;border-bottom:1px solid var(--border);width:40px;background:var(--card-bg-alt)"></th>
           </tr>
         </thead>
         <tbody>${rowsHTML}${emptyRow}</tbody>
@@ -6798,7 +6805,14 @@ function renderStats() {
   const ov = invoices.filter(isOverdue).reduce((s,i)=>s+Math.max(0,remaining(i)),0);
   const ret = invoices.filter(i=>i.status==='RETENTION').reduce((s,i)=>s+Math.max(0,remaining(i)),0);
   const pd = invoices.filter(i=>i.status!=='DRAFT').reduce((s,i)=>s+totalPaid(i),0);
-  const mo = invoices.filter(i=>i.status!=='DRAFT' && (i.invoiceDate||'').startsWith(today.slice(0,7))).reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
+  // 이번달 = 이번 달에 들어온 입금 합계 (청구 날짜 X)
+  const _curMoStr = today.slice(0,7);
+  let mo = 0;
+  invoices.filter(i=>i.status!=='DRAFT').forEach(i => {
+    getPayments(i).forEach(p => {
+      if ((p.date||'').startsWith(_curMoStr)) mo += parseFloat(p.amount) || 0;
+    });
+  });
   const drafts = invoices.filter(i=>i.status==='DRAFT');
   const draftCount = drafts.length;
   const draftAmt = drafts.reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
@@ -6812,8 +6826,16 @@ function renderStats() {
     if (i.status==='INVOICE' || i.status==='ONGOING') bs[b].outstanding += Math.max(0,remaining(i));
   });
 
+  // 월별 매출 = 입금 날짜 기준 (청구일 X). 각 payment 의 date.slice(0,7) 로 그룹화.
   const monthly = {};
-  invoices.filter(i=>i.status!=='DRAFT').forEach(i => { const m=(i.invoiceDate||'').slice(0,7); if(m){monthly[m]=(monthly[m]||0)+(parseFloat(i.amount)||0);} });
+  invoices.filter(i=>i.status!=='DRAFT').forEach(i => {
+    getPayments(i).forEach(p => {
+      if (!p.date) return;
+      const m = p.date.slice(0,7);
+      const amt = parseFloat(p.amount) || 0;
+      if (m && amt > 0) monthly[m] = (monthly[m]||0) + amt;
+    });
+  });
   // 월별 / 분기별 토글 (statChartView 글로벌)
   const chartView = (typeof statChartView !== 'undefined') ? statChartView : 'month';
   let sortedM;
@@ -6852,7 +6874,7 @@ function renderStats() {
       ['🔴 연체',   ov,  '#f87171', 'OVERDUE',    ''],
       ['🔒 보류금', ret, '#6366F1', 'RETENTION',  ''],
       ['✅ 총입금', pd,  '#34d399', 'PAID',       ''],
-      ['📅 이번달', mo,  '#fbbf24', 'ALL',        today.slice(0,7)],
+      ['💵 이번달 입금', mo,  '#fbbf24', 'ALL',        today.slice(0,7)],
     ].map(([l,v,c,filter,search])=>`
       <div class="stat-card" style="border-top:3px solid ${c};cursor:pointer" onclick="curFilter='${filter}';searchQ='${search}';invLimit=INV_PAGE;showTab('invoices');renderInv()" title="${l} 인보이스 보기">
         <div style="font-size:11px;color:var(--text-3);margin-bottom:4px">${l}</div>
@@ -6869,7 +6891,7 @@ function renderStats() {
   <!-- 청구 매출 차트 (월별 / 분기별 토글) -->
   <div class="card" style="margin-bottom:12px;overflow:hidden">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:8px;flex-wrap:wrap">
-      <div style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:1px">📊 청구 매출 ${chartView==='quarter'?'(최근 8분기)':'(최근 12개월)'}</div>
+      <div style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:1px">💰 입금 매출 ${chartView==='quarter'?'(최근 8분기)':'(최근 12개월)'}</div>
       <div style="display:flex;gap:4px">
         <button onclick="statChartView='month';renderStats()" style="background:${chartView==='month'?'#4F46E5':'#fff'};color:${chartView==='month'?'#fff':'#4F46E5'};border:1px solid #4F46E5;padding:4px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">월별</button>
         <button onclick="statChartView='quarter';renderStats()" style="background:${chartView==='quarter'?'#4F46E5':'#fff'};color:${chartView==='quarter'?'#fff':'#4F46E5'};border:1px solid #4F46E5;padding:4px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">분기별</button>
