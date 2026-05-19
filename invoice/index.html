@@ -6064,10 +6064,33 @@ function _filterBySearch(arr) {
     return false;
   });
 }
-// 검색 input 의 oninput
+// 검색 input — IME(한글) 조합 중에는 재렌더 안 하고, compositionend 에 한 번만 트리거.
+// 라틴 문자 입력은 디바운스 후 트리거. 재렌더 후 포커스 + caret 위치 복원.
+let _searchDebounce = null;
 function _partnerSearchInput(v) {
   _partnerSearch = v || '';
+  clearTimeout(_searchDebounce);
+  _searchDebounce = setTimeout(_partnerSearchDoRender, 180);
+}
+function _partnerSearchImmediate(v) {
+  _partnerSearch = v || '';
+  clearTimeout(_searchDebounce);
+  _partnerSearchDoRender();
+}
+function _partnerSearchDoRender() {
+  const inp = document.getElementById('partner-search-input');
+  const wasFocused = inp && document.activeElement === inp;
+  const caret = wasFocused ? inp.selectionStart : null;
   renderPartners();
+  if (wasFocused) {
+    requestAnimationFrame(() => {
+      const ni = document.getElementById('partner-search-input');
+      if (ni) {
+        ni.focus();
+        if (caret != null) { try { ni.setSelectionRange(caret, caret); } catch(e){} }
+      }
+    });
+  }
 }
 
 function renderPartners() {
@@ -6167,8 +6190,15 @@ function renderPartners() {
 
       <!-- 검색 + 필터 + 뷰 토글 -->
       <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px">
-        <input type="text" class="input" value="${esc(_partnerSearch)}" oninput="_partnerSearchInput(this.value)" placeholder="🔍 노트 / 날짜 (예: 점심, 03/04/2026, 2026-04)" style="flex:1;font-size:13px;padding:8px 12px"/>
-        ${_partnerSearch ? `<button onclick="_partnerSearchInput('')" style="background:#F3F4F6;color:#374151;border:1px solid #E5E7EB;border-radius:8px;padding:7px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">✕ 해제</button>` : ''}
+        <input id="partner-search-input" type="text" class="input"
+          value="${esc(_partnerSearch)}"
+          placeholder="🔍 노트 / 날짜 (예: 점심, 03/04/2026, 2026-04)"
+          style="flex:1;font-size:13px;padding:8px 12px"
+          oncompositionstart="this.dataset.composing='1'"
+          oncompositionend="this.dataset.composing='';_partnerSearchImmediate(this.value)"
+          oninput="if(this.dataset.composing!=='1')_partnerSearchInput(this.value)"
+        />
+        ${_partnerSearch ? `<button onclick="_partnerSearchImmediate('')" style="background:#F3F4F6;color:#374151;border:1px solid #E5E7EB;border-radius:8px;padding:7px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">✕ 해제</button>` : ''}
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:center;padding:8px;background:var(--card-bg-alt);border-radius:8px">
         <span style="font-size:12px;font-weight:700;color:var(--text-3)">사람:</span>
@@ -6232,6 +6262,9 @@ function _renderPartnerPeriodTable(periodMap) {
       rowsHTML += `<tr><td colspan="7" style="padding:0;background:#FAFAFA"><div style="padding:8px 16px">${_renderEntriesInPeriod(visible)}</div></td></tr>`;
     }
   }
+  const emptyRow = !rowsHTML
+    ? `<tr><td colspan="7" style="padding:32px;text-align:center;color:var(--text-4);font-size:13px">🔍 검색 결과 없음 ${_partnerSearch?`(검색어: "${esc(_partnerSearch)}")`:''}</td></tr>`
+    : '';
   return `
     <div style="background:var(--card-bg);border-radius:12px;padding:8px;box-shadow:0 1px 4px rgba(0,0,0,0.05);overflow-x:auto">
       <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:760px">
@@ -6246,7 +6279,7 @@ function _renderPartnerPeriodTable(periodMap) {
             <th style="padding:8px;border-bottom:1px solid var(--border);width:40px"></th>
           </tr>
         </thead>
-        <tbody>${rowsHTML}</tbody>
+        <tbody>${rowsHTML}${emptyRow}</tbody>
       </table>
     </div>
   `;
