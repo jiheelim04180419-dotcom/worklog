@@ -1820,18 +1820,22 @@ function renderInv() {
     if (invSort === 'number-desc') return (b.invoiceNum||'').localeCompare(a.invoiceNum||'',undefined,{numeric:true});
     if (invSort === 'number-asc')  return (a.invoiceNum||'').localeCompare(b.invoiceNum||'',undefined,{numeric:true});
     // Default: smart sort - unpaid items first (oldest first), then paid (newest first)
+    // Tiebreaker: when dates are equal, higher invoice number first (more recently issued)
     const aUnpaid = isUnpaid(a) || a.status === 'RETENTION';
     const bUnpaid = isUnpaid(b) || b.status === 'RETENTION';
     if (aUnpaid !== bUnpaid) return aUnpaid ? -1 : 1;
+    let dateCmp;
     if (aUnpaid) {
       const ad = a.invoiceDate || '9999-12-31';
       const bd = b.invoiceDate || '9999-12-31';
-      return ad.localeCompare(bd);
+      dateCmp = ad.localeCompare(bd);
     } else {
       const ad = a.invoiceDate || '0000-01-01';
       const bd = b.invoiceDate || '0000-01-01';
-      return bd.localeCompare(ad);
+      dateCmp = bd.localeCompare(ad);
     }
+    if (dateCmp !== 0) return dateCmp;
+    return (b.invoiceNum||'').localeCompare(a.invoiceNum||'', undefined, {numeric:true});
   });
 
   // Update filter bar
@@ -2058,7 +2062,8 @@ async function publishDraft(id, useToday, sendEmail) {
   const co = companies.find(c => c.id === inv.companyId);
   let finalInvNum = inv.invoiceNum;
   if (co) {
-    const padded = co.prefix.includes('BXBT') ? String(co.nextNumber).padStart(4,'0') : String(co.nextNumber);
+    const nextN = computeNextInvNum(co);
+    const padded = co.prefix.includes('BXBT') ? String(nextN).padStart(4,'0') : String(nextN);
     const autoNum = co.prefix + padded;
     if (!finalInvNum) {
       // 빈 번호 → 자동 부여
@@ -2387,11 +2392,33 @@ function onBChange() {
   // If progress invoice, check for matching previous invoice
   if (curType === 'PROGRESS') checkPrevProgressInvoice();
 }
+// 해당 회사의 "발행된" 인보이스 중 최대 번호 + 1 을 리턴.
+// - DRAFT 는 번호를 점유하지 않음 (드라프트는 임시 상태라 번호 예약 X)
+// - 중간에 삭제/되돌리기 된 번호가 있어도 재사용하지 않음 (max+1)
+// - 발행된 인보이스가 0건이면 회사 설정의 초기 nextNumber 사용 (회사 셋업 직후 폴백)
+function computeNextInvNum(co) {
+  if (!co) return 1;
+  let max = 0;
+  let foundPublished = false;
+  for (const inv of invoices) {
+    if (inv.companyId !== co.id) continue;
+    if (inv.status === 'DRAFT') continue;
+    if (!inv.invoiceNum) continue;
+    if (!inv.invoiceNum.startsWith(co.prefix)) continue;
+    const n = parseInt((inv.invoiceNum || '').replace(/\D/g, ''), 10);
+    if (!isNaN(n)) {
+      foundPublished = true;
+      if (n > max) max = n;
+    }
+  }
+  if (!foundPublished) return co.nextNumber || 1;
+  return max + 1;
+}
 function suggestInvNum() {
   const coId = document.getElementById('f-co').value;
   const c = companies.find(c=>c.id===coId);
   if (!c) return;
-  const n = c.nextNumber || 1;
+  const n = computeNextInvNum(c);
   const padded = c.prefix.includes('BXBT') ? String(n).padStart(4,'0') : String(n);
   document.getElementById('f-n').value = c.prefix + padded;
 }
@@ -4062,8 +4089,8 @@ async function saveInv(asDraft, sendEmail) {
   }
   
   const coId = document.getElementById('f-co').value;
-  const invNum = document.getElementById('f-n').value.trim();
-  
+  let invNum = document.getElementById('f-n').value.trim();
+
   // Clean payments (drop empty rows)
   const cleanPayments = invPayments
     .filter(p => parseFloat(p.amount) > 0)
@@ -4100,6 +4127,27 @@ async function saveInv(asDraft, sendEmail) {
     }
   }
   
+  // 인보이스 번호 충돌 검사 + 자동 재할당 (발행될 때만 / DRAFT 저장은 제외)
+  // - 드라프트를 모달에서 수정 후 발행하는 경우, 또는 새 인보이스를 바로 발행하는 경우 모두 적용
+  if (status !== 'DRAFT' && coId) {
+    const co = companies.find(c => c.id === coId);
+    if (co) {
+      const nextN = computeNextInvNum(co);
+      const padded = co.prefix.includes('BXBT') ? String(nextN).padStart(4,'0') : String(nextN);
+      const autoNum = co.prefix + padded;
+      if (!invNum) {
+        invNum = autoNum;
+      } else {
+        // 자기 자신 제외, 다른 발행된 인보이스(DRAFT 제외)와 번호 충돌 검사
+        const conflict = invoices.find(i => i.id !== editId && i.status !== 'DRAFT' && i.invoiceNum === invNum);
+        if (conflict) {
+          if (!confirm(`⚠️ 인보이스 번호 ${invNum} 이(가) 이미 사용 중이에요.\n(다른 인보이스: ${conflict.builderName || ''})\n\n${autoNum} 로 변경해서 발행할까요?`)) return;
+          invNum = autoNum;
+        }
+      }
+    }
+  }
+
   // Backward-compat: also write latest payment to depositDate/depositAmount
   const lastPay = cleanPayments[cleanPayments.length-1] || {};
   
