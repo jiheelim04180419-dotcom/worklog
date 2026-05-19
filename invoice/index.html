@@ -694,10 +694,15 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
   <datalist id="room-list">
     <!-- Populated dynamically by renderRoomList() -->
   </datalist>
-  <div class="mb"><label class="label">현장 주소 (Job Address)</label><input class="input" id="f-a" placeholder="주소"/></div>
+  <div class="mb"><label class="label">현장 주소 (Job Address)</label><input class="input" id="f-a" placeholder="주소" oninput="checkPrevInvoice()"/></div>
   <!-- Hidden status field — auto-set by saveInv() based on draft vs publish -->
   <input type="hidden" id="f-st" value="INVOICE"/>
-  <div id="f-po-row" class="mb"><label class="label">PO 번호 (선택)</label><input class="input" id="f-po" placeholder="PO Number (있을 때만 입력)"/></div>
+  <div id="f-po-row" class="mb"><label class="label">PO 번호 (선택)</label><input class="input" id="f-po" placeholder="PO Number (있을 때만 입력)" oninput="checkPrevInvoice()"/></div>
+  <!-- 이전 인보이스 자동 매칭 힌트 (일반/PO 타입) -->
+  <div id="prev-inv-row" class="mb" style="display:none;background:#FEF3C7;border:1px solid #FDE68A;border-radius:8px;padding:10px 12px">
+    <div id="prev-inv-hint" style="font-size:12px;color:#92400E;margin-bottom:6px;line-height:1.5"></div>
+    <button id="prev-inv-btn" type="button" onclick="loadPrevInvoice()" style="background:#92400E;color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">📋 이전 인보이스 라인 가져오기</button>
+  </div>
   <div id="f-proj-row" class="mb" style="display:none">
     <label class="label">프로젝트명 (Project)</label>
     <div style="display:flex;gap:6px;align-items:center">
@@ -2301,6 +2306,8 @@ function openIM(id) {
   // 모달 열릴 때 항상 맨 위로 스크롤
   const mbox = document.querySelector('#inv-modal .mbox');
   if (mbox) mbox.scrollTop = 0;
+  // 이전 인보이스 자동 매칭 (수정 모드면 안 뜨도록)
+  checkPrevInvoice();
 }
 function closeIM() { document.getElementById('inv-modal').classList.remove('open'); }
 
@@ -2346,7 +2353,10 @@ function onCoChange() {
 }
 function onBChange() {
   const bn = document.getElementById('f-b').value.trim();
-  
+
+  // 이전 인보이스 자동 매칭 (일반/PO 타입)
+  checkPrevInvoice();
+
   // Show/hide private customer panel based on builder name
   const privPanel = document.getElementById('f-private-panel');
   if (privPanel) {
@@ -2394,8 +2404,99 @@ function setType(t) {
   // PO 번호 / 프로젝트명은 모든 타입에서 입력 가능 (선택사항)
   document.getElementById('f-po-row').style.display = 'block';
   document.getElementById('f-proj-row').style.display = 'block';
+  // 이전 인보이스 자동 매칭: PROGRESS는 기존 함수, 그 외는 새 함수
+  if (t === 'PROGRESS') {
+    document.getElementById('prev-inv-row').style.display = 'none';
+  } else {
+    checkPrevInvoice();
+  }
   if (t === 'PROGRESS') checkPrevProgressInvoice();
   // Re-render line items if PROGRESS to show/hide pct fields
+  renderLineItems();
+}
+
+// ── 일반/PO 인보이스 자동 라인 매칭 ──────────────────────────────────────────
+// 우선순위: 1) PO 일치  2) 빌더 + 주소 일치  3) 빌더 일치 (가장 최근)
+function findPrevInvoice() {
+  if (editId) return null;
+  if (curType === 'PROGRESS') return null;  // PROGRESS는 별도 함수 사용
+
+  const builderName = (document.getElementById('f-b')?.value || '').trim();
+  if (!builderName) return null;
+  const poNum   = (document.getElementById('f-po')?.value || '').trim();
+  const address = (document.getElementById('f-a')?.value || '').trim();
+
+  const hasItems = i => i.lineItems && (Array.isArray(i.lineItems) ? i.lineItems.length : Object.keys(i.lineItems).length);
+  const sameBuilder = i =>
+    i.id !== editId &&
+    i.type !== 'PROGRESS' &&
+    (i.builderName||'').toLowerCase() === builderName.toLowerCase() &&
+    hasItems(i);
+
+  // 1) PO 일치
+  if (poNum) {
+    const m = invoices.filter(i => sameBuilder(i) && (i.poNumber||'').toLowerCase() === poNum.toLowerCase());
+    if (m.length) {
+      m.sort((a,b) => (b.invoiceDate||'').localeCompare(a.invoiceDate||''));
+      return { inv: m[0], matchType: 'PO' };
+    }
+  }
+  // 2) 빌더 + 주소 일치
+  if (address) {
+    const m = invoices.filter(i => sameBuilder(i) && (i.address||'').toLowerCase() === address.toLowerCase());
+    if (m.length) {
+      m.sort((a,b) => (b.invoiceDate||'').localeCompare(a.invoiceDate||''));
+      return { inv: m[0], matchType: 'address' };
+    }
+  }
+  // 3) 빌더 일치 (가장 최근)
+  const m = invoices.filter(sameBuilder);
+  if (m.length) {
+    m.sort((a,b) => (b.invoiceDate||'').localeCompare(a.invoiceDate||''));
+    return { inv: m[0], matchType: 'builder' };
+  }
+  return null;
+}
+
+function checkPrevInvoice() {
+  const row = document.getElementById('prev-inv-row');
+  if (!row) return;
+  if (curType === 'PROGRESS') { row.style.display = 'none'; return; }
+
+  const result = findPrevInvoice();
+  if (!result) { row.style.display = 'none'; return; }
+
+  const items = Array.isArray(result.inv.lineItems) ? result.inv.lineItems : Object.values(result.inv.lineItems);
+  const labelMap = { PO: '🎯 같은 PO 발견', address: '🏠 같은 주소 발견', builder: '🏗️ 같은 빌더 (가장 최근)' };
+  const label = labelMap[result.matchType];
+  document.getElementById('prev-inv-hint').innerHTML =
+    `${label}: <b>${esc(result.inv.invoiceNum||'(번호없음)')}</b> · 라인 <b>${items.length}개</b> · ${esc(result.inv.invoiceDate||'')}`;
+  row.style.display = 'block';
+}
+
+function loadPrevInvoice() {
+  const result = findPrevInvoice();
+  if (!result) return alert('이전 인보이스를 찾을 수 없어요');
+
+  if (lineItems.length > 0 && !confirm('현재 라인 항목들을 지우고 이전 인보이스에서 가져올까요?')) return;
+
+  const items = Array.isArray(result.inv.lineItems) ? result.inv.lineItems : Object.values(result.inv.lineItems);
+  // 일반/PO 라인은 단순 복사 (PROGRESS와 달리 % 보정 없음)
+  lineItems = items.map(it => ({
+    cat: it.cat || '',
+    desc: it.desc || '',
+    qty: parseFloat(it.qty) || 1,
+    unitPrice: parseFloat(it.unitPrice) || 0,
+    materials: !!it.materials,
+    pct: '',
+    section: it.section || '',
+    room: it.room || '',
+    placement: it.placement || '',
+    isMaterials: !!it.isMaterials,
+    noTax: !!it.noTax,
+    breakdown: Array.isArray(it.breakdown) ? it.breakdown.map(b => ({...b})) : []
+  }));
+  alert(`✓ ${lineItems.length}개 라인을 가져왔어요. 필요하면 각 행에서 수정/추가/삭제 가능합니다.`);
   renderLineItems();
 }
 
