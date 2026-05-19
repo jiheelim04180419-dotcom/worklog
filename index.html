@@ -1475,13 +1475,17 @@ const inv = {
 };
 function InvoiceButton({ u, s, periodLogs, startDate, endDate, leaveData, onInvoiceSent, companies }) {
   const [show, setShow]       = useState(false);
-  // 두 가지 deduction:
-  //  1) 회사카드 개인결제 등 회사에서 직원에게 차감하는 항목
-  //  2) 마이너스 킵 잔액을 채우기 위한 차감
-  const [d1Desc, setD1Desc]   = useState("Deduction");
-  const [d1Amt,  setD1Amt]    = useState("");
-  const [d2Desc, setD2Desc]   = useState("Keep adjustment");
-  const [d2Amt,  setD2Amt]    = useState("");
+  // 디덕션은 정산 단계에서 저장된 savedDeductions 를 그대로 가져옴
+  // (인쇄 시에는 이미 계산이 끝난 상태라서 별도 수정 UI 없음)
+  const savedDeductionsForPeriod = (() => {
+    const all = (leaveData && leaveData.savedDeductions) || [];
+    const arr = Array.isArray(all) ? all : Object.values(all);
+    return arr
+      .filter(d => d && d.date && startDate && endDate && d.date >= startDate && d.date <= endDate)
+      .map(d => ({ desc: d.desc || "Deduction", amount: parseFloat(d.amount) || 0 }))
+      .filter(d => d.amount > 0);
+  })();
+  const totalDeducted = savedDeductionsForPeriod.reduce((s,d) => s + d.amount, 0);
   const ci         = (leaveData && leaveData.contractorInfo) || {};
   // dailyRate: contractorRateHistory(startDate 시점 기준)가 우선, 없으면 ci.dailyRate
   const dailyRate  = (() => {
@@ -1499,8 +1503,6 @@ function InvoiceButton({ u, s, periodLogs, startDate, endDate, leaveData, onInvo
   const otRate     = dailyRate > 0 ? dailyRate / 8 : 0;
   const workDesc   = ci.workDesc || "Work";
   const invoiceNum = ci.invoiceNum || "10001";
-  const d1Num      = parseFloat(d1Amt) || 0;
-  const d2Num      = parseFloat(d2Amt) || 0;
   // wage.stats 안에 실제 카운트가 있음
   const fullDays    = (s.stats && s.stats.fullDays) || 0;
   const partHours   = (s.stats && s.stats.partHours) || 0;
@@ -1513,7 +1515,7 @@ function InvoiceButton({ u, s, periodLogs, startDate, endDate, leaveData, onInvo
   const workAmt    = fullAmt + otAmt + ptAmt;
   // Work description: "wall and floor tiling 6D7H" 식으로
   const workDescFull = `${workDesc}${fullDays?` ${fullDays}D`:""}${otHours?` ${otHours}H`:""}${partHours?` (PT ${fmt(partHours)}h)`:""}`.trim();
-  const subtotal   = workAmt + travelTotal - d1Num - d2Num;
+  const subtotal   = workAmt + travelTotal - totalDeducted;
   // 영문 이름: ci.nameEn → u.nameEn (직원 편집 폼에서 입력) → u.id → u.name
   const displayName  = ci.nameEn || u.nameEn || u.id || u.name || "";
   // Bill To: 회사 정보 (selectedCompanyId 우선, 없으면 첫 번째 회사로 자동 매칭)
@@ -1531,22 +1533,22 @@ function InvoiceButton({ u, s, periodLogs, startDate, endDate, leaveData, onInvo
   const periodLabel = fmtPeriod(startDate, endDate);
 
   const buildHTML = () => {
-    // 행 정의: DESCRIPTION | Travel Allowance | Amount | TOTAL
-    // 일반 항목 → Amount 칸. Travel allowance만 Travel Allowance 칸.
+    // 행 정의: DESCRIPTION | Amount
+    // Travel allowance / Deduction 모두 같은 Amount 칸에 들어감 (별도 컬럼 없음)
     const rows = [];
     // Work (fulltime + overtime + parttime 합산) — 항상 표시
-    rows.push({ desc: workDescFull || workDesc, travel: "", amount: workAmt });
-    // Travel allowance — 있으면 표시
+    rows.push({ desc: workDescFull || workDesc, amount: workAmt });
+    // Travel allowance — 있으면 같은 Amount 칸에
     if (travelTotal > 0) {
-      rows.push({ desc: "Travel allowance", travel: travelTotal, amount: "" });
+      rows.push({ desc: "Travel allowance", amount: travelTotal });
     }
-    // Deduction 1 (회사카드 등) — 입력했으면 음수
-    if (d1Num > 0) rows.push({ desc: d1Desc || "Deduction", travel: "", amount: -d1Num });
-    // Deduction 2 (Keep adjustment 등) — 입력했으면 음수
-    if (d2Num > 0) rows.push({ desc: d2Desc || "Keep adjustment", travel: "", amount: -d2Num });
+    // 정산 단계에서 저장된 디덕션들 (음수로 표시)
+    savedDeductionsForPeriod.forEach(d => {
+      rows.push({ desc: d.desc, amount: -d.amount });
+    });
     // 빈 줄로 패딩 (최소 6줄)
     const MIN_ROWS = 6;
-    while (rows.length < MIN_ROWS) rows.push({ desc: "", travel: "", amount: "" });
+    while (rows.length < MIN_ROWS) rows.push({ desc: "", amount: "" });
 
     const fmtMoney = v => {
       if (v === "" || v === null || v === undefined) return "";
@@ -1558,10 +1560,8 @@ function InvoiceButton({ u, s, periodLogs, startDate, endDate, leaveData, onInvo
     };
     const addrHTML = (a) => (a||"").split(/[,\n]/).map(l=>l.trim()).filter(Boolean).map(l=>`<div>${l}</div>`).join("");
 
-    // Subtotal: Travel 컬럼 합 / Amount 컬럼 합 / TOTAL 합
-    const travelColSum = travelTotal;
-    const amountColSum = workAmt - d1Num - d2Num;
-    const totalSum     = travelColSum + amountColSum;
+    // Subtotal: 한 컬럼만
+    const totalSum = workAmt + travelTotal - totalDeducted;
 
     return `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>INV-${invoiceNum}</title>
 <style>
@@ -1619,39 +1619,27 @@ table.items tbody td.num{text-align:right;font-variant-numeric:tabular-nums}
 <table class="items">
   <thead>
     <tr>
-      <th style="width:52%">DESCRIPTION</th>
-      <th class="num" style="width:16%">Travel Allowance</th>
-      <th class="num" style="width:16%">Amount</th>
-      <th class="num" style="width:16%">TOTAL</th>
+      <th style="width:70%">DESCRIPTION</th>
+      <th class="num" style="width:30%">Amount</th>
     </tr>
   </thead>
   <tbody>
     ${rows.map(r => {
-      const lineTotal = (parseFloat(r.travel)||0) + (parseFloat(r.amount)||0);
-      const showTotal = (r.desc || r.travel !== "" || r.amount !== "") ? lineTotal : "";
       return `<tr>
         <td>${r.desc||"&nbsp;"}</td>
-        <td class="num">${fmtMoney(r.travel)}</td>
-        <td class="num">${fmtMoney(r.amount)}</td>
-        <td class="num"><strong>${fmtMoney(showTotal)}</strong></td>
+        <td class="num"><strong>${fmtMoney(r.amount)}</strong></td>
       </tr>`;
     }).join("")}
     <tr class="totals-row">
       <td><strong>Subtotal</strong></td>
-      <td class="num">${fmtMoney(travelColSum)}</td>
-      <td class="num">${fmtMoney(amountColSum)}</td>
       <td class="num"><strong>${fmtMoney(totalSum)}</strong></td>
     </tr>
     <tr>
       <td><strong>GST</strong></td>
-      <td></td>
-      <td></td>
       <td class="num">$0.00</td>
     </tr>
     <tr class="total-final">
       <td>TOTAL</td>
-      <td></td>
-      <td></td>
       <td class="num">${fmtMoney(totalSum)}</td>
     </tr>
   </tbody>
@@ -1673,18 +1661,20 @@ table.items tbody td.num{text-align:right;font-variant-numeric:tabular-nums}
       `BILL TO: ${billToName||""}`,
       billToAddress||"",
       "",
-      "DESCRIPTION                          TRAVEL    AMOUNT",
+      "DESCRIPTION                                       AMOUNT",
       "─────────────────────────────────────────────────────",
     ];
-    const addRow = (desc, travel, amount) => {
-      lines.push(`${(desc||"").padEnd(38)} ${String(travel?("$"+parseFloat(travel).toFixed(2)):"").padStart(7)}  ${String(amount?("$"+parseFloat(amount).toFixed(2)):"").padStart(8)}`);
+    const addRow = (desc, amount) => {
+      const amtStr = amount !== "" && amount !== undefined && amount !== null
+        ? (parseFloat(amount) < 0 ? "-$" : "$") + Math.abs(parseFloat(amount)).toFixed(2)
+        : "";
+      lines.push(`${(desc||"").padEnd(46)} ${String(amtStr).padStart(10)}`);
     };
-    if (workAmt) addRow(workDescFull, "", workAmt);
-    if (travelTotal > 0) addRow("Travel allowance", travelTotal, "");
-    if (d1Num > 0) addRow(d1Desc || "Deduction", "", -d1Num);
-    if (d2Num > 0) addRow(d2Desc || "Keep adjustment", "", -d2Num);
+    if (workAmt) addRow(workDescFull, workAmt);
+    if (travelTotal > 0) addRow("Travel allowance", travelTotal);
+    savedDeductionsForPeriod.forEach(d => addRow(d.desc, -d.amount));
     lines.push("─────────────────────────────────────────────────────");
-    lines.push(`${"TOTAL".padEnd(40)} $${subtotal.toFixed(2)}`);
+    lines.push(`${"TOTAL".padEnd(46)} $${subtotal.toFixed(2)}`);
     if(contactEmail)lines.push(`\nQuestions? ${contactEmail}`);
     return lines.filter(l=>l!=="").join("\n");
   };
@@ -1735,17 +1725,11 @@ table.items tbody td.num{text-align:right;font-variant-numeric:tabular-nums}
       <div style={{ padding:"7px 14px",background:"#f0f5ff",borderBottom:"1px solid #c5d8ff",fontSize:11,color:"#3b5fc0",flexShrink:0 }}>
         🖨️ <strong>인쇄/PDF</strong>: 인쇄창 → "PDF로 저장" 선택 &nbsp;·&nbsp; 📤 <strong>공유</strong>: 이메일/파일 앱으로
       </div>
-      <div style={{ padding:"8px 14px",background:"#f8f4ff",borderBottom:"1px solid #e0d6ff",flexShrink:0 }}>
-        <p style={{ fontSize:11,fontWeight:600,color:"#5a3e9b",marginBottom:4 }}>➖ Deductions (선택)</p>
-        <div style={{ display:"flex",gap:6,marginBottom:6 }}>
-          <input style={{ ...styles.input,flex:2,fontSize:12 }} value={d1Desc} onChange={e=>setD1Desc(e.target.value)} placeholder="① 회사카드 등 차감" />
-          <input type="number" style={{ ...styles.input,flex:1,fontSize:12 }} value={d1Amt} onChange={e=>setD1Amt(e.target.value)} placeholder="금액 $" min={0} />
+      {savedDeductionsForPeriod.length > 0 && (
+        <div style={{ padding:"6px 14px",background:"#f8f4ff",borderBottom:"1px solid #e0d6ff",flexShrink:0,fontSize:11,color:"#5a3e9b" }}>
+          ➖ 정산 시 입력된 디덕션 {savedDeductionsForPeriod.length}건 — 인보이스에 자동 반영됨 (수정은 정산 화면에서)
         </div>
-        <div style={{ display:"flex",gap:6 }}>
-          <input style={{ ...styles.input,flex:2,fontSize:12 }} value={d2Desc} onChange={e=>setD2Desc(e.target.value)} placeholder="② 킵 마이너스 채우기" />
-          <input type="number" style={{ ...styles.input,flex:1,fontSize:12 }} value={d2Amt} onChange={e=>setD2Amt(e.target.value)} placeholder="금액 $" min={0} />
-        </div>
-      </div>
+      )}
       <iframe ref={iframeRef} srcDoc={html} style={{ flex:1,border:"none",width:"100%" }} title="invoice" />
     </div>
   );
