@@ -3711,14 +3711,44 @@ function buildMaterialsDesc(c) {
 }
 
 // ── Materials breakdown 인라인 편집 헬퍼 ─────────────────────────────────────
-// breakdown 항목의 amount가 바뀌면 unitPrice(총액)를 자동 재계산
-function updateMatBreakdown(lineIdx, k, val) {
+// breakdown 항목 구조: {name, qty, unitPrice, amount}
+// 옛 데이터({name, amount}만 있던 경우)는 첫 편집 시 qty=1, unitPrice=amount 로 자동 보정
+function _normalizeBreakdown(b) {
+  if (b.qty == null) b.qty = 1;
+  if (b.unitPrice == null) b.unitPrice = parseFloat(b.amount) || 0;
+  if (b.amount == null) b.amount = round2((parseFloat(b.qty)||0) * (parseFloat(b.unitPrice)||0));
+}
+function _recomputeMatLine(lineIdx) {
   const li = lineItems[lineIdx];
-  if (!li || !li.breakdown || !li.breakdown[k]) return;
-  li.breakdown[k].amount = parseFloat(val) || 0;
+  if (!li || !li.breakdown) return;
   li.unitPrice = round2(li.breakdown.reduce((s, b) => s + (parseFloat(b.amount)||0), 0));
   li.qty = 1;
   updLineTotal(lineIdx);
+}
+// qty 변경 → amount 재계산 → 라인 총액 재계산
+function updateMatBreakdownQty(lineIdx, k, val) {
+  const li = lineItems[lineIdx];
+  if (!li || !li.breakdown || !li.breakdown[k]) return;
+  const b = li.breakdown[k];
+  _normalizeBreakdown(b);
+  b.qty = parseFloat(val) || 0;
+  b.amount = round2(b.qty * (parseFloat(b.unitPrice)||0));
+  _recomputeMatLine(lineIdx);
+  // amount 표시 영역도 갱신
+  const amtEl = document.getElementById(`matb-amt-${lineIdx}-${k}`);
+  if (amtEl) amtEl.textContent = '$' + b.amount.toFixed(2);
+}
+// unitPrice 변경 → 같은 처리
+function updateMatBreakdownUnit(lineIdx, k, val) {
+  const li = lineItems[lineIdx];
+  if (!li || !li.breakdown || !li.breakdown[k]) return;
+  const b = li.breakdown[k];
+  _normalizeBreakdown(b);
+  b.unitPrice = parseFloat(val) || 0;
+  b.amount = round2((parseFloat(b.qty)||0) * b.unitPrice);
+  _recomputeMatLine(lineIdx);
+  const amtEl = document.getElementById(`matb-amt-${lineIdx}-${k}`);
+  if (amtEl) amtEl.textContent = '$' + b.amount.toFixed(2);
 }
 // breakdown 항목 삭제 + 총액 재계산
 function deleteMatBreakdown(lineIdx, k) {
@@ -3734,7 +3764,7 @@ function addMatBreakdown(lineIdx) {
   const li = lineItems[lineIdx];
   if (!li) return;
   if (!Array.isArray(li.breakdown)) li.breakdown = [];
-  li.breakdown.push({name: '', amount: 0});
+  li.breakdown.push({name: '', qty: 1, unitPrice: 0, amount: 0});
   renderLineItems();
 }
 
@@ -3745,16 +3775,37 @@ function addCalculatedMaterials() {
     return alert('계산된 금액이 없습니다. 값을 입력하세요.');
   }
   const desc = buildMaterialsDesc(c);
-  // Build breakdown array for component-level display in modal
+  // Build breakdown array — each entry: {name, qty, unitPrice, amount}
+  // 갯수/단가가 있는 항목은 그대로 기록, 없는 항목(flat)은 qty=1, unitPrice=amount 로
   const breakdown = [];
-  if (c.glueTotal > 0) breakdown.push({name: '🧴 Glue', amount: c.glueTotal});
-  if (c.groutTotal > 0) breakdown.push({name: '🟡 Grout', amount: c.groutTotal});
-  if (c.siliconeTotal > 0) breakdown.push({name: '🔘 Silicone', amount: c.siliconeTotal});
-  if (c.fwTotal > 0) breakdown.push({name: '🕳 Floor waste', amount: c.fwTotal});
-  if (c.angleTotal > 0) breakdown.push({name: '📐 Angle', amount: c.angleTotal});
-  if (c.scTotal > 0) breakdown.push({name: '🏖 Sand&Cement', amount: c.scTotal});
+  if (c.glueTotal > 0) {
+    if (c.glueMode === 'bags' && c.glueBags > 0) {
+      breakdown.push({name: '🧴 Glue (포)', qty: c.glueBags, unitPrice: 37, amount: c.glueTotal});
+    } else {
+      breakdown.push({name: '🧴 Glue', qty: 1, unitPrice: c.glueTotal, amount: c.glueTotal});
+    }
+  }
+  if (c.groutTotal > 0) breakdown.push({name: '🟡 Grout', qty: 1, unitPrice: c.groutTotal, amount: c.groutTotal});
+  if (c.siliconeTotal > 0) {
+    const silSqm = round2(c.silWall + c.silFloor);
+    if (c.silRate > 0 && silSqm > 0) {
+      breakdown.push({name: '🔘 Silicone (m²)', qty: silSqm, unitPrice: c.silRate, amount: c.siliconeTotal});
+    } else {
+      breakdown.push({name: '🔘 Silicone', qty: 1, unitPrice: c.siliconeTotal, amount: c.siliconeTotal});
+    }
+  }
+  // Floor waste / Angle 은 항목별로 분리해서 기록 (개별 편집 가능하게)
+  matFwItems.forEach(it => {
+    const amt = round2((it.qty||0) * (it.rate||0));
+    if (amt > 0) breakdown.push({name: '🕳 ' + (it.desc || 'Floor waste'), qty: it.qty||0, unitPrice: it.rate||0, amount: amt});
+  });
+  matAngleItems.forEach(it => {
+    const amt = round2((it.qty||0) * (it.rate||0));
+    if (amt > 0) breakdown.push({name: '📐 ' + (it.desc || 'Angle'), qty: it.qty||0, unitPrice: it.rate||0, amount: amt});
+  });
+  if (c.scTotal > 0) breakdown.push({name: '🏖 Sand&Cement (m²)', qty: c.scSqm, unitPrice: 25, amount: c.scTotal});
   matExtraItems.forEach(it => {
-    if (it.amount > 0) breakdown.push({name: '✏️ ' + (it.desc || 'Extra'), amount: it.amount});
+    if (it.amount > 0) breakdown.push({name: '✏️ ' + (it.desc || 'Extra'), qty: 1, unitPrice: it.amount, amount: it.amount});
   });
   
   lineItems.push({
@@ -3895,19 +3946,28 @@ function renderLineItems() {
       if (!li.isMaterials) prevRoom = li.room;
       
       if (li.isMaterials) {
-        // Build breakdown display HTML — each row is editable inline
+        // Build breakdown display HTML — each row is editable inline (name + qty + unitPrice → amount)
         let breakdownHTML = '';
         if (li.breakdown && li.breakdown.length > 0) {
           breakdownHTML = `<div style="padding:4px 8px 0 75px;display:flex;flex-direction:column;gap:3px">
-            ${li.breakdown.map((b, k) => `<div style="display:flex;gap:4px;align-items:center;font-size:10px;color:#92400E">
-              <input class="input" style="flex:1;font-size:10px;padding:3px 6px;background:#FFFDF7;border-color:#FDE68A" value="${esc(b.name||'')}" oninput="lineItems[${i}].breakdown[${k}].name=this.value" placeholder="항목명"/>
-              <input type="number" step="0.01" class="input" style="width:80px;font-size:10px;padding:3px 6px;background:#FFFDF7;border-color:#FDE68A;text-align:right" value="${b.amount||0}" oninput="updateMatBreakdown(${i},${k},this.value)" placeholder="금액"/>
-              <button style="background:none;border:none;color:#FCA5A5;font-size:14px;cursor:pointer;line-height:1;padding:0 4px" onclick="deleteMatBreakdown(${i},${k})" aria-label="삭제" title="삭제">×</button>
-            </div>`).join('')}
+            ${li.breakdown.map((b, k) => {
+              // 옛 데이터(qty/unitPrice 없음) 보정
+              const qty = b.qty != null ? b.qty : 1;
+              const unit = b.unitPrice != null ? b.unitPrice : (parseFloat(b.amount)||0);
+              const amt = b.amount != null ? b.amount : round2((parseFloat(qty)||0) * (parseFloat(unit)||0));
+              return `<div style="display:flex;gap:3px;align-items:center;font-size:10px;color:#92400E">
+                <input class="input" style="flex:1;min-width:80px;font-size:10px;padding:3px 6px;background:#FFFDF7;border-color:#FDE68A" value="${esc(b.name||'')}" oninput="lineItems[${i}].breakdown[${k}].name=this.value" placeholder="항목명"/>
+                <input type="number" step="0.01" class="input" style="width:60px;font-size:10px;padding:3px 6px;background:#FFFDF7;border-color:#FDE68A;text-align:right" value="${qty}" oninput="updateMatBreakdownQty(${i},${k},this.value)" placeholder="갯수" title="갯수"/>
+                <span style="color:#A78B4B">×</span>
+                <input type="number" step="0.01" class="input" style="width:70px;font-size:10px;padding:3px 6px;background:#FFFDF7;border-color:#FDE68A;text-align:right" value="${unit}" oninput="updateMatBreakdownUnit(${i},${k},this.value)" placeholder="단가" title="단가"/>
+                <span style="color:#A78B4B">=</span>
+                <span id="matb-amt-${i}-${k}" style="min-width:60px;text-align:right;font-weight:700;color:#92400E">$${(parseFloat(amt)||0).toFixed(2)}</span>
+                <button style="background:none;border:none;color:#FCA5A5;font-size:14px;cursor:pointer;line-height:1;padding:0 4px" onclick="deleteMatBreakdown(${i},${k})" aria-label="삭제" title="삭제">×</button>
+              </div>`;
+            }).join('')}
             <button type="button" style="align-self:flex-start;background:none;border:1px dashed #FDE68A;color:#92400E;font-size:10px;font-weight:700;padding:3px 10px;border-radius:4px;cursor:pointer;font-family:inherit;margin-top:2px" onclick="addMatBreakdown(${i})">+ 항목 추가</button>
           </div>`;
         } else {
-          // breakdown 없으면 추가 버튼만
           breakdownHTML = `<div style="padding:4px 8px 0 75px"><button type="button" style="background:none;border:1px dashed #FDE68A;color:#92400E;font-size:10px;font-weight:700;padding:3px 10px;border-radius:4px;cursor:pointer;font-family:inherit" onclick="addMatBreakdown(${i})">+ 세부 항목 추가</button></div>`;
         }
         h += `<div style="background:#FFFBEB;border:1px solid #FDE68A;border-radius:8px;padding:8px;margin-bottom:6px">
