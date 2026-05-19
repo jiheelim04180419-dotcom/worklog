@@ -1542,10 +1542,11 @@ function InvoiceButton({ u, s, periodLogs, startDate, endDate, leaveData, onInvo
     if (travelTotal > 0) {
       rows.push({ desc: "Travel allowance", amount: travelTotal });
     }
-    // 정산 단계에서 저장된 디덕션들 (음수로 표시)
-    savedDeductionsForPeriod.forEach(d => {
-      rows.push({ desc: d.desc, amount: -d.amount });
-    });
+    // 정산 단계에서 저장된 디덕션들 → 합계 1줄 "Deduction" 으로 통합
+    // (개별 설명은 정산 화면에서 체크용으로만 사용. 인보이스에는 노출 X)
+    if (totalDeducted > 0) {
+      rows.push({ desc: "Deduction", amount: -totalDeducted });
+    }
     // 빈 줄로 패딩 (최소 6줄)
     const MIN_ROWS = 6;
     while (rows.length < MIN_ROWS) rows.push({ desc: "", amount: "" });
@@ -1672,7 +1673,7 @@ table.items tbody td.num{text-align:right;font-variant-numeric:tabular-nums}
     };
     if (workAmt) addRow(workDescFull, workAmt);
     if (travelTotal > 0) addRow("Travel allowance", travelTotal);
-    savedDeductionsForPeriod.forEach(d => addRow(d.desc, -d.amount));
+    if (totalDeducted > 0) addRow("Deduction", -totalDeducted);
     lines.push("─────────────────────────────────────────────────────");
     lines.push(`${"TOTAL".padEnd(46)} $${subtotal.toFixed(2)}`);
     if(contactEmail)lines.push(`\nQuestions? ${contactEmail}`);
