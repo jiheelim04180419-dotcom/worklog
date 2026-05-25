@@ -11,6 +11,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="Invoice"/>
 <title>K&M Invoice</title>
+<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
 :root {
@@ -4860,9 +4861,9 @@ function restoreDocTitle() {
 }
 
 // ─── Subcontractor Statement PDF (NSW form) ─────────────────────────────────
-// 인보이스 + 빌더 + 회사 정보로 NSW Subcontractor Statement 양식을 자동 채워
-// 인쇄 친화적 HTML 새 창에 열고 사용자가 PDF 로 저장 → 이메일에 수동 첨부
-function openSubcontractorStatement(invId) {
+// 인보이스 + 빌더 + 회사 정보로 NSW 원본 PDF 템플릿(AcroForm)에 모든 필드 자동 채움.
+// pdf-lib 사용해서 브라우저에서 직접 PDF 다운로드. 디렉터 서명 이미지가 등록되어 있으면 서명란에 자동 삽입.
+async function openSubcontractorStatement(invId) {
   const inv = invoices.find(i => i.id === invId);
   if (!inv) return alert('인보이스를 찾을 수 없어요');
   const b = builders.find(x => x.name === inv.builderName) || {};
@@ -4879,16 +4880,110 @@ function openSubcontractorStatement(invId) {
   if (missing.length) {
     return alert('Statement 발행 전에 다음 정보를 채워주세요:\n\n• ' + missing.join('\n• '));
   }
-  const fAuS = s => { if (!s) return ['','','']; const [y,m,d] = s.split('-'); return [d, m, y.slice(-2)]; };
+  if (typeof PDFLib === 'undefined') {
+    return alert('PDF 라이브러리 로드 실패. 페이지 새로고침 후 다시 시도해주세요.');
+  }
+  const fAuS = s => { if (!s) return ['','','']; const [y,m,d] = (s||'').split('-'); return [d||'', m||'', (y||'').slice(-2)]; };
   const [fd, fm, fy] = fAuS(inv.startDate || inv.invoiceDate || '');
   const [td, tm, ty] = fAuS(inv.invoiceDate || '');
-  const [pd, pm, py] = fAuS(inv.invoiceDate || '');   // payment claim date = 청구일
+  const [pd, pm, py] = fAuS(inv.invoiceDate || '');
   const [insd, insm, insy] = fAuS(co.insuranceDate || '');
-  const sigDate = fAuS(today);
-  const today_fAu = `${sigDate[0]}/${sigDate[1]}/20${sigDate[2]}`;
+  const [sd, sm, sy] = fAuS(today);
   const contractRef = inv.projectName || inv.address || '';
-  const addrHTML = (co.address||'').split(/[,\n]/).map(s=>s.trim()).filter(Boolean).join(', ');
+  const addr = (co.address||'').split(/[,\n]/).map(s=>s.trim()).filter(Boolean).join(', ');
 
+  try {
+    // 1) 원본 템플릿 PDF 다운로드
+    const tplResp = await fetch('/worklog/invoice/subcontractor_statement_template.pdf', { cache: 'no-cache' });
+    if (!tplResp.ok) throw new Error('템플릿 PDF 로드 실패 (' + tplResp.status + ')');
+    const tplBytes = await tplResp.arrayBuffer();
+
+    const pdfDoc = await PDFLib.PDFDocument.load(tplBytes);
+    const form = pdfDoc.getForm();
+
+    // 2) 26개 AcroForm 필드 채우기
+    const fill = (name, val) => {
+      try { form.getTextField(name).setText(String(val ?? '')); }
+      catch (e) { console.warn('필드 누락:', name, e.message); }
+    };
+    fill('subcontractor', co.name);
+    fill('subcontractor address', addr);
+    fill('ABN', co.abn);
+    fill('business name of principal contractor', b.statementName || b.name || '');
+    fill('ABN2', b.abn || '');
+    fill('contract number/identifier', contractRef);
+    fill('dd1', fd); fill('mm1', fm); fill('yy1', fy);
+    fill('dd2', td); fill('mm2', tm); fill('yy2', ty);
+    fill('dd3', pd); fill('mm3', pm); fill('yy3', py);
+    fill('name', co.signerName);
+    fill('dd4', insd); fill('mm4', insm); fill('yy4', insy);
+    fill('full name', co.signerName);
+    fill('position/title', co.signerTitle);
+    fill('dd5', sd); fill('mm5', sm); fill('yy5', sy);
+
+    // Check Box3 = workers exist (true). Check Box4 = exempt employer (false).
+    try { form.getCheckBox('Check Box3').check(); } catch(e){ console.warn(e); }
+    try { form.getCheckBox('Check Box4').uncheck(); } catch(e){}
+
+    // 3) 디렉터 서명 이미지 (있을 경우) 오버레이
+    if (co.signatureImg && co.signatureImg.startsWith('data:image/')) {
+      try {
+        const sigDataUrl = co.signatureImg;
+        const sigBytes = await fetch(sigDataUrl).then(r => r.arrayBuffer());
+        const isJpeg = sigDataUrl.startsWith('data:image/jpeg') || sigDataUrl.startsWith('data:image/jpg');
+        const sigImg = isJpeg ? await pdfDoc.embedJpg(sigBytes) : await pdfDoc.embedPng(sigBytes);
+
+        const page1 = pdfDoc.getPages()[0];
+        // 서명란: (f) Signature ……… 영역 (x≈95~290, y≈150~178, Full name 필드 왼쪽)
+        const boxW = 180, boxH = 36;
+        const boxX = 100;
+        const boxY = 145;
+        // 비율 유지하면서 박스 안쪽에 들어가도록 스케일
+        const r1 = sigImg.width / sigImg.height;
+        const r2 = boxW / boxH;
+        let drawW, drawH;
+        if (r1 > r2) { drawW = boxW; drawH = boxW / r1; }
+        else         { drawH = boxH; drawW = boxH * r1; }
+        const drawX = boxX + (boxW - drawW) / 2;
+        const drawY = boxY + (boxH - drawH) / 2;
+        page1.drawImage(sigImg, { x: drawX, y: drawY, width: drawW, height: drawH });
+      } catch (sigErr) {
+        console.warn('서명 이미지 삽입 실패:', sigErr);
+        alert('⚠️ 서명 이미지 삽입 실패 (서명 없이 진행됨): ' + (sigErr.message || sigErr));
+      }
+    }
+
+    // 4) 폼 평탄화(필드 더이상 편집 불가) 후 다운로드
+    // 평탄화하면 PDF 뷰어들이 다른 모양으로 렌더링하지 않고 일관됨. 단점은 수정 불가.
+    // → 일단 평탄화 안 함. 빌더 측에서 한 번 더 확인할 여지를 남김.
+    // form.flatten();
+
+    const out = await pdfDoc.save();
+    const blob = new Blob([out], { type: 'application/pdf' });
+    const url = URL.createObjectURL(blob);
+
+    // 파일명: Statement_빌더명_인보이스번호.pdf
+    const safeBuilder = (b.name || 'builder').replace(/[^\w가-힣\-]/g, '_').slice(0, 30);
+    const fname = `Statement_${safeBuilder}_${inv.invoiceNum || inv.id}.pdf`;
+
+    // 다운로드 트리거 + 새 탭에서 미리보기
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fname;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    // 미리보기 새 탭도 열기 (선택적; 빌더가 확인 후 첨부)
+    window.open(url, '_blank');
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    return;
+  } catch (err) {
+    console.error('Statement 생성 실패, HTML 폴백:', err);
+    alert('⚠️ 원본 PDF 템플릿 생성 실패 — HTML 버전으로 인쇄됩니다.\n\n' + (err.message || err));
+    // 폴백: 아래의 HTML 생성으로 진행
+  }
+
+  // ───── 폴백: HTML 인쇄용 ─────
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Subcontractor Statement ${esc(inv.invoiceNum||'')}</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,Helvetica,Arial,sans-serif}
@@ -4929,7 +5024,7 @@ p{margin-bottom:10pt;font-size:10pt}
   <span class="note">(Business name)</span>
 </div>
 <div class="section">
-  of <span class="fill-long" style="min-width:400px">${esc(addrHTML)}</span><br/>
+  of <span class="fill-long" style="min-width:400px">${esc(addr)}</span><br/>
   <span class="note">(Address of subcontractor)</span>
 </div>
 <div class="section">
@@ -4964,7 +5059,7 @@ p{margin-bottom:10pt;font-size:10pt}
   <strong>(f)</strong> Signature ………………………………………………… &nbsp;&nbsp; Full name <span class="fill-long">${esc(co.signerName)}</span>
 </div>
 <div class="section">
-  <strong>(g)</strong> Position/Title <span class="fill-long" style="min-width:280px">${esc(co.signerTitle)}</span> &nbsp; Date <span class="fill">${sigDate[0]}</span>/<span class="fill">${sigDate[1]}</span>/<span class="fill">${sigDate[2]}</span>
+  <strong>(g)</strong> Position/Title <span class="fill-long" style="min-width:280px">${esc(co.signerTitle)}</span> &nbsp; Date <span class="fill">${sd}</span>/<span class="fill">${sm}</span>/<span class="fill">${sy}</span>
 </div>
 
 <p style="margin-top:18pt;font-size:9pt;color:#333"><strong>NOTE:</strong> Where required above, this Statement must be accompanied by the relevant Certificate of Currency to comply with section 175B of the Workers Compensation Act 1987.</p>
@@ -6165,10 +6260,51 @@ function renderCoList() {
           <div><label class="label">직책 (영문)</label><input class="input" id="co-signtitle-${c.id}" value="${esc(c.signerTitle||'')}" placeholder="Tiling Manager / Director"/></div>
         </div>
         <div class="mb"><label class="label">보험 (Certificate of Currency) 발급일  <span style="font-size:10px;color:var(--text-4);font-weight:400">— 만료 임박 시 알림</span></label><input type="date" class="input" id="co-insdate-${c.id}" value="${esc(c.insuranceDate||'')}"/></div>
+        <div class="mb">
+          <label class="label">디렉터 서명 이미지 (PNG 권장 · 투명배경)  <span style="font-size:10px;color:var(--text-4);font-weight:400">— Statement 서명란에 자동 삽입</span></label>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <input type="file" id="co-sig-file-${c.id}" accept="image/png,image/jpeg" style="font-size:12px;flex:1;min-width:160px" onchange="onSigUpload('${c.id}', this)"/>
+            <button type="button" class="btn-secondary" style="padding:6px 10px;font-size:11px" onclick="clearSig('${c.id}')">초기화</button>
+          </div>
+          <div id="co-sig-preview-${c.id}" style="margin-top:8px;${c.signatureImg?'':'display:none;'}padding:8px;background:#F9FAFB;border:1px dashed var(--border-2);border-radius:6px;text-align:center">
+            ${c.signatureImg?`<img src="${c.signatureImg}" style="max-height:60px;max-width:240px;background:#fff;padding:4px;border-radius:4px"/>`:''}
+          </div>
+          <input type="hidden" id="co-sig-${c.id}" value="${esc(c.signatureImg||'')}"/>
+        </div>
       </div>
     </div>`;
   });
   document.getElementById('co-list').innerHTML = h;
+}
+
+// Convert uploaded signature image file → base64 data URL, preview & stash in hidden input
+function onSigUpload(coId, input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  if (file.size > 1024 * 1024) {  // 1MB
+    alert('서명 파일이 너무 큽니다 (최대 1MB). PNG 권장 — 작은 크기로 다시 시도해주세요.');
+    input.value = '';
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = e => {
+    const dataUrl = e.target.result;
+    document.getElementById('co-sig-'+coId).value = dataUrl;
+    const prev = document.getElementById('co-sig-preview-'+coId);
+    prev.innerHTML = `<img src="${dataUrl}" style="max-height:60px;max-width:240px;background:#fff;padding:4px;border-radius:4px"/>`;
+    prev.style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+}
+
+function clearSig(coId) {
+  if (!confirm('서명 이미지를 제거할까요? (저장을 눌러야 실제 반영됩니다)')) return;
+  document.getElementById('co-sig-'+coId).value = '';
+  const fileInput = document.getElementById('co-sig-file-'+coId);
+  if (fileInput) fileInput.value = '';
+  const prev = document.getElementById('co-sig-preview-'+coId);
+  prev.innerHTML = '';
+  prev.style.display = 'none';
 }
 
 // Fill BXBT default company info into the form (does not save until 저장 clicked)
@@ -6199,7 +6335,8 @@ async function saveAllCo() {
       // Subcontractor Statement 용 (선택 빌더에게만 사용)
       signerName: document.getElementById('co-signer-'+c.id)?.value || '',
       signerTitle: document.getElementById('co-signtitle-'+c.id)?.value || '',
-      insuranceDate: document.getElementById('co-insdate-'+c.id)?.value || ''
+      insuranceDate: document.getElementById('co-insdate-'+c.id)?.value || '',
+      signatureImg: document.getElementById('co-sig-'+c.id)?.value || ''
     };
     await fbSet('invoiceCompanies/'+c.id, data);
   }

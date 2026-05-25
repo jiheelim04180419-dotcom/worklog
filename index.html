@@ -695,6 +695,22 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
     persist(null, null, {...leaves, [userId]: {...lv, savedDeductions: all}});
   };
 
+  // 저장된 공제 항목 한 필드 수정 (수퍼관리자 전용 — 호출부에서 isSuperAdmin 체크)
+  const updateSavedDeduction = (userId, id, field, newVal) => {
+    const lv = leaves[userId] || {};
+    const allDeds = Array.isArray(lv.savedDeductions)?lv.savedDeductions:Object.values(lv.savedDeductions||{});
+    const target = allDeds.find(d => d.id === id);
+    if (!target) return;
+    const lockInfo = isLogLocked(userId, target.date, leaves);
+    if (lockInfo && !isAdmin) {
+      alert(`🔒 ${lockInfo.periodStart} 기간은 정산완료되어 공제 항목을 수정할 수 없어요.`);
+      return;
+    }
+    if (lockInfo && isAdmin && !confirm(`⚠️ ${lockInfo.periodStart} 기간은 정산완료된 기간이에요.\n공제 항목을 수정할까요?`)) return;
+    const updated = allDeds.map(d => d.id === id ? {...d, [field]: newVal} : d);
+    persist(null, null, {...leaves, [userId]: {...lv, savedDeductions: updated}});
+  };
+
   const prevPeriod = () => { const d = new Date(periodStart+"T00:00:00"); d.setDate(d.getDate()-14); setPeriodStart(localDateStr(d)); };
   const nextPeriod = () => { const d = new Date(periodStart+"T00:00:00"); d.setDate(d.getDate()+14); setPeriodStart(localDateStr(d)); };
 
@@ -1040,7 +1056,13 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
             const hist0 = Array.isArray(lv0.keepBalanceHistory)?lv0.keepBalanceHistory:Object.values(lv0.keepBalanceHistory||{});
             const isSettled0 = !!hist0.find(h=>h.periodStart===periodStart);
             const prevEntry = [...hist0].sort((a,b)=>b.periodStart.localeCompare(a.periodStart)).find(h=>h.periodStart<periodStart);
-            const startBal = prevEntry ? parseFloat(prevEntry.balance||0) : loanBal;
+            // 이전 정산이 있으면 그 값을 사용. 없으면:
+            //   ─ 미래 정산 기록도 없을 때만 keepBalance(전역 시드)를 사용.
+            //   ─ 미래 정산 기록이 있다면 이 기간보다 더 과거 시점이라는 뜻 → 0으로 고정 (전역 keepBalance 변동의 영향을 받지 않도록).
+            const hasFutureEntry = hist0.some(h => h.periodStart > periodStart);
+            const startBal = prevEntry
+              ? parseFloat(prevEntry.balance||0)
+              : (hasFutureEntry ? 0 : loanBal);
             const afterBal = startBal + savedDedTotal; // 공제로 갚음 (savedDed가 음수면 빌린 것)
             return (<>
               {/* 선지급(가불) 잔액 섹션 */}
@@ -1056,7 +1078,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                 </div>}
                 <div style={{ borderTop:"1px solid #FED7AA",marginTop:6,paddingTop:6,display:"flex",justifyContent:"space-between",fontSize:14,fontWeight:800 }}>
                   <span style={{ color:"#C2410C" }}>누적 잔액</span>
-                  <span style={{ color:loanBal<0?"#DC2626":loanBal>0?"#059669":"#9CA3AF" }}>{fA(loanBal)}</span>
+                  <span style={{ color:afterBal<0?"#DC2626":afterBal>0?"#059669":"#9CA3AF" }}>{fA(afterBal)}</span>
                 </div>
 
                 {/* 대출 추가 (관리자만) */}
@@ -1080,13 +1102,22 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                           return;
                         }
                         if (lockInfo && isAdmin && !confirm(`⚠️ ${lockInfo.periodStart} 기간은 정산완료된 기간이에요.\n그래도 잔액을 조정할까요?`)) return;
-                        const newBal = afterBal + amt;
-                          // keepBalance에 직접 누적
-                        const currentBal = parseFloat(lv0.keepBalance)||0;
-                        const updatedBal = currentBal + amt;
-                        persist(null,null,{...leaves,[selId]:{...lv0,keepBalance:updatedBal}});
+                        // 잔액 조정 → 이번 기간의 savedDeductions 에 항목으로 기록.
+                        // (전역 keepBalance를 건드리지 않음으로써 과거 기간 표시에 영향 없음)
+                        // 오늘이 현재 기간 안이면 today, 아니면 periodStart 를 날짜로 사용.
+                        const inRange = today >= wpStart && today <= wpEnd;
+                        const entryDate = inRange ? today : periodStart;
+                        const entry = {
+                          id: Date.now() + Math.random(),
+                          date: entryDate,
+                          desc: (loanMemo || '').trim() || (amt>0?'잔액 조정 (상환)':'잔액 조정 (선지급)'),
+                          amount: amt,
+                          addedBy: user?.id || 'admin',
+                        };
+                        const existing = Array.isArray(lv0.savedDeductions)?lv0.savedDeductions:Object.values(lv0.savedDeductions||{});
+                        persist(null,null,{...leaves,[selId]:{...lv0,savedDeductions:[...existing,entry]}});
                         setLoanDeposit(''); setLoanMemo('');
-                        alert(`✅ 잔액 조정: ${amt>0?'+':''}$${amt} → 현재 ${updatedBal>=0?'+':''}$${updatedBal.toFixed(2)}`);
+                        alert(`✅ 잔액 조정 기록: ${amt>0?'+':''}$${amt} (${entryDate})\n이 항목은 "공제 항목" 으로 등록됐어요.`);
                       }} style={{ background:"#C2410C",color:"#fff",border:"none",borderRadius:7,padding:"7px 12px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit" }}>추가</button>
                     </div>
                   </div>
@@ -1204,7 +1235,25 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                       <p style={{ margin:"2px 0 0",fontSize:10,color:"#aaa" }}>관리자 등록</p>
                     )}
                   </div>
-                  <span style={{ fontSize:13,fontWeight:700,color:"#EF4444" }}>{fA(d.amount)}</span>
+                  {isSuperAdmin ? (
+                    <div style={{ position:"relative",width:90 }}>
+                      <span style={{ position:"absolute",left:6,top:"50%",transform:"translateY(-50%)",fontSize:11,color:"#888",pointerEvents:"none" }}>$</span>
+                      <input
+                        type="number"
+                        step={0.01}
+                        defaultValue={d.amount}
+                        onBlur={e => {
+                          const v = parseFloat(e.target.value);
+                          if (isNaN(v) || v === parseFloat(d.amount)) return;
+                          updateSavedDeduction(selId, d.id, 'amount', v);
+                        }}
+                        onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); }}
+                        style={{ width:"100%",padding:"4px 6px 4px 16px",border:"1px solid #FECACA",borderRadius:6,fontSize:13,fontWeight:700,color:"#EF4444",textAlign:"right",fontFamily:"inherit",background:"#fff",boxSizing:"border-box" }}
+                      />
+                    </div>
+                  ) : (
+                    <span style={{ fontSize:13,fontWeight:700,color:"#EF4444" }}>{fA(d.amount)}</span>
+                  )}
                   {(isSuperAdmin || (!isSuperAdmin && d.addedBy === user?.id)) && (
                     <button onClick={()=>removeSavedDeduction(selId,d.id)}
                       style={{ background:"none",border:"none",cursor:"pointer",color:"#f77",fontSize:14,padding:"2px",fontFamily:"inherit" }}>×</button>
