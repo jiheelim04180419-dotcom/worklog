@@ -2110,7 +2110,7 @@ function renderInv() {
               ${inv.invoiceNum?`<span style="font-weight:600">#${esc(inv.invoiceNum)}</span> · `:''}${fD(inv.invoiceDate)}
               ${overdue?`<span style="color:#DC2626;font-weight:700"> · ⏰ ${fmtAging(days)}</span>`:''}
             </div>
-            ${notePrev?`<div class="note-preview" style="margin-top:3px">📝 ${esc(notePrev)}</div>`:''}
+            <div class="note-preview" id="np-${inv.id}" style="margin-top:3px;cursor:text" onclick="event.stopPropagation();startMemoEdit('${inv.id}')" title="클릭해서 메모 수정">${notePrev ? `📝 ${esc(notePrev)}` : `<span style="color:#9CA3AF;font-style:italic">📝 메모 추가...</span>`}</div>
           </div>
           <div style="flex-shrink:0;text-align:right;min-width:110px">
             ${isPartial && !isRetention && rem > 0.01 ? `
@@ -4665,37 +4665,139 @@ async function delInv(id) {
 }
 
 // ── Quick Payment Add (inline, no modal) ─────────────────────────────────────
+// ── 카드 메모 인라인 편집 ────────────────────────────────────────────────────
+// 클릭하면 input 으로 바뀌고, 포커스 잃거나 Enter 누르면 저장.
+function startMemoEdit(id) {
+  const inv = invoices.find(i => i.id === id);
+  if (!inv) return;
+  const el = document.getElementById('np-' + id);
+  if (!el || el.dataset.editing === '1') return;
+  el.dataset.editing = '1';
+  const cur = (inv.note || '').replace(/\n/g, ' ').trim();
+  el.innerHTML = `<span style="display:inline-flex;gap:4px;align-items:center;width:100%">
+    <span style="flex-shrink:0">📝</span>
+    <input id="np-input-${id}" type="text" value="${esc(cur)}" placeholder="메모 입력 후 Enter (취소: Esc)"
+      style="flex:1;font-size:11px;padding:3px 6px;border:1px solid #C7D2FE;border-radius:4px;font-family:inherit;background:#fff;color:#111827;min-width:0"/>
+  </span>`;
+  const inp = document.getElementById('np-input-' + id);
+  inp.focus();
+  inp.select();
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); inp.blur(); }
+    else if (e.key === 'Escape') { e.preventDefault(); cancelMemoEdit(id); }
+  });
+  inp.addEventListener('blur', () => saveMemoEdit(id));
+  inp.addEventListener('click', e => e.stopPropagation());
+}
+
+function cancelMemoEdit(id) {
+  const inv = invoices.find(i => i.id === id);
+  if (!inv) return;
+  const el = document.getElementById('np-' + id);
+  if (!el) return;
+  const cur = (inv.note || '').replace(/\n/g, ' ').trim();
+  el.innerHTML = cur ? `📝 ${esc(cur)}` : `<span style="color:#9CA3AF;font-style:italic">📝 메모 추가...</span>`;
+  el.dataset.editing = '';
+}
+
+async function saveMemoEdit(id) {
+  const inv = invoices.find(i => i.id === id);
+  if (!inv) return;
+  const inp = document.getElementById('np-input-' + id);
+  if (!inp) return;
+  const newNote = inp.value.trim();
+  const oldNote = (inv.note || '').replace(/\n/g, ' ').trim();
+  // 변경 없으면 그냥 복원
+  if (newNote === oldNote) { cancelMemoEdit(id); return; }
+  inv.note = newNote;
+  const el = document.getElementById('np-' + id);
+  if (el) {
+    el.innerHTML = newNote ? `📝 ${esc(newNote)}` : `<span style="color:#9CA3AF;font-style:italic">📝 메모 추가...</span>`;
+    el.dataset.editing = '';
+  }
+  // Firebase 에는 note 만 패치 (전체 inv 덮어쓰기 방지)
+  try {
+    await fbSet('invoices/' + id + '/note', newNote);
+  } catch (e) {
+    alert('메모 저장 실패: ' + e.message);
+  }
+}
+
 async function quickPay(id) {
   const inv = invoices.find(i => i.id === id);
   if (!inv) return;
   const rem = remaining(inv);
-  const dateStr = prompt(`입금 날짜를 입력하세요 (YYYY-MM-DD)\n잔액: ${fA(rem)}`, today);
-  if (!dateStr) return;
-  const amtStr = prompt(`입금 금액을 입력하세요\n잔액: ${fA(rem)}\n(전액이면 비워두고 OK)`, rem.toFixed(2));
+  // 날짜 입력: 호주식 dd/mm/yyyy 입력 받고 내부 ISO 로 변환
+  const todayAu = isoToAu(today);
+  const dateAu = prompt(`입금 날짜 (DD/MM/YYYY)\n잔액: ${fA(rem)}`, todayAu);
+  if (!dateAu) return;
+  const dateStr = auToIso(dateAu);
+  if (!dateStr) return alert('날짜 형식이 잘못됐어요. DD/MM/YYYY 로 입력해주세요.');
+  const amtStr = prompt(`입금 금액\n잔액: ${fA(rem)}\n(전액이면 비워두고 OK)`, rem.toFixed(2));
   if (amtStr === null) return;
   const amt = parseFloat(amtStr) || rem;
   if (amt <= 0) return alert('금액이 잘못됐어요');
-  
+
   const pays = getPayments(inv);
   pays.push({date: dateStr, amount: amt, note: ''});
   const totalPay = pays.reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
-  
+  const total = parseFloat(inv.amount)||0;
+  const newRem = total - totalPay;
+
   const updated = {...inv};
   delete updated.id;
   updated.payments = pays;
   updated.depositDate = dateStr;
   updated.depositAmount = totalPay;
   updated.updatedAt = new Date().toISOString();
-  
-  // Auto-mark PAID if fully paid
-  if (totalPay >= (parseFloat(inv.amount)||0) - 0.01) {
+
+  // 전액 입금: PAID 로 자동 변경 제안
+  if (totalPay >= total - 0.01) {
     if (confirm('전액 입금됐어요. 상태를 PAID로 변경할까요?')) {
       updated.status = 'PAID';
     }
+  } else if (newRem > 0.01) {
+    // 부분 입금 — 잔액 처리 방식 선택 (Retention 인지 부분입금인지)
+    const remPct = (newRem / total * 100).toFixed(1);
+    const isRetention = confirm(
+      `잔액이 남아있어요: ${fA(newRem)} (${remPct}%)\n\n` +
+      `이게 RETENTION (보류금) 인가요?\n\n` +
+      `[확인] = 🔒 RETENTION 으로 표시 (잔액은 빌더가 보유)\n` +
+      `[취소] = 부분 입금만 등록 (계속 INVOICE 상태)`
+    );
+    if (isRetention) {
+      updated.status = 'RETENTION';
+    }
   }
-  
+
   await fbSet('invoices/'+id, updated);
   await loadAll();
+}
+
+// ── 날짜 변환 헬퍼 (호주식 dd/mm/yyyy ↔ ISO yyyy-mm-dd) ─────────────────────
+function isoToAu(iso) {
+  if (!iso || iso.length < 10) return '';
+  const [y, m, d] = iso.split('-');
+  return `${d}/${m}/${y}`;
+}
+function auToIso(au) {
+  if (!au) return '';
+  const s = au.trim();
+  // dd/mm/yyyy 또는 dd/mm/yy 또는 d/m/yy 등 허용
+  const mm = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})$/);
+  if (!mm) return '';
+  let [_, d, m, y] = mm;
+  d = d.padStart(2, '0');
+  m = m.padStart(2, '0');
+  if (y.length === 2) y = '20' + y;
+  // 기본 유효성
+  if (+m < 1 || +m > 12 || +d < 1 || +d > 31) return '';
+  return `${y}-${m}-${d}`;
+}
+function isoToAuShort(iso) {
+  if (!iso || iso.length < 10) return '';
+  const [y, m, d] = iso.split('-');
+  return `${d}/${m}/${y.slice(-2)}`;
 }
 
 // ── CSV Export ──────────────────────────────────────────────────────────────
@@ -7482,13 +7584,18 @@ async function expSaveCell(vendorId, month) {
   const amtEl = document.getElementById(`exp-amt-${vendorId}-${month}`);
   const dateEl = document.getElementById(`exp-date-${vendorId}-${month}`);
   const noteEl = document.getElementById(`exp-note-${vendorId}-${month}`);
-  const paidEl = document.getElementById(`exp-paid-${vendorId}-${month}`);
-  const patch = {
-    amount: parseFloat(amtEl?.value) || 0,
-    paidDate: dateEl?.value || '',
-    notes: noteEl?.value || '',
-    paid: !!paidEl?.checked,
-  };
+  const amount = parseFloat(amtEl?.value) || 0;
+  // 호주식 dd/mm/yyyy 입력 → ISO 변환 (빈값 허용)
+  const rawDate = (dateEl?.value || '').trim();
+  let paidDate = '';
+  if (rawDate) {
+    paidDate = auToIso(rawDate);
+    if (!paidDate) { alert('날짜 형식이 잘못됐어요. DD/MM/YYYY 로 입력해주세요.'); return; }
+  }
+  const notes = noteEl?.value || '';
+  // 결제 여부 자동 추론: 금액이 있거나 날짜가 있으면 paid=true
+  const paid = (amount > 0) || !!paidDate;
+  const patch = { amount, paidDate, notes, paid };
   _expEditCell = null;
   await _expSavePay(vendorId, month, patch);
 }
@@ -7570,7 +7677,9 @@ function renderExpenses() {
   });
 
   const fmtMoney = n => '$' + (Math.round((parseFloat(n)||0)*100)/100).toLocaleString('en-AU',{minimumFractionDigits:2, maximumFractionDigits:2});
-  const fmtDateAu = ymd => { if(!ymd) return ''; const [yy,mm,dd] = ymd.split('-'); return `${dd}/${mm}/${yy.slice(-2)}`; };
+  // 호주식 표시 (Display): dd/mm/yyyy (4자리 연도). 짧게는 dd/mm/yy.
+  const fmtDateAu      = ymd => isoToAu(ymd);
+  const fmtDateAuShort = ymd => isoToAuShort(ymd);
 
   // 미결제 카운트 (현재 월)
   const unpaidThisMonth = vendors.filter(v => {
@@ -7634,14 +7743,14 @@ function renderExpenses() {
                   if (isEditing) {
                     return `<td style="padding:4px;border-bottom:1px solid var(--border-3);border-left:1px solid var(--border-3);background:#EFF6FF">
                       <div style="display:flex;flex-direction:column;gap:3px;align-items:stretch">
-                        <label style="display:flex;align-items:center;gap:3px;font-size:10px;color:var(--text-3)"><input type="checkbox" id="exp-paid-${v.id}-${m}" ${p&&p.paid?'checked':''}/>결제됨</label>
-                        <input type="number" id="exp-amt-${v.id}-${m}" placeholder="금액" value="${p?p.amount||'':''}" step="0.01" style="width:100%;padding:3px 5px;font-size:11px;border:1px solid var(--border-2);border-radius:4px;box-sizing:border-box"/>
-                        <input type="date" id="exp-date-${v.id}-${m}" value="${p?p.paidDate||'':''}" style="width:100%;padding:3px 5px;font-size:10px;border:1px solid var(--border-2);border-radius:4px;box-sizing:border-box"/>
-                        <input type="text" id="exp-note-${v.id}-${m}" placeholder="메모" value="${p?esc(p.notes||''):''}" style="width:100%;padding:3px 5px;font-size:10px;border:1px solid var(--border-2);border-radius:4px;box-sizing:border-box"/>
+                        <input type="number" id="exp-amt-${v.id}-${m}" placeholder="금액 ($)" value="${p?p.amount||'':''}" step="0.01" style="width:100%;padding:4px 6px;font-size:12px;border:1px solid var(--border-2);border-radius:4px;box-sizing:border-box;font-weight:600" autofocus/>
+                        <input type="text" id="exp-date-${v.id}-${m}" placeholder="DD/MM/YYYY" value="${p&&p.paidDate?isoToAu(p.paidDate):''}" style="width:100%;padding:3px 5px;font-size:11px;border:1px solid var(--border-2);border-radius:4px;box-sizing:border-box" maxlength="10"/>
+                        <input type="text" id="exp-note-${v.id}-${m}" placeholder="메모" value="${p?esc(p.notes||''):''}" style="width:100%;padding:3px 5px;font-size:11px;border:1px solid var(--border-2);border-radius:4px;box-sizing:border-box"/>
                         <div style="display:flex;gap:2px">
-                          <button onclick="expSaveCell('${v.id}','${m}')" style="flex:1;background:#10B981;color:#fff;border:none;border-radius:4px;padding:3px;font-size:10px;font-weight:700;cursor:pointer">✓ 저장</button>
-                          <button onclick="expCancelEdit()" style="flex:1;background:#E5E7EB;color:#374151;border:none;border-radius:4px;padding:3px;font-size:10px;cursor:pointer">✕</button>
+                          <button onclick="expSaveCell('${v.id}','${m}')" style="flex:1;background:#10B981;color:#fff;border:none;border-radius:4px;padding:4px;font-size:11px;font-weight:700;cursor:pointer">✓ 저장</button>
+                          <button onclick="expCancelEdit()" style="flex:1;background:#E5E7EB;color:#374151;border:none;border-radius:4px;padding:4px;font-size:11px;cursor:pointer">✕</button>
                         </div>
+                        <p style="font-size:9px;color:var(--text-4);margin:0;line-height:1.2">💡 금액·날짜 둘 중 하나라도 입력하면 자동 결제완료</p>
                       </div>
                     </td>`;
                   }
