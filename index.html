@@ -2387,13 +2387,21 @@ function MgmtTab({ fbUrl, fA }) {
     return sorted.find(h => h.from <= ps) || sorted[sorted.length-1];
   };
 
+  // GST 적용 여부 — 기간별 이력의 invoiceGst 플래그가 우선. 없으면 type / 최상위 invoiceGst 폴백.
+  const gstAppliesFor = (m, entry) => {
+    if (entry && entry.invoiceGst !== undefined) return !!entry.invoiceGst;
+    if (m.invoiceGst !== undefined) return !!m.invoiceGst;
+    return m.type === 'invoice_gst';
+  };
+
   const calcAmt = (m) => {
     // 이력이 있으면 이력 기반, 없으면 현재 값 사용
     const hist = Array.isArray(m.history) ? m.history : Object.values(m.history||{});
     const entry = hist.length > 0 ? getHistoryEntry(hist, periodStart) : null;
 
     const inv = parseFloat((entry||m).invoiceAmount)||0;
-    const invGst = (entry ? entry.invoiceGst : m.invoiceGst) ? inv*0.1 : 0;
+    const gstOn = gstAppliesFor(m, entry);
+    const invGst = gstOn ? inv*0.1 : 0;
     const invTotal = inv + invGst;
 
     if (m.type==='monthly') {
@@ -2402,24 +2410,29 @@ function MgmtTab({ fbUrl, fA }) {
       const sup = parseFloat((entry||m).super)||0;
       return { net, tax, sup, inv, invGst, invTotal, total: net+invTotal };
     }
-    if (m.type==='invoice') return { inv, invTotal:inv, total:inv };
-    if (m.type==='invoice_gst') return { inv, gst:inv*0.1, invTotal:inv*1.1, total:inv*1.1 };
-    return { total:0 };
+    // 'invoice' 와 'invoice_gst' 모두 동일 — GST 는 invoiceGst 플래그(기간별)로 결정
+    return { inv, gst: invGst, invGst, invTotal, total: invTotal };
   };
 
   // 카일/사라 찾기
   const kyleMember = members.find(m=>m.name&&(m.name.includes('카일')||m.name.toLowerCase().includes('kyle')));
   const saraMember = members.find(m=>m.name&&(m.name.includes('사라')||m.name.toLowerCase().includes('sara')));
 
-  // 카일/사라 공제 계산
+  // 카일/사라 공제 계산 — 기간별 invoiceGst 플래그를 존중하여 GST 적용 여부 결정
   const d20amt = has20 ? (parseFloat(ksConfig.d20)||0) : 0;
   const d27amt = has27 ? (parseFloat(ksConfig.d27)||0) : 0;
   const totalDeduct = d20amt + d27amt;
   const deductEach = totalDeduct / 2;
-  const kyleBase = parseFloat(kyleMember?.invoiceAmount)||0;
-  const saraBase = parseFloat(saraMember?.invoiceAmount)||0;
-  const kyleFinal = kyleBase - deductEach;
-  const saraFinal = (saraBase - deductEach) * 1.1;
+  const ksFinal = (mem) => {
+    if (!mem) return 0;
+    const hist = Array.isArray(mem.history) ? mem.history : Object.values(mem.history||{});
+    const entry = hist.length > 0 ? getHistoryEntry(hist, periodStart) : null;
+    const base = parseFloat((entry||mem).invoiceAmount)||0;
+    const afterDeduct = base - deductEach;
+    return gstAppliesFor(mem, entry) ? afterDeduct * 1.1 : afterDeduct;
+  };
+  const kyleFinal = ksFinal(kyleMember);
+  const saraFinal = ksFinal(saraMember);
 
   const isKyleOrSara = (m) => m.id === kyleMember?.id || m.id === saraMember?.id;
 
@@ -2485,6 +2498,12 @@ function MgmtTab({ fbUrl, fA }) {
 
         // 카일/사라 최종 금액
         const ksFinal = isKyle ? kyleFinal : isSara ? saraFinal : null;
+        // 기간별 GST/금액 상태 (Kyle/Sara 표시용)
+        const _hist  = Array.isArray(m.history) ? m.history : Object.values(m.history||{});
+        const _entry = _hist.length > 0 ? getHistoryEntry(_hist, periodStart) : null;
+        const periodGstOn = gstAppliesFor(m, _entry);
+        const periodBase  = parseFloat((_entry||m||{}).invoiceAmount)||0;
+        const periodTypeLabel = m.type==='monthly' ? '월급' : (periodGstOn ? '인보이스+GST' : '인보이스');
 
         return (
           <div key={m.id} style={{background:'#fff',borderRadius:16,marginBottom:10,border:'1px solid #E5E8F5',overflow:'hidden',boxShadow:'0 2px 8px rgba(79,70,229,0.07)'}}>
@@ -2496,7 +2515,7 @@ function MgmtTab({ fbUrl, fA }) {
                 <div style={{flex:1,minWidth:0}}>
                   <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:2}}>
                     <span style={{fontSize:15,fontWeight:800,color:'#111827'}}>{m.name}</span>
-                    <span style={{background:`${color}15`,color,borderRadius:6,padding:'2px 7px',fontSize:10,fontWeight:700}}>{typeLabel[m.type]||m.type}</span>
+                    <span style={{background:`${color}15`,color,borderRadius:6,padding:'2px 7px',fontSize:10,fontWeight:700}}>{periodTypeLabel}</span>
                   </div>
                   <p style={{margin:0,fontSize:11,color:'#6B7280'}}>{m.role}</p>
                 </div>
@@ -2528,7 +2547,7 @@ function MgmtTab({ fbUrl, fA }) {
                   <div style={{fontSize:12}}>
                     <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
                       <span style={{color:'#6B7280'}}>기본 인보이스</span>
-                      <span style={{fontWeight:600,color:'#111827'}}>{fA(isKyle?kyleBase:saraBase)}</span>
+                      <span style={{fontWeight:600,color:'#111827'}}>{fA(periodBase)}</span>
                     </div>
                     {d20amt>0&&<div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
                       <span style={{color:'#DC2626'}}>20일 공제</span>
@@ -2538,9 +2557,9 @@ function MgmtTab({ fbUrl, fA }) {
                       <span style={{color:'#DC2626'}}>27일 공제</span>
                       <span style={{fontWeight:600,color:'#DC2626'}}>-{fA(d27amt/2)}</span>
                     </div>}
-                    {isSara&&<div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
+                    {periodGstOn&&<div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
                       <span style={{color:'#D97706'}}>GST +10%</span>
-                      <span style={{fontWeight:600,color:'#D97706'}}>+{fA(((saraBase-deductEach)*0.1))}</span>
+                      <span style={{fontWeight:600,color:'#D97706'}}>+{fA(((periodBase-deductEach)*0.1))}</span>
                     </div>}
                     <div style={{borderTop:'1px solid #E5E8F5',marginTop:4,paddingTop:6,display:'flex',justifyContent:'space-between'}}>
                       <span style={{fontWeight:700,color:'#111827'}}>최종 인보이스</span>
@@ -2549,8 +2568,7 @@ function MgmtTab({ fbUrl, fA }) {
                   </div>
                 )}
 
-                {!isKS && m.type==='invoice' && <span style={{fontSize:12,color:'#6B7280'}}>인보이스 <strong style={{color:'#4F46E5'}}>{fA(c.invTotal)}</strong></span>}
-                {!isKS && m.type==='invoice_gst' && <span style={{fontSize:12,color:'#6B7280'}}>인보이스(GST포함) <strong style={{color:'#4F46E5'}}>{fA(c.invTotal)}</strong></span>}
+                {!isKS && (m.type==='invoice'||m.type==='invoice_gst') && <span style={{fontSize:12,color:'#6B7280'}}>인보이스{periodGstOn?'(GST포함)':''} <strong style={{color:'#4F46E5'}}>{fA(c.invTotal)}</strong></span>}
               </div>
             </div>
 
@@ -2645,7 +2663,10 @@ function MgmtMemberForm({ member, onSave, onClose }) {
     from: today0,
     salary: sortedHist[0]?.salary||'', tax: sortedHist[0]?.tax||'',
     super: sortedHist[0]?.super||'', invoiceAmount: sortedHist[0]?.invoiceAmount||'',
-    invoiceGst: !!sortedHist[0]?.invoiceGst
+    // 새 이력의 GST 기본값: 이전 이력값이 명시되어 있으면 그대로, 아니면 현재 type 으로 추정
+    invoiceGst: sortedHist[0]?.invoiceGst !== undefined
+      ? !!sortedHist[0].invoiceGst
+      : (type === 'invoice_gst')
   }]);
   const delHistory = (i) => {
     if (history.length <= 1) return alert('최소 1개 이력이 필요해요');
@@ -2720,7 +2741,13 @@ function MgmtMemberForm({ member, onSave, onClose }) {
                 </div>
               </>)}
               {(type==='invoice'||type==='invoice_gst') && (
-                <div><p style={{margin:'0 0 3px',fontSize:10,color:'#6B7280',fontWeight:600}}>인보이스 금액</p><input type="number" value={h.invoiceAmount||''} onChange={e=>setH(i,'invoiceAmount',e.target.value)} style={IS_SM} placeholder="0.00"/></div>
+                <div style={{display:'flex',gap:8,alignItems:'flex-end'}}>
+                  <div style={{flex:1}}><p style={{margin:'0 0 3px',fontSize:10,color:'#6B7280',fontWeight:600}}>인보이스 금액</p><input type="number" value={h.invoiceAmount||''} onChange={e=>setH(i,'invoiceAmount',e.target.value)} style={IS_SM} placeholder="0.00"/></div>
+                  <label style={{display:'flex',alignItems:'center',gap:6,fontSize:12,cursor:'pointer',paddingBottom:8,whiteSpace:'nowrap'}}>
+                    <input type="checkbox" checked={!!h.invoiceGst} onChange={e=>setH(i,'invoiceGst',e.target.checked)} style={{accentColor:'#D97706',width:14,height:14}}/>
+                    GST +10%
+                  </label>
+                </div>
               )}
             </div>
           ))}
