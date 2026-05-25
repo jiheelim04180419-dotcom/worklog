@@ -1355,8 +1355,8 @@ async function loadAll() {
   checkInsuranceExpiry();
 }
 
-// 보험 만료 임박 경고 — Certificate of Currency 가 보통 1년 유효.
-// insuranceDate 기준 1년이 다가오면 D-60 부터 경고. 헤더 아래 띠로 표시.
+// 보험 만료 임박 경고 — 회사설정의 "만료일(Expiry)" 기준 D-60 부터 알림.
+// (이전 버전: insuranceDate 를 발급일로 보고 +1년 했음 → 이제 만료일 자체를 저장)
 function checkInsuranceExpiry() {
   const banner = document.getElementById('ins-warn-banner');
   if (banner) banner.remove();
@@ -1365,8 +1365,7 @@ function checkInsuranceExpiry() {
   const warnings = [];
   companies.forEach(c => {
     if (!c.insuranceDate) return;
-    const issued = new Date(c.insuranceDate + 'T00:00:00');
-    const expires = new Date(issued); expires.setFullYear(expires.getFullYear() + 1);
+    const expires = new Date(c.insuranceDate + 'T00:00:00');
     const daysLeft = Math.floor((expires - today_d) / (24*60*60*1000));
     if (daysLeft < 0) warnings.push({co: c.name, expires, daysLeft, status:'expired'});
     else if (daysLeft <= 60) warnings.push({co: c.name, expires, daysLeft, status:'soon'});
@@ -1376,7 +1375,7 @@ function checkInsuranceExpiry() {
   const html = warnings.map(w => {
     const isExpired = w.status === 'expired';
     return `<div style="background:${isExpired?'#FEE2E2':'#FEF3C7'};border:1px solid ${isExpired?'#FCA5A5':'#FDE68A'};color:${isExpired?'#B91C1C':'#92400E'};padding:8px 14px;font-size:12px;font-weight:600">
-      ${isExpired?'🚨':'⚠️'} <strong>${esc(w.co)}</strong> 보험(Certificate of Currency) ${isExpired?`만료됨 (${fmtAu(w.expires)})`:`만료 ${w.daysLeft}일 남음 (${fmtAu(w.expires)})`} — ⚙️ 회사 설정에서 갱신 후 새 발급일 입력
+      ${isExpired?'🚨':'⚠️'} <strong>${esc(w.co)}</strong> 보험(Certificate of Currency) ${isExpired?`만료됨 (${fmtAu(w.expires)})`:`만료 ${w.daysLeft}일 남음 (${fmtAu(w.expires)})`} — ⚙️ 회사 설정에서 갱신 후 발급일·만료일 업데이트
     </div>`;
   }).join('');
   const b = document.createElement('div');
@@ -4875,7 +4874,7 @@ async function openSubcontractorStatement(invId) {
   if (!co.address)       missing.push('회사 주소');
   if (!co.signerName)    missing.push('서명자 이름 (회사 설정)');
   if (!co.signerTitle)   missing.push('서명자 직책 (회사 설정)');
-  if (!co.insuranceDate) missing.push('보험 발급일 (회사 설정)');
+  if (!co.insuranceIssueDate && !co.insuranceDate) missing.push('보험 발급일 (회사 설정)');
   if (!b.abn)            missing.push(`빌더 ABN (${b.name})`);
   if (missing.length) {
     return alert('Statement 발행 전에 다음 정보를 채워주세요:\n\n• ' + missing.join('\n• '));
@@ -4884,10 +4883,20 @@ async function openSubcontractorStatement(invId) {
     return alert('PDF 라이브러리 로드 실패. 페이지 새로고침 후 다시 시도해주세요.');
   }
   const fAuS = s => { if (!s) return ['','','']; const [y,m,d] = (s||'').split('-'); return [d||'', m||'', (y||'').slice(-2)]; };
-  const [fd, fm, fy] = fAuS(inv.startDate || inv.invoiceDate || '');
-  const [td, tm, ty] = fAuS(inv.invoiceDate || '');
-  const [pd, pm, py] = fAuS(inv.invoiceDate || '');
-  const [insd, insm, insy] = fAuS(co.insuranceDate || '');
+  // 일한 기간: 인보이스 발행일 기준 한달 전 ~ 발행일
+  const _minusMonth = s => {
+    if (!s) return '';
+    const d = new Date(s + 'T00:00:00');
+    d.setMonth(d.getMonth() - 1);
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  };
+  const workStart = _minusMonth(inv.invoiceDate || today);
+  const [fd, fm, fy] = fAuS(workStart);
+  const [td, tm, ty] = fAuS(inv.invoiceDate || today);
+  const [pd, pm, py] = fAuS(inv.invoiceDate || today);
+  // (b) 보험 발급일 — insuranceIssueDate 우선, 없으면 기존 insuranceDate 사용 (이전 데이터 호환)
+  const insIssue = co.insuranceIssueDate || co.insuranceDate || '';
+  const [insd, insm, insy] = fAuS(insIssue);
   const [sd, sm, sy] = fAuS(today);
   const contractRef = inv.projectName || inv.address || '';
   const addr = (co.address||'').split(/[,\n]/).map(s=>s.trim()).filter(Boolean).join(', ');
@@ -4934,10 +4943,11 @@ async function openSubcontractorStatement(invId) {
         const sigImg = isJpeg ? await pdfDoc.embedJpg(sigBytes) : await pdfDoc.embedPng(sigBytes);
 
         const page1 = pdfDoc.getPages()[0];
-        // 서명란: (f) Signature ……… 영역 (x≈95~290, y≈150~178, Full name 필드 왼쪽)
-        const boxW = 180, boxH = 36;
-        const boxX = 100;
-        const boxY = 145;
+        // 서명란: (f) Signature ……… 영역 (원본 Fm0 위치 [123.7, 160.6, 168.2, 185.5] 참조)
+        // 박스를 약간 크게 (가독성), 가운데 정렬.
+        const boxW = 130, boxH = 30;
+        const boxX = 105;
+        const boxY = 152;
         // 비율 유지하면서 박스 안쪽에 들어가도록 스케일
         const r1 = sigImg.width / sigImg.height;
         const r2 = boxW / boxH;
@@ -6259,7 +6269,16 @@ function renderCoList() {
           <div><label class="label">서명자 이름 (영문)</label><input class="input" id="co-signer-${c.id}" value="${esc(c.signerName||'')}" placeholder="Seongho Park"/></div>
           <div><label class="label">직책 (영문)</label><input class="input" id="co-signtitle-${c.id}" value="${esc(c.signerTitle||'')}" placeholder="Tiling Manager / Director"/></div>
         </div>
-        <div class="mb"><label class="label">보험 (Certificate of Currency) 발급일  <span style="font-size:10px;color:var(--text-4);font-weight:400">— 만료 임박 시 알림</span></label><input type="date" class="input" id="co-insdate-${c.id}" value="${esc(c.insuranceDate||'')}"/></div>
+        <div class="row2 mb">
+          <div>
+            <label class="label">📄 보험 발급일 (Issue Date)  <span style="font-size:10px;color:var(--text-4);font-weight:400">— Statement (b) 란에 인쇄됨</span></label>
+            <input type="date" class="input" id="co-insissue-${c.id}" value="${esc(c.insuranceIssueDate||'')}"/>
+          </div>
+          <div>
+            <label class="label">⏳ 보험 만료일 (Expiry)  <span style="font-size:10px;color:var(--text-4);font-weight:400">— 60일전부터 경고</span></label>
+            <input type="date" class="input" id="co-insexp-${c.id}" value="${esc(c.insuranceDate||'')}"/>
+          </div>
+        </div>
         <div class="mb">
           <label class="label">디렉터 서명 이미지 (PNG 권장 · 투명배경)  <span style="font-size:10px;color:var(--text-4);font-weight:400">— Statement 서명란에 자동 삽입</span></label>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
@@ -6335,7 +6354,9 @@ async function saveAllCo() {
       // Subcontractor Statement 용 (선택 빌더에게만 사용)
       signerName: document.getElementById('co-signer-'+c.id)?.value || '',
       signerTitle: document.getElementById('co-signtitle-'+c.id)?.value || '',
-      insuranceDate: document.getElementById('co-insdate-'+c.id)?.value || '',
+      // insuranceDate = 만료일 (expiry). Statement (b) 용 발급일은 insuranceIssueDate 에 별도 저장.
+      insuranceDate: document.getElementById('co-insexp-'+c.id)?.value || '',
+      insuranceIssueDate: document.getElementById('co-insissue-'+c.id)?.value || '',
       signatureImg: document.getElementById('co-sig-'+c.id)?.value || ''
     };
     await fbSet('invoiceCompanies/'+c.id, data);
