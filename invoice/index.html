@@ -2841,7 +2841,10 @@ function updateProgressThisPct(i, val) {
     li.qty = round2((parseFloat(li.thisPct) || 0) / 100);
     li.unitPrice = parseFloat(li.totalAmount);
   }
-  updProgressLineDisplay(i);
+  // 새 누적% 입력칸을 직접 동기화 (재렌더 안 함 → 포커스 유지)
+  const cumEl = document.getElementById(`pi-cum-${i}`);
+  if (cumEl && document.activeElement !== cumEl) cumEl.value = li.cumulativePct ?? '';
+  _progressLightUpdate(i);
 }
 
 // User updated "qty" → recalculate thisPct = qty * 100, cum = prev + thisPct
@@ -2876,7 +2879,10 @@ function updateProgressCumPct(i, val) {
     li.qty = round2((parseFloat(li.thisPct) || 0) / 100);
     li.unitPrice = parseFloat(li.totalAmount);
   }
-  updProgressLineDisplay(i);
+  // 이번% 입력칸을 직접 동기화 (재렌더 안 함 → 포커스 유지)
+  const thisEl = document.getElementById(`pi-this-${i}`);
+  if (thisEl && document.activeElement !== thisEl) thisEl.value = li.thisPct ?? '';
+  _progressLightUpdate(i);
 }
 
 // User updated "이전 누적%" → 이전에 외부에서 청구한 %. 새 누적 = prev + thisPct
@@ -2885,15 +2891,55 @@ function updateProgressPrevPct(i, val) {
   if (!li) return;
   const newPrev = parseFloat(val);
   li.prevPct = isNaN(newPrev) ? 0 : newPrev;
-  // thisPct 그대로 두고 cumulativePct 재계산
   const thisP = parseFloat(li.thisPct) || 0;
   li.cumulativePct = round2((parseFloat(li.prevPct)||0) + thisP);
   if (li.totalAmount) {
     li.qty = round2(thisP / 100);
     li.unitPrice = parseFloat(li.totalAmount);
   }
-  // 풀 렌더 — '이전: N%' 배지 + 지난 금액 표시도 같이 갱신
-  renderLineItems();
+  // 새 누적% 입력칸 동기화 (재렌더 안 함 → 포커스 유지)
+  const cumEl = document.getElementById(`pi-cum-${i}`);
+  if (cumEl && document.activeElement !== cumEl) cumEl.value = li.cumulativePct ?? '';
+  _progressLightUpdate(i);
+}
+
+// PROGRESS 라인의 "이전: N%" 배지 + "지난 금액" + 합계 표시를 한 번에 갱신.
+// 인풋들은 별도 동기화 — 여기는 표시 요소만 건드림 (재렌더 안 함 → 포커스 유지)
+function _progressLightUpdate(i) {
+  const li = lineItems[i];
+  if (!li) return;
+  const prev = parseFloat(li.prevPct) || 0;
+  const totalAmt = parseFloat(li.totalAmount) || 0;
+  // 1) "이전: N%" 배지
+  const badgeEl = document.getElementById(`pi-prev-badge-${i}`);
+  if (badgeEl) {
+    if (prev > 0) {
+      badgeEl.textContent = `이전: ${prev}%`;
+      badgeEl.style.display = '';
+    } else {
+      badgeEl.style.display = 'none';
+    }
+  }
+  // 2) "지난: $..." 금액 표시
+  const pastEl = document.getElementById(`pi-past-${i}`);
+  if (pastEl) {
+    if (prev > 0 && totalAmt > 0) {
+      pastEl.textContent = `지난: ${fA(round2(totalAmt * prev / 100))}`;
+      pastEl.style.display = '';
+    } else {
+      pastEl.style.display = 'none';
+    }
+  }
+  // 3) "→ 이번 청구: $X ex (= Y% × $Z)" 요약 한 줄
+  const summaryEl = document.getElementById(`pi-summary-${i}`);
+  if (summaryEl) {
+    const thisP = parseFloat(li.thisPct) || 0;
+    const cumP = parseFloat(li.cumulativePct) || 0;
+    const computed = round2((parseFloat(li.qty)||0) * (parseFloat(li.unitPrice)||0));
+    summaryEl.innerHTML = `→ 이번 청구: ${fA(computed)} ex (= ${thisP}% × ${fA(totalAmt)})${cumP > 0 ? ` · 누적 ${cumP}% Completed` : ''}`;
+  }
+  // 4) 라인 총액 + 전체 합계 갱신 (기존 light update 재사용)
+  updProgressLineDisplay(i);
 }
 
 // Light update — just update the computed display + cumulative input, no full re-render
@@ -2906,7 +2952,7 @@ function updProgressLineDisplay(i) {
   updLineItemsTotal();
 }
 
-// Light update for totalAmount input
+// Light update for totalAmount input — 재렌더 안 함, 포커스 유지
 function updateProgressTotalAmount(i, val) {
   const li = lineItems[i];
   if (!li) return;
@@ -2915,7 +2961,7 @@ function updateProgressTotalAmount(i, val) {
     li.qty = round2((parseFloat(li.thisPct) || 0) / 100);
     li.unitPrice = parseFloat(li.totalAmount);
   }
-  updProgressLineDisplay(i);
+  _progressLightUpdate(i);
 }
 
 // Set the same cumulative% for ALL non-materials line items at once
@@ -4240,23 +4286,23 @@ function renderLineItems() {
                 ${(li.origQty != null && li.origUnitPrice != null && li.origQty > 0)
                   ? `<span style="color:#6B7280;font-size:9.5px;font-style:italic;background:#F3F4F6;padding:2px 6px;border-radius:4px" title="원본 입력값 (변경 불가)">원본: ${li.origQty} × $${parseFloat(li.origUnitPrice).toFixed(2)}</span>`
                   : ''}
-                ${prevPct > 0 ? `<span style="color:#7C3AED;font-weight:700;background:#EDE9FE;padding:2px 6px;border-radius:4px">이전: ${prevPct}%</span>` : ''}
+                <span id="pi-prev-badge-${i}" style="color:#7C3AED;font-weight:700;background:#EDE9FE;padding:2px 6px;border-radius:4px;${prevPct>0?'':'display:none'}">이전: ${prevPct}%</span>
                 <label style="display:flex;align-items:center;gap:2px;cursor:pointer;color:var(--text-3);margin-left:6px">
                   <input type="checkbox" ${li.noTax?'checked':''} onchange="lineItems[${i}].noTax=this.checked;renderLineItems()" style="margin:0"/>NoTax
                 </label>
               </div>
               <div style="display:flex;gap:4px;align-items:center;font-size:10px;flex-wrap:wrap">
                 <span style="color:#7C3AED;min-width:60px;font-weight:700" title="이전 인보이스(외부 포함)에서 이미 청구한 누적 %. 앱 첫 청구라면 직접 입력하세요.">📜 이전%:</span>
-                <input type="number" step="0.01" class="input" style="width:65px;font-size:11px;padding:4px 6px;color:#7C3AED;border-color:#C4B5FD" value="${li.prevPct ?? 0}" placeholder="이전%" oninput="updateProgressPrevPct(${i}, this.value)" title="이전 인보이스 누적%. 앱 첫 입력이라도 외부에서 청구한 게 있으면 여기에 직접 입력."/>
+                <input id="pi-prev-${i}" type="number" step="0.01" class="input" style="width:65px;font-size:11px;padding:4px 6px;color:#7C3AED;border-color:#C4B5FD" value="${li.prevPct ?? 0}" placeholder="이전%" oninput="updateProgressPrevPct(${i}, this.value)" title="이전 인보이스 누적%. 앱 첫 입력이라도 외부에서 청구한 게 있으면 여기에 직접 입력."/>
                 <span style="color:#4F46E5;min-width:60px;font-weight:700;margin-left:6px">💰 이번%:</span>
-                <input type="number" step="0.01" class="input" style="width:65px;font-size:11px;padding:4px 6px;font-weight:700;color:#4F46E5;border-color:#C7D2FE" value="${li.thisPct ?? ''}" placeholder="이번%" oninput="updateProgressThisPct(${i}, this.value)" title="이번에 청구할 %"/>
+                <input id="pi-this-${i}" type="number" step="0.01" class="input" style="width:65px;font-size:11px;padding:4px 6px;font-weight:700;color:#4F46E5;border-color:#C7D2FE" value="${li.thisPct ?? ''}" placeholder="이번%" oninput="updateProgressThisPct(${i}, this.value)" title="이번에 청구할 %"/>
                 <span style="color:var(--text-4);margin-left:6px;font-weight:700">= 새 누적%:</span>
-                <input type="number" step="0.01" class="input" style="width:70px;font-size:11px;padding:4px 6px" value="${li.cumulativePct ?? ''}" placeholder="누적%" oninput="updateProgressCumPct(${i}, this.value)"/>
+                <input id="pi-cum-${i}" type="number" step="0.01" class="input" style="width:70px;font-size:11px;padding:4px 6px" value="${li.cumulativePct ?? ''}" placeholder="누적%" oninput="updateProgressCumPct(${i}, this.value)"/>
               </div>
               <div style="font-size:9px;color:var(--text-4);font-style:italic;margin-top:2px">↑ 이전% + 이번% = 새 누적%. 셋 중 하나 바꾸면 나머지 자동 계산.</div>
-              <div style="font-size:10px;color:#4F46E5;margin-top:3px;font-weight:600">→ 이번 청구: ${fA(computedEx)} ex (= ${thisPct}% × ${fA(totalAmt)})${cumPct > 0 ? ` · 누적 ${cumPct}% Completed` : ''}</div>
+              <div id="pi-summary-${i}" style="font-size:10px;color:#4F46E5;margin-top:3px;font-weight:600">→ 이번 청구: ${fA(computedEx)} ex (= ${thisPct}% × ${fA(totalAmt)})${cumPct > 0 ? ` · 누적 ${cumPct}% Completed` : ''}</div>
             </div>
-            <span id="line-total-${i}" style="min-width:90px;text-align:right;font-weight:700;font-size:11px;color:var(--text)">${fA(computedEx)}<div style="font-size:9px;color:var(--text-4);font-weight:400">${li.noTax?'(no tax)':'ex GST'}</div><div style="font-size:9px;color:var(--text-4);font-weight:400;margin-top:2px">원래: ${fA(totalAmt)}</div>${prevPct > 0 ? `<div style="font-size:9px;color:#7C3AED;font-weight:600">지난: ${fA(round2(totalAmt * prevPct / 100))}</div>` : ''}</span>
+            <span id="line-total-${i}" style="min-width:90px;text-align:right;font-weight:700;font-size:11px;color:var(--text)">${fA(computedEx)}<div style="font-size:9px;color:var(--text-4);font-weight:400">${li.noTax?'(no tax)':'ex GST'}</div><div style="font-size:9px;color:var(--text-4);font-weight:400;margin-top:2px">원래: ${fA(totalAmt)}</div><div id="pi-past-${i}" style="font-size:9px;color:#7C3AED;font-weight:600;${prevPct>0?'':'display:none'}">지난: ${fA(round2(totalAmt * prevPct / 100))}</div></span>
             <div style="display:flex;flex-direction:column;gap:1px">
               <button style="background:none;border:none;color:var(--text-3);font-size:11px;cursor:${i===0?'not-allowed':'pointer'};line-height:1;padding:1px 3px;opacity:${i===0?'0.3':'1'}" onclick="moveLineItem(${i}, -1)" aria-label="위로" title="위로">▲</button>
               <button style="background:none;border:none;color:var(--text-3);font-size:11px;cursor:${i===lineItems.length-1?'not-allowed':'pointer'};line-height:1;padding:1px 3px;opacity:${i===lineItems.length-1?'0.3':'1'}" onclick="moveLineItem(${i}, 1)" aria-label="아래로" title="아래로">▼</button>
