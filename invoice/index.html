@@ -1052,7 +1052,16 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
   <div class="mb"><label class="label">Business Address</label><input class="input" id="bf-ba" placeholder="사업장 주소"/></div>
   <div class="mb"><label class="label">Postal Address</label><input class="input" id="bf-pa" placeholder="우편 주소"/></div>
   <div class="mb"><label class="label">ABN</label><input class="input" id="bf-a" placeholder="ABN"/></div>
-  
+
+  <!-- Subcontractor Statement 옵션 -->
+  <div class="mb" style="background:#FFFBEB;border:1px solid #FDE68A;border-radius:10px;padding:10px">
+    <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+      <input type="checkbox" id="bf-stmt" style="width:16px;height:16px;accent-color:#C2410C"/>
+      <span style="font-weight:700;color:#92400E;font-size:13px">📄 Subcontractor Statement 같이 보냄</span>
+    </label>
+    <p style="font-size:11px;color:#92400E;margin:6px 0 0 24px;line-height:1.5">이 빌더에게 인보이스 발송 시 NSW Subcontractor Statement PDF 도 자동 생성. (Workers Comp/Payroll Tax 양식 — Zauner 등 일부 빌더 요구)</p>
+  </div>
+
   <!-- Custom Rates (Q4) -->
   <div class="mb" style="background:var(--card-bg-alt);border:1px solid var(--border);border-radius:10px;padding:12px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
@@ -1160,6 +1169,10 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
   </div>
   <div class="mb"><label class="label">본문 (편집 가능)</label><textarea class="input" id="em-body" style="height:140px;resize:vertical;font-family:inherit"></textarea></div>
   <div id="em-hint" style="background:#FEF3C7;border:1px solid #FDE68A;border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:#92400E;line-height:1.5"></div>
+  <div id="em-stmt-hint" style="display:none;background:#FFFBEB;border:1px solid #FDE68A;border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:#92400E;line-height:1.5">
+    📄 <strong>이 빌더는 Subcontractor Statement 가 필요해요.</strong><br/>
+    인보이스 PDF + Statement PDF 둘 다 자동 열림 → 각각 'PDF 저장' 후 메일에 같이 첨부하세요.
+  </div>
   <div class="row2" style="gap:6px;flex-wrap:wrap">
     <button class="btn-secondary" style="flex:1" onclick="closeEmailModal()">취소</button>
     <button class="btn-primary" style="flex:2" onclick="openGmailWithEmail()">📧 Gmail 열기 + 인쇄</button>
@@ -1337,6 +1350,38 @@ async function loadAll() {
   renderCoSel();
   renderRoomList();
   updateBar();
+  checkInsuranceExpiry();
+}
+
+// 보험 만료 임박 경고 — Certificate of Currency 가 보통 1년 유효.
+// insuranceDate 기준 1년이 다가오면 D-60 부터 경고. 헤더 아래 띠로 표시.
+function checkInsuranceExpiry() {
+  const banner = document.getElementById('ins-warn-banner');
+  if (banner) banner.remove();
+  if (!companies || companies.length === 0) return;
+  const today_d = new Date(today + 'T00:00:00');
+  const warnings = [];
+  companies.forEach(c => {
+    if (!c.insuranceDate) return;
+    const issued = new Date(c.insuranceDate + 'T00:00:00');
+    const expires = new Date(issued); expires.setFullYear(expires.getFullYear() + 1);
+    const daysLeft = Math.floor((expires - today_d) / (24*60*60*1000));
+    if (daysLeft < 0) warnings.push({co: c.name, expires, daysLeft, status:'expired'});
+    else if (daysLeft <= 60) warnings.push({co: c.name, expires, daysLeft, status:'soon'});
+  });
+  if (warnings.length === 0) return;
+  const fmtAu = d => `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+  const html = warnings.map(w => {
+    const isExpired = w.status === 'expired';
+    return `<div style="background:${isExpired?'#FEE2E2':'#FEF3C7'};border:1px solid ${isExpired?'#FCA5A5':'#FDE68A'};color:${isExpired?'#B91C1C':'#92400E'};padding:8px 14px;font-size:12px;font-weight:600">
+      ${isExpired?'🚨':'⚠️'} <strong>${esc(w.co)}</strong> 보험(Certificate of Currency) ${isExpired?`만료됨 (${fmtAu(w.expires)})`:`만료 ${w.daysLeft}일 남음 (${fmtAu(w.expires)})`} — ⚙️ 회사 설정에서 갱신 후 새 발급일 입력
+    </div>`;
+  }).join('');
+  const b = document.createElement('div');
+  b.id = 'ins-warn-banner';
+  b.innerHTML = html;
+  const header = document.querySelector('.header');
+  if (header && header.parentNode) header.parentNode.insertBefore(b, header.nextSibling);
 }
 
 document.getElementById('f-id').value = today;
@@ -2167,6 +2212,12 @@ function buildDetailHTML(inv) {
       ${inv.status === 'INVOICE' ? `<button style="flex:1;min-width:100px;padding:8px;font-size:11px;background:#FEF3C7;color:#92400E;border:1px solid #FDE68A;border-radius:9px;cursor:pointer" onclick="revertToDraft('${inv.id}')" title="실수로 발행했을 때 DRAFT로 복구">↩️ Draft로 되돌리기</button>
       <button class="btn-primary" style="flex:1;min-width:100px;padding:8px;font-size:12px;background:#7C3AED" onclick="composeEmailById('${inv.id}')" title="이메일 재발송">📧 이메일</button>` : ''}
       <button class="btn-primary" style="flex:1;min-width:90px;padding:8px;font-size:12px;background:#10B981" onclick="printInvoice('${inv.id}')" title="인쇄용 인보이스 생성">🖨️ 인쇄 / PDF</button>
+      ${(() => {
+        const _b = builders.find(x => x.name === inv.builderName);
+        return _b && _b.needsStatement
+          ? `<button class="btn-secondary" style="flex:1;min-width:120px;padding:8px;font-size:12px;background:#FFFBEB;color:#92400E;border-color:#FDE68A" onclick="openSubcontractorStatement('${inv.id}')" title="Subcontractor Statement PDF 생성">📄 Statement</button>`
+          : '';
+      })()}
       <button class="btn-secondary" style="flex:1;min-width:70px;padding:8px;font-size:12px" onclick="openIM('${inv.id}')">✏️ 수정</button>
       <button style="background:#FEF2F2;color:#DC2626;border:1px solid #FECACA;border-radius:9px;padding:8px 14px;font-size:12px;cursor:pointer" onclick="delInv('${inv.id}')" aria-label="삭제">🗑</button>
     </div>
@@ -4741,6 +4792,125 @@ function restoreDocTitle() {
   }
 }
 
+// ─── Subcontractor Statement PDF (NSW form) ─────────────────────────────────
+// 인보이스 + 빌더 + 회사 정보로 NSW Subcontractor Statement 양식을 자동 채워
+// 인쇄 친화적 HTML 새 창에 열고 사용자가 PDF 로 저장 → 이메일에 수동 첨부
+function openSubcontractorStatement(invId) {
+  const inv = invoices.find(i => i.id === invId);
+  if (!inv) return alert('인보이스를 찾을 수 없어요');
+  const b = builders.find(x => x.name === inv.builderName) || {};
+  const co = companies.find(c => c.id === inv.companyId) || companies[0] || {};
+  // 필수 정보 검증
+  const missing = [];
+  if (!co.name)          missing.push('회사명');
+  if (!co.abn)           missing.push('회사 ABN');
+  if (!co.address)       missing.push('회사 주소');
+  if (!co.signerName)    missing.push('서명자 이름 (회사 설정)');
+  if (!co.signerTitle)   missing.push('서명자 직책 (회사 설정)');
+  if (!co.insuranceDate) missing.push('보험 발급일 (회사 설정)');
+  if (!b.abn)            missing.push(`빌더 ABN (${b.name})`);
+  if (missing.length) {
+    return alert('Statement 발행 전에 다음 정보를 채워주세요:\n\n• ' + missing.join('\n• '));
+  }
+  const fAuS = s => { if (!s) return ['','','']; const [y,m,d] = s.split('-'); return [d, m, y.slice(-2)]; };
+  const [fd, fm, fy] = fAuS(inv.startDate || inv.invoiceDate || '');
+  const [td, tm, ty] = fAuS(inv.invoiceDate || '');
+  const [pd, pm, py] = fAuS(inv.invoiceDate || '');   // payment claim date = 청구일
+  const [insd, insm, insy] = fAuS(co.insuranceDate || '');
+  const sigDate = fAuS(today);
+  const today_fAu = `${sigDate[0]}/${sigDate[1]}/20${sigDate[2]}`;
+  const contractRef = inv.projectName || inv.address || '';
+  const addrHTML = (co.address||'').split(/[,\n]/).map(s=>s.trim()).filter(Boolean).join(', ');
+
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Subcontractor Statement ${esc(inv.invoiceNum||'')}</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,Helvetica,Arial,sans-serif}
+body{padding:18mm 16mm;color:#000;font-size:11pt;line-height:1.45;background:#fff}
+h1{font-size:14pt;font-weight:800;text-align:center;text-transform:uppercase;margin-bottom:2pt}
+h2{font-size:11pt;font-weight:700;text-align:center;text-transform:uppercase;margin-bottom:14pt;line-height:1.3}
+.subtitle{font-size:9pt;text-align:center;color:#444;margin-bottom:16pt}
+.fill{display:inline-block;border-bottom:1px solid #000;padding:0 4px;font-weight:600;min-width:60px}
+.fill-long{display:inline-block;border-bottom:1px solid #000;padding:0 4px;font-weight:600;min-width:180px}
+p{margin-bottom:10pt;font-size:10pt}
+.section{margin-bottom:8pt;font-size:10pt}
+.note{font-size:8.5pt;color:#666;margin-left:10pt}
+.checkbox{display:inline-block;width:11pt;height:11pt;border:1.5px solid #000;vertical-align:middle;margin:0 2pt;text-align:center;line-height:9pt;font-size:9pt;font-weight:700}
+.checkbox.chk::after{content:"✓"}
+.toolbar{position:sticky;top:0;background:#fff;border-bottom:1px solid #ccc;padding:8pt 16mm;margin:-18mm -16mm 14pt;display:flex;gap:8pt;justify-content:space-between;z-index:10}
+.toolbar button{padding:6pt 14pt;border:none;border-radius:6pt;cursor:pointer;font-size:10pt;font-weight:700;font-family:inherit}
+.tb-print{background:#1E1B4B;color:#fff}
+.tb-close{background:#F3F4F6;color:#333;border:1px solid #ccc}
+@media print{.toolbar{display:none}body{padding:14mm 16mm}@page{margin:0;size:A4}}
+</style></head><body>
+<div class="toolbar">
+  <button class="tb-close" onclick="window.close()">✕ 창 닫기</button>
+  <button class="tb-print" onclick="window.print()">🖨️ PDF 저장</button>
+</div>
+
+<div style="text-align:right;font-size:8.5pt;color:#444;margin-bottom:4pt">Version 2 · New South Wales</div>
+<h1>Subcontractor's Statement</h1>
+<h2>Regarding Worker's Compensation, Payroll Tax and Remuneration</h2>
+<p class="subtitle">(Note 1 – see back of form)</p>
+
+<p style="font-size:9pt;color:#333">For the purposes of this Statement a "subcontractor" is a person (or other legal entity) that has entered into a contract with a "principal contractor" to carry out work.</p>
+<p style="font-size:9pt;color:#333">This Statement must be signed by a "subcontractor" (or by a person who is authorised, or held out as being authorised, to sign the statement by the subcontractor) referred to in any of s175B <em>Workers Compensation Act 1987</em>, Schedule 2 Part 5 <em>Payroll Tax Act 2007</em>, and s127 <em>Industrial Relations Act 1996</em> where the "subcontractor" has employed or engaged workers or subcontractors during the period of the contract to which the form applies under the relevant Act(s). The signed Statement is to be submitted to the relevant principal contractor.</p>
+
+<p style="font-weight:700;font-size:10pt;border-bottom:1px solid #000;padding-bottom:3pt;margin-top:14pt">SUBCONTRACTOR'S STATEMENT <span style="font-weight:400;font-size:9pt">(Refer to the back of this form for Notes, period of Statement retention, and Offences under various Acts.)</span></p>
+
+<div class="section" style="margin-top:10pt">
+  Subcontractor: <span class="fill-long">${esc(co.name)}</span> &nbsp; ABN: <span class="fill">${esc(co.abn)}</span><br/>
+  <span class="note">(Business name)</span>
+</div>
+<div class="section">
+  of <span class="fill-long" style="min-width:400px">${esc(addrHTML)}</span><br/>
+  <span class="note">(Address of subcontractor)</span>
+</div>
+<div class="section">
+  has entered into a contract with <span class="fill-long">${esc(b.name||'')}</span> &nbsp; ABN: <span class="fill">${esc(b.abn||'')}</span><br/>
+  <span class="note">(Business name of principal contractor)</span> <span style="float:right;font-weight:600">(Note 2)</span>
+</div>
+<div class="section">
+  Contract number/identifier <span class="fill-long" style="min-width:380px">${esc(contractRef)}</span> <span style="float:right;font-weight:600">(Note 3)</span>
+</div>
+<div class="section">
+  This Statement applies for work between: <span class="fill">${fd}</span>/<span class="fill">${fm}</span>/<span class="fill">${fy}</span> and <span class="fill">${td}</span>/<span class="fill">${tm}</span>/<span class="fill">${ty}</span> inclusive, <span style="float:right;font-weight:600">(Note 4)</span>
+</div>
+<div class="section">
+  subject of the payment claim dated: <span class="fill">${pd}</span>/<span class="fill">${pm}</span>/<span class="fill">${py}</span> <span style="float:right;font-weight:600">(Note 5)</span>
+</div>
+
+<p style="margin-top:14pt;font-size:10pt">
+  I, <span class="fill-long" style="min-width:220px">${esc(co.signerName)}</span> a Director or a person authorised by the Subcontractor on whose behalf this declaration is made, hereby declare that I am in a position to know the truth of the matters which are contained in this Subcontractor's Statement and declare the following to the best of my knowledge and belief:
+</p>
+
+<p style="font-size:9.5pt"><strong>(a)</strong> The abovementioned Subcontractor has either employed or engaged workers or subcontractors during the above period of this contract. Tick <span class="checkbox chk"></span> if true and comply with (b) to (g) below, as applicable. If it is not the case that workers or subcontractors are involved or you are an exempt employer for workers compensation purposes tick <span class="checkbox"></span> and only complete (f) and (g) below. You must tick one box. <em>(Note 6)</em></p>
+
+<p style="font-size:9.5pt"><strong>(b)</strong> All workers compensation insurance premiums payable by the Subcontractor in respect of the work done under the contract have been paid. The Certificate of Currency for that insurance is attached and is dated <span class="fill">${insd}</span>/<span class="fill">${insm}</span>/<span class="fill">${insy}</span> <em>(Note 7)</em></p>
+
+<p style="font-size:9.5pt"><strong>(c)</strong> All remuneration payable to relevant employees for work under the contract for the above period has been paid. <em>(Note 8)</em></p>
+
+<p style="font-size:9.5pt"><strong>(d)</strong> Where the Subcontractor is required to be registered as an employer under the <em>Payroll Tax Act 2007</em>, the Subcontractor has paid all payroll tax due in respect of employees who performed work under the contract, as required at the date of this Subcontractor's Statement. <em>(Note 9)</em></p>
+
+<p style="font-size:9.5pt"><strong>(e)</strong> Where the Subcontractor is also a principal contractor in connection with the work, the Subcontractor has in its capacity of principal contractor been given a written Subcontractor's Statement by its subcontractor(s) in connection with that work for the period stated above. <em>(Note 10)</em></p>
+
+<div class="section" style="margin-top:14pt">
+  <strong>(f)</strong> Signature ………………………………………………… &nbsp;&nbsp; Full name <span class="fill-long">${esc(co.signerName)}</span>
+</div>
+<div class="section">
+  <strong>(g)</strong> Position/Title <span class="fill-long" style="min-width:280px">${esc(co.signerTitle)}</span> &nbsp; Date <span class="fill">${sigDate[0]}</span>/<span class="fill">${sigDate[1]}</span>/<span class="fill">${sigDate[2]}</span>
+</div>
+
+<p style="margin-top:18pt;font-size:9pt;color:#333"><strong>NOTE:</strong> Where required above, this Statement must be accompanied by the relevant Certificate of Currency to comply with section 175B of the Workers Compensation Act 1987.</p>
+
+</body></html>`;
+
+  const w = window.open('', '_blank');
+  if (!w) return alert('팝업이 차단됐어요. 브라우저 설정에서 허용해주세요.');
+  w.document.write(html);
+  w.document.close();
+  w.focus();
+}
+
 function printInvoice(id) {
   const inv = invoices.find(i => i.id === id);
   if (!inv) return alert('인보이스를 찾을 수 없어요');
@@ -4793,6 +4963,9 @@ function composeEmailForInvoice(inv) {
   }
 
   updateEmailBody();
+  // Statement 필요한 빌더면 안내 표시
+  const stmtHint = document.getElementById('em-stmt-hint');
+  if (stmtHint) stmtHint.style.display = b.needsStatement ? '' : 'none';
   document.getElementById('email-modal').classList.add('open');
 }
 
@@ -4950,19 +5123,24 @@ function finishEmailSend() {
 
   // 인쇄 미리보기 자동 열기
   const inv = pending.inv;
+  const b = inv ? builders.find(x => x.name === inv.builderName) : null;
   if (inv && inv.id) {
     setTimeout(() => printInvoice(inv.id), 200);
   } else if (inv) {
     const co = companies.find(c => c.id === inv.companyId) || companies[0] || {};
-    const b = builders.find(x => x.name === inv.builderName) || {};
+    const _b = builders.find(x => x.name === inv.builderName) || {};
     setTimeout(() => {
       setPrintTitle(inv);
       if (co.prefix && co.prefix.includes('BXBT')) {
-        printInvoiceBXBT(inv, co, b);
+        printInvoiceBXBT(inv, co, _b);
       } else {
-        printInvoiceKM(inv, co, b);
+        printInvoiceKM(inv, co, _b);
       }
     }, 200);
+  }
+  // 빌더가 Subcontractor Statement 필요한 경우 Statement PDF 도 자동 생성
+  if (inv && inv.id && b && b.needsStatement) {
+    setTimeout(() => openSubcontractorStatement(inv.id), 600);
   }
   _pendingEmailSend = null;
 }
@@ -5913,6 +6091,14 @@ function renderCoList() {
         <div><label class="label">담당자</label><input class="input" id="co-cn-${c.id}" value="${esc(c.contactName||'')}"/></div>
         <div><label class="label">담당 이메일</label><input class="input" id="co-ce-${c.id}" value="${esc(c.contactEmail||'')}"/></div>
       </div>
+      <div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--border-2)">
+        <div style="font-size:10px;font-weight:700;color:var(--text-3);margin-bottom:6px;letter-spacing:0.5px">📄 SUBCONTRACTOR STATEMENT (선택 빌더용)</div>
+        <div class="row2 mb">
+          <div><label class="label">서명자 이름 (영문)</label><input class="input" id="co-signer-${c.id}" value="${esc(c.signerName||'')}" placeholder="Seongho Park"/></div>
+          <div><label class="label">직책 (영문)</label><input class="input" id="co-signtitle-${c.id}" value="${esc(c.signerTitle||'')}" placeholder="Tiling Manager / Director"/></div>
+        </div>
+        <div class="mb"><label class="label">보험 (Certificate of Currency) 발급일  <span style="font-size:10px;color:var(--text-4);font-weight:400">— 만료 임박 시 알림</span></label><input type="date" class="input" id="co-insdate-${c.id}" value="${esc(c.insuranceDate||'')}"/></div>
+      </div>
     </div>`;
   });
   document.getElementById('co-list').innerHTML = h;
@@ -5942,7 +6128,11 @@ async function saveAllCo() {
       bsb: document.getElementById('co-bsb-'+c.id).value,
       acc: document.getElementById('co-acc-'+c.id).value,
       contactName: document.getElementById('co-cn-'+c.id).value,
-      contactEmail: document.getElementById('co-ce-'+c.id).value
+      contactEmail: document.getElementById('co-ce-'+c.id).value,
+      // Subcontractor Statement 용 (선택 빌더에게만 사용)
+      signerName: document.getElementById('co-signer-'+c.id)?.value || '',
+      signerTitle: document.getElementById('co-signtitle-'+c.id)?.value || '',
+      insuranceDate: document.getElementById('co-insdate-'+c.id)?.value || ''
     };
     await fbSet('invoiceCompanies/'+c.id, data);
   }
@@ -5973,7 +6163,8 @@ function openBM(id) {
   document.getElementById('bf-ba').value = b?.businessAddress||'';
   document.getElementById('bf-pa').value = b?.postalAddress||'';
   document.getElementById('bf-a').value = b?.abn||'';
-  
+  document.getElementById('bf-stmt').checked = !!(b?.needsStatement);
+
   // Custom rates
   customRatesEditing = b?.customRates ? 
     (Array.isArray(b.customRates) ? [...b.customRates] : Object.values(b.customRates))
@@ -6047,6 +6238,7 @@ async function saveBuilder() {
     businessAddress: document.getElementById('bf-ba').value,
     postalAddress: document.getElementById('bf-pa').value,
     abn: document.getElementById('bf-a').value,
+    needsStatement: document.getElementById('bf-stmt').checked,
     customRates: cleanCustomRates
   };
   if (editBId) await fbSet('invoiceBuilders/'+editBId, data);
