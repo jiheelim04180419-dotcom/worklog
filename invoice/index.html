@@ -1240,7 +1240,17 @@ let curBuildType = 'NEW'; // NEW or RENO
 let useLegacyAmount = false; // Use simple amount field instead of line items
 const today = new Date().toISOString().split('T')[0];
 const fA = n => new Intl.NumberFormat('en-AU',{style:'currency',currency:'AUD'}).format(n||0);
-const fD = d => d ? new Date(d+'T00:00:00').toLocaleDateString('en-AU',{day:'2-digit',month:'short',year:'numeric'}) : '—';
+// 호주식 날짜 (dd/mm/yyyy). 빈 값은 '—'.
+const fD = d => {
+  if (!d) return '—';
+  const s = String(d);
+  // ISO 형태 yyyy-mm-dd 만 변환. 그 외 (이미 dd/mm/yyyy 등) 는 그대로.
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+    const [yy,mm,dd] = s.slice(0,10).split('-');
+    return `${dd}/${mm}/${yy}`;
+  }
+  return s;
+};
 const esc = s => (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
 // Copy email to clipboard with visual feedback
@@ -8198,7 +8208,8 @@ function renderCalendar() {
     }
   });
   
-  const monthName = new Date(y, m-1, 1).toLocaleString('ko-KR', {year:'numeric', month:'long'});
+  // 호주식 월 표시: "May 2026"
+  const monthName = new Date(y, m-1, 1).toLocaleString('en-AU', {year:'numeric', month:'long'});
   
   let cells = '';
   // Empty cells before day 1
