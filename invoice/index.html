@@ -7545,6 +7545,10 @@ let _expFromMonth = null;     // 표시 시작 월 (제일 오래된 것; null�
 let _expEditCell = null;      // 인라인 편집 중인 셀 키 (vendorId + ':' + month)
 let _expSubTab = 'monthly';   // 'monthly' | 'personal'
 let _pcQuarterFilter = 'all'; // 'all' | 'FY26-Q1' 등
+let _pcNameFilter = 'all';    // 'all' 또는 직원 이름
+let _pcSortBy = 'paid';       // 'paid' (지불일) | 'reimburse' (환급일) | 'name' | 'amount'
+let _pcSortDir = 'desc';      // 'desc' (최신 먼저) | 'asc'
+let _pcShowSettings = false;  // 설정 패널 열림 여부
 let _pcEditId = null;         // 편집 중인 개인카드 항목 id (또는 'new')
 let _pcForm = null;           // 신규/수정 폼 상태
 
@@ -7905,11 +7909,11 @@ function _expSubTabBar() {
 // 직원이 개인카드로 회사 물품을 산 내역을 추적. 환급일 기준 호주 회계연도 분기로 묶음.
 // BAS 신고용 CSV (Date / Total amount incl. GST / GST / DESCRIPTIONS / Payment methods) 으로 내보내기.
 function renderPersonalCard() {
-  const entries = [...personalCardEntries].sort((a,b) => (b.reimbursementDate||b.paidDate||'').localeCompare(a.reimbursementDate||a.paidDate||''));
+  const allEntries = [...personalCardEntries];
 
-  // 환급 날짜 기준 분기 그룹
+  // 환급 날짜 기준 분기 그룹 (필터 옵션용)
   const allQuarters = new Set();
-  entries.forEach(e => {
+  allEntries.forEach(e => {
     const d = e.reimbursementDate || e.paidDate;
     if (!d) return;
     const q = auQuarterOf(d);
@@ -7917,22 +7921,38 @@ function renderPersonalCard() {
   });
   const quartersSorted = [...allQuarters].sort().reverse(); // 최신 분기 먼저
 
-  // 필터 적용
-  const filtered = _pcQuarterFilter === 'all'
-    ? entries
-    : entries.filter(e => {
-        const d = e.reimbursementDate || e.paidDate;
-        if (!d) return false;
-        return auQuarterOf(d)?.label === _pcQuarterFilter;
-      });
+  // 직원명 목록 (필터 + 자동완성 양쪽 사용)
+  const knownNames = [...new Set(allEntries.map(e => e.name).filter(Boolean))].sort();
+
+  // 필터 적용: 분기 → 이름
+  let filtered = allEntries;
+  if (_pcQuarterFilter !== 'all') {
+    filtered = filtered.filter(e => {
+      const d = e.reimbursementDate || e.paidDate;
+      return d && auQuarterOf(d)?.label === _pcQuarterFilter;
+    });
+  }
+  if (_pcNameFilter !== 'all') {
+    filtered = filtered.filter(e => (e.name || '') === _pcNameFilter);
+  }
+
+  // 정렬: 지불일(기본) | 환급일 | 이름 | 금액 + 방향
+  const dir = _pcSortDir === 'asc' ? 1 : -1;
+  filtered = [...filtered].sort((a, b) => {
+    let av, bv;
+    if (_pcSortBy === 'reimburse') { av = a.reimbursementDate||''; bv = b.reimbursementDate||''; }
+    else if (_pcSortBy === 'name') { av = a.name||''; bv = b.name||''; }
+    else if (_pcSortBy === 'amount') { av = parseFloat(a.amount)||0; bv = parseFloat(b.amount)||0; }
+    else { av = a.paidDate||''; bv = b.paidDate||''; }    // default: paid
+    if (av < bv) return -1 * dir;
+    if (av > bv) return  1 * dir;
+    return 0;
+  });
 
   // 합계
   const fmtMoney = n => '$' + (Math.round((parseFloat(n)||0)*100)/100).toLocaleString('en-AU',{minimumFractionDigits:2, maximumFractionDigits:2});
   const totalAmt = filtered.reduce((s,e)=>s+(parseFloat(e.amount)||0), 0);
   const totalGst = totalAmt / 11;
-
-  // 직원명 자동완성 옵션 (기존 항목 + 멤버에서 추출)
-  const knownNames = [...new Set(entries.map(e => e.name).filter(Boolean))].sort();
 
   let h = `
     <div style="padding:14px 16px">
@@ -7944,6 +7964,7 @@ function renderPersonalCard() {
           <p style="margin:2px 0 0;font-size:11px;color:var(--text-4)">직원 개인카드 사용 → 회사 환급. 호주 FY 분기별 CSV 내보내기</p>
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn-secondary" style="padding:7px 10px;font-size:12px;background:${_pcShowSettings?'#EEF2FF':'#fff'};color:#4F46E5;border-color:#C7D2FE" onclick="pcToggleSettings()" title="필터·정렬 설정">⚙️ 설정${(_pcNameFilter!=='all'||_pcSortBy!=='paid'||_pcSortDir!=='desc')?' •':''}</button>
           <button class="btn-primary" style="padding:7px 12px;font-size:12px" onclick="pcOpenForm()">＋ 새 항목</button>
           ${filtered.length > 0 ? `<button class="btn-secondary" style="padding:7px 12px;font-size:12px;background:#ECFDF5;color:#065F46;border-color:#A7F3D0" onclick="pcExportCSV()">📥 CSV 내보내기</button>` : ''}
         </div>
@@ -7956,6 +7977,10 @@ function renderPersonalCard() {
         ${quartersSorted.map(q => `<button onclick="_pcQuarterFilter='${q}';renderExpenses()" style="background:${_pcQuarterFilter===q?'#4F46E5':'#fff'};color:${_pcQuarterFilter===q?'#fff':'#4F46E5'};border:1px solid #4F46E5;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">${q}</button>`).join('')}
         ${quartersSorted.length === 0 ? `<span style="font-size:11px;color:var(--text-4)">아직 항목이 없어요</span>` : ''}
       </div>
+
+      ${_pcShowSettings ? _pcSettingsHtml(knownNames) : ''}
+
+      ${(_pcNameFilter!=='all') ? `<div style="font-size:11px;color:var(--text-3);margin-bottom:10px">🔎 <strong>${esc(_pcNameFilter)}</strong> 항목만 표시 중 · <button onclick="_pcNameFilter='all';renderExpenses()" style="background:none;border:none;color:#4F46E5;cursor:pointer;font-size:11px;text-decoration:underline;padding:0">전체 보기</button></div>` : ''}
 
       ${(_pcEditId === 'new' || _pcEditId) ? _pcFormHtml(knownNames) : ''}
 
@@ -8090,6 +8115,70 @@ function pcCancelForm() {
   _pcEditId = null;
   _pcForm = null;
   renderExpenses();
+}
+
+// ── 개인카드 환급 설정 패널 ──────────────────────────────────────────────
+function pcToggleSettings() {
+  _pcShowSettings = !_pcShowSettings;
+  renderExpenses();
+}
+function pcSetSort(by) {
+  // 같은 컬럼 다시 누르면 방향 토글
+  if (_pcSortBy === by) {
+    _pcSortDir = _pcSortDir === 'desc' ? 'asc' : 'desc';
+  } else {
+    _pcSortBy = by;
+    _pcSortDir = 'desc';
+  }
+  renderExpenses();
+}
+function pcResetFilters() {
+  _pcQuarterFilter = 'all';
+  _pcNameFilter = 'all';
+  _pcSortBy = 'paid';
+  _pcSortDir = 'desc';
+  renderExpenses();
+}
+
+function _pcSettingsHtml(knownNames) {
+  const sortBtn = (key, label) => {
+    const on = _pcSortBy === key;
+    const arrow = on ? (_pcSortDir === 'desc' ? ' ↓' : ' ↑') : '';
+    return `<button onclick="pcSetSort('${key}')" style="background:${on?'#4F46E5':'#fff'};color:${on?'#fff':'#4F46E5'};border:1px solid #4F46E5;padding:5px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">${label}${arrow}</button>`;
+  };
+  const nameBtn = (val, label) => {
+    const on = _pcNameFilter === val;
+    return `<button onclick="_pcNameFilter='${val.replace(/'/g,"\\'")}';renderExpenses()" style="background:${on?'#0F766E':'#fff'};color:${on?'#fff':'#0F766E'};border:1px solid #0F766E;padding:4px 11px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">${esc(label)}</button>`;
+  };
+  return `
+    <div style="background:#fff;border:1.5px solid #C7D2FE;border-radius:12px;padding:14px 16px;margin-bottom:14px;box-shadow:0 1px 3px rgba(79,70,229,0.08)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <h3 style="margin:0;font-size:13px;font-weight:800;color:#4338CA">⚙️ 보기 설정</h3>
+        <button onclick="pcResetFilters()" style="background:none;border:none;color:#9CA3AF;cursor:pointer;font-size:11px;text-decoration:underline;font-family:inherit">초기화</button>
+      </div>
+
+      <!-- 정렬 -->
+      <div style="margin-bottom:12px">
+        <div style="font-size:11px;font-weight:700;color:var(--text-3);margin-bottom:6px">📊 정렬 기준 <span style="font-weight:400;color:var(--text-4)">(같은 버튼 다시 누르면 ↑↓ 전환)</span></div>
+        <div style="display:flex;gap:5px;flex-wrap:wrap">
+          ${sortBtn('paid', '지불일')}
+          ${sortBtn('reimburse', '환급일')}
+          ${sortBtn('name', '이름')}
+          ${sortBtn('amount', '금액')}
+        </div>
+      </div>
+
+      <!-- 이름 필터 -->
+      <div>
+        <div style="font-size:11px;font-weight:700;color:var(--text-3);margin-bottom:6px">👤 직원 필터</div>
+        <div style="display:flex;gap:5px;flex-wrap:wrap">
+          ${nameBtn('all', '전체')}
+          ${knownNames.map(n => nameBtn(n, n)).join('')}
+          ${knownNames.length === 0 ? `<span style="font-size:11px;color:var(--text-4)">등록된 이름이 없어요</span>` : ''}
+        </div>
+      </div>
+    </div>
+  `;
 }
 
 async function pcSaveForm() {
