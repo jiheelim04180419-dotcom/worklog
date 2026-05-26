@@ -1222,10 +1222,12 @@ async function fbDel(path) {
 let invoices = [], builders = [], companies = [], customRooms = [], curFilter = 'INVOICE', curType = 'NORMAL', editId = null, editBId = null, invItems = [], progItems = [], invPayments = [];
 // 정기 지출 (Vendors + Monthly Payments)
 let expenseVendors = []; // {id, name, order, archived}
-let monthlyPayments = []; // {id, vendorId, month:"YYYY-MM", paid, paidDate, amount, notes}
+let monthlyPayments = []; // {id, vendorId, month:"YYYY-MM", paid, paidDate, amount, notes, status}
+let personalCardEntries = []; // {id, paidDate, name, amount, purpose, reimbursementDate, notes}
 const DEFAULT_EXPENSE_VENDORS = [
   'Professionals Bathurst','Bunnings','Hothams','Minimix','Mcnamara','Beaumont','Putta Bucca','Dirt'
 ];
+const PURPOSE_OPTIONS = ['fuel','materials','tool','plumbing','staff amenities','other'];
 
 // Default room names (always shown, can't be deleted)
 const DEFAULT_ROOMS = ['Entry', 'Ensuite', 'Main Bathroom', 'Toilet', 'Laundry', 'Kitchen', 'Alfresco', 'Porch', 'Balcony'];
@@ -1325,10 +1327,11 @@ async function loadAll() {
     invEl.innerHTML = '<div class="empty"><div style="font-size:32px;margin-bottom:10px">⏳</div><p style="font-size:13px;color:#6B7280">데이터 로딩 중...</p></div>';
   }
   
-  const [inv, bld, co, rms, evRaw, mpRaw] = await Promise.all([
+  const [inv, bld, co, rms, evRaw, mpRaw, pcRaw] = await Promise.all([
     fbGet('invoices'), fbGet('invoiceBuilders'), fbGet('invoiceCompanies'), fbGet('invoiceRooms'),
-    fbGet('expenseVendors'), fbGet('monthlyPayments')
+    fbGet('expenseVendors'), fbGet('monthlyPayments'), fbGet('personalCardEntries')
   ]);
+  personalCardEntries = pcRaw ? Object.entries(pcRaw).map(([id,v])=>({...v,id})) : [];
   invoices = inv ? Object.entries(inv).map(([id,v])=>({...v,id})) : [];
   builders = bld ? Object.entries(bld).map(([id,v])=>({...v,id})) : [];
   customRooms = rms && Array.isArray(rms) ? rms : (rms ? Object.values(rms) : []);
@@ -4800,6 +4803,21 @@ function isoToAuShort(iso) {
   return `${d}/${m}/${y.slice(-2)}`;
 }
 
+// 호주 회계연도(FY) 분기 계산. FY = 6월 종료 기준 (e.g. Jul 2025 → FY2026 Q1).
+// Q1: Jul–Sep, Q2: Oct–Dec, Q3: Jan–Mar, Q4: Apr–Jun
+function auQuarter(year, month) {
+  if (month >= 7) return { fy: year + 1, q: Math.floor((month - 7) / 3) + 1 };
+  return { fy: year, q: Math.floor((month - 1) / 3) + 3 };
+}
+// "YYYY-MM-DD" 또는 "YYYY-MM" 받아서 { fy, q, label:"FY26-Q1", key:"FY26-Q1" } 반환
+function auQuarterOf(ymdOrYm) {
+  if (!ymdOrYm) return null;
+  const [y, m] = ymdOrYm.split('-').map(Number);
+  const { fy, q } = auQuarter(y, m);
+  const label = `FY${String(fy).slice(-2)}-Q${q}`;
+  return { fy, q, label, key: label };
+}
+
 // ── CSV Export ──────────────────────────────────────────────────────────────
 function exportCSV() {
   // Use currently filtered+sorted invoices
@@ -7395,15 +7413,17 @@ function renderStats() {
   const chartView = (typeof statChartView !== 'undefined') ? statChartView : 'month';
   let sortedM;
   if (chartView === 'quarter') {
-    // 같은 분기 합산. key = 'YYYY-Q#' (예: 2026-Q2)
+    // 호주 회계연도 분기: Q1 = Jul–Sep, Q2 = Oct–Dec, Q3 = Jan–Mar, Q4 = Apr–Jun
+    // 회계연도(FY) 표기: e.g. Jul 2025 → FY26-Q1 (FY는 6월 종료 연도 기준)
     const quarterly = {};
     Object.entries(monthly).forEach(([m, v]) => {
       const [y, mo] = m.split('-').map(Number);
-      const q = Math.floor((mo-1)/3) + 1;
-      const key = `${y}-Q${q}`;
+      const { fy, q } = auQuarter(y, mo);
+      const key = `FY${String(fy).slice(-2)}-Q${q}`;
       quarterly[key] = (quarterly[key]||0) + v;
     });
-    sortedM = Object.entries(quarterly).sort((a,b)=>a[0].localeCompare(b[0])).slice(-8); // 최근 8개 분기 (2년)
+    // FY-Q 순서로 정렬 ("FY26-Q3" < "FY26-Q4" < "FY27-Q1")
+    sortedM = Object.entries(quarterly).sort((a,b)=>a[0].localeCompare(b[0])).slice(-8);
   } else {
     sortedM = Object.entries(monthly).sort((a,b)=>a[0].localeCompare(b[0])).slice(-12);
   }
@@ -7458,7 +7478,8 @@ function renderStats() {
         const isThisPeriod = chartView==='month'
           ? (m === today.slice(0,7))
           : (m === `${today.slice(0,4)}-Q${Math.floor((parseInt(today.slice(5,7))-1)/3)+1}`);
-        const label = chartView==='quarter' ? m.slice(2) : m.slice(2).replace('-','/');
+        // chartView=='quarter': m 이미 "FY26-Q1" 형태로 옴 (그대로 표시)
+        const label = chartView==='quarter' ? m : m.slice(2).replace('-','/');
         // 월별(12개) 은 라벨 회전 -30deg (좁아서), 분기별(8개) 은 직립
         const labelStyle = chartView==='quarter'
           ? 'position:absolute;bottom:-20px;left:0;right:0;text-align:center;font-size:10px;color:var(--text-4);white-space:nowrap'
@@ -7512,6 +7533,10 @@ let statChartView = 'month';
 // 거래처(expenseVendors) × 월(YYYY-MM) 매트릭스로 결제 여부/날짜/금액 추적.
 let _expFromMonth = null;     // 표시 시작 월 (제일 오래된 것; null이면 6개월 전 자동)
 let _expEditCell = null;      // 인라인 편집 중인 셀 키 (vendorId + ':' + month)
+let _expSubTab = 'monthly';   // 'monthly' | 'personal'
+let _pcQuarterFilter = 'all'; // 'all' | 'FY26-Q1' 등
+let _pcEditId = null;         // 편집 중인 개인카드 항목 id (또는 'new')
+let _pcForm = null;           // 신규/수정 폼 상태
 
 function _expDefaultRange() {
   // 기본 6개월 (오늘 포함 ~ 5개월 전)
@@ -7569,10 +7594,15 @@ function expTogglePaid(vendorId, month) {
   const pay = _expFindPay(vendorId, month);
   if (!pay) {
     // 새로 등록 — 오늘 날짜로 결제 처리
-    _expSavePay(vendorId, month, { paid:true, paidDate:today });
+    _expSavePay(vendorId, month, { paid:true, paidDate:today, status:'paid' });
   } else {
-    _expSavePay(vendorId, month, { paid:!pay.paid, paidDate: !pay.paid ? today : '' });
+    _expSavePay(vendorId, month, { paid:!pay.paid, paidDate: !pay.paid ? today : '', status: !pay.paid ? 'paid' : 'unpaid' });
   }
+}
+
+// 이 달 이 거래처에 결제 항목 없음 (놓친 게 아니라 청구가 없었음) 으로 표시
+async function expMarkNA(vendorId, month) {
+  await _expSavePay(vendorId, month, { status:'na', paid:false, amount:0, paidDate:'', notes:'결제 없음' });
 }
 
 function expEditCell(vendorId, month) {
@@ -7595,7 +7625,8 @@ async function expSaveCell(vendorId, month) {
   const notes = noteEl?.value || '';
   // 결제 여부 자동 추론: 금액이 있거나 날짜가 있으면 paid=true
   const paid = (amount > 0) || !!paidDate;
-  const patch = { amount, paidDate, notes, paid };
+  const status = paid ? 'paid' : 'unpaid';
+  const patch = { amount, paidDate, notes, paid, status };
   _expEditCell = null;
   await _expSavePay(vendorId, month, patch);
 }
@@ -7655,6 +7686,20 @@ function expChangeRange(deltaMonths) {
 }
 
 function renderExpenses() {
+  // 서브탭 라우팅: monthly (정기지출 매트릭스) | personal (개인카드 환급)
+  if (_expSubTab === 'personal') return renderPersonalCard();
+  return renderMonthlyExpenses();
+}
+
+function expSwitchSubTab(t) {
+  _expSubTab = t;
+  _expEditCell = null;
+  _pcEditId = null;
+  _pcForm = null;
+  renderExpenses();
+}
+
+function renderMonthlyExpenses() {
   if (!_expFromMonth) _expFromMonth = _expDefaultRange();
   const months = _expMonthList(_expFromMonth, 6); // 6개월
   const monthsRev = [...months].reverse(); // 최신이 위로
@@ -7681,14 +7726,17 @@ function renderExpenses() {
   const fmtDateAu      = ymd => isoToAu(ymd);
   const fmtDateAuShort = ymd => isoToAuShort(ymd);
 
-  // 미결제 카운트 (현재 월)
+  // 미결제 카운트 (현재 월) — N/A 로 표시한 항목 및 PAID 는 제외
   const unpaidThisMonth = vendors.filter(v => {
     const p = _expFindPay(v.id, thisMonth);
-    return !p || !p.paid;
+    if (p && p.status === 'na') return false;  // 결제 없음으로 표시된 항목
+    if (p && p.paid) return false;
+    return true;
   });
 
   let h = `
     <div style="padding:14px 16px">
+      ${_expSubTabBar()}
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:14px">
         <div>
           <h2 style="margin:0;font-size:18px;font-weight:800;color:var(--text-1)">💳 정기 지출 (월 단위)</h2>
@@ -7741,30 +7789,61 @@ function renderExpenses() {
                   const p = _expFindPay(v.id, m);
                   const isEditing = _expEditCell === cellKey;
                   if (isEditing) {
-                    return `<td style="padding:4px;border-bottom:1px solid var(--border-3);border-left:1px solid var(--border-3);background:#EFF6FF">
+                    return `<td style="padding:4px;border-bottom:1px solid var(--border-3);border-left:1px solid var(--border-3);background:#EFF6FF;min-width:140px">
                       <div style="display:flex;flex-direction:column;gap:3px;align-items:stretch">
-                        <input type="number" id="exp-amt-${v.id}-${m}" placeholder="금액 ($)" value="${p?p.amount||'':''}" step="0.01" style="width:100%;padding:4px 6px;font-size:12px;border:1px solid var(--border-2);border-radius:4px;box-sizing:border-box;font-weight:600" autofocus/>
+                        <input type="number" id="exp-amt-${v.id}-${m}" placeholder="금액 ($)" value="${p&&p.status!=='na'?p.amount||'':''}" step="0.01" style="width:100%;padding:4px 6px;font-size:12px;border:1px solid var(--border-2);border-radius:4px;box-sizing:border-box;font-weight:600" autofocus/>
                         <input type="text" id="exp-date-${v.id}-${m}" placeholder="DD/MM/YYYY" value="${p&&p.paidDate?isoToAu(p.paidDate):''}" style="width:100%;padding:3px 5px;font-size:11px;border:1px solid var(--border-2);border-radius:4px;box-sizing:border-box" maxlength="10"/>
-                        <input type="text" id="exp-note-${v.id}-${m}" placeholder="메모" value="${p?esc(p.notes||''):''}" style="width:100%;padding:3px 5px;font-size:11px;border:1px solid var(--border-2);border-radius:4px;box-sizing:border-box"/>
+                        <input type="text" id="exp-note-${v.id}-${m}" placeholder="메모" value="${p&&p.status!=='na'?esc(p.notes||''):''}" style="width:100%;padding:3px 5px;font-size:11px;border:1px solid var(--border-2);border-radius:4px;box-sizing:border-box"/>
                         <div style="display:flex;gap:2px">
                           <button onclick="expSaveCell('${v.id}','${m}')" style="flex:1;background:#10B981;color:#fff;border:none;border-radius:4px;padding:4px;font-size:11px;font-weight:700;cursor:pointer">✓ 저장</button>
                           <button onclick="expCancelEdit()" style="flex:1;background:#E5E7EB;color:#374151;border:none;border-radius:4px;padding:4px;font-size:11px;cursor:pointer">✕</button>
                         </div>
-                        <p style="font-size:9px;color:var(--text-4);margin:0;line-height:1.2">💡 금액·날짜 둘 중 하나라도 입력하면 자동 결제완료</p>
+                        <button onclick="expMarkNA('${v.id}','${m}')" title="이 달 결제 없음 (놓침 아님)" style="background:none;border:1px dashed #D1D5DB;color:#6B7280;border-radius:4px;padding:3px;font-size:10px;cursor:pointer">— 결제 없음으로 표시</button>
+                        <p style="font-size:9px;color:var(--text-4);margin:0;line-height:1.2">💡 금액·날짜 중 하나라도 입력하면 자동 결제완료</p>
                       </div>
                     </td>`;
                   }
-                  const bg = p && p.paid ? '#D1FAE5' : (p && p.amount ? '#FEF3C7' : 'transparent');
-                  const fg = p && p.paid ? '#065F46' : (p && p.amount ? '#92400E' : 'var(--text-4)');
-                  return `<td style="padding:5px 4px;text-align:center;border-bottom:1px solid var(--border-3);border-left:1px solid var(--border-3);background:${bg};cursor:pointer" onclick="expEditCell('${v.id}','${m}')">
-                    ${p ? `
-                      <div style="display:flex;align-items:center;justify-content:center;gap:3px">
-                        <span onclick="event.stopPropagation();expTogglePaid('${v.id}','${m}')" style="font-size:14px;color:${fg};line-height:1">${p.paid?'☑️':'⬜'}</span>
+                  // 상태별 시각화 — 미니멀 · 프로페셔널 톤
+                  // PAID:      흰 배경 + 좌측 얇은 그린 보더 + 진한 글자
+                  // UNPAID(금액만 입력): 흰 배경 + 좌측 앰버 보더
+                  // N/A (이 달 결제 없음): 옅은 회색 + "—" 로 표시 (놓침 X)
+                  // 빈 셀:     배경 없음 + 옅은 ⚪ 아이콘
+                  let bg = 'transparent', leftBd = '', fg = 'var(--text-4)';
+                  if (p && p.status === 'na') {
+                    bg = '#F3F4F6'; leftBd = '3px solid #D1D5DB'; fg = '#6B7280';
+                  } else if (p && p.paid) {
+                    bg = '#FFFFFF'; leftBd = '3px solid #10B981'; fg = '#065F46';
+                  } else if (p && p.amount) {
+                    bg = '#FFFBEB'; leftBd = '3px solid #F59E0B'; fg = '#92400E';
+                  }
+                  const cellStyle = `padding:6px 4px 6px 7px;text-align:center;border-bottom:1px solid var(--border-3);border-left:1px solid var(--border-3);background:${bg};cursor:pointer;position:relative;${leftBd?`box-shadow:inset 4px 0 0 ${leftBd.split(' ').slice(-1)[0]}`:''}`;
+                  // 빈 셀
+                  if (!p) {
+                    return `<td style="${cellStyle}" onclick="expEditCell('${v.id}','${m}')">
+                      <div style="display:flex;flex-direction:column;align-items:center;gap:3px">
+                        <span style="color:#D1D5DB;font-size:14px;line-height:1">○</span>
+                        <button onclick="event.stopPropagation();expMarkNA('${v.id}','${m}')" title="이 달 결제 없음으로 표시" style="background:none;border:none;color:#9CA3AF;font-size:9px;cursor:pointer;padding:0;text-decoration:underline">없음</button>
                       </div>
-                      ${p.amount ? `<div style="font-size:11px;font-weight:700;color:${fg};margin-top:2px">${fmtMoney(p.amount)}</div>` : ''}
-                      ${p.paidDate ? `<div style="font-size:9px;color:${fg};opacity:0.8">${fmtDateAu(p.paidDate)}</div>` : ''}
-                      ${p.notes ? `<div style="font-size:9px;color:${fg};opacity:0.7;font-style:italic">${esc(p.notes.slice(0,12))}${p.notes.length>12?'…':''}</div>` : ''}
-                    ` : `<span style="color:var(--text-4);font-size:14px">⬜</span>`}
+                    </td>`;
+                  }
+                  // N/A
+                  if (p.status === 'na') {
+                    return `<td style="${cellStyle}" onclick="expEditCell('${v.id}','${m}')" title="결제 없음으로 표시됨 (클릭해서 변경)">
+                      <div style="font-size:11px;font-weight:600;color:${fg}">—</div>
+                      <div style="font-size:9px;color:${fg};opacity:0.7">결제 없음</div>
+                    </td>`;
+                  }
+                  // PAID 또는 금액만 입력된 셀
+                  const statusIcon = p.paid
+                    ? `<span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:#10B981;color:#fff;font-size:9px;line-height:14px;text-align:center;font-weight:700">✓</span>`
+                    : `<span style="display:inline-block;width:14px;height:14px;border-radius:50%;border:1.5px solid #F59E0B;color:#F59E0B;font-size:9px;line-height:11px;text-align:center;font-weight:700">!</span>`;
+                  return `<td style="${cellStyle}" onclick="expEditCell('${v.id}','${m}')">
+                    <div style="display:flex;align-items:center;justify-content:center;gap:4px;line-height:1">
+                      <span onclick="event.stopPropagation();expTogglePaid('${v.id}','${m}')" title="${p.paid?'결제 취소':'결제 완료 표시'}" style="cursor:pointer">${statusIcon}</span>
+                      ${p.amount ? `<span style="font-size:12px;font-weight:700;color:${fg}">${fmtMoney(p.amount)}</span>` : ''}
+                    </div>
+                    ${p.paidDate ? `<div style="font-size:9px;color:${fg};opacity:0.75;margin-top:2px">${fmtDateAu(p.paidDate)}</div>` : ''}
+                    ${p.notes ? `<div style="font-size:9px;color:${fg};opacity:0.65;font-style:italic;margin-top:1px">${esc(p.notes.slice(0,16))}${p.notes.length>16?'…':''}</div>` : ''}
                   </td>`;
                 }).join('')}
                 <td style="padding:5px 10px;text-align:right;border-bottom:1px solid var(--border-3);border-left:1px solid var(--border-2);font-weight:700;color:${monthTotals[m]>0?'#059669':'var(--text-4)'};background:var(--card-bg-alt)">
@@ -7787,13 +7866,316 @@ function renderExpenses() {
         </table>
       </div>
 
-      <div style="margin-top:10px;padding:10px 12px;background:#F9FAFB;border-radius:8px;font-size:11px;color:var(--text-3);line-height:1.6">
-        💡 <strong>사용법</strong>: 체크박스(⬜/☑️)를 누르면 오늘 날짜로 결제 완료 처리됩니다.
-        셀을 클릭하면 금액·결제일·메모를 직접 입력할 수 있어요. 거래처 이름을 클릭하면 이름을 바꿀 수 있고, ✕로 삭제 가능합니다.
+      <div style="margin-top:10px;padding:10px 12px;background:#F9FAFB;border-radius:8px;font-size:11px;color:var(--text-3);line-height:1.7">
+        💡 <strong>사용법</strong> · 상태 표시:
+        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#10B981;vertical-align:middle"></span> <strong>결제완료</strong>
+        · <span style="display:inline-block;width:10px;height:10px;border-radius:50%;border:1.5px solid #F59E0B;vertical-align:middle"></span> <strong>금액만 입력됨 (미결제)</strong>
+        · <span style="color:#6B7280">—</span> <strong>결제 없음 (놓침 X)</strong>
+        · <span style="color:#D1D5DB">○</span> 비어있음
+        <br/>셀 클릭 → 금액·날짜·메모 입력 · ○를 직접 누르면 결제 완료 토글 · "없음" 클릭 → 결제 없음 처리 · 거래처명 클릭 → 이름 변경 · ✕ 삭제
       </div>
     </div>
   `;
   document.getElementById('tab-expenses').innerHTML = h;
+}
+
+// ── 지출 서브탭 바 (정기지출 / 개인카드 환급) ───────────────────────────────
+function _expSubTabBar() {
+  const tabBtn = (key, label) => {
+    const on = _expSubTab === key;
+    return `<button onclick="expSwitchSubTab('${key}')" style="background:${on?'#4F46E5':'transparent'};color:${on?'#fff':'#4F46E5'};border:1.5px solid #4F46E5;padding:7px 16px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;flex:1;min-width:140px">${label}</button>`;
+  };
+  return `<div style="display:flex;gap:6px;margin-bottom:14px">
+    ${tabBtn('monthly','📅 정기 지출 (월결제)')}
+    ${tabBtn('personal','💳 개인카드 환급 (BAS)')}
+  </div>`;
+}
+
+// ── 개인카드 환급 (Reimbursement) ──────────────────────────────────────────
+// 직원이 개인카드로 회사 물품을 산 내역을 추적. 환급일 기준 호주 회계연도 분기로 묶음.
+// BAS 신고용 CSV (Date / Total amount incl. GST / GST / DESCRIPTIONS / Payment methods) 으로 내보내기.
+function renderPersonalCard() {
+  const entries = [...personalCardEntries].sort((a,b) => (b.reimbursementDate||b.paidDate||'').localeCompare(a.reimbursementDate||a.paidDate||''));
+
+  // 환급 날짜 기준 분기 그룹
+  const allQuarters = new Set();
+  entries.forEach(e => {
+    const d = e.reimbursementDate || e.paidDate;
+    if (!d) return;
+    const q = auQuarterOf(d);
+    if (q) allQuarters.add(q.label);
+  });
+  const quartersSorted = [...allQuarters].sort().reverse(); // 최신 분기 먼저
+
+  // 필터 적용
+  const filtered = _pcQuarterFilter === 'all'
+    ? entries
+    : entries.filter(e => {
+        const d = e.reimbursementDate || e.paidDate;
+        if (!d) return false;
+        return auQuarterOf(d)?.label === _pcQuarterFilter;
+      });
+
+  // 합계
+  const fmtMoney = n => '$' + (Math.round((parseFloat(n)||0)*100)/100).toLocaleString('en-AU',{minimumFractionDigits:2, maximumFractionDigits:2});
+  const totalAmt = filtered.reduce((s,e)=>s+(parseFloat(e.amount)||0), 0);
+  const totalGst = totalAmt / 11;
+
+  // 직원명 자동완성 옵션 (기존 항목 + 멤버에서 추출)
+  const knownNames = [...new Set(entries.map(e => e.name).filter(Boolean))].sort();
+
+  let h = `
+    <div style="padding:14px 16px">
+      ${_expSubTabBar()}
+
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:14px">
+        <div>
+          <h2 style="margin:0;font-size:18px;font-weight:800;color:var(--text-1)">💳 개인카드 환급 (BAS)</h2>
+          <p style="margin:2px 0 0;font-size:11px;color:var(--text-4)">직원 개인카드 사용 → 회사 환급. 호주 FY 분기별 CSV 내보내기</p>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn-primary" style="padding:7px 12px;font-size:12px" onclick="pcOpenForm()">＋ 새 항목</button>
+          ${filtered.length > 0 ? `<button class="btn-secondary" style="padding:7px 12px;font-size:12px;background:#ECFDF5;color:#065F46;border-color:#A7F3D0" onclick="pcExportCSV()">📥 CSV 내보내기</button>` : ''}
+        </div>
+      </div>
+
+      <!-- 분기 필터 -->
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px;padding:10px 12px;background:#EEF2FF;border:1px solid #C7D2FE;border-radius:10px">
+        <span style="font-size:11px;font-weight:700;color:#4338CA">FY 분기 필터:</span>
+        <button onclick="_pcQuarterFilter='all';renderExpenses()" style="background:${_pcQuarterFilter==='all'?'#4F46E5':'#fff'};color:${_pcQuarterFilter==='all'?'#fff':'#4F46E5'};border:1px solid #4F46E5;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">전체</button>
+        ${quartersSorted.map(q => `<button onclick="_pcQuarterFilter='${q}';renderExpenses()" style="background:${_pcQuarterFilter===q?'#4F46E5':'#fff'};color:${_pcQuarterFilter===q?'#fff':'#4F46E5'};border:1px solid #4F46E5;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">${q}</button>`).join('')}
+        ${quartersSorted.length === 0 ? `<span style="font-size:11px;color:var(--text-4)">아직 항목이 없어요</span>` : ''}
+      </div>
+
+      ${(_pcEditId === 'new' || _pcEditId) ? _pcFormHtml(knownNames) : ''}
+
+      <!-- 합계 카드 -->
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px">
+        <div style="background:#fff;border:1px solid var(--border-2);border-radius:10px;padding:10px 12px;text-align:center">
+          <div style="font-size:10px;color:var(--text-4);font-weight:600">항목 수</div>
+          <div style="font-size:18px;font-weight:800;color:var(--text-1);margin-top:2px">${filtered.length}</div>
+        </div>
+        <div style="background:#fff;border:1px solid var(--border-2);border-radius:10px;padding:10px 12px;text-align:center">
+          <div style="font-size:10px;color:var(--text-4);font-weight:600">합계 (GST 포함)</div>
+          <div style="font-size:18px;font-weight:800;color:#059669;margin-top:2px">${fmtMoney(totalAmt)}</div>
+        </div>
+        <div style="background:#fff;border:1px solid var(--border-2);border-radius:10px;padding:10px 12px;text-align:center">
+          <div style="font-size:10px;color:var(--text-4);font-weight:600">GST 합계</div>
+          <div style="font-size:18px;font-weight:800;color:#D97706;margin-top:2px">${fmtMoney(totalGst)}</div>
+        </div>
+      </div>
+
+      <!-- 항목 테이블 -->
+      <div style="overflow-x:auto;border:1px solid var(--border-2);border-radius:10px;background:var(--card-bg)">
+        <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:680px">
+          <thead>
+            <tr style="background:var(--card-bg-alt)">
+              <th style="text-align:left;padding:8px 10px;border-bottom:1px solid var(--border-2);font-weight:700;color:var(--text-2)">지불일 (Paid)</th>
+              <th style="text-align:left;padding:8px 10px;border-bottom:1px solid var(--border-2);font-weight:700;color:var(--text-2)">이름</th>
+              <th style="text-align:right;padding:8px 10px;border-bottom:1px solid var(--border-2);font-weight:700;color:var(--text-2)">금액 (incl. GST)</th>
+              <th style="text-align:right;padding:8px 10px;border-bottom:1px solid var(--border-2);font-weight:700;color:var(--text-2)">GST</th>
+              <th style="text-align:left;padding:8px 10px;border-bottom:1px solid var(--border-2);font-weight:700;color:var(--text-2)">목적</th>
+              <th style="text-align:left;padding:8px 10px;border-bottom:1px solid var(--border-2);font-weight:700;color:var(--text-2)">환급일 (Reimburse)</th>
+              <th style="text-align:left;padding:8px 10px;border-bottom:1px solid var(--border-2);font-weight:700;color:var(--text-2)">FY-Q</th>
+              <th style="width:60px;border-bottom:1px solid var(--border-2)"></th>
+            </tr>
+          </thead>
+          <tbody>
+            ${filtered.length === 0 ? `
+              <tr><td colspan="8" style="text-align:center;padding:30px 10px;color:var(--text-4);font-size:13px">
+                ${_pcQuarterFilter==='all' ? '아직 항목이 없어요. <strong>＋ 새 항목</strong> 으로 추가해보세요.' : '이 분기에는 항목이 없어요.'}
+              </td></tr>
+            ` : filtered.map(e => {
+              const amt = parseFloat(e.amount) || 0;
+              const gst = amt / 11;
+              const q = (e.reimbursementDate || e.paidDate) ? auQuarterOf(e.reimbursementDate || e.paidDate)?.label || '' : '';
+              return `<tr style="border-bottom:1px solid var(--border-3)">
+                <td style="padding:7px 10px;color:var(--text-2)">${isoToAu(e.paidDate||'')}</td>
+                <td style="padding:7px 10px;font-weight:600;color:var(--text-1)">${esc(e.name||'')}</td>
+                <td style="padding:7px 10px;text-align:right;font-weight:700;color:#059669">${fmtMoney(amt)}</td>
+                <td style="padding:7px 10px;text-align:right;color:#D97706">${fmtMoney(gst)}</td>
+                <td style="padding:7px 10px;color:var(--text-2)"><span style="background:#F3F4F6;padding:2px 8px;border-radius:4px;font-size:11px">${esc(e.purpose||'')}</span></td>
+                <td style="padding:7px 10px;color:var(--text-2)">${isoToAu(e.reimbursementDate||'')}</td>
+                <td style="padding:7px 10px"><span style="background:#EEF2FF;color:#4338CA;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700">${q}</span></td>
+                <td style="padding:7px 10px;text-align:right;white-space:nowrap">
+                  <button onclick="pcEdit('${e.id}')" style="background:none;border:none;cursor:pointer;color:#4F46E5;font-size:13px;margin-right:4px" title="수정">✎</button>
+                  <button onclick="pcDelete('${e.id}')" style="background:none;border:none;cursor:pointer;color:#DC2626;font-size:13px" title="삭제">✕</button>
+                </td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <div style="margin-top:10px;padding:10px 12px;background:#F9FAFB;border-radius:8px;font-size:11px;color:var(--text-3);line-height:1.6">
+        💡 <strong>BAS 신고용 CSV</strong>: 환급일(Reimbursement) 기준 호주 회계연도 분기로 자동 분류돼요.
+        CSV 컬럼: <code>Date, Total amount incl. GST, GST, DESCRIPTIONS, Payment methods</code>. 환급일 칸이 Date 로 들어갑니다.
+        GST 는 금액 ÷ 11 로 자동 계산.
+      </div>
+    </div>
+  `;
+  document.getElementById('tab-expenses').innerHTML = h;
+}
+
+function _pcFormHtml(knownNames) {
+  const editing = _pcEditId && _pcEditId !== 'new';
+  const f = _pcForm || {};
+  const datalistId = 'pc-names-list';
+  return `
+    <div style="background:#fff;border:2px solid #4F46E5;border-radius:12px;padding:14px 16px;margin-bottom:14px">
+      <h3 style="margin:0 0 10px;font-size:14px;font-weight:800;color:#4338CA">${editing?'✎ 항목 수정':'＋ 새 환급 항목'}</h3>
+      <datalist id="${datalistId}">
+        ${knownNames.map(n => `<option value="${esc(n)}"/>`).join('')}
+      </datalist>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px">
+        <div>
+          <label style="display:block;font-size:10px;font-weight:700;color:var(--text-3);margin-bottom:3px">지불일 (DD/MM/YYYY)</label>
+          <input id="pc-f-paidDate" type="text" placeholder="DD/MM/YYYY" maxlength="10" value="${f.paidDate?isoToAu(f.paidDate):''}" style="width:100%;padding:6px 8px;border:1px solid var(--border-2);border-radius:6px;font-size:12px;box-sizing:border-box;font-family:inherit"/>
+        </div>
+        <div>
+          <label style="display:block;font-size:10px;font-weight:700;color:var(--text-3);margin-bottom:3px">이름</label>
+          <input id="pc-f-name" type="text" list="${datalistId}" placeholder="예: Sara" value="${esc(f.name||'')}" style="width:100%;padding:6px 8px;border:1px solid var(--border-2);border-radius:6px;font-size:12px;box-sizing:border-box;font-family:inherit"/>
+        </div>
+        <div>
+          <label style="display:block;font-size:10px;font-weight:700;color:var(--text-3);margin-bottom:3px">금액 ($, GST 포함)</label>
+          <input id="pc-f-amount" type="number" step="0.01" placeholder="0.00" value="${f.amount||''}" style="width:100%;padding:6px 8px;border:1px solid var(--border-2);border-radius:6px;font-size:12px;box-sizing:border-box;font-family:inherit;font-weight:700"/>
+        </div>
+        <div>
+          <label style="display:block;font-size:10px;font-weight:700;color:var(--text-3);margin-bottom:3px">목적 (Purpose)</label>
+          <input id="pc-f-purpose" type="text" list="pc-purpose-list" placeholder="fuel / materials..." value="${esc(f.purpose||'')}" style="width:100%;padding:6px 8px;border:1px solid var(--border-2);border-radius:6px;font-size:12px;box-sizing:border-box;font-family:inherit"/>
+          <datalist id="pc-purpose-list">${PURPOSE_OPTIONS.map(o=>`<option value="${o}"/>`).join('')}</datalist>
+        </div>
+        <div>
+          <label style="display:block;font-size:10px;font-weight:700;color:var(--text-3);margin-bottom:3px">환급일 (Reimburse · BAS 기준)</label>
+          <input id="pc-f-reimburse" type="text" placeholder="DD/MM/YYYY" maxlength="10" value="${f.reimbursementDate?isoToAu(f.reimbursementDate):''}" style="width:100%;padding:6px 8px;border:1px solid var(--border-2);border-radius:6px;font-size:12px;box-sizing:border-box;font-family:inherit"/>
+        </div>
+        <div>
+          <label style="display:block;font-size:10px;font-weight:700;color:var(--text-3);margin-bottom:3px">메모 (선택)</label>
+          <input id="pc-f-notes" type="text" placeholder="메모" value="${esc(f.notes||'')}" style="width:100%;padding:6px 8px;border:1px solid var(--border-2);border-radius:6px;font-size:12px;box-sizing:border-box;font-family:inherit"/>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:10px;justify-content:flex-end">
+        <button onclick="pcCancelForm()" style="background:#F3F4F6;color:#374151;border:none;padding:7px 14px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">취소</button>
+        <button onclick="pcSaveForm()" style="background:#4F46E5;color:#fff;border:none;padding:7px 16px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">💾 저장</button>
+      </div>
+    </div>
+  `;
+}
+
+function pcOpenForm() {
+  _pcEditId = 'new';
+  _pcForm = { paidDate: today, name:'', amount:'', purpose:'', reimbursementDate: today, notes:'' };
+  renderExpenses();
+}
+
+function pcEdit(id) {
+  const e = personalCardEntries.find(x => x.id === id);
+  if (!e) return;
+  _pcEditId = id;
+  _pcForm = { ...e };
+  renderExpenses();
+}
+
+function pcCancelForm() {
+  _pcEditId = null;
+  _pcForm = null;
+  renderExpenses();
+}
+
+async function pcSaveForm() {
+  // 입력값 읽기
+  const paidAu = (document.getElementById('pc-f-paidDate')?.value || '').trim();
+  const name   = (document.getElementById('pc-f-name')?.value || '').trim();
+  const amount = parseFloat(document.getElementById('pc-f-amount')?.value) || 0;
+  const purpose= (document.getElementById('pc-f-purpose')?.value || '').trim();
+  const reimAu = (document.getElementById('pc-f-reimburse')?.value || '').trim();
+  const notes  = (document.getElementById('pc-f-notes')?.value || '').trim();
+
+  // 유효성 검사
+  if (!name) return alert('이름을 입력해주세요.');
+  if (!amount || amount <= 0) return alert('금액을 입력해주세요.');
+  if (!purpose) return alert('목적을 입력해주세요.');
+  const paidDate = paidAu ? auToIso(paidAu) : '';
+  const reimbursementDate = reimAu ? auToIso(reimAu) : '';
+  if (paidAu && !paidDate) return alert('지불일 형식이 잘못됐어요. DD/MM/YYYY');
+  if (reimAu && !reimbursementDate) return alert('환급일 형식이 잘못됐어요. DD/MM/YYYY');
+
+  const data = { paidDate, name, amount, purpose, reimbursementDate, notes };
+
+  if (_pcEditId === 'new') {
+    const id = 'pc_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
+    personalCardEntries.push({ ...data, id });
+    await fbSet('personalCardEntries/' + id, data);
+  } else {
+    const e = personalCardEntries.find(x => x.id === _pcEditId);
+    if (e) Object.assign(e, data);
+    await fbSet('personalCardEntries/' + _pcEditId, data);
+  }
+  _pcEditId = null;
+  _pcForm = null;
+  renderExpenses();
+}
+
+async function pcDelete(id) {
+  const e = personalCardEntries.find(x => x.id === id);
+  if (!e) return;
+  if (!confirm(`이 항목을 삭제할까요?\n\n${e.name} · ${e.purpose} · $${e.amount}`)) return;
+  personalCardEntries = personalCardEntries.filter(x => x.id !== id);
+  await fbDel('personalCardEntries/' + id);
+  renderExpenses();
+}
+
+function pcExportCSV() {
+  // 현재 필터된 항목들을 CSV 로 내보냄. 환급일 기준으로 정렬.
+  const filtered = _pcQuarterFilter === 'all'
+    ? personalCardEntries
+    : personalCardEntries.filter(e => {
+        const d = e.reimbursementDate || e.paidDate;
+        return d && auQuarterOf(d)?.label === _pcQuarterFilter;
+      });
+  if (filtered.length === 0) return alert('내보낼 항목이 없어요.');
+
+  const rows = [...filtered].sort((a,b) => (a.reimbursementDate||a.paidDate||'').localeCompare(b.reimbursementDate||b.paidDate||''));
+
+  // CSV 헤더 — xlsx 양식과 동일
+  const header = ['Date','Total amount incl. GST','GST','DESCRIPTIONS','Payment methods'];
+  const lines = [header.join(',')];
+
+  const csvEscape = v => {
+    const s = String(v == null ? '' : v);
+    if (s.includes(',') || s.includes('"') || s.includes('\n')) return '"' + s.replace(/"/g, '""') + '"';
+    return s;
+  };
+
+  rows.forEach(e => {
+    const amt = parseFloat(e.amount) || 0;
+    const gst = amt / 11;
+    const dateAu = isoToAu(e.reimbursementDate || e.paidDate || '');
+    lines.push([
+      csvEscape(dateAu),
+      amt.toFixed(2),
+      gst.toFixed(2),
+      csvEscape(e.purpose || ''),
+      'Personal Card',
+    ].join(','));
+  });
+
+  // 합계 행 (참고용)
+  const totalAmt = rows.reduce((s,e)=>s+(parseFloat(e.amount)||0), 0);
+  lines.push('');
+  lines.push(`TOTAL,${totalAmt.toFixed(2)},${(totalAmt/11).toFixed(2)},,`);
+
+  // BOM + UTF-8 (엑셀 한글 호환)
+  const csv = '﻿' + lines.join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const fname = `PersonalCard_${_pcQuarterFilter === 'all' ? 'all' : _pcQuarterFilter}_${today.replace(/-/g,'')}.csv`;
+  a.href = url; a.download = fname;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 30000);
 }
 
 // ── Calendar View ────────────────────────────────────────────────────────────
