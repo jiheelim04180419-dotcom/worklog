@@ -2344,7 +2344,41 @@ function buildDetailHTML(inv) {
       <button class="btn-secondary" style="flex:1;min-width:70px;padding:8px;font-size:12px" onclick="openIM('${inv.id}')">✏️ 수정</button>
       <button style="background:#FEF2F2;color:#DC2626;border:1px solid #FECACA;border-radius:9px;padding:8px 14px;font-size:12px;cursor:pointer" onclick="delInv('${inv.id}')" aria-label="삭제">🗑</button>
     </div>
+    <!-- 상태 수동 변경 (탭 이동) -->
+    <div style="margin-top:8px;padding:8px 10px;background:#F9FAFB;border:1px dashed var(--border-2);border-radius:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <span style="font-size:11px;color:var(--text-3);font-weight:600;white-space:nowrap">📋 상태 변경:</span>
+      <select onchange="changeStatusManual('${inv.id}', this.value); this.value=''" style="flex:1;min-width:140px;padding:6px 8px;font-size:11px;border:1px solid var(--border-2);border-radius:6px;font-family:inherit;background:#fff">
+        <option value="">— 다른 탭으로 이동 —</option>
+        ${['INVOICE','ONGOING','PAID','RETENTION','CREDIT','SUSPEND','NO_PAYMENT','DRAFT']
+          .filter(s => s !== inv.status)
+          .map(s => `<option value="${s}">${{INVOICE:'📋 INVOICE',ONGOING:'🔄 ONGOING',PAID:'✅ PAID',RETENTION:'🔒 RETENTION',CREDIT:'🪙 CREDIT',SUSPEND:'⏸️ SUSPEND',NO_PAYMENT:'🚫 NO-PAY',DRAFT:'📝 DRAFT'}[s]}</option>`)
+          .join('')}
+      </select>
+      <span style="font-size:10px;color:var(--text-4)">현재: <strong style="color:var(--text-2)">${inv.status||'?'}</strong></span>
+    </div>
   </div>`;
+}
+
+// 상태 수동 변경 — 사용자가 탭 잘못 분류된 인보이스 직접 이동
+async function changeStatusManual(id, newStatus) {
+  if (!newStatus) return;
+  const inv = invoices.find(i => i.id === id);
+  if (!inv) return;
+  const oldStatus = inv.status;
+  if (oldStatus === newStatus) return;
+  const LABEL = {INVOICE:'INVOICE',ONGOING:'ONGOING',PAID:'PAID',RETENTION:'RETENTION',CREDIT:'CREDIT',SUSPEND:'SUSPEND',NO_PAYMENT:'NO-PAY',DRAFT:'DRAFT'};
+  if (!confirm(`${inv.invoiceNum||'(번호없음)'} 상태를 변경할까요?\n\n  ${LABEL[oldStatus]||oldStatus} → ${LABEL[newStatus]||newStatus}\n\n참고: 입금 내역은 그대로 유지됩니다.`)) return;
+  inv.status = newStatus;
+  inv.updatedAt = new Date().toISOString();
+  try {
+    await fbSet('invoices/'+id+'/status', newStatus);
+    await fbSet('invoices/'+id+'/updatedAt', inv.updatedAt);
+  } catch (e) {
+    alert('상태 변경 실패: ' + e.message);
+    return;
+  }
+  // 펼쳐진 상세 패널 + 카드 재렌더
+  renderInv();
 }
 
 // Publish a DRAFT → INVOICE
