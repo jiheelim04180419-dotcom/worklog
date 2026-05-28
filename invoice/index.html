@@ -1995,12 +1995,32 @@ function renderInv() {
   const LABEL = {NO_PAYMENT: 'NO-PAY', DRAFT: '📝 DRAFT', ONGOING: '🔄 ONGOING'};
   const lblFor = s => LABEL[s] || s;
 
+  // ─── 탭 분류 규칙 ────────────────────────────────────────────────────────
+  // ONGOING 탭: type==='PROGRESS' 인보이스 중 "이번 회차 결제가 일단락된" 것
+  //   = 풀페이 됐거나 (잔액≈0), 명시적 RETENTION 상태 (잔액=리텐션으로 보류)
+  //   다음 회차에 또 청구할 예정이므로 별도 표시.
+  // INVOICE 탭: status='INVOICE' 인 일반 미수금 +
+  //   type='PROGRESS' 중에서 아직 결제 안 됐거나 일부만 받은(리텐션 아닌) 것.
+  //   "청구 했으나 미수금" 의 통합 뷰.
+  // RETENTION 탭: status='RETENTION' (변경 없음).
+  const _isOngoingDone = i => {
+    if (i.type !== 'PROGRESS') return false;
+    if (i.status === 'RETENTION') return true;        // 명시적 리텐션
+    if (i.status !== 'ONGOING') return false;
+    return remaining(i) <= 0.01;                      // 풀페이
+  };
+  const _isInvoicePending = i => {
+    if (i.status === 'INVOICE') return true;
+    // PROGRESS + ONGOING 상태인데 아직 입금 잔액 남음 → 인보이스(미수) 쪽으로
+    if (i.status === 'ONGOING' && i.type === 'PROGRESS' && remaining(i) > 0.01) return true;
+    return false;
+  };
+
   const countFor = s => {
     if (s === 'ALL') return invoices.filter(i => i.status !== 'DRAFT').length;
     if (s === 'OVERDUE') return invoices.filter(isOverdue).length;
-    // INVOICE filter = INVOICE 만 (ONGOING 은 별도 폴더로 분리 — 2026-05)
-    if (s === 'INVOICE') return invoices.filter(i => i.status==='INVOICE').length;
-    if (s === 'ONGOING') return invoices.filter(i => i.status==='ONGOING').length;
+    if (s === 'INVOICE') return invoices.filter(_isInvoicePending).length;
+    if (s === 'ONGOING') return invoices.filter(_isOngoingDone).length;
     return invoices.filter(i => i.status === s).length;
   };
 
@@ -2010,8 +2030,8 @@ function renderInv() {
     if (i.status === 'DRAFT') return false; // hide drafts from non-DRAFT filters
     if (curFilter === 'ALL') return true;
     if (curFilter === 'OVERDUE') return isOverdue(i);
-    if (curFilter === 'INVOICE') return i.status === 'INVOICE';   // ONGOING 분리
-    if (curFilter === 'ONGOING') return i.status === 'ONGOING';
+    if (curFilter === 'INVOICE') return _isInvoicePending(i);
+    if (curFilter === 'ONGOING') return _isOngoingDone(i);
     return i.status === curFilter;
   };
   
@@ -4877,11 +4897,23 @@ function auQuarterOf(ymdOrYm) {
 function exportCSV() {
   // Use currently filtered+sorted invoices
   const sts = document.getElementById('inv-filter-bar').querySelector('.fbtn.active');
-  // Get same filtered result
+  // Get same filtered result — INVOICE/ONGOING 분류 규칙은 renderInv() 와 동일하게
   const matchesFilter = i => {
     if (curFilter === 'ALL') return true;
     if (curFilter === 'OVERDUE') return isOverdue(i);
-    if (curFilter === 'INVOICE') return i.status === 'INVOICE' || i.status === 'ONGOING';
+    if (curFilter === 'INVOICE') {
+      // 일반 미수금 + PROGRESS 중 아직 잔액 남은 것
+      if (i.status === 'INVOICE') return true;
+      if (i.status === 'ONGOING' && i.type === 'PROGRESS' && remaining(i) > 0.01) return true;
+      return false;
+    }
+    if (curFilter === 'ONGOING') {
+      // PROGRESS + 풀페이 또는 RETENTION (이번 회차 결제 일단락, 다음 회차 예정)
+      if (i.type !== 'PROGRESS') return false;
+      if (i.status === 'RETENTION') return true;
+      if (i.status !== 'ONGOING') return false;
+      return remaining(i) <= 0.01;
+    }
     return i.status === curFilter;
   };
   const filtered = invoices.filter(i => {
