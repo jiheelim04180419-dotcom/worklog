@@ -3307,16 +3307,36 @@ function onMosaicPieceChange() {
   }
 }
 
-// Parse multi-component item descriptions like "A / B / C / ea" or "X / Y / lm"
-// Returns {components, unit} if 2+ components exist before the unit, else null
+// Parse multi-component item descriptions.
+//   A) "Tile mitre (grout/ silicone finish) / lm"
+//      → 괄호 안의 "/" 는 둘 중 하나 고르는 선택지. 괄호 밖은 고정 prefix.
+//      → {prefix:"Tile mitre", components:["grout","silicone finish"], unit:"lm", inParen:true}
+//   B) "Nib wall / Niche / Window Tiling / ea"
+//      → 괄호 없는 최상위 "/" 가 컴포넌트 (다중 선택).
+//      → {prefix:"", components:["Nib wall","Niche","Window Tiling"], unit:"ea", inParen:false}
+// 단위(unit) 가 없거나 선택지가 2개 미만이면 null.
 function parseComponentDesc(desc) {
   if (!desc) return null;
   const unitMatch = desc.match(/\s*\/\s*(ea|lm|lin\s*m|m²|m2)\s*$/i);
   if (!unitMatch) return null;
-  const beforeUnit = desc.slice(0, unitMatch.index);
+  const unit = unitMatch[1].trim();
+  const beforeUnit = desc.slice(0, unitMatch.index).trim();
+
+  // (A) 괄호 안에 "/" 가 있는지 확인 → 가장 마지막 괄호 그룹을 봄
+  // "Tile mitre (grout/ silicone finish)" 형태
+  const parenMatch = beforeUnit.match(/^(.*?)\s*\(([^()]+)\)\s*$/);
+  if (parenMatch) {
+    const innerParts = parenMatch[2].split('/').map(s => s.trim()).filter(Boolean);
+    if (innerParts.length >= 2) {
+      const prefix = parenMatch[1].trim();
+      return { prefix, components: innerParts, unit, inParen: true };
+    }
+  }
+
+  // (B) 괄호 없는 최상위 "/" 분리
   const parts = beforeUnit.split('/').map(s => s.trim()).filter(Boolean);
   if (parts.length < 2) return null;
-  return {components: parts, unit: unitMatch[1].trim()};
+  return { prefix: '', components: parts, unit, inParen: false };
 }
 
 // When picker item changes → auto-fill unit price + show component selector if applicable
@@ -3359,17 +3379,35 @@ function onPickItemChange() {
     return; // sizable items don't use component selector
   }
   
-  // Check if this is a multi-component item (e.g., "Nib wall / Niche / Window Tiling / ea")
+  // Check if this is a multi-component item:
+  //   A) 괄호 안 "A/B" → radio (둘 중 하나만 선택, prefix 는 고정)
+  //   B) 최상위 "A / B / C" → checkbox (다중 선택)
   const parsed = parseComponentDesc(r.desc);
   if (parsed) {
     const listEl = document.getElementById('pick-components-list');
-    listEl.innerHTML = parsed.components.map((c, i) =>
-      `<label style="display:flex;align-items:center;gap:4px;font-size:12px;color:#4F46E5;cursor:pointer;font-weight:600">
-        <input type="checkbox" class="pick-comp-cb" data-comp="${esc(c)}"/>${esc(c)}
-      </label>`
-    ).join('');
+    if (parsed.inParen) {
+      // Radio — 첫 번째 선택지를 기본 체크
+      listEl.innerHTML = parsed.components.map((c, i) =>
+        `<label style="display:flex;align-items:center;gap:4px;font-size:12px;color:#4F46E5;cursor:pointer;font-weight:600">
+          <input type="radio" name="pick-comp-radio" class="pick-comp-cb" data-comp="${esc(c)}" ${i===0?'checked':''}/>${esc(c)}
+        </label>`
+      ).join('');
+      // 안내 문구 보강 — 괄호 안 선택만 인보이스에 표시됨
+      const hintEl = listEl.previousElementSibling;
+      if (hintEl) hintEl.textContent = `✏️ ${parsed.prefix} (...) 안에서 선택:`;
+    } else {
+      listEl.innerHTML = parsed.components.map((c, i) =>
+        `<label style="display:flex;align-items:center;gap:4px;font-size:12px;color:#4F46E5;cursor:pointer;font-weight:600">
+          <input type="checkbox" class="pick-comp-cb" data-comp="${esc(c)}"/>${esc(c)}
+        </label>`
+      ).join('');
+      const hintEl = listEl.previousElementSibling;
+      if (hintEl) hintEl.textContent = `✏️ 포함할 항목 선택 (체크된 것만 인보이스에 표시):`;
+    }
     componentsPanel.style.display = 'block';
     componentsPanel.dataset.unit = parsed.unit;
+    componentsPanel.dataset.prefix = parsed.prefix || '';
+    componentsPanel.dataset.inParen = parsed.inParen ? '1' : '0';
   }
 }
 
@@ -3577,15 +3615,22 @@ function addFromPicker() {
     }
   }
   
-  // If component selector is showing (multi-component item), rebuild desc from checked components
+  // If component selector is showing (multi-component item), rebuild desc
   const componentsPanel = document.getElementById('pick-components');
   if (componentsPanel.style.display !== 'none') {
     const checked = Array.from(document.querySelectorAll('.pick-comp-cb:checked')).map(cb => cb.dataset.comp);
     if (checked.length === 0) {
-      return alert('포함할 항목을 최소 1개 선택하세요 (체크박스)');
+      return alert('포함할 항목을 최소 1개 선택하세요');
     }
     const unit = componentsPanel.dataset.unit || 'ea';
-    desc = checked.join(' / ') + ' / ' + unit;
+    const inParen = componentsPanel.dataset.inParen === '1';
+    const prefix = componentsPanel.dataset.prefix || '';
+    if (inParen) {
+      // "Tile mitre (grout) / lm" — 괄호 안에 선택지(들), 단위 끝에
+      desc = `${prefix} (${checked.join(', ')}) / ${unit}`;
+    } else {
+      desc = checked.join(' / ') + ' / ' + unit;
+    }
   }
   
   // If sizable item picker is showing, append size + pattern to desc
