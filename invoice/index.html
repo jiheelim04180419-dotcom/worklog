@@ -679,6 +679,7 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
     <div class="nav-overflow">
       <button class="nav-overflow-btn" onclick="toggleNavOverflow(event)" aria-label="더보기" title="더보기">⋯</button>
       <div class="nav-overflow-menu" id="nav-overflow-menu">
+        <button onclick="openBulkPay();closeNavOverflow()">💰 일괄 입금 등록</button>
         <button onclick="toggleTheme();closeNavOverflow()" id="theme-btn" title="테마 (D)">🌙 테마</button>
         <button onclick="openSet();closeNavOverflow()">⚙️ 회사 설정</button>
         <button onclick="openPermModal();closeNavOverflow()" id="hd-perm-btn" style="display:none">🔐 권한 관리</button>
@@ -862,8 +863,36 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
     <div id="materials-calc" style="display:none;background:#FFFBEB;border:2px solid #FDE68A;border-radius:10px;padding:12px;margin-bottom:10px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
         <div style="font-size:13px;font-weight:800;color:#92400E">📦 Materials Calculator</div>
-        <button style="background:none;border:none;color:#92400E;font-size:18px;cursor:pointer;line-height:1" onclick="toggleMaterialsCalc()" title="닫기">×</button>
+        <div style="display:flex;gap:4px;align-items:center">
+          <button id="mat-mode-detail" style="background:#92400E;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:10px;font-weight:700;cursor:pointer" onclick="switchMatMode('detail')">상세</button>
+          <button id="mat-mode-quick" style="background:#fff;color:#92400E;border:1px solid #92400E;border-radius:6px;padding:4px 10px;font-size:10px;font-weight:700;cursor:pointer" onclick="switchMatMode('quick')">간편</button>
+          <button style="background:none;border:none;color:#92400E;font-size:18px;cursor:pointer;line-height:1;margin-left:4px" onclick="toggleMaterialsCalc()" title="닫기">×</button>
+        </div>
       </div>
+
+      <!-- 간편 모드: 항목 체크 + 총 금액만 직접 입력 -->
+      <div id="mat-quick-panel" style="display:none">
+        <div style="background:#fff;border-radius:8px;padding:10px;margin-bottom:8px">
+          <div style="font-size:11px;font-weight:700;color:#92400E;margin-bottom:8px">✓ 포함할 항목 선택</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px 14px">
+            <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;color:#92400E"><input type="checkbox" class="mat-q-cb" value="glue"/>🧴 Glue</label>
+            <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;color:#92400E"><input type="checkbox" class="mat-q-cb" value="grout"/>🟡 Grout</label>
+            <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;color:#92400E"><input type="checkbox" class="mat-q-cb" value="silicone"/>🔘 Silicone</label>
+            <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;color:#92400E"><input type="checkbox" class="mat-q-cb" value="angle"/>📐 Angle</label>
+            <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;color:#92400E"><input type="checkbox" class="mat-q-cb" value="floor waste"/>🕳 Floor waste</label>
+            <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;color:#92400E"><input type="checkbox" class="mat-q-cb" value="sand&cement"/>🏖 Sand&Cement</label>
+            <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;color:#92400E"><input type="checkbox" class="mat-q-cb" value="install"/>✏️ Install</label>
+          </div>
+          <input type="text" id="mat-q-extra" placeholder="추가 항목 (선택, 쉼표로 구분)" style="width:100%;margin-top:8px;padding:6px 8px;font-size:11px;border:1px solid #FDE68A;border-radius:6px;box-sizing:border-box;font-family:inherit"/>
+        </div>
+        <div style="background:#fff;border-radius:8px;padding:10px;margin-bottom:8px">
+          <label style="display:block;font-size:11px;font-weight:700;color:#92400E;margin-bottom:4px">💰 총 금액 (ex GST)</label>
+          <input type="number" step="0.01" id="mat-q-total" placeholder="0.00" style="width:100%;padding:8px 10px;font-size:15px;font-weight:700;border:1.5px solid #92400E;border-radius:6px;box-sizing:border-box;font-family:inherit;color:#92400E"/>
+        </div>
+        <button class="btn-primary" style="width:100%;padding:8px;font-size:12px;background:#92400E;border-color:#92400E" onclick="addQuickMaterials()">➕ Materials 항목 추가</button>
+      </div>
+
+      <div id="mat-detail-panel">
       
       <!-- Glue -->
       <div style="background:#fff;border-radius:8px;padding:8px;margin-bottom:6px">
@@ -973,8 +1002,9 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
         <span id="mat-grand-total" style="font-size:14px;font-weight:800">$0.00</span>
       </div>
       <button class="btn-primary" style="width:100%;margin-top:8px;padding:8px;font-size:12px;background:#92400E;border-color:#92400E" onclick="addCalculatedMaterials()">➕ 계산된 Materials 항목 추가</button>
+      </div><!-- /#mat-detail-panel -->
     </div>
-    
+
     <div id="line-items-list"></div>
     <div id="line-items-total" style="margin-top:8px;padding:10px;background:var(--card-bg);border-radius:8px;font-size:13px;display:none"></div>
   </div>
@@ -1122,6 +1152,43 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
 
 <!-- Partner Ledger Modal (Kyle/Max 정산) -->
 <div class="modal" id="partner-modal"></div>
+
+<!-- 일괄 입금 등록 모달 -->
+<div class="modal" id="bulkpay-modal">
+<div class="mbox" style="max-width:680px;background:#fff;color:#111827">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;border-bottom:1px solid #E5E7EB;padding-bottom:12px">
+    <h3 style="font-size:16px;font-weight:800">💰 일괄 입금 등록</h3>
+    <button onclick="closeBulkPay()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#9CA3AF">×</button>
+  </div>
+  <div style="background:#EFF6FF;border:1px solid #C7D2FE;border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:#3730A3;line-height:1.5">
+    💡 날짜와 빌더를 고르면 미수금 인보이스 목록이 나와요.<br>
+    ☑️ 체크 = 전액 입금 · 옆 칸에 금액 입력 = 부분 입금 · 둘 다 비우면 건너뜀.
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
+    <div>
+      <label style="display:block;font-size:11px;font-weight:700;color:#6B7280;margin-bottom:4px">입금 날짜 (DD/MM/YYYY)</label>
+      <input type="text" id="bp-date" placeholder="DD/MM/YYYY" maxlength="10" style="width:100%;padding:8px 10px;font-size:13px;border:1.5px solid #E5E7EB;border-radius:8px;box-sizing:border-box;font-family:inherit"/>
+    </div>
+    <div>
+      <label style="display:block;font-size:11px;font-weight:700;color:#6B7280;margin-bottom:4px">빌더</label>
+      <select id="bp-builder" style="width:100%;padding:8px 10px;font-size:13px;border:1.5px solid #E5E7EB;border-radius:8px;box-sizing:border-box;font-family:inherit" onchange="renderBulkPayList()"></select>
+    </div>
+  </div>
+
+  <div id="bp-list" style="max-height:50vh;overflow-y:auto;border:1px solid #E5E7EB;border-radius:8px"></div>
+
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;padding:10px 12px;background:#F9FAFB;border-radius:8px">
+    <div style="font-size:13px;color:#374151">
+      적용 예정 합계: <strong id="bp-sum-amt" style="color:#059669;font-size:15px">$0.00</strong> <span id="bp-sum-cnt" style="font-size:11px;color:#6B7280">(0건)</span>
+    </div>
+    <div style="display:flex;gap:6px">
+      <button onclick="closeBulkPay()" style="background:#F3F4F6;color:#374151;border:none;padding:8px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">취소</button>
+      <button onclick="saveBulkPay()" style="background:#10B981;color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">💾 일괄 등록</button>
+    </div>
+  </div>
+</div>
+</div>
 
 <!-- Permission Management Modal (관리자만) -->
 <div class="modal" id="perm-modal">
@@ -4122,6 +4189,68 @@ function addMatBreakdown(lineIdx) {
 }
 
 // Create the Materials line item from calculator
+// ── Materials 모드 전환 (상세 ↔ 간편) ────────────────────────────────────
+function switchMatMode(mode) {
+  const detail = document.getElementById('mat-detail-panel');
+  const quick  = document.getElementById('mat-quick-panel');
+  const btnD = document.getElementById('mat-mode-detail');
+  const btnQ = document.getElementById('mat-mode-quick');
+  if (mode === 'quick') {
+    if (detail) detail.style.display = 'none';
+    if (quick)  quick.style.display = 'block';
+    btnD.style.background = '#fff'; btnD.style.color = '#92400E';
+    btnQ.style.background = '#92400E'; btnQ.style.color = '#fff';
+  } else {
+    if (detail) detail.style.display = 'block';
+    if (quick)  quick.style.display = 'none';
+    btnD.style.background = '#92400E'; btnD.style.color = '#fff';
+    btnQ.style.background = '#fff'; btnQ.style.color = '#92400E';
+  }
+}
+
+// 간편 모드: 체크한 항목 + 총 금액으로 Materials 라인 추가
+function addQuickMaterials() {
+  const total = parseFloat(document.getElementById('mat-q-total').value) || 0;
+  if (total <= 0) return alert('총 금액을 입력해주세요.');
+  const checked = Array.from(document.querySelectorAll('.mat-q-cb:checked')).map(cb => cb.value);
+  const extraStr = (document.getElementById('mat-q-extra').value || '').trim();
+  const extras = extraStr ? extraStr.split(',').map(s => s.trim()).filter(Boolean) : [];
+  const allItems = [...checked, ...extras];
+  if (allItems.length === 0) return alert('항목을 최소 1개 선택해주세요.');
+
+  // 이모지 매핑 (체크박스 항목만; 추가 항목은 ✏️)
+  const EMOJI = { glue:'🧴', grout:'🟡', silicone:'🔘', angle:'📐', 'floor waste':'🕳', 'sand&cement':'🏖', install:'✏️' };
+  const breakdown = allItems.map(name => ({
+    name: (EMOJI[name] || '✏️') + ' ' + name,
+    qty: 1,
+    unitPrice: 0,    // 분배 금액 — 사용자가 모달에서 직접 채울 수 있음
+    amount: 0,
+  }));
+  // 총액을 첫 항목에 일괄 배정 (사용자가 모달에서 재분배 가능)
+  if (breakdown.length > 0) {
+    breakdown[0].unitPrice = total;
+    breakdown[0].amount = total;
+  }
+
+  const desc = allItems.join(', ');
+  lineItems.push({
+    cat: 'Materials',
+    desc,
+    qty: 1,
+    unitPrice: total,
+    materials: false, pct: '', room: '', placement: '',
+    isMaterials: true, noTax: false,
+    breakdown,
+  });
+
+  // Reset quick inputs
+  document.querySelectorAll('.mat-q-cb').forEach(cb => cb.checked = false);
+  document.getElementById('mat-q-extra').value = '';
+  document.getElementById('mat-q-total').value = '';
+  toggleMaterialsCalc();
+  renderLineItems();
+}
+
 function addCalculatedMaterials() {
   const c = calcMaterials();
   if (c.grand <= 0) {
@@ -4799,6 +4928,170 @@ async function saveMemoEdit(id) {
   } catch (e) {
     alert('메모 저장 실패: ' + e.message);
   }
+}
+
+// ── 일괄 입금 등록 ──────────────────────────────────────────────────────────
+// 날짜 + 빌더 → 미수금 인보이스 목록 → 체크/금액 입력 → 한번에 저장
+function openBulkPay() {
+  document.getElementById('bp-date').value = isoToAu(today);
+  // 빌더 드롭다운: 미수금 있는 빌더만 (있는 것부터 우선)
+  const builderNames = [...new Set(invoices
+    .filter(i => i.status === 'INVOICE' || (i.status === 'ONGOING' && i.type === 'PROGRESS'))
+    .filter(i => remaining(i) > 0.01)
+    .map(i => i.builderName).filter(Boolean))].sort();
+  const sel = document.getElementById('bp-builder');
+  sel.innerHTML = '<option value="">— 빌더 선택 —</option>' +
+    builderNames.map(n => `<option value="${esc(n)}">${esc(n)} (${invoices.filter(i => i.builderName===n && (i.status==='INVOICE' || (i.status==='ONGOING' && i.type==='PROGRESS')) && remaining(i) > 0.01).length}건)</option>`).join('');
+  document.getElementById('bp-list').innerHTML = '<div style="padding:24px;text-align:center;color:#9CA3AF;font-size:13px">빌더를 선택해주세요</div>';
+  document.getElementById('bp-sum-amt').textContent = '$0.00';
+  document.getElementById('bp-sum-cnt').textContent = '(0건)';
+  document.getElementById('bulkpay-modal').classList.add('open');
+}
+function closeBulkPay() {
+  document.getElementById('bulkpay-modal').classList.remove('open');
+}
+
+function renderBulkPayList() {
+  const builderName = document.getElementById('bp-builder').value;
+  const listEl = document.getElementById('bp-list');
+  if (!builderName) {
+    listEl.innerHTML = '<div style="padding:24px;text-align:center;color:#9CA3AF;font-size:13px">빌더를 선택해주세요</div>';
+    _updateBulkPaySum();
+    return;
+  }
+  const items = invoices
+    .filter(i => i.builderName === builderName)
+    .filter(i => i.status === 'INVOICE' || (i.status === 'ONGOING' && i.type === 'PROGRESS') || i.status === 'RETENTION')
+    .filter(i => remaining(i) > 0.01)
+    .sort((a, b) => (a.invoiceDate || '').localeCompare(b.invoiceDate || ''));  // 오래된 순
+
+  if (items.length === 0) {
+    listEl.innerHTML = '<div style="padding:24px;text-align:center;color:#9CA3AF;font-size:13px">미수금 인보이스가 없어요</div>';
+    _updateBulkPaySum();
+    return;
+  }
+
+  const fAU = n => '$' + (Math.round((n||0)*100)/100).toLocaleString('en-AU',{minimumFractionDigits:2, maximumFractionDigits:2});
+  let h = '<table style="width:100%;border-collapse:collapse;font-size:12px">';
+  h += `<thead style="background:#F9FAFB;position:sticky;top:0">
+    <tr>
+      <th style="text-align:center;padding:6px 8px;border-bottom:1px solid #E5E7EB;width:40px">전액</th>
+      <th style="text-align:left;padding:6px 8px;border-bottom:1px solid #E5E7EB">인보이스</th>
+      <th style="text-align:right;padding:6px 8px;border-bottom:1px solid #E5E7EB">잔액</th>
+      <th style="text-align:right;padding:6px 8px;border-bottom:1px solid #E5E7EB;width:120px">부분 금액 ($)</th>
+    </tr>
+  </thead><tbody>`;
+
+  items.forEach(i => {
+    const rem = remaining(i);
+    const amt = parseFloat(i.amount) || 0;
+    const projName = i.projectName ? `<span style="font-size:10px;color:#7C3AED">🏷 ${esc(i.projectName.slice(0,30))}</span>` : '';
+    const stPill = i.status === 'RETENTION' ? '<span style="background:#EEF2FF;color:#3730A3;font-size:9px;padding:1px 5px;border-radius:3px;margin-left:4px">RET</span>'
+                 : i.status === 'ONGOING' ? '<span style="background:#FEF3C7;color:#B45309;font-size:9px;padding:1px 5px;border-radius:3px;margin-left:4px">ON</span>'
+                 : '';
+    h += `<tr style="border-bottom:1px solid #F3F4F6">
+      <td style="text-align:center;padding:7px 6px">
+        <input type="checkbox" class="bp-cb" data-id="${i.id}" data-rem="${rem}" onchange="onBulkPayCheck(this)"/>
+      </td>
+      <td style="padding:7px 8px">
+        <div style="font-weight:600;color:#111827">#${esc(i.invoiceNum||'')} ${stPill}</div>
+        <div style="font-size:10px;color:#6B7280">${fD(i.invoiceDate)} · ${esc((i.address||'').slice(0,40))}</div>
+        ${projName}
+      </td>
+      <td style="text-align:right;padding:7px 8px;color:#DC2626;font-weight:700">${fAU(rem)}</td>
+      <td style="text-align:right;padding:7px 8px">
+        <input type="number" step="0.01" class="bp-amt" data-id="${i.id}" data-rem="${rem}" placeholder="부분" style="width:100%;padding:5px 7px;font-size:11px;border:1px solid #E5E7EB;border-radius:6px;text-align:right;box-sizing:border-box" oninput="onBulkPayAmount(this)"/>
+      </td>
+    </tr>`;
+  });
+  h += '</tbody></table>';
+  listEl.innerHTML = h;
+  _updateBulkPaySum();
+}
+
+// 체크 토글 → 같은 행의 부분 금액 칸 비활성/활성 + 합계 갱신
+function onBulkPayCheck(cb) {
+  const id = cb.dataset.id;
+  const amtEl = document.querySelector(`.bp-amt[data-id="${id}"]`);
+  if (cb.checked) {
+    if (amtEl) { amtEl.value = ''; amtEl.disabled = true; amtEl.style.background = '#F3F4F6'; }
+  } else {
+    if (amtEl) { amtEl.disabled = false; amtEl.style.background = ''; }
+  }
+  _updateBulkPaySum();
+}
+// 부분 금액 입력 → 체크는 해제 + 합계 갱신
+function onBulkPayAmount(inp) {
+  const id = inp.dataset.id;
+  const cbEl = document.querySelector(`.bp-cb[data-id="${id}"]`);
+  if (cbEl && cbEl.checked && inp.value) cbEl.checked = false;
+  _updateBulkPaySum();
+}
+function _updateBulkPaySum() {
+  let total = 0, cnt = 0;
+  document.querySelectorAll('.bp-cb').forEach(cb => {
+    if (cb.checked) { total += parseFloat(cb.dataset.rem) || 0; cnt++; }
+  });
+  document.querySelectorAll('.bp-amt').forEach(inp => {
+    const v = parseFloat(inp.value);
+    if (!isNaN(v) && v > 0) { total += v; cnt++; }
+  });
+  document.getElementById('bp-sum-amt').textContent = '$' + total.toLocaleString('en-AU',{minimumFractionDigits:2, maximumFractionDigits:2});
+  document.getElementById('bp-sum-cnt').textContent = '(' + cnt + '건)';
+}
+
+async function saveBulkPay() {
+  const dateAu = (document.getElementById('bp-date').value || '').trim();
+  const dateIso = auToIso(dateAu);
+  if (!dateIso) return alert('입금 날짜를 DD/MM/YYYY 로 입력해주세요.');
+
+  // 적용할 항목 수집
+  const apply = [];
+  document.querySelectorAll('.bp-cb').forEach(cb => {
+    if (cb.checked) apply.push({ id: cb.dataset.id, amount: parseFloat(cb.dataset.rem) || 0, mode: 'full' });
+  });
+  document.querySelectorAll('.bp-amt').forEach(inp => {
+    const v = parseFloat(inp.value);
+    if (!isNaN(v) && v > 0) {
+      // 같은 id 가 이미 full 로 잡혀있으면 무시 (full 우선)
+      if (apply.some(a => a.id === inp.dataset.id)) return;
+      apply.push({ id: inp.dataset.id, amount: v, mode: 'partial' });
+    }
+  });
+  if (apply.length === 0) return alert('적용할 항목이 없어요. ☑️ 또는 부분 금액 입력 후 다시 시도해주세요.');
+
+  if (!confirm(`📅 ${dateAu} 에 ${apply.length}건 입금을 등록할까요?`)) return;
+
+  let okCnt = 0, errCnt = 0;
+  for (const a of apply) {
+    try {
+      const inv = invoices.find(x => x.id === a.id);
+      if (!inv) { errCnt++; continue; }
+      const pays = getPayments(inv);
+      pays.push({ date: dateIso, amount: a.amount, note: '일괄 입금' });
+      const totalPay = pays.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
+      const total = parseFloat(inv.amount) || 0;
+      const updated = { ...inv };
+      delete updated.id;
+      updated.payments = pays;
+      updated.depositDate = dateIso;
+      updated.depositAmount = totalPay;
+      updated.updatedAt = new Date().toISOString();
+      // 전액 입금되면 자동 PAID (RETENTION 은 그대로 둠)
+      if (totalPay >= total - 0.01 && updated.status !== 'RETENTION') {
+        updated.status = 'PAID';
+      }
+      await fbSet('invoices/' + a.id, updated);
+      okCnt++;
+    } catch (e) {
+      console.error('일괄 입금 실패:', a.id, e);
+      errCnt++;
+    }
+  }
+
+  closeBulkPay();
+  await loadAll();
+  alert(`✅ 일괄 입금 완료\n성공: ${okCnt}건${errCnt > 0 ? `\n실패: ${errCnt}건` : ''}`);
 }
 
 async function quickPay(id) {
