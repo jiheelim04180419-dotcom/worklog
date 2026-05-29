@@ -2166,7 +2166,7 @@ function renderInv() {
     <span>${filtered.length}건</span>
     <span>합계 <b style="color:#111827">${fA(fSum)}</b> <span style="color:#9CA3AF">(${fAex(fSum)} ex)</span></span>
     <span>입금 <b style="color:#059669">${fA(fPaid)}</b></span>
-    <span>잔액 <b style="color:#DC2626">${fA(fRem)}</b></span>
+    <span>${curFilter==='RETENTION'?'보류':'잔액'} <b style="color:#DC2626">${fA(fRem)}</b> <span style="color:#9CA3AF">(${fAex(fRem)} ex)</span></span>
   `;
   
   if (!filtered.length) {
@@ -2229,7 +2229,7 @@ function renderInv() {
               <div style="font-size:10px;color:#9CA3AF;line-height:1.2">${fAex(amt)} ex</div>
             `}
             <div style="margin-top:4px"><span class="pill pill-${ss}" style="font-size:10px;padding:2px 6px">${ss}</span></div>
-            ${isRetention?`<div style="font-size:10px;color:#3730A3;font-weight:700;margin-top:3px;line-height:1.2">보류 ${fA(rem>0?rem:amt)}</div>`:''}
+            ${isRetention?(()=>{const r=rem>0?rem:amt;return `<div style="font-size:10px;color:#3730A3;font-weight:700;margin-top:3px;line-height:1.2">보류 ${fA(r)}<br/><span style="font-weight:500;color:#6366F1">${fAex(r)} ex</span></div>`;})():''}
             ${(inv.status==='INVOICE'||inv.status==='ONGOING'||inv.status==='RETENTION') && rem > 0.01 ? `<button onclick="event.stopPropagation();quickPay('${inv.id}')" style="margin-top:6px;background:#10B981;color:#fff;border:none;border-radius:6px;padding:4px 8px;font-size:11px;font-weight:600;cursor:pointer" title="빠른 입금 추가">💰 입금</button>` : ''}
           </div>
         </div>
@@ -2276,7 +2276,7 @@ function buildDetailHTML(inv) {
       </div>
       <div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0">
         <span style="color:${rem>0.01?'#DC2626':'#059669'}">${isRetention?'보류금':'잔액'}</span>
-        <span style="color:${rem>0.01?'#DC2626':'#059669'};font-weight:700">${fA(rem)}</span>
+        <span style="color:${rem>0.01?'#DC2626':'#059669'};font-weight:700">${fA(rem)}${isRetention?` <span style="font-weight:500;color:#6B7280;font-size:11px">(${fAex(rem)} ex)</span>`:''}</span>
       </div>
     </div>
     ${pays.length?`<div style="font-size:11px;color:#6B7280;font-weight:600;margin-bottom:4px">입금 내역</div>${pays.map(p=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0;color:#555">✓ ${fD(p.date)}<span style="font-weight:600">${fA(p.amount)}</span></div>`).join('')}`:''}
