@@ -1161,22 +1161,28 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
     <button onclick="closeBulkPay()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#9CA3AF">×</button>
   </div>
   <div style="background:#EFF6FF;border:1px solid #C7D2FE;border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:#3730A3;line-height:1.5">
-    💡 날짜와 빌더를 고르면 미수금 인보이스 목록이 나와요.<br>
+    💡 빌더 이름·인보이스 번호·주소로 검색하면서 골라봐. 검색을 바꿔도 <strong>이전 선택은 유지</strong>됩니다.<br>
     ☑️ 체크 = 전액 입금 · 옆 칸에 금액 입력 = 부분 입금 · 둘 다 비우면 건너뜀.
   </div>
 
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
+  <div style="display:grid;grid-template-columns:1fr 2fr;gap:8px;margin-bottom:10px">
     <div>
       <label style="display:block;font-size:11px;font-weight:700;color:#6B7280;margin-bottom:4px">입금 날짜 (DD/MM/YYYY)</label>
       <input type="text" id="bp-date" placeholder="DD/MM/YYYY" maxlength="10" style="width:100%;padding:8px 10px;font-size:13px;border:1.5px solid #E5E7EB;border-radius:8px;box-sizing:border-box;font-family:inherit"/>
     </div>
     <div>
-      <label style="display:block;font-size:11px;font-weight:700;color:#6B7280;margin-bottom:4px">빌더</label>
-      <select id="bp-builder" style="width:100%;padding:8px 10px;font-size:13px;border:1.5px solid #E5E7EB;border-radius:8px;box-sizing:border-box;font-family:inherit" onchange="renderBulkPayList()"></select>
+      <label style="display:block;font-size:11px;font-weight:700;color:#6B7280;margin-bottom:4px">🔍 빌더/인보이스 검색</label>
+      <div style="position:relative">
+        <input type="text" id="bp-search" placeholder="예: renas, hines, INV-1503, Mudgee..." oninput="filterBulkPayList(this.value)" style="width:100%;padding:8px 30px 8px 10px;font-size:13px;border:1.5px solid #E5E7EB;border-radius:8px;box-sizing:border-box;font-family:inherit"/>
+        <button type="button" onclick="document.getElementById('bp-search').value='';filterBulkPayList('')" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;color:#9CA3AF;font-size:14px;cursor:pointer;padding:2px 6px" title="초기화">×</button>
+      </div>
     </div>
   </div>
 
-  <div id="bp-list" style="max-height:50vh;overflow-y:auto;border:1px solid #E5E7EB;border-radius:8px"></div>
+  <!-- 선택 요약 chip 영역 -->
+  <div id="bp-selected-chips" style="margin-bottom:8px;display:none"></div>
+
+  <div id="bp-list" style="max-height:48vh;overflow-y:auto;border:1px solid #E5E7EB;border-radius:8px"></div>
 
   <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;padding:10px 12px;background:#F9FAFB;border-radius:8px">
     <div style="font-size:13px;color:#374151">
@@ -4968,57 +4974,32 @@ async function saveMemoEdit(id) {
 // 날짜 + 빌더 → 미수금 인보이스 목록 → 체크/금액 입력 → 한번에 저장
 function openBulkPay() {
   document.getElementById('bp-date').value = isoToAu(today);
-  // 빌더 드롭다운: 미수금 있는 빌더만 + 맨 위에 "전체 빌더" 옵션
-  const _hasOutstanding = i =>
-    (i.status === 'INVOICE' || (i.status === 'ONGOING' && i.type === 'PROGRESS') || i.status === 'RETENTION')
-    && remaining(i) > 0.01;
-  const builderNames = [...new Set(invoices.filter(_hasOutstanding).map(i => i.builderName).filter(Boolean))].sort();
-  const totalCnt = invoices.filter(_hasOutstanding).length;
-  const sel = document.getElementById('bp-builder');
-  sel.innerHTML = '<option value="">— 빌더 선택 —</option>'
-    + `<option value="__ALL__" style="font-weight:700;background:#EEF2FF">🌐 전체 빌더 (${totalCnt}건, ${builderNames.length}개 빌더)</option>`
-    + builderNames.map(n => `<option value="${esc(n)}">${esc(n)} (${invoices.filter(i => i.builderName===n && _hasOutstanding(i)).length}건)</option>`).join('');
-  document.getElementById('bp-list').innerHTML = '<div style="padding:24px;text-align:center;color:#9CA3AF;font-size:13px">빌더를 선택하거나 <strong>🌐 전체 빌더</strong> 를 골라주세요</div>';
+  document.getElementById('bp-search').value = '';
+  _renderAllBulkPay();   // 미수금 인보이스 전부 한 번에 렌더 (검색으로 표시만 토글)
   document.getElementById('bp-sum-amt').textContent = '$0.00';
   document.getElementById('bp-sum-cnt').textContent = '(0건)';
+  document.getElementById('bp-selected-chips').style.display = 'none';
   document.getElementById('bulkpay-modal').classList.add('open');
 }
 function closeBulkPay() {
   document.getElementById('bulkpay-modal').classList.remove('open');
 }
 
-function renderBulkPayList() {
-  const builderName = document.getElementById('bp-builder').value;
-  const listEl = document.getElementById('bp-list');
-  if (!builderName) {
-    listEl.innerHTML = '<div style="padding:24px;text-align:center;color:#9CA3AF;font-size:13px">빌더를 선택하거나 <strong>🌐 전체 빌더</strong> 를 골라주세요</div>';
-    _updateBulkPaySum();
-    return;
-  }
-
+function _renderAllBulkPay() {
   const _outstanding = i =>
     (i.status === 'INVOICE' || (i.status === 'ONGOING' && i.type === 'PROGRESS') || i.status === 'RETENTION')
     && remaining(i) > 0.01;
-
-  // 단일 빌더 or 전체 빌더(__ALL__) 분기
-  const items = (builderName === '__ALL__'
-    ? invoices.filter(_outstanding)
-    : invoices.filter(i => i.builderName === builderName).filter(_outstanding)
-  ).sort((a, b) => {
-    // 빌더명 우선 → 날짜 오름차순
+  const items = invoices.filter(_outstanding).sort((a, b) => {
     const bn = (a.builderName||'').localeCompare(b.builderName||'');
     if (bn !== 0) return bn;
     return (a.invoiceDate||'').localeCompare(b.invoiceDate||'');
   });
-
+  const listEl = document.getElementById('bp-list');
   if (items.length === 0) {
-    listEl.innerHTML = '<div style="padding:24px;text-align:center;color:#9CA3AF;font-size:13px">미수금 인보이스가 없어요</div>';
-    _updateBulkPaySum();
+    listEl.innerHTML = '<div style="padding:24px;text-align:center;color:#9CA3AF;font-size:13px">미수금 인보이스가 없어요 🎉</div>';
     return;
   }
-
   const fAU = n => '$' + (Math.round((n||0)*100)/100).toLocaleString('en-AU',{minimumFractionDigits:2, maximumFractionDigits:2});
-  const isAll = builderName === '__ALL__';
 
   let h = '<table style="width:100%;border-collapse:collapse;font-size:12px">';
   h += `<thead style="background:#F9FAFB;position:sticky;top:0;z-index:2">
@@ -5030,17 +5011,18 @@ function renderBulkPayList() {
     </tr>
   </thead><tbody>`;
 
-  // 전체 모드일 때 빌더가 바뀔 때마다 sticky 헤더 행 삽입
+  // 빌더가 바뀔 때마다 그룹 헤더 행 삽입 (data-builder 속성 — 검색 필터에 사용)
   let lastBuilder = null;
   items.forEach(i => {
-    if (isAll && i.builderName !== lastBuilder) {
+    if (i.builderName !== lastBuilder) {
       lastBuilder = i.builderName;
-      const cnt = items.filter(x => x.builderName === lastBuilder).length;
+      const cnt    = items.filter(x => x.builderName === lastBuilder).length;
       const sumRem = items.filter(x => x.builderName === lastBuilder).reduce((s,x)=>s+remaining(x),0);
-      h += `<tr style="background:#EFF6FF">
+      const bEsc   = esc(lastBuilder||'').replace(/"/g,'&quot;');
+      h += `<tr class="bp-group-row" data-builder="${bEsc}" data-search="${esc((lastBuilder||'').toLowerCase()).replace(/"/g,'&quot;')}" style="background:#EFF6FF">
         <td colspan="4" style="padding:7px 10px;font-weight:800;color:#3730A3;font-size:12px">
           <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
-            <input type="checkbox" class="bp-group-cb" data-builder="${esc(lastBuilder).replace(/"/g,'&quot;')}" onchange="onBulkPayGroupCheck(this)"/>
+            <input type="checkbox" class="bp-group-cb" data-builder="${bEsc}" onchange="onBulkPayGroupCheck(this)"/>
             🏗️ ${esc(lastBuilder)}
             <span style="font-size:11px;font-weight:500;color:#6B7280;margin-left:auto">${cnt}건 · 잔액 합계 ${fAU(sumRem)}</span>
           </label>
@@ -5050,36 +5032,88 @@ function renderBulkPayList() {
     const rem = remaining(i);
     const projName = i.projectName ? `<span style="font-size:10px;color:#7C3AED">🏷 ${esc(i.projectName.slice(0,30))}</span>` : '';
     const stPill = i.status === 'RETENTION' ? '<span style="background:#EEF2FF;color:#3730A3;font-size:9px;padding:1px 5px;border-radius:3px;margin-left:4px">RET</span>'
-                 : i.status === 'ONGOING' ? '<span style="background:#FEF3C7;color:#B45309;font-size:9px;padding:1px 5px;border-radius:3px;margin-left:4px">ON</span>'
+                 : i.status === 'ONGOING'   ? '<span style="background:#FEF3C7;color:#B45309;font-size:9px;padding:1px 5px;border-radius:3px;margin-left:4px">ON</span>'
                  : '';
-    h += `<tr style="border-bottom:1px solid #F3F4F6">
+    // 검색 토큰: 빌더명·인보이스번호·주소·프로젝트명 (소문자)
+    const searchKey = [(i.builderName||''), (i.invoiceNum||''), (i.address||''), (i.projectName||'')].join(' ').toLowerCase();
+    const bEsc = esc(i.builderName||'').replace(/"/g,'&quot;');
+    h += `<tr class="bp-item-row" data-builder="${bEsc}" data-search="${esc(searchKey).replace(/"/g,'&quot;')}" style="border-bottom:1px solid #F3F4F6">
       <td style="text-align:center;padding:7px 6px">
-        <input type="checkbox" class="bp-cb" data-id="${i.id}" data-rem="${rem}" data-builder="${esc(i.builderName||'').replace(/"/g,'&quot;')}" onchange="onBulkPayCheck(this)"/>
+        <input type="checkbox" class="bp-cb" data-id="${i.id}" data-rem="${rem}" data-builder="${bEsc}" data-num="${esc(i.invoiceNum||'')}" onchange="onBulkPayCheck(this)"/>
       </td>
       <td style="padding:7px 8px">
-        <div style="font-weight:600;color:#111827">${isAll?'':''}#${esc(i.invoiceNum||'')} ${stPill}</div>
+        <div style="font-weight:600;color:#111827">#${esc(i.invoiceNum||'')} ${stPill}</div>
         <div style="font-size:10px;color:#6B7280">${fD(i.invoiceDate)} · ${esc((i.address||'').slice(0,40))}</div>
         ${projName}
       </td>
       <td style="text-align:right;padding:7px 8px;color:#DC2626;font-weight:700">${fAU(rem)}</td>
       <td style="text-align:right;padding:7px 8px">
-        <input type="number" step="0.01" class="bp-amt" data-id="${i.id}" data-rem="${rem}" placeholder="부분" style="width:100%;padding:5px 7px;font-size:11px;border:1px solid #E5E7EB;border-radius:6px;text-align:right;box-sizing:border-box" oninput="onBulkPayAmount(this)"/>
+        <input type="number" step="0.01" class="bp-amt" data-id="${i.id}" data-rem="${rem}" data-num="${esc(i.invoiceNum||'')}" placeholder="부분" style="width:100%;padding:5px 7px;font-size:11px;border:1px solid #E5E7EB;border-radius:6px;text-align:right;box-sizing:border-box" oninput="onBulkPayAmount(this)"/>
       </td>
     </tr>`;
   });
   h += '</tbody></table>';
   listEl.innerHTML = h;
-  _updateBulkPaySum();
 }
 
-// 빌더 그룹 헤더 체크 → 그 빌더 인보이스 전부 토글
+// 검색 — DOM 재생성 없이 display 토글만으로 필터 (선택 상태 유지)
+function filterBulkPayList(q) {
+  const query = (q||'').trim().toLowerCase();
+  // 1) 각 인보이스 행: 검색 매치 여부에 따라 보이거나 숨김
+  const itemRows = document.querySelectorAll('#bp-list .bp-item-row');
+  const builderVisible = {};
+  itemRows.forEach(r => {
+    const match = !query || (r.dataset.search || '').includes(query);
+    r.style.display = match ? '' : 'none';
+    if (match) builderVisible[r.dataset.builder] = true;
+  });
+  // 2) 빌더 그룹 헤더: 그 빌더의 보이는 인보이스가 하나라도 있을 때만 표시
+  document.querySelectorAll('#bp-list .bp-group-row').forEach(r => {
+    r.style.display = builderVisible[r.dataset.builder] ? '' : 'none';
+  });
+}
+
+// 빌더 그룹 헤더 체크 → 그 빌더의 *보이는* 인보이스 전부 토글
 function onBulkPayGroupCheck(groupCb) {
   const b = groupCb.dataset.builder;
   document.querySelectorAll(`.bp-cb[data-builder="${b.replace(/"/g,'&quot;')}"]`).forEach(cb => {
+    // 숨겨진 행은 건너뜀 (현재 검색 결과만 토글)
+    const row = cb.closest('tr');
+    if (row && row.style.display === 'none') return;
     cb.checked = groupCb.checked;
     onBulkPayCheck(cb);
   });
   _updateBulkPaySum();
+}
+
+// 선택된 항목들을 chip 으로 요약 (빌더별 카운트)
+function _renderSelectedChips() {
+  const sel = [];
+  document.querySelectorAll('.bp-cb').forEach(cb => {
+    if (cb.checked) sel.push({builder: cb.dataset.builder||'?', num: cb.dataset.num||'', mode:'full'});
+  });
+  document.querySelectorAll('.bp-amt').forEach(inp => {
+    const v = parseFloat(inp.value);
+    if (!isNaN(v) && v > 0) {
+      // 같은 인보이스가 full 로 잡혀있으면 표시 안 함 (full 우선)
+      const id = inp.dataset.id;
+      const fullCb = document.querySelector(`.bp-cb[data-id="${id}"]`);
+      if (fullCb && fullCb.checked) return;
+      sel.push({builder: (document.querySelector(`.bp-cb[data-id="${id}"]`)?.dataset.builder)||'?', num: inp.dataset.num||'', mode:'partial', amount:v});
+    }
+  });
+  const chipsEl = document.getElementById('bp-selected-chips');
+  if (sel.length === 0) { chipsEl.style.display = 'none'; chipsEl.innerHTML = ''; return; }
+  // 빌더별 그룹핑
+  const byBuilder = {};
+  sel.forEach(s => { (byBuilder[s.builder] = byBuilder[s.builder] || []).push(s); });
+  let h = '<div style="background:#ECFDF5;border:1px solid #A7F3D0;border-radius:8px;padding:8px 10px;font-size:11px;color:#065F46"><strong>선택됨:</strong> ';
+  Object.entries(byBuilder).forEach(([b, list]) => {
+    h += `<span style="display:inline-block;background:#fff;border:1px solid #A7F3D0;border-radius:12px;padding:2px 9px;margin:2px 4px 2px 0">🏗️ ${esc(b)} <strong>${list.length}건</strong></span>`;
+  });
+  h += '</div>';
+  chipsEl.innerHTML = h;
+  chipsEl.style.display = 'block';
 }
 
 // 체크 토글 → 같은 행의 부분 금액 칸 비활성/활성 + 합계 갱신
@@ -5102,15 +5136,18 @@ function onBulkPayAmount(inp) {
 }
 function _updateBulkPaySum() {
   let total = 0, cnt = 0;
+  // full 체크 인보이스 id 집합 (부분금액 중복 방지)
+  const fullIds = new Set();
   document.querySelectorAll('.bp-cb').forEach(cb => {
-    if (cb.checked) { total += parseFloat(cb.dataset.rem) || 0; cnt++; }
+    if (cb.checked) { total += parseFloat(cb.dataset.rem) || 0; cnt++; fullIds.add(cb.dataset.id); }
   });
   document.querySelectorAll('.bp-amt').forEach(inp => {
     const v = parseFloat(inp.value);
-    if (!isNaN(v) && v > 0) { total += v; cnt++; }
+    if (!isNaN(v) && v > 0 && !fullIds.has(inp.dataset.id)) { total += v; cnt++; }
   });
   document.getElementById('bp-sum-amt').textContent = '$' + total.toLocaleString('en-AU',{minimumFractionDigits:2, maximumFractionDigits:2});
   document.getElementById('bp-sum-cnt').textContent = '(' + cnt + '건)';
+  _renderSelectedChips();
 }
 
 async function saveBulkPay() {
