@@ -2962,12 +2962,13 @@ function loadPrevProgress() {
   const items = Array.isArray(prev.lineItems) ? prev.lineItems : Object.values(prev.lineItems);
   // Carry forward: previous cumulative% becomes new starting point
   // User will then update thisPct or new cumulative% to indicate what to charge this round
-  lineItems = items.filter(it => !it.isMaterials).map(it => ({
+  // Materials 도 이어받음 (% 청구 지속)
+  lineItems = items.map(it => ({
     cat: it.cat || '',
     desc: it.desc || '',
     qty: 0,           // will recompute from thisPct
     unitPrice: parseFloat(it.totalAmount) || parseFloat(it.unitPrice) || 0,
-    materials: false,
+    materials: !!it.materials,
     pct: '',
     totalAmount: parseFloat(it.totalAmount) || parseFloat(it.unitPrice) || 0,
     thisPct: 0,       // start at 0% this round — user will fill in
@@ -2979,9 +2980,9 @@ function loadPrevProgress() {
     section: it.section || '',
     room: it.room || '',
     placement: '',
-    isMaterials: false,
+    isMaterials: !!it.isMaterials,
     noTax: !!it.noTax,
-    breakdown: []
+    breakdown: it.isMaterials ? (Array.isArray(it.breakdown)?it.breakdown:Object.values(it.breakdown||{})) : []
   }));
   
   alert(`✓ ${lineItems.length}개 항목을 가져왔습니다.\n이제 각 라인의 "누적%" 또는 "청구%"를 새 값으로 입력하세요.\n전체 일괄 설정도 가능합니다 (라인 위 "전체 일괄 누적%" 버튼).`);
@@ -3134,7 +3135,6 @@ function setAllProgressCumPct() {
   if (isNaN(newCum) || newCum < 0 || newCum > 100) return alert('0 ~ 100 사이의 숫자를 입력하세요.');
 
   lineItems.forEach(li => {
-    if (li.isMaterials) return;
     const prev = parseFloat(li.prevPct) || 0;
     li.cumulativePct = newCum;
     li.thisPct = round2(Math.max(0, newCum - prev));
@@ -3155,7 +3155,6 @@ function setAllProgressThisPct() {
   if (isNaN(newThis) || newThis < 0 || newThis > 100) return alert('0 ~ 100 사이의 숫자를 입력하세요.');
 
   lineItems.forEach(li => {
-    if (li.isMaterials) return;
     const prev = parseFloat(li.prevPct) || 0;
     li.thisPct = newThis;
     li.cumulativePct = round2(Math.min(100, prev + newThis));
@@ -4459,7 +4458,7 @@ function renderLineItems() {
   
   let h = '';
   // PROGRESS mode: show bulk-set button at top
-  if (curType === 'PROGRESS' && lineItems.filter(li => !li.isMaterials).length > 0) {
+  if (curType === 'PROGRESS' && lineItems.length > 0) {
     h += `<div style="background:#EDE9FE;border:1px solid #C4B5FD;border-radius:6px;padding:8px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
       <div style="font-size:12px;color:#5B21B6;font-weight:700">📊 진행률 인보이스 모드</div>
       <div style="display:flex;gap:5px;flex-wrap:wrap">
@@ -4492,6 +4491,28 @@ function renderLineItems() {
       if (!li.isMaterials) prevRoom = li.room;
       
       if (li.isMaterials) {
+        // PROGRESS 모드면 Materials 라인도 totalAmount × thisPct% 로 계산
+        const isProgInvMat = curType === 'PROGRESS';
+        if (isProgInvMat) {
+          // 최초 진입 시 totalAmount 자동 캡처 (원본 합계 보존)
+          if (!li.totalAmount || isNaN(parseFloat(li.totalAmount))) {
+            const computed = round2((parseFloat(li.qty)||1) * (parseFloat(li.unitPrice)||0));
+            if (computed > 0) {
+              li.totalAmount = computed;
+              if (li.origUnitPrice == null) li.origUnitPrice = parseFloat(li.unitPrice) || 0;
+            }
+          }
+          if (li.thisPct === '' || li.thisPct === null || li.thisPct === undefined) {
+            li.thisPct = 0;
+            if (li.cumulativePct === '' || li.cumulativePct === null || li.cumulativePct === undefined) {
+              li.cumulativePct = parseFloat(li.prevPct) || 0;
+            }
+          }
+          if (li.totalAmount) {
+            li.qty = round2((parseFloat(li.thisPct)||0) / 100);
+            li.unitPrice = parseFloat(li.totalAmount);
+          }
+        }
         // Build breakdown display HTML — each row is editable inline (name + qty + unitPrice → amount)
         let breakdownHTML = '';
         if (li.breakdown && li.breakdown.length > 0) {
@@ -4516,20 +4537,43 @@ function renderLineItems() {
         } else {
           breakdownHTML = `<div style="padding:4px 8px 0 75px"><button type="button" style="background:none;border:1px dashed #FDE68A;color:#92400E;font-size:10px;font-weight:700;padding:3px 10px;border-radius:4px;cursor:pointer;font-family:inherit" onclick="addMatBreakdown(${i})">+ 세부 항목 추가</button></div>`;
         }
+        // PROGRESS 모드: 입력칸을 totalAmount 로 변경 + % 행 노출. 라인총액 = totalAmount × thisPct/100
+        const matTotalAmt = isProgInvMat ? (parseFloat(li.totalAmount)||0) : 0;
+        const matThisPct  = isProgInvMat ? (parseFloat(li.thisPct)||0) : 0;
+        const matPrevPct  = isProgInvMat ? (parseFloat(li.prevPct)||0) : 0;
+        const matCumPct   = isProgInvMat ? (parseFloat(li.cumulativePct)||0) : 0;
+        const matChargedEx = isProgInvMat
+          ? round2(matTotalAmt * matThisPct / 100)
+          : lineTotalEx;
         h += `<div style="background:#FFFBEB;border:1px solid #FDE68A;border-radius:8px;padding:8px;margin-bottom:6px">
           <div style="display:flex;gap:6px;align-items:center;margin-bottom:5px">
             <span style="font-size:11px;font-weight:700;color:#92400E;min-width:65px">📦 Materials</span>
             <span style="font-size:11px;color:#92400E">(</span>
             <input class="input" style="flex:1;font-size:11px;padding:6px 8px" value="${esc(li.desc||'')}" oninput="lineItems[${i}].desc=this.value;updLineTotal(${i})"/>
             <span style="font-size:11px;color:#92400E">)</span>
-            <input type="number" step="0.01" class="input" style="width:90px;font-size:11px;padding:6px" value="${li.unitPrice||''}" placeholder="총액 ex" oninput="lineItems[${i}].unitPrice=this.value;lineItems[${i}].qty=1;updLineTotal(${i})"/>
-            <span id="line-total-${i}" style="min-width:80px;text-align:right;font-weight:700;font-size:11px;color:#92400E">${fA(lineTotalEx)}<div style="font-size:9px;color:#A78B4B;font-weight:400">ex GST</div></span>
+            ${isProgInvMat
+              ? `<input type="number" step="0.01" class="input" style="width:90px;font-size:11px;padding:6px" value="${li.totalAmount ?? ''}" placeholder="총액 ex (100%)" oninput="updateProgressTotalAmount(${i}, this.value)" title="라인 100% 총액"/>`
+              : `<input type="number" step="0.01" class="input" style="width:90px;font-size:11px;padding:6px" value="${li.unitPrice||''}" placeholder="총액 ex" oninput="lineItems[${i}].unitPrice=this.value;lineItems[${i}].qty=1;updLineTotal(${i})"/>`}
+            <span id="line-total-${i}" style="min-width:80px;text-align:right;font-weight:700;font-size:11px;color:#92400E">${fA(matChargedEx)}<div style="font-size:9px;color:#A78B4B;font-weight:400">ex GST${isProgInvMat?` · ${matThisPct}%`:''}</div></span>
             <div style="display:flex;flex-direction:column;gap:1px">
               <button style="background:none;border:none;color:#92400E;font-size:11px;cursor:${i===0?'not-allowed':'pointer'};line-height:1;padding:1px 3px;opacity:${i===0?'0.3':'1'}" onclick="moveLineItem(${i}, -1)" aria-label="위로" title="위로">▲</button>
               <button style="background:none;border:none;color:#92400E;font-size:11px;cursor:${i===lineItems.length-1?'not-allowed':'pointer'};line-height:1;padding:1px 3px;opacity:${i===lineItems.length-1?'0.3':'1'}" onclick="moveLineItem(${i}, 1)" aria-label="아래로" title="아래로">▼</button>
             </div>
             <button style="background:none;border:none;color:#FCA5A5;font-size:16px;cursor:pointer;line-height:1;padding:0 2px" onclick="lineItems.splice(${i},1);renderLineItems()" aria-label="삭제">×</button>
           </div>
+          ${isProgInvMat ? `
+          <div style="display:flex;gap:4px;align-items:center;font-size:10px;flex-wrap:wrap;padding-left:75px;margin-bottom:5px">
+            <span id="pi-prev-badge-${i}" style="color:#7C3AED;font-weight:700;background:#EDE9FE;padding:2px 6px;border-radius:4px;${matPrevPct>0?'':'display:none'}">이전: ${matPrevPct}%</span>
+            <span style="color:#7C3AED;font-weight:700">📜 이전%:</span>
+            <input id="pi-prev-${i}" type="number" step="0.01" class="input" style="width:60px;font-size:11px;padding:4px 6px;color:#7C3AED;border-color:#C4B5FD" value="${li.prevPct ?? 0}" placeholder="이전%" oninput="updateProgressPrevPct(${i}, this.value)"/>
+            <span style="color:#4F46E5;font-weight:700;margin-left:6px">💰 이번%:</span>
+            <input id="pi-this-${i}" type="number" step="0.01" class="input" style="width:60px;font-size:11px;padding:4px 6px;font-weight:700;color:#4F46E5;border-color:#C7D2FE" value="${li.thisPct ?? ''}" placeholder="이번%" oninput="updateProgressThisPct(${i}, this.value)"/>
+            <span style="color:#92400E;font-weight:700;margin-left:6px">= 누적%:</span>
+            <input id="pi-cum-${i}" type="number" step="0.01" class="input" style="width:65px;font-size:11px;padding:4px 6px" value="${li.cumulativePct ?? ''}" placeholder="누적%" oninput="updateProgressCumPct(${i}, this.value)"/>
+            <span id="pi-past-${i}" style="font-size:10px;color:#7C3AED;font-weight:600;margin-left:6px;${matPrevPct>0?'':'display:none'}">지난: ${fA(round2(matTotalAmt * matPrevPct / 100))}</span>
+          </div>
+          <div id="pi-summary-${i}" style="font-size:10px;color:#4F46E5;padding-left:75px;font-weight:600;margin-bottom:5px">→ 이번 청구: ${fA(matChargedEx)} ex (= ${matThisPct}% × ${fA(matTotalAmt)})${matCumPct > 0 ? ` · 누적 ${matCumPct}% Completed` : ''}</div>
+          ` : ''}
           ${breakdownHTML}
         </div>`;
       } else {
@@ -4828,8 +4872,9 @@ async function saveInv(asDraft, sendEmail) {
   const cleanLineItems = useLegacyAmount ? [] : lineItems
     .filter(li => {
       // For progress: keep ALL lines that have a description (even 0% / not billed this period)
-      // → preserves the full quote so user can bill remaining % on future invoices
-      if (isProg && !li.isMaterials) {
+      // → preserves the full quote so user can bill remaining % on future invoices.
+      // Materials 도 동일하게 desc 만 있으면 보존 (PROGRESS 시 % 청구 추적).
+      if (isProg) {
         return (li.desc || '').trim().length > 0;
       }
       return (parseFloat(li.qty) > 0 || li.isMaterials) && parseFloat(li.unitPrice) >= 0;
@@ -4837,7 +4882,7 @@ async function saveInv(asDraft, sendEmail) {
     .map(li => ({
       cat: li.cat || '',
       desc: li.desc || '',
-      qty: isProg && !li.isMaterials ? (parseFloat(li.qty) || 0) : (parseFloat(li.qty) || 1),
+      qty: isProg ? (parseFloat(li.qty) || 0) : (parseFloat(li.qty) || 1),
       unitPrice: parseFloat(li.unitPrice) || 0,
       materials: !!li.materials,
       pct: isProg ? (li.pct || '') : '',
@@ -5419,14 +5464,14 @@ function previewInv() {
   const isProgPrev = curType === 'PROGRESS';
   const cleanLineItems = useLegacyAmount ? [] : lineItems
     .filter(li => {
-      if (isProgPrev && !li.isMaterials) {
+      if (isProgPrev) {
         return (parseFloat(li.totalAmount) || 0) > 0;
       }
       return (parseFloat(li.qty) > 0 || li.isMaterials) && parseFloat(li.unitPrice) >= 0;
     })
     .map(li => ({
       cat: li.cat || '', desc: li.desc || '',
-      qty: isProgPrev && !li.isMaterials ? (parseFloat(li.qty) || 0) : (parseFloat(li.qty) || 1),
+      qty: isProgPrev ? (parseFloat(li.qty) || 0) : (parseFloat(li.qty) || 1),
       unitPrice: parseFloat(li.unitPrice) || 0,
       materials: !!li.materials,
       pct: li.pct || '',
@@ -6037,7 +6082,7 @@ function printInvoiceBXBT(inv, co, b) {
         rowsRendered++;
         prevSection = it.section;
       }
-      const qty = (isProgressTypeBXBT && !it.isMaterials)
+      const qty = isProgressTypeBXBT
         ? (parseFloat(it.qty) || 0)
         : (parseFloat(it.qty) || 1);
       const unitEx = parseFloat(it.unitPrice) || 0;
@@ -6065,7 +6110,7 @@ function printInvoiceBXBT(inv, co, b) {
         desc = `${it.room} ${desc}`;
       }
       // PROGRESS: always show % Completed (even 0%), so client sees status of every line
-      if (isProgressTypeBXBT && !it.isMaterials) {
+      if (isProgressTypeBXBT) {
         const cumPct = parseFloat(it.cumulativePct) || 0;
         desc += ` - ${cumPct}% Completed`;
       } else {
@@ -6277,7 +6322,7 @@ function printInvoiceKM(inv, co, b) {
     // First pass: compute totals — PROGRESS 모드에선 qty=0인 항목(0% 청구)을 0으로 처리,
     // 다른 모드에선 qty 미입력 시 1로 폴백 (기존 동작 유지)
     items.forEach(it => {
-      const qty = (isProgressType && !it.isMaterials)
+      const qty = isProgressType
         ? (parseFloat(it.qty) || 0)
         : (parseFloat(it.qty) || 1);
       const ex = qty * (parseFloat(it.unitPrice) || 0);
@@ -6315,8 +6360,8 @@ function printInvoiceKM(inv, co, b) {
       sec.roomGroups.forEach(group => {
       const rowsInGroup = group.items.length;
       group.items.forEach((it, idx) => {
-        // Progress non-materials lines: allow qty=0; others default to 1
-        const qty = (isProgressType && !it.isMaterials) 
+        // PROGRESS 라인은 (Materials 포함) qty=0 허용; 일반 모드는 qty 미입력 시 1로 폴백
+        const qty = isProgressType
           ? (parseFloat(it.qty) || 0)
           : (parseFloat(it.qty) || 1);
         const unitEx = parseFloat(it.unitPrice) || 0;
@@ -6339,7 +6384,7 @@ function printInvoiceKM(inv, co, b) {
           desc = `${it.placement} ${desc}`;
         }
         // PROGRESS: always show "% Completed" (cumulative), even at 0%, so client sees status of every line
-        if (isProgressType && !it.isMaterials) {
+        if (isProgressType) {
           const cumPct = parseFloat(it.cumulativePct) || 0;
           desc += ` - ${cumPct}% Completed`;
         } else {
