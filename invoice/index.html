@@ -3126,20 +3126,41 @@ function updateProgressTotalAmount(i, val) {
 }
 
 // Set the same cumulative% for ALL non-materials line items at once
+// 모든 항목의 "누적%" 를 같은 값으로 → 이번 청구% = 누적 - 이전
 function setAllProgressCumPct() {
-  const v = prompt('모든 항목의 누적% 를 일괄 설정합니다.\n새 누적%를 입력하세요 (예: 75):');
+  const v = prompt('모든 항목의 누적%를 같게 맞춥니다.\n예: 75 입력 → 모두 누적 75% (이번 청구% = 75 − 각 이전%)');
   if (v === null) return;
   const newCum = parseFloat(v);
   if (isNaN(newCum) || newCum < 0 || newCum > 100) return alert('0 ~ 100 사이의 숫자를 입력하세요.');
-  
+
   lineItems.forEach(li => {
     if (li.isMaterials) return;
     const prev = parseFloat(li.prevPct) || 0;
     li.cumulativePct = newCum;
     li.thisPct = round2(Math.max(0, newCum - prev));
-    // Recompute qty/unitPrice → ex amount
     if (li.totalAmount) {
       li.qty = round2(li.thisPct / 100);
+      li.unitPrice = li.totalAmount;
+    }
+  });
+  renderLineItems();
+}
+
+// 모든 항목의 "이번 청구%" 를 같은 값으로 → 누적 = 이전 + 이번
+// (예: 모든 라인 50% 씩 청구하고 싶을 때)
+function setAllProgressThisPct() {
+  const v = prompt('이번 회차에 모든 항목을 같은 %로 청구합니다.\n예: 30 입력 → 모든 라인 이번 청구% = 30 (누적은 각 항목의 이전% + 30)');
+  if (v === null) return;
+  const newThis = parseFloat(v);
+  if (isNaN(newThis) || newThis < 0 || newThis > 100) return alert('0 ~ 100 사이의 숫자를 입력하세요.');
+
+  lineItems.forEach(li => {
+    if (li.isMaterials) return;
+    const prev = parseFloat(li.prevPct) || 0;
+    li.thisPct = newThis;
+    li.cumulativePct = round2(Math.min(100, prev + newThis));
+    if (li.totalAmount) {
+      li.qty = round2(newThis / 100);
       li.unitPrice = li.totalAmount;
     }
   });
@@ -4441,7 +4462,10 @@ function renderLineItems() {
   if (curType === 'PROGRESS' && lineItems.filter(li => !li.isMaterials).length > 0) {
     h += `<div style="background:#EDE9FE;border:1px solid #C4B5FD;border-radius:6px;padding:8px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
       <div style="font-size:12px;color:#5B21B6;font-weight:700">📊 진행률 인보이스 모드</div>
-      <button type="button" onclick="setAllProgressCumPct()" style="background:#7C3AED;color:white;border:none;border-radius:6px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer">⚙️ 전체 일괄 누적% 설정</button>
+      <div style="display:flex;gap:5px;flex-wrap:wrap">
+        <button type="button" onclick="setAllProgressThisPct()" style="background:#7C3AED;color:white;border:none;border-radius:6px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer" title="모든 항목을 같은 이번 청구%로">📦 이번 N%만 청구</button>
+        <button type="button" onclick="setAllProgressCumPct()" style="background:#fff;color:#7C3AED;border:1px solid #7C3AED;border-radius:6px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer" title="모든 항목의 누적%를 같은 값으로">📊 누적% 일괄</button>
+      </div>
     </div>`;
   }
   if (!lineItems.length) {
