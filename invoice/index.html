@@ -1301,11 +1301,12 @@ let monthlyPayments = []; // {id, vendorId, month:"YYYY-MM", paid, paidDate, amo
 let personalCardEntries = []; // {id, paidDate, name, amount, purpose, reimbursementDate, notes}
 let vehicles = []; // {id, rego, name, notes, archived, renewals:[{id, type, provider, expiry, lastPaid, cost, notes}]}
 const VEHICLE_RENEWAL_TYPES = [
-  {key:'rego',  label:'Rego (등록)', emoji:'🚗'},
-  {key:'ctp',   label:'CTP (3rd party)', emoji:'🛡️'},
-  {key:'nrma',  label:'NRMA (보험)', emoji:'🏛️'},
-  {key:'other', label:'기타', emoji:'📋'},
+  {key:'rego',      label:'Rego (등록)',     emoji:'🚗'},
+  {key:'ctp',       label:'CTP (3rd party)', emoji:'🛡️'},
+  {key:'insurance', label:'Car Insurance',   emoji:'🏛️'},
 ];
+// 옛 데이터 호환: 라벨 매핑은 nrma 도 받아줌
+const _VEHICLE_TYPE_LBL = {rego:'Rego', ctp:'CTP', insurance:'Car Insurance', nrma:'Car Insurance', other:'기타'};
 const DEFAULT_EXPENSE_VENDORS = [
   'Professionals Bathurst','Bunnings','Hothams','Minimix','Mcnamara','Beaumont','Putta Bucca','Dirt'
 ];
@@ -1523,7 +1524,7 @@ function checkVehicleRenewals() {
   if (warns.length === 0) return;
   const expCnt = warns.filter(w => w.status==='expired').length;
   const sCnt = warns.filter(w => w.status==='soon').length;
-  const TYPE_LBL = {rego:'Rego', ctp:'CTP', nrma:'NRMA', other:'기타'};
+  const TYPE_LBL = _VEHICLE_TYPE_LBL;
   const html = `<div style="background:${expCnt>0?'#FEE2E2':'#FEF3C7'};border:1px solid ${expCnt>0?'#FCA5A5':'#FDE68A'};color:${expCnt>0?'#B91C1C':'#92400E'};padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer" onclick="showTab('vehicles')">
     🚗 ${expCnt>0?`만료된 차량 갱신 ${expCnt}건`:''}${expCnt>0&&sCnt>0?' · ':''}${sCnt>0?`30일 이내 만료 ${sCnt}건`:''} —
     ${warns.slice(0,4).map(w => `<strong>${esc(w.rego||'')}</strong> ${TYPE_LBL[w.type]||w.type} (${w.days<0?-w.days+'일 지남':w.days+'일 남음'})`).join(' · ')}${warns.length>4?` 외 ${warns.length-4}건`:''} — 👆 차량 탭에서 처리
