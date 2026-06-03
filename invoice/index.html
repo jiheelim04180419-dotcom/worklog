@@ -2181,8 +2181,14 @@ function renderInv() {
     if (invSort === 'builder')     return (a.builderName||'').localeCompare(b.builderName||'');
     if (invSort === 'number-desc') return (b.invoiceNum||'').localeCompare(a.invoiceNum||'',undefined,{numeric:true});
     if (invSort === 'number-asc')  return (a.invoiceNum||'').localeCompare(b.invoiceNum||'',undefined,{numeric:true});
-    // Default: smart sort - unpaid items first (oldest first), then paid (newest first)
-    // Tiebreaker: when dates are equal, higher invoice number first (more recently issued)
+    // Default: 최신 인보이스가 위로 (날짜 DESC → 번호 DESC). 직관적이고 예측 가능.
+    // 미입금 우선 정렬을 원하면 별도 옵션 추가 (현재는 단순 최신순).
+    const adFlat = a.invoiceDate || '0000-00-00';
+    const bdFlat = b.invoiceDate || '0000-00-00';
+    const dateCmpFlat = bdFlat.localeCompare(adFlat); // 최신 먼저
+    if (dateCmpFlat !== 0) return dateCmpFlat;
+    return (b.invoiceNum||'').localeCompare(a.invoiceNum||'', undefined, {numeric:true});
+    // (옛 unpaid-first 정렬 로직 제거)
     const aUnpaid = isUnpaid(a) || a.status === 'RETENTION';
     const bUnpaid = isUnpaid(b) || b.status === 'RETENTION';
     if (aUnpaid !== bUnpaid) return aUnpaid ? -1 : 1;
