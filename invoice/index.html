@@ -6141,14 +6141,24 @@ function printInvoiceBXBT(inv, co, b) {
       // For BXBT, build flat description (no grouping)
       let desc = it.desc || '';
       if (it.isMaterials) {
-        // Materials: breakdown 이름으로 desc 재생성 (이모지/단위 접미 제거)
+        // Materials: breakdown 이름으로 desc 재생성 (이모지/단위 접미 제거).
+        // 앵글(📐) 항목은 인쇄 시 "Angle" 로 통일 (단, Flat bar 는 그대로). 중복 제거.
         if (Array.isArray(it.breakdown) && it.breakdown.length > 0) {
+          const _seen = new Set();
           const cleanedNames = it.breakdown
-            .map(b => (b.name||'').replace(/^[\p{Emoji_Presentation}\p{Extended_Pictographic}\s]+/u, '')
-                                  .replace(/\s*\(m²\)\s*$/i, '')
-                                  .replace(/\s*\(포\)\s*$/i, '')
-                                  .trim())
-            .filter(Boolean);
+            .map(b => {
+              const orig = (b.name||'').trim();
+              const isAngle = orig.startsWith('📐');
+              let cleaned = orig
+                .replace(/^[\p{Emoji_Presentation}\p{Extended_Pictographic}\s]+/u, '')
+                .replace(/\s*\(m²\)\s*$/i, '')
+                .replace(/\s*\(포\)\s*$/i, '')
+                .trim();
+              if (isAngle && !/flat\s*bar/i.test(cleaned)) cleaned = 'Angle';
+              return cleaned;
+            })
+            .filter(Boolean)
+            .filter(n => { const k = n.toLowerCase(); if (_seen.has(k)) return false; _seen.add(k); return true; });
           if (cleanedNames.length > 0) desc = cleanedNames.join(', ');
         }
         desc = `Materials: ${desc}`;
