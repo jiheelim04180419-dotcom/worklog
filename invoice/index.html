@@ -2181,29 +2181,20 @@ function renderInv() {
     if (invSort === 'builder')     return (a.builderName||'').localeCompare(b.builderName||'');
     if (invSort === 'number-desc') return (b.invoiceNum||'').localeCompare(a.invoiceNum||'',undefined,{numeric:true});
     if (invSort === 'number-asc')  return (a.invoiceNum||'').localeCompare(b.invoiceNum||'',undefined,{numeric:true});
-    // Default: 최신 인보이스가 위로 (날짜 DESC → 번호 DESC). 직관적이고 예측 가능.
-    // 미입금 우선 정렬을 원하면 별도 옵션 추가 (현재는 단순 최신순).
-    const adFlat = a.invoiceDate || '0000-00-00';
-    const bdFlat = b.invoiceDate || '0000-00-00';
-    const dateCmpFlat = bdFlat.localeCompare(adFlat); // 최신 먼저
-    if (dateCmpFlat !== 0) return dateCmpFlat;
-    return (b.invoiceNum||'').localeCompare(a.invoiceNum||'', undefined, {numeric:true});
-    // (옛 unpaid-first 정렬 로직 제거)
+    // Default "자동 정렬":
+    //   1) 미입금/RETENTION 항목 먼저 (PAID 같은 정산완료보다 위로 띄움)
+    //   2) 같은 그룹 안에서: 오래된 날짜 먼저 (먼저 발행한 것 위로)
+    //      미입금 = 오래된 게 더 급하니까, 정산완료 = 옛것이 자연 정렬상 위
+    //   3) 같은 날짜면 번호 오름차순 (먼저 발행된 1562 → 나중 1567)
     const aUnpaid = isUnpaid(a) || a.status === 'RETENTION';
     const bUnpaid = isUnpaid(b) || b.status === 'RETENTION';
     if (aUnpaid !== bUnpaid) return aUnpaid ? -1 : 1;
-    let dateCmp;
-    if (aUnpaid) {
-      const ad = a.invoiceDate || '9999-12-31';
-      const bd = b.invoiceDate || '9999-12-31';
-      dateCmp = ad.localeCompare(bd);
-    } else {
-      const ad = a.invoiceDate || '0000-01-01';
-      const bd = b.invoiceDate || '0000-01-01';
-      dateCmp = bd.localeCompare(ad);
-    }
+    const ad = a.invoiceDate || '9999-12-31';
+    const bd = b.invoiceDate || '9999-12-31';
+    const dateCmp = ad.localeCompare(bd);  // 오래된 먼저
     if (dateCmp !== 0) return dateCmp;
-    return (b.invoiceNum||'').localeCompare(a.invoiceNum||'', undefined, {numeric:true});
+    // 같은 날짜 → 번호 오름차순 (1562, 1563, ... 1567)
+    return (a.invoiceNum||'').localeCompare(b.invoiceNum||'', undefined, {numeric:true});
   });
 
   // Update filter bar
