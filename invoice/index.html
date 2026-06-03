@@ -675,6 +675,7 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
     <button onclick="showTab('calendar')" id="hd-calendar-btn" style="display:none" title="달력"><span class="nav-emoji">📅</span><span class="nav-label">달력</span></button>
     <button onclick="showTab('partners')" id="hd-partners-btn" style="display:none"><span class="nav-emoji">🤝</span><span class="nav-label">정산</span></button>
     <button onclick="showTab('expenses')" id="hd-expenses-btn" style="display:none"><span class="nav-emoji">💳</span><span class="nav-label">지출</span></button>
+    <button onclick="showTab('vehicles')" id="hd-vehicles-btn" style="display:none"><span class="nav-emoji">🚗</span><span class="nav-label">차량</span></button>
     <!-- 보조 액션: 오버플로우 메뉴 -->
     <div class="nav-overflow">
       <button class="nav-overflow-btn" onclick="toggleNavOverflow(event)" aria-label="더보기" title="더보기">⋯</button>
@@ -696,6 +697,7 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
   <div id="tab-calendar" style="display:none"></div>
   <div id="tab-partners" style="display:none"></div>
   <div id="tab-expenses" style="display:none"></div>
+  <div id="tab-vehicles" style="display:none"></div>
 </div>
 <div class="bbar">
   <div class="bstat"><div class="bstat-l">미수금</div><div class="bstat-v" id="bs-out" style="color:#818CF8">$0</div></div>
@@ -1297,6 +1299,13 @@ let invoices = [], builders = [], companies = [], customRooms = [], curFilter = 
 let expenseVendors = []; // {id, name, order, archived}
 let monthlyPayments = []; // {id, vendorId, month:"YYYY-MM", paid, paidDate, amount, notes, status}
 let personalCardEntries = []; // {id, paidDate, name, amount, purpose, reimbursementDate, notes}
+let vehicles = []; // {id, rego, name, notes, archived, renewals:[{id, type, provider, expiry, lastPaid, cost, notes}]}
+const VEHICLE_RENEWAL_TYPES = [
+  {key:'rego',  label:'Rego (등록)', emoji:'🚗'},
+  {key:'ctp',   label:'CTP (3rd party)', emoji:'🛡️'},
+  {key:'nrma',  label:'NRMA (보험)', emoji:'🏛️'},
+  {key:'other', label:'기타', emoji:'📋'},
+];
 const DEFAULT_EXPENSE_VENDORS = [
   'Professionals Bathurst','Bunnings','Hothams','Minimix','Mcnamara','Beaumont','Putta Bucca','Dirt'
 ];
@@ -1410,11 +1419,16 @@ async function loadAll() {
     invEl.innerHTML = '<div class="empty"><div style="font-size:32px;margin-bottom:10px">⏳</div><p style="font-size:13px;color:#6B7280">데이터 로딩 중...</p></div>';
   }
   
-  const [inv, bld, co, rms, evRaw, mpRaw, pcRaw] = await Promise.all([
+  const [inv, bld, co, rms, evRaw, mpRaw, pcRaw, vhRaw] = await Promise.all([
     fbGet('invoices'), fbGet('invoiceBuilders'), fbGet('invoiceCompanies'), fbGet('invoiceRooms'),
-    fbGet('expenseVendors'), fbGet('monthlyPayments'), fbGet('personalCardEntries')
+    fbGet('expenseVendors'), fbGet('monthlyPayments'), fbGet('personalCardEntries'),
+    fbGet('vehicles')
   ]);
   personalCardEntries = pcRaw ? Object.entries(pcRaw).map(([id,v])=>({...v,id})) : [];
+  vehicles = vhRaw ? Object.entries(vhRaw).map(([id,v])=>({
+    ...v, id,
+    renewals: Array.isArray(v.renewals) ? v.renewals : (v.renewals ? Object.values(v.renewals) : [])
+  })) : [];
   invoices = inv ? Object.entries(inv).map(([id,v])=>({...v,id})) : [];
   builders = bld ? Object.entries(bld).map(([id,v])=>({...v,id})) : [];
   customRooms = rms && Array.isArray(rms) ? rms : (rms ? Object.values(rms) : []);
@@ -1457,6 +1471,7 @@ async function loadAll() {
   renderRoomList();
   updateBar();
   checkInsuranceExpiry();
+  checkVehicleRenewals();
 }
 
 // 보험 만료 임박 경고 — 회사설정의 "만료일(Expiry)" 기준 D-60 부터 알림.
@@ -1484,6 +1499,37 @@ function checkInsuranceExpiry() {
   }).join('');
   const b = document.createElement('div');
   b.id = 'ins-warn-banner';
+  b.innerHTML = html;
+  const header = document.querySelector('.header');
+  if (header && header.parentNode) header.parentNode.insertBefore(b, header.nextSibling);
+}
+
+// 차량 갱신 만료 임박 경고 — 30일 이내 또는 이미 만료된 항목 띠로 표시
+function checkVehicleRenewals() {
+  const banner = document.getElementById('vh-warn-banner');
+  if (banner) banner.remove();
+  if (!vehicles || vehicles.length === 0) return;
+  const today_d = new Date(today + 'T00:00:00');
+  const warns = [];
+  vehicles.filter(v => !v.archived).forEach(v => {
+    (v.renewals||[]).forEach(r => {
+      if (!r.expiry) return;
+      const exp = new Date(r.expiry + 'T00:00:00');
+      const days = Math.floor((exp - today_d) / (24*60*60*1000));
+      if (days < 0) warns.push({rego:v.rego, type:r.type, days, status:'expired'});
+      else if (days <= 30) warns.push({rego:v.rego, type:r.type, days, status:'soon'});
+    });
+  });
+  if (warns.length === 0) return;
+  const expCnt = warns.filter(w => w.status==='expired').length;
+  const sCnt = warns.filter(w => w.status==='soon').length;
+  const TYPE_LBL = {rego:'Rego', ctp:'CTP', nrma:'NRMA', other:'기타'};
+  const html = `<div style="background:${expCnt>0?'#FEE2E2':'#FEF3C7'};border:1px solid ${expCnt>0?'#FCA5A5':'#FDE68A'};color:${expCnt>0?'#B91C1C':'#92400E'};padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer" onclick="showTab('vehicles')">
+    🚗 ${expCnt>0?`만료된 차량 갱신 ${expCnt}건`:''}${expCnt>0&&sCnt>0?' · ':''}${sCnt>0?`30일 이내 만료 ${sCnt}건`:''} —
+    ${warns.slice(0,4).map(w => `<strong>${esc(w.rego||'')}</strong> ${TYPE_LBL[w.type]||w.type} (${w.days<0?-w.days+'일 지남':w.days+'일 남음'})`).join(' · ')}${warns.length>4?` 외 ${warns.length-4}건`:''} — 👆 차량 탭에서 처리
+  </div>`;
+  const b = document.createElement('div');
+  b.id = 'vh-warn-banner';
   b.innerHTML = html;
   const header = document.querySelector('.header');
   if (header && header.parentNode) header.parentNode.insertBefore(b, header.nextSibling);
@@ -1766,6 +1812,8 @@ function updateAuthHeader() {
     if (partners) partners.style.display = '';
     const expenses = document.getElementById('hd-expenses-btn');
     if (expenses) expenses.style.display = '';
+    const vehiclesBtn = document.getElementById('hd-vehicles-btn');
+    if (vehiclesBtn) vehiclesBtn.style.display = '';
     // 권한 관리 모달은 최상위 관리자(admin/superadmin) 만
     if (userRole === 'admin' || userRole === 'superadmin') {
       const perm = document.getElementById('hd-perm-btn');
@@ -1873,7 +1921,7 @@ function filterByBuilder(name) {
 }
 
 function showTab(t) {
-  ['invoices','builders','stats','calendar','partners','expenses'].forEach(id => {
+  ['invoices','builders','stats','calendar','partners','expenses','vehicles'].forEach(id => {
     document.getElementById('tab-'+id).style.display = id===t?'block':'none';
   });
   document.querySelectorAll('.nav button').forEach(b => {
@@ -1887,6 +1935,7 @@ function showTab(t) {
   if (t==='calendar') renderCalendar();
   if (t==='partners') renderPartners();
   if (t==='expenses') renderExpenses();
+  if (t==='vehicles') renderVehicles();
 }
 
 // ── Dark Mode ────────────────────────────────────────────────────────────────
@@ -8846,6 +8895,342 @@ function pcExportCSV() {
   a.click();
   document.body.removeChild(a);
   setTimeout(() => URL.revokeObjectURL(url), 30000);
+}
+
+// ── 🚗 Vehicle Renewal Tracker ──────────────────────────────────────────────
+// 차량별 Rego / CTP / NRMA 등 갱신 항목 추적. 만료 임박 시 헤더에 경고 배너.
+let _vhEditId = null;     // 'new' | vehicleId — 차량 편집/추가 모달
+let _vhForm = null;       // {rego, name, notes}
+let _vhRenewId = null;    // 'vehicleId|renewal_id' — 갱신 항목 편집
+let _vhRenewForm = null;
+let _vhShowArchived = false;
+
+// 만료까지 남은 일수 (음수 = 이미 만료)
+function _vhDaysLeft(expiryIso) {
+  if (!expiryIso) return null;
+  const t = new Date(today + 'T00:00:00');
+  const e = new Date(expiryIso + 'T00:00:00');
+  return Math.floor((e - t) / (1000*60*60*24));
+}
+function _vhStatus(daysLeft) {
+  if (daysLeft === null) return { color:'#9CA3AF', bg:'#F3F4F6', label:'미설정', icon:'⚪' };
+  if (daysLeft < 0)      return { color:'#B91C1C', bg:'#FEE2E2', label:`${-daysLeft}일 지남`, icon:'🚨' };
+  if (daysLeft <= 30)    return { color:'#B45309', bg:'#FEF3C7', label:`${daysLeft}일 남음`, icon:'⚠️' };
+  if (daysLeft <= 90)    return { color:'#92400E', bg:'#FFFBEB', label:`${daysLeft}일`, icon:'🟡' };
+  return                       { color:'#065F46', bg:'#D1FAE5', label:`${daysLeft}일`, icon:'✅' };
+}
+
+function renderVehicles() {
+  const active   = vehicles.filter(v => !v.archived);
+  const archived = vehicles.filter(v => v.archived);
+  // 만료일 가장 임박한 갱신 기준으로 차량 정렬 (지남 > 임박 > 여유)
+  active.sort((a, b) => {
+    const am = Math.min(...(a.renewals||[]).map(r => _vhDaysLeft(r.expiry) ?? 9999), 9999);
+    const bm = Math.min(...(b.renewals||[]).map(r => _vhDaysLeft(r.expiry) ?? 9999), 9999);
+    return am - bm;
+  });
+
+  // 만료 임박/지난 갱신 총합 (경고 배너용)
+  const allRenewals = vehicles.filter(v => !v.archived).flatMap(v => (v.renewals||[]).map(r => ({...r, _vehicle: v})));
+  const expired = allRenewals.filter(r => { const d = _vhDaysLeft(r.expiry); return d !== null && d < 0; });
+  const soon    = allRenewals.filter(r => { const d = _vhDaysLeft(r.expiry); return d !== null && d >= 0 && d <= 30; });
+
+  let h = `
+    <div style="padding:14px 16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:14px">
+        <div>
+          <h2 style="margin:0;font-size:18px;font-weight:800;color:var(--text-1)">🚗 차량 관리</h2>
+          <p style="margin:2px 0 0;font-size:11px;color:var(--text-4)">Rego · CTP · NRMA 등 갱신 일정 추적</p>
+        </div>
+        <button class="btn-primary" style="padding:7px 12px;font-size:12px" onclick="vhOpenForm()">＋ 차량 추가</button>
+      </div>
+
+      ${(expired.length > 0 || soon.length > 0) ? `
+        <div style="background:linear-gradient(135deg,${expired.length>0?'#FEE2E2':'#FEF3C7'} 0%,${soon.length>0?'#FFFBEB':'#FEF3C7'} 100%);border:1px solid ${expired.length>0?'#FCA5A5':'#FCD34D'};border-radius:10px;padding:12px 14px;margin-bottom:14px">
+          ${expired.length > 0 ? `<div style="font-size:12px;font-weight:700;color:#B91C1C;margin-bottom:6px">🚨 만료된 갱신 ${expired.length}건</div>
+            <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:${soon.length>0?'10px':'0'}">
+              ${expired.map(r => `<span style="background:#FCA5A5;color:#7F1D1D;font-size:11px;font-weight:600;padding:3px 9px;border-radius:5px">${esc(r._vehicle.rego||'')} · ${(VEHICLE_RENEWAL_TYPES.find(t=>t.key===r.type)||{}).emoji||''} ${esc(r.type||'')} (${-_vhDaysLeft(r.expiry)}일 지남)</span>`).join('')}
+            </div>` : ''}
+          ${soon.length > 0 ? `<div style="font-size:12px;font-weight:700;color:#92400E;margin-bottom:6px">⚠️ 30일 이내 만료 ${soon.length}건</div>
+            <div style="display:flex;flex-wrap:wrap;gap:5px">
+              ${soon.map(r => `<span style="background:#FDE68A;color:#713F12;font-size:11px;font-weight:600;padding:3px 9px;border-radius:5px">${esc(r._vehicle.rego||'')} · ${(VEHICLE_RENEWAL_TYPES.find(t=>t.key===r.type)||{}).emoji||''} ${esc(r.type||'')} (${_vhDaysLeft(r.expiry)}일)</span>`).join('')}
+            </div>` : ''}
+        </div>` : (active.length > 0 ? `<div style="background:#D1FAE5;border:1px solid #6EE7B7;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12px;font-weight:700;color:#065F46">✅ 만료 임박한 갱신 없음 — 모두 여유 있음</div>` : '')}
+
+      ${(_vhEditId === 'new' || _vhEditId) ? _vhFormHtml() : ''}
+      ${_vhRenewId ? _vhRenewFormHtml() : ''}
+
+      ${active.length === 0 ? `
+        <div style="text-align:center;padding:40px 16px;color:var(--text-4);font-size:13px;background:var(--card-bg);border-radius:10px;border:1px dashed var(--border-2)">
+          🚗 등록된 차량이 없어요. <strong>＋ 차량 추가</strong> 로 시작하세요.
+        </div>
+      ` : active.map(v => _vhCardHtml(v)).join('')}
+
+      ${archived.length > 0 ? `
+        <div style="margin-top:16px">
+          <button class="btn-secondary" style="width:100%;padding:8px;font-size:12px;background:#F3F4F6;color:#6B7280;border-color:#D1D5DB" onclick="_vhShowArchived=${!_vhShowArchived};renderVehicles()">
+            ${_vhShowArchived ? '▲ 폐차/보관 차량 숨기기' : `▼ 폐차/보관 차량 보기 (${archived.length}대)`}
+          </button>
+          ${_vhShowArchived ? archived.map(v => _vhCardHtml(v, true)).join('') : ''}
+        </div>
+      ` : ''}
+
+      <div style="margin-top:10px;padding:10px 12px;background:#F9FAFB;border-radius:8px;font-size:11px;color:var(--text-3);line-height:1.7">
+        💡 <strong>상태 색상</strong>:
+        <span style="background:#D1FAE5;color:#065F46;padding:1px 6px;border-radius:3px;font-weight:700">✅ 여유</span>
+        <span style="background:#FFFBEB;color:#92400E;padding:1px 6px;border-radius:3px;font-weight:700">🟡 90일 이내</span>
+        <span style="background:#FEF3C7;color:#B45309;padding:1px 6px;border-radius:3px;font-weight:700">⚠️ 30일 이내</span>
+        <span style="background:#FEE2E2;color:#B91C1C;padding:1px 6px;border-radius:3px;font-weight:700">🚨 만료됨</span>
+        <br/>갱신 완료 후 항목 클릭 → 새 만료일 입력 → 자동으로 다음 사이클 시작.
+      </div>
+    </div>
+  `;
+  document.getElementById('tab-vehicles').innerHTML = h;
+}
+
+function _vhCardHtml(v, isArchived) {
+  const renewals = (v.renewals||[]);
+  const fmtAU = ymd => isoToAu(ymd);
+  let renewalsHtml;
+  if (renewals.length === 0) {
+    renewalsHtml = `<div style="padding:12px;text-align:center;font-size:11px;color:var(--text-4);font-style:italic">갱신 항목이 없어요. 아래 "+ 항목 추가" 를 누르세요.</div>`;
+  } else {
+    renewalsHtml = renewals.sort((a,b)=>(a.expiry||'').localeCompare(b.expiry||'')).map(r => {
+      const t = VEHICLE_RENEWAL_TYPES.find(x => x.key === r.type) || {emoji:'📋', label:r.type||'기타'};
+      const d = _vhDaysLeft(r.expiry);
+      const st = _vhStatus(d);
+      return `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--border-3);background:${st.bg};border-left:4px solid ${st.color}">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12px;font-weight:700;color:var(--text-1)">${t.emoji} ${esc(t.label)}${r.provider?` <span style="font-weight:500;color:#6B7280;font-size:11px">· ${esc(r.provider)}</span>`:''}</div>
+          <div style="font-size:11px;color:var(--text-3);margin-top:2px">만료: <strong style="color:${st.color}">${r.expiry?fmtAU(r.expiry):'(미설정)'}</strong>${r.lastPaid?` · 최근 결제 ${fmtAU(r.lastPaid)}`:''}${r.cost?` · $${parseFloat(r.cost).toFixed(2)}`:''}</div>
+          ${r.notes?`<div style="font-size:10px;color:var(--text-4);margin-top:2px;font-style:italic">${esc(r.notes)}</div>`:''}
+        </div>
+        <div style="text-align:center;min-width:65px">
+          <div style="font-size:11px;font-weight:700;color:${st.color}">${st.icon} ${st.label}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:2px">
+          <button onclick="vhMarkRenewed('${v.id}','${r.id}')" title="갱신 완료 → 만료일 갱신" style="background:#10B981;color:#fff;border:none;border-radius:5px;padding:3px 8px;font-size:10px;font-weight:700;cursor:pointer">✓ 갱신</button>
+          <button onclick="vhEditRenewal('${v.id}','${r.id}')" title="편집" style="background:none;border:1px solid #D1D5DB;color:#374151;border-radius:5px;padding:3px 8px;font-size:10px;cursor:pointer">✎</button>
+          <button onclick="vhDeleteRenewal('${v.id}','${r.id}')" title="삭제" style="background:none;border:none;color:#DC2626;font-size:11px;cursor:pointer">✕</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  return `<div style="background:var(--card-bg);border:1px solid var(--border-2);border-radius:10px;margin-bottom:10px;overflow:hidden;${isArchived?'opacity:0.6':''}">
+    <div style="padding:10px 14px;background:var(--card-bg-alt);border-bottom:1px solid var(--border-2);display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <span style="font-size:14px;font-weight:800;color:var(--text-1);font-family:monospace;background:#EEF2FF;color:#3730A3;padding:3px 10px;border-radius:5px">${esc(v.rego||'')}</span>
+      ${v.name ? `<span style="font-size:12px;color:var(--text-2);font-weight:600">${esc(v.name)}</span>` : ''}
+      ${isArchived ? `<span style="font-size:10px;background:#9CA3AF;color:#fff;padding:1px 6px;border-radius:3px;font-weight:700">폐차/보관</span>` : ''}
+      ${v.notes ? `<span style="font-size:11px;color:var(--text-4);font-style:italic">${esc(v.notes)}</span>` : ''}
+      <div style="margin-left:auto;display:flex;gap:4px">
+        <button onclick="vhAddRenewal('${v.id}')" style="background:#4F46E5;color:#fff;border:none;border-radius:5px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer">+ 항목</button>
+        <button onclick="vhEdit('${v.id}')" style="background:none;border:1px solid #D1D5DB;color:#374151;border-radius:5px;padding:4px 8px;font-size:11px;cursor:pointer">✎</button>
+        <button onclick="vhToggleArchive('${v.id}')" title="${isArchived?'복원':'폐차/보관 처리'}" style="background:none;border:1px solid #D1D5DB;color:#6B7280;border-radius:5px;padding:4px 8px;font-size:11px;cursor:pointer">${isArchived?'↩':'📦'}</button>
+        <button onclick="vhDelete('${v.id}')" style="background:none;border:none;color:#DC2626;font-size:13px;cursor:pointer;padding:2px 5px">✕</button>
+      </div>
+    </div>
+    ${renewalsHtml}
+  </div>`;
+}
+
+// ─── 차량 추가/편집 모달 (인라인) ────────────────────────────────────────
+function vhOpenForm() {
+  _vhEditId = 'new';
+  _vhForm = { rego:'', name:'', notes:'' };
+  renderVehicles();
+}
+function vhEdit(id) {
+  const v = vehicles.find(x => x.id === id);
+  if (!v) return;
+  _vhEditId = id;
+  _vhForm = { rego: v.rego||'', name: v.name||'', notes: v.notes||'' };
+  renderVehicles();
+}
+function vhCancelForm() {
+  _vhEditId = null; _vhForm = null;
+  renderVehicles();
+}
+function _vhFormHtml() {
+  const editing = _vhEditId && _vhEditId !== 'new';
+  const f = _vhForm || {};
+  return `<div style="background:#fff;border:2px solid #4F46E5;border-radius:12px;padding:14px 16px;margin-bottom:14px">
+    <h3 style="margin:0 0 10px;font-size:14px;font-weight:800;color:#4338CA">${editing?'✎ 차량 수정':'＋ 새 차량'}</h3>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px">
+      <div>
+        <label style="display:block;font-size:10px;font-weight:700;color:var(--text-3);margin-bottom:3px">번호판 (Rego) *</label>
+        <input id="vh-f-rego" type="text" value="${esc(f.rego||'')}" placeholder="CY30PA" style="width:100%;padding:6px 8px;border:1px solid var(--border-2);border-radius:6px;font-size:13px;box-sizing:border-box;font-family:monospace;text-transform:uppercase"/>
+      </div>
+      <div>
+        <label style="display:block;font-size:10px;font-weight:700;color:var(--text-3);margin-bottom:3px">이름/별칭</label>
+        <input id="vh-f-name" type="text" value="${esc(f.name||'')}" placeholder="Truck / Jay van" style="width:100%;padding:6px 8px;border:1px solid var(--border-2);border-radius:6px;font-size:13px;box-sizing:border-box"/>
+      </div>
+      <div style="grid-column:1/-1">
+        <label style="display:block;font-size:10px;font-weight:700;color:var(--text-3);margin-bottom:3px">메모 (선택)</label>
+        <input id="vh-f-notes" type="text" value="${esc(f.notes||'')}" placeholder="DK64QT 차량 번호 / 차종 등" style="width:100%;padding:6px 8px;border:1px solid var(--border-2);border-radius:6px;font-size:13px;box-sizing:border-box"/>
+      </div>
+    </div>
+    <div style="display:flex;gap:6px;margin-top:10px;justify-content:flex-end">
+      <button onclick="vhCancelForm()" style="background:#F3F4F6;color:#374151;border:none;padding:7px 14px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer">취소</button>
+      <button onclick="vhSaveForm()" style="background:#4F46E5;color:#fff;border:none;padding:7px 16px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">💾 저장</button>
+    </div>
+  </div>`;
+}
+async function vhSaveForm() {
+  const rego = (document.getElementById('vh-f-rego')?.value || '').trim().toUpperCase();
+  const name = (document.getElementById('vh-f-name')?.value || '').trim();
+  const notes = (document.getElementById('vh-f-notes')?.value || '').trim();
+  if (!rego) return alert('번호판(Rego)을 입력해주세요.');
+  const data = { rego, name, notes };
+  if (_vhEditId === 'new') {
+    const id = 'vh_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
+    vehicles.push({ ...data, id, archived:false, renewals:[] });
+    await fbSet('vehicles/'+id, { ...data, archived:false, renewals:[] });
+  } else {
+    const v = vehicles.find(x => x.id === _vhEditId);
+    if (v) Object.assign(v, data);
+    await fbSet('vehicles/'+_vhEditId+'/rego', rego);
+    await fbSet('vehicles/'+_vhEditId+'/name', name);
+    await fbSet('vehicles/'+_vhEditId+'/notes', notes);
+  }
+  _vhEditId = null; _vhForm = null;
+  renderVehicles();
+}
+async function vhDelete(id) {
+  const v = vehicles.find(x => x.id === id);
+  if (!v) return;
+  if (!confirm(`"${v.rego||v.name||'?'}" 차량을 삭제할까요?\n갱신 기록도 모두 사라집니다.`)) return;
+  vehicles = vehicles.filter(x => x.id !== id);
+  await fbDel('vehicles/'+id);
+  renderVehicles();
+}
+async function vhToggleArchive(id) {
+  const v = vehicles.find(x => x.id === id);
+  if (!v) return;
+  v.archived = !v.archived;
+  await fbSet('vehicles/'+id+'/archived', v.archived);
+  renderVehicles();
+}
+
+// ─── 갱신 항목 추가/편집/마크 ────────────────────────────────────────────
+function vhAddRenewal(vehicleId) {
+  _vhRenewId = vehicleId + '|new';
+  _vhRenewForm = { type:'rego', provider:'', expiry:'', lastPaid:'', cost:'', notes:'' };
+  renderVehicles();
+}
+function vhEditRenewal(vehicleId, renewalId) {
+  const v = vehicles.find(x => x.id === vehicleId);
+  const r = v && (v.renewals||[]).find(x => x.id === renewalId);
+  if (!r) return;
+  _vhRenewId = vehicleId + '|' + renewalId;
+  _vhRenewForm = { ...r };
+  renderVehicles();
+}
+function vhCancelRenewal() {
+  _vhRenewId = null; _vhRenewForm = null;
+  renderVehicles();
+}
+function _vhRenewFormHtml() {
+  const [vehicleId, rid] = _vhRenewId.split('|');
+  const v = vehicles.find(x => x.id === vehicleId);
+  const isNew = rid === 'new';
+  const f = _vhRenewForm || {};
+  return `<div style="background:#fff;border:2px solid #4F46E5;border-radius:12px;padding:14px 16px;margin-bottom:14px">
+    <h3 style="margin:0 0 10px;font-size:14px;font-weight:800;color:#4338CA">${isNew?'＋ 새 갱신 항목':'✎ 갱신 항목 수정'} <span style="font-size:12px;color:#6B7280">— ${esc(v?.rego||'')}</span></h3>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px">
+      <div>
+        <label style="display:block;font-size:10px;font-weight:700;color:var(--text-3);margin-bottom:3px">종류 *</label>
+        <select id="vh-r-type" style="width:100%;padding:6px 8px;border:1px solid var(--border-2);border-radius:6px;font-size:13px;box-sizing:border-box;font-family:inherit">
+          ${VEHICLE_RENEWAL_TYPES.map(t => `<option value="${t.key}" ${f.type===t.key?'selected':''}>${t.emoji} ${t.label}</option>`).join('')}
+        </select>
+      </div>
+      <div>
+        <label style="display:block;font-size:10px;font-weight:700;color:var(--text-3);margin-bottom:3px">제공처</label>
+        <input id="vh-r-provider" type="text" value="${esc(f.provider||'')}" placeholder="Allianz / QBE / NRMA" style="width:100%;padding:6px 8px;border:1px solid var(--border-2);border-radius:6px;font-size:13px;box-sizing:border-box"/>
+      </div>
+      <div>
+        <label style="display:block;font-size:10px;font-weight:700;color:var(--text-3);margin-bottom:3px">만료일 (DD/MM/YYYY) *</label>
+        <input id="vh-r-expiry" type="text" value="${f.expiry?isoToAu(f.expiry):''}" placeholder="DD/MM/YYYY" maxlength="10" style="width:100%;padding:6px 8px;border:1px solid var(--border-2);border-radius:6px;font-size:13px;box-sizing:border-box"/>
+      </div>
+      <div>
+        <label style="display:block;font-size:10px;font-weight:700;color:var(--text-3);margin-bottom:3px">최근 결제일</label>
+        <input id="vh-r-paid" type="text" value="${f.lastPaid?isoToAu(f.lastPaid):''}" placeholder="DD/MM/YYYY" maxlength="10" style="width:100%;padding:6px 8px;border:1px solid var(--border-2);border-radius:6px;font-size:13px;box-sizing:border-box"/>
+      </div>
+      <div>
+        <label style="display:block;font-size:10px;font-weight:700;color:var(--text-3);margin-bottom:3px">금액 ($, 선택)</label>
+        <input id="vh-r-cost" type="number" step="0.01" value="${f.cost||''}" placeholder="0.00" style="width:100%;padding:6px 8px;border:1px solid var(--border-2);border-radius:6px;font-size:13px;box-sizing:border-box"/>
+      </div>
+      <div style="grid-column:1/-1">
+        <label style="display:block;font-size:10px;font-weight:700;color:var(--text-3);margin-bottom:3px">메모</label>
+        <input id="vh-r-notes" type="text" value="${esc(f.notes||'')}" placeholder="" style="width:100%;padding:6px 8px;border:1px solid var(--border-2);border-radius:6px;font-size:13px;box-sizing:border-box"/>
+      </div>
+    </div>
+    <div style="display:flex;gap:6px;margin-top:10px;justify-content:flex-end">
+      <button onclick="vhCancelRenewal()" style="background:#F3F4F6;color:#374151;border:none;padding:7px 14px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer">취소</button>
+      <button onclick="vhSaveRenewal()" style="background:#4F46E5;color:#fff;border:none;padding:7px 16px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">💾 저장</button>
+    </div>
+  </div>`;
+}
+async function vhSaveRenewal() {
+  const [vehicleId, rid] = _vhRenewId.split('|');
+  const v = vehicles.find(x => x.id === vehicleId);
+  if (!v) return;
+  const type     = document.getElementById('vh-r-type')?.value || 'other';
+  const provider = (document.getElementById('vh-r-provider')?.value || '').trim();
+  const expAu    = (document.getElementById('vh-r-expiry')?.value || '').trim();
+  const paidAu   = (document.getElementById('vh-r-paid')?.value || '').trim();
+  const cost     = parseFloat(document.getElementById('vh-r-cost')?.value) || 0;
+  const notes    = (document.getElementById('vh-r-notes')?.value || '').trim();
+  const expiry  = expAu ? auToIso(expAu) : '';
+  const lastPaid = paidAu ? auToIso(paidAu) : '';
+  if (expAu && !expiry) return alert('만료일 형식이 잘못됐어요. DD/MM/YYYY');
+  if (paidAu && !lastPaid) return alert('결제일 형식이 잘못됐어요. DD/MM/YYYY');
+
+  const data = { type, provider, expiry, lastPaid, cost, notes };
+  v.renewals = Array.isArray(v.renewals) ? v.renewals : [];
+  if (rid === 'new') {
+    data.id = 'r_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
+    v.renewals.push(data);
+  } else {
+    const idx = v.renewals.findIndex(x => x.id === rid);
+    if (idx >= 0) v.renewals[idx] = { ...v.renewals[idx], ...data, id: rid };
+  }
+  await fbSet('vehicles/'+vehicleId+'/renewals', v.renewals);
+  _vhRenewId = null; _vhRenewForm = null;
+  renderVehicles();
+}
+async function vhDeleteRenewal(vehicleId, renewalId) {
+  const v = vehicles.find(x => x.id === vehicleId);
+  if (!v) return;
+  const r = (v.renewals||[]).find(x => x.id === renewalId);
+  if (!r) return;
+  if (!confirm(`이 갱신 항목을 삭제할까요?\n${r.type} · 만료 ${r.expiry?isoToAu(r.expiry):'(미설정)'}`)) return;
+  v.renewals = (v.renewals||[]).filter(x => x.id !== renewalId);
+  await fbSet('vehicles/'+vehicleId+'/renewals', v.renewals);
+  renderVehicles();
+}
+// 빠른 "갱신 완료" — 새 만료일 + 결제일 입력받아 업데이트
+async function vhMarkRenewed(vehicleId, renewalId) {
+  const v = vehicles.find(x => x.id === vehicleId);
+  const r = v && (v.renewals||[]).find(x => x.id === renewalId);
+  if (!r) return;
+  const todayAu = isoToAu(today);
+  const paidAu = prompt(`결제일 (DD/MM/YYYY)`, todayAu);
+  if (paidAu === null) return;
+  const paidIso = auToIso(paidAu);
+  if (!paidIso) return alert('결제일 형식이 잘못됐어요.');
+  // 만료일 기본 = 결제일 + 1년
+  const d = new Date(paidIso + 'T00:00:00');
+  d.setFullYear(d.getFullYear() + 1);
+  const suggestedAu = isoToAu(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`);
+  const expAu = prompt(`새 만료일 (DD/MM/YYYY)\n기본: 결제일 + 1년`, suggestedAu);
+  if (expAu === null) return;
+  const expIso = auToIso(expAu);
+  if (!expIso) return alert('만료일 형식이 잘못됐어요.');
+  const idx = v.renewals.findIndex(x => x.id === renewalId);
+  v.renewals[idx] = { ...r, lastPaid: paidIso, expiry: expIso };
+  await fbSet('vehicles/'+vehicleId+'/renewals', v.renewals);
+  renderVehicles();
 }
 
 // ── Calendar View ────────────────────────────────────────────────────────────
