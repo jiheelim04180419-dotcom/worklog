@@ -668,18 +668,19 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
 <div class="header">
   <div class="logo">K&M Tiling<small>Invoice Manager</small></div>
   <div class="nav">
-    <!-- 주 탭: 항상 보임 (데스크탑은 텍스트, 모바일은 이모지) -->
+    <!-- 주 탭: 항상 보임 (모바일에서도 4개 이내 유지) -->
     <button class="active" onclick="showTab('invoices')"><span class="nav-emoji">📋</span><span class="nav-label">인보이스</span></button>
     <button onclick="showTab('builders')"><span class="nav-emoji">🏗️</span><span class="nav-label">빌더</span></button>
     <button onclick="showTab('stats')"><span class="nav-emoji">📊</span><span class="nav-label">통계</span></button>
-    <button onclick="showTab('calendar')" id="hd-calendar-btn" style="display:none" title="달력"><span class="nav-emoji">📅</span><span class="nav-label">달력</span></button>
-    <button onclick="showTab('partners')" id="hd-partners-btn" style="display:none"><span class="nav-emoji">🤝</span><span class="nav-label">정산</span></button>
     <button onclick="showTab('expenses')" id="hd-expenses-btn" style="display:none"><span class="nav-emoji">💳</span><span class="nav-label">지출</span></button>
-    <button onclick="showTab('vehicles')" id="hd-vehicles-btn" style="display:none"><span class="nav-emoji">🚗</span><span class="nav-label">차량</span></button>
-    <!-- 보조 액션: 오버플로우 메뉴 -->
+    <!-- 보조 액션 + 부탭(달력/정산/차량): 오버플로우 메뉴 -->
     <div class="nav-overflow">
       <button class="nav-overflow-btn" onclick="toggleNavOverflow(event)" aria-label="더보기" title="더보기">⋯</button>
       <div class="nav-overflow-menu" id="nav-overflow-menu">
+        <button onclick="showTab('calendar');closeNavOverflow()" id="hd-calendar-btn" style="display:none">📅 달력</button>
+        <button onclick="showTab('partners');closeNavOverflow()" id="hd-partners-btn" style="display:none">🤝 운영자 정산</button>
+        <button onclick="showTab('vehicles');closeNavOverflow()" id="hd-vehicles-btn" style="display:none">🚗 차량 관리</button>
+        <div style="height:1px;background:rgba(0,0,0,0.06);margin:4px 0"></div>
         <button onclick="openBulkPay();closeNavOverflow()">💰 일괄 입금 등록</button>
         <button onclick="toggleTheme();closeNavOverflow()" id="theme-btn" title="테마 (D)">🌙 테마</button>
         <button onclick="openSet();closeNavOverflow()">⚙️ 회사 설정</button>
