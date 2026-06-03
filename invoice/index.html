@@ -668,20 +668,21 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
 <div class="header">
   <div class="logo">K&M Tiling<small>Invoice Manager</small></div>
   <div class="nav">
-    <!-- 주 탭: 항상 보임 (모바일에서도 4개 이내 유지) -->
+    <!-- 주 탭 -->
     <button class="active" onclick="showTab('invoices')"><span class="nav-emoji">📋</span><span class="nav-label">인보이스</span></button>
-    <button onclick="showTab('builders')"><span class="nav-emoji">🏗️</span><span class="nav-label">빌더</span></button>
+    <button onclick="showTab('partners')" id="hd-partners-btn" style="display:none"><span class="nav-emoji">🤝</span><span class="nav-label">정산</span></button>
     <button onclick="showTab('stats')"><span class="nav-emoji">📊</span><span class="nav-label">통계</span></button>
     <button onclick="showTab('expenses')" id="hd-expenses-btn" style="display:none"><span class="nav-emoji">💳</span><span class="nav-label">지출</span></button>
-    <!-- 보조 액션 + 부탭(달력/정산/차량): 오버플로우 메뉴 -->
+    <!-- 일괄 입금: 슈퍼관리자만 -->
+    <button onclick="openBulkPay()" id="hd-bulkpay-btn" style="display:none" title="일괄 입금 등록 (Superadmin)"><span class="nav-emoji">💰</span><span class="nav-label">일괄입금</span></button>
+    <!-- 보조 액션 + 부탭: 오버플로우 메뉴 -->
     <div class="nav-overflow">
       <button class="nav-overflow-btn" onclick="toggleNavOverflow(event)" aria-label="더보기" title="더보기">⋯</button>
       <div class="nav-overflow-menu" id="nav-overflow-menu">
+        <button onclick="showTab('builders');closeNavOverflow()">🏗️ 빌더</button>
         <button onclick="showTab('calendar');closeNavOverflow()" id="hd-calendar-btn" style="display:none">📅 달력</button>
-        <button onclick="showTab('partners');closeNavOverflow()" id="hd-partners-btn" style="display:none">🤝 운영자 정산</button>
         <button onclick="showTab('vehicles');closeNavOverflow()" id="hd-vehicles-btn" style="display:none">🚗 차량 관리</button>
         <div style="height:1px;background:rgba(0,0,0,0.06);margin:4px 0"></div>
-        <button onclick="openBulkPay();closeNavOverflow()">💰 일괄 입금 등록</button>
         <button onclick="toggleTheme();closeNavOverflow()" id="theme-btn" title="테마 (D)">🌙 테마</button>
         <button onclick="openSet();closeNavOverflow()">⚙️ 회사 설정</button>
         <button onclick="openPermModal();closeNavOverflow()" id="hd-perm-btn" style="display:none">🔐 권한 관리</button>
@@ -1816,15 +1817,14 @@ function updateAuthHeader() {
     if (expenses) expenses.style.display = '';
     const vehiclesBtn = document.getElementById('hd-vehicles-btn');
     if (vehiclesBtn) vehiclesBtn.style.display = '';
-    // 권한 관리 모달은 최상위 관리자(admin/superadmin) 만
+    // 권한 관리 / 달력 / 일괄 입금 등록: 최상위 관리자(admin/superadmin) 만
     if (userRole === 'admin' || userRole === 'superadmin') {
       const perm = document.getElementById('hd-perm-btn');
       if (perm) perm.style.display = '';
-    }
-    // 달력 탭도 최상위 관리자만 (그 외 사용자는 보지 않게)
-    if (userRole === 'admin' || userRole === 'superadmin') {
       const cal = document.getElementById('hd-calendar-btn');
       if (cal) cal.style.display = '';
+      const bulkpay = document.getElementById('hd-bulkpay-btn');
+      if (bulkpay) bulkpay.style.display = '';
     }
   }
 }
@@ -5092,6 +5092,11 @@ async function saveMemoEdit(id) {
 // ── 일괄 입금 등록 ──────────────────────────────────────────────────────────
 // 날짜 + 빌더 → 미수금 인보이스 목록 → 체크/금액 입력 → 한번에 저장
 function openBulkPay() {
+  // 슈퍼관리자/관리자만 접근 가능 (방어적 체크 — UI 에서도 가려져 있지만 한 번 더)
+  const role = sessionStorage.getItem('invoice_user_role');
+  if (role !== 'admin' && role !== 'superadmin') {
+    return alert('일괄 입금 등록은 관리자만 사용할 수 있어요.');
+  }
   document.getElementById('bp-date').value = isoToAu(today);
   document.getElementById('bp-search').value = '';
   _renderAllBulkPay();   // 미수금 인보이스 전부 한 번에 렌더 (검색으로 표시만 토글)
