@@ -6229,11 +6229,10 @@ function printInvoiceBXBT(inv, co, b) {
     }
   }
   
-  // Add blank alternating rows to fill space
+  // 빈 줄로 표 채움 — 회색/흰색 번갈이 → 모두 흰색으로 통일 (내용있는 줄과 일관)
   const minRows = 14;
   for (let i = rowsRendered; i < minRows; i++) {
-    const shaded = (i - rowsRendered) % 2 === 0 ? 'bxbt-blank-shaded' : 'bxbt-blank';
-    itemRows += `<tr class="${shaded}"><td></td><td></td><td></td><td></td></tr>`;
+    itemRows += `<tr class="bxbt-blank"><td></td><td></td><td></td><td></td></tr>`;
   }
   
   // Builder postal address (P.O. Box format) — prefer postalAddress
