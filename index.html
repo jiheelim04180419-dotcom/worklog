@@ -2305,7 +2305,8 @@ function calcMgmtPeriod(dateStr) {
   const diff = Math.floor((target - BASE) / (14*24*60*60*1000));
   const ps = new Date(BASE); ps.setDate(ps.getDate() + diff*14);
   const pe = new Date(ps); pe.setDate(pe.getDate() + 13);
-  const fmt = d => d.toISOString().split('T')[0];
+  // ⚠️ toISOString() 은 UTC 변환이라 호주 기준 하루 밀려나옴 — 로컬 포매터 사용.
+  const fmt = d => localDateStr(d);
   return { ps: fmt(ps), pe: fmt(pe), diff };
 }
 
@@ -2327,7 +2328,8 @@ function MgmtTab({ fbUrl, fA }) {
   const BASE = new Date('2026-04-13T00:00:00');
   const psDate = new Date(BASE); psDate.setDate(psDate.getDate() + periodDiff*14);
   const peDate = new Date(psDate); peDate.setDate(peDate.getDate() + 13);
-  const fmt = d => d.toISOString().split('T')[0];
+  // ⚠️ toISOString() 은 UTC 로 변환해서 호주 시간 기준 하루 밀려버림 — 로컬 날짜 포매터 사용.
+  const fmt = d => localDateStr(d);
   const periodStart = fmt(psDate);
   const periodEnd = fmt(peDate);
 
@@ -2669,7 +2671,7 @@ function MgmtTab({ fbUrl, fA }) {
 }
 
 function MgmtMemberForm({ member, currentPeriodStart, onSave, onClose }) {
-  const today0 = new Date().toISOString().split('T')[0];
+  const today0 = localDateStr(new Date());
   const initHistory = () => {
     const existing = Array.isArray(member?.history) ? member.history
       : Object.values(member?.history||{});
