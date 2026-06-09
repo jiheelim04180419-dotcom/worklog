@@ -682,7 +682,9 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
     return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
   })();
 
-  const addDeduction = () => setDeductions(d => [...d, { id: Date.now(), desc: "", amount: "", date: wpStart }]);
+  // 새 공제 항목의 기본 날짜 = 오늘 (단, 현재 보고있는 기간 밖이면 wpStart 로 폴백)
+  const _defaultDedDate = () => (today >= wpStart && today <= wpEnd) ? today : wpStart;
+  const addDeduction = () => setDeductions(d => [...d, { id: Date.now(), desc: "", amount: "", date: _defaultDedDate() }]);
   const updateDeduction = (id, field, val) => setDeductions(d => d.map(x => x.id === id ? { ...x, [field]: val } : x));
   const removeDeduction = (id) => setDeductions(d => d.filter(x => x.id !== id));
   const totalDeductions = deductions.reduce((s, d) => s + (parseFloat(d.amount) || 0), 0);
@@ -697,7 +699,9 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
   const getSavedDeductions = (userId) => {
     const all = (leaves[userId] || {}).savedDeductions || [];
     const arr = Array.isArray(all) ? all : Object.values(all);
-    return arr.filter(d => d.date >= wpStart && d.date <= wpEnd);
+    // 날짜 오름차순 정렬 (옛것 먼저). 같은 날짜면 입력 순.
+    return arr.filter(d => d.date >= wpStart && d.date <= wpEnd)
+              .sort((a, b) => (a.date || '').localeCompare(b.date || ''));
   };
   const savedTotal = (userId) => getSavedDeductions(userId).reduce((s,d) => s + (parseFloat(d.amount)||0), 0);
   const addSavedDeductions = (entries) => {
@@ -2168,9 +2172,11 @@ function getMissingLogs(users, logs, periodStart, periodEnd) {
 function DeductTab({ users, leaves, wpStart, wpEnd, persist, removeSavedDeduction, getSavedDeductions }) {
   const fA = (n) => new Intl.NumberFormat("en-AU",{style:"currency",currency:"AUD"}).format(n||0);
   const inp = { width:"100%",border:"1.5px solid #e0e6f0",borderRadius:10,padding:"8px 10px",fontSize:13,fontFamily:"inherit",outline:"none",boxSizing:"border-box",background:"#fff" };
-  const [newRows, setNewRows] = React.useState([{ id: Date.now(), userId:"", date: wpStart, desc:"", amount:"" }]);
+  // 기본 날짜 = 오늘 (현재 보고있는 기간 밖이면 wpStart 로 폴백)
+  const _defaultRowDate = () => (today >= wpStart && today <= wpEnd) ? today : wpStart;
+  const [newRows, setNewRows] = React.useState([{ id: Date.now(), userId:"", date: _defaultRowDate(), desc:"", amount:"" }]);
 
-  const addRow = () => setNewRows(r => [...r, { id: Date.now()+Math.random(), userId:"", date: wpStart, desc:"", amount:"" }]);
+  const addRow = () => setNewRows(r => [...r, { id: Date.now()+Math.random(), userId:"", date: _defaultRowDate(), desc:"", amount:"" }]);
   const updateRow = (id, field, val) => setNewRows(r => r.map(x => x.id===id ? {...x,[field]:val} : x));
   const removeRow = (id) => setNewRows(r => r.filter(x => x.id!==id));
 
@@ -2193,7 +2199,7 @@ function DeductTab({ users, leaves, wpStart, wpEnd, persist, removeSavedDeductio
       }]};
     });
     persist(null, null, newLeaves);
-    setNewRows([{ id: Date.now(), userId:"", date: wpStart, desc:"", amount:"" }]);
+    setNewRows([{ id: Date.now(), userId:"", date: _defaultRowDate(), desc:"", amount:"" }]);
     alert(`✅ ${valid.length}건 저장됐어요`);
   };
 
@@ -3310,7 +3316,7 @@ function BottomNav({ tab, setTab, isAdmin, isSuperAdmin, userHasLeave, user, log
   );
 }
 
-function HomeTab({ user, users, logs, leaves, isAdmin, onJumpToLog }) {
+function HomeTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist, onJumpToLog }) {
   const myLogs=isAdmin?logs:logs.filter(l=>l.userId===user.id);
   const myLv=normLeave(leaves[user.id],user.joinDate);
   const myAccDays=calcAccruedDays(myLv.leaveStartDate);
@@ -3334,6 +3340,67 @@ function HomeTab({ user, users, logs, leaves, isAdmin, onJumpToLog }) {
         <h2 style={styles.greetingText}>안녕하세요, {user.name}님 👋</h2>
         <p style={styles.dateText}>{korDate(todayStr)}</p>
       </div>
+
+      {/* ── 🚨 수동 km 확인 대기 경고 (수퍼관리자 전용, 처리하기 전까지 안 없어짐) ── */}
+      {isSuperAdmin && (() => {
+        const pending = logs.filter(l => l.travel && l.travel.needsConfirm && !l.travel.adminConfirmed);
+        if (pending.length === 0) return null;
+        // 직원명 매핑
+        const nm = id => (users.find(u => u.id === id) || {}).name || id;
+        const handleConfirm = (logId) => {
+          const updated = logs.map(lg => lg.id === logId ? { ...lg, travel: { ...lg.travel, adminConfirmed: true } } : lg);
+          persist(null, updated, null);
+        };
+        const handleConfirmAll = () => {
+          if (!confirm(`${pending.length}건 모두 확인 처리할까요?`)) return;
+          const ids = new Set(pending.map(l => l.id));
+          const updated = logs.map(lg => ids.has(lg.id) ? { ...lg, travel: { ...lg.travel, adminConfirmed: true } } : lg);
+          persist(null, updated, null);
+        };
+        const fmtLeg = l => {
+          const stops = (l.travel.stops || []).filter(Boolean);
+          return stops.join(' → ');
+        };
+        return (
+          <div style={{ background:"linear-gradient(135deg,#FEF2F2 0%,#FECACA 100%)", border:"2px solid #F87171", borderRadius:14, padding:"14px 16px", marginBottom:14 }}>
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10, flexWrap:"wrap", gap:8 }}>
+              <p style={{ margin:0, fontSize:14, fontWeight:800, color:"#991B1B" }}>
+                🚨 수동 km 입력 — 확인 대기 {pending.length}건
+              </p>
+              <button onClick={handleConfirmAll}
+                style={{ background:"#10B981", color:"#fff", border:"none", borderRadius:8, padding:"6px 12px", fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>
+                ✓ 전체 확인
+              </button>
+            </div>
+            <p style={{ margin:"0 0 10px", fontSize:11, color:"#7F1D1D", lineHeight:1.5 }}>
+              자동 거리 계산이 안 되는 경로라서 직원이 직접 km 를 입력했어요. 합리적인지 확인 후 ✓ 처리해주세요. (확인 전까지 이 알림은 안 사라짐)
+            </p>
+            <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+              {pending.map(l => {
+                const km = (l.travel.totalKm != null) ? l.travel.totalKm : ((l.travel.outboundKm||0) + (l.travel.returnKm||0));
+                const amt = (l.travel.allowance||0) + (l.travel.hasDinner ? 25 : 0);
+                return (
+                  <div key={l.id} style={{ background:"#fff", borderRadius:10, padding:"8px 10px", display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <p style={{ margin:0, fontSize:12, fontWeight:700, color:"#111" }}>
+                        {nm(l.userId)} · <span style={{ color:"#666", fontWeight:500 }}>{auD(l.date)}</span>
+                      </p>
+                      <p style={{ margin:"2px 0 0", fontSize:11, color:"#555" }}>
+                        {fmtLeg(l)} · <strong>{km.toFixed(1)}km</strong> · <strong style={{ color:"#10B981" }}>{fA(amt)}</strong>
+                      </p>
+                    </div>
+                    <button onClick={() => handleConfirm(l.id)}
+                      style={{ background:"#10B981", color:"#fff", border:"none", borderRadius:7, padding:"5px 12px", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit", flexShrink:0 }}>
+                      ✓ 확인
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* ── 🎂 생일 알림 (오늘 생일인 직원 전체) ── */}
       {(() => {
         const birthdayUsers = users.filter(u => !u.resignedDate && u.birthDate && isBirthdayToday(u.birthDate));
@@ -4090,7 +4157,7 @@ function App() {
       <div className={isDesktop?'dt-content-area':''}>
       <Header user={currentUser} onLogout={logout} onChangePw={()=>{setPwForm({cur:"",next:"",confirm:""});setPwErr("");setShowChangePw(true);}}/>
       <div style={styles.content}>
-        {tab==="home"&&<HomeTab user={currentUser} users={users} logs={logs} leaves={leaves} isAdmin={isAdmin} onJumpToLog={(date,userId,periodOffset)=>{setJumpInfo({date,userId,periodOffset});setTab("log");}}/> }
+        {tab==="home"&&<HomeTab user={currentUser} users={users} logs={logs} leaves={leaves} isAdmin={isAdmin} isSuperAdmin={isSuperAdmin} persist={persist} onJumpToLog={(date,userId,periodOffset)=>{setJumpInfo({date,userId,periodOffset});setTab("log");}}/> }
         {tab==="log"&&<LogTab user={currentUser} users={users} logs={logs} leaves={leaves} isAdmin={isAdmin} isSuperAdmin={isSuperAdmin} isViewAdmin={isViewAdmin} persist={persist} jumpInfo={jumpInfo} onJumpConsumed={()=>setJumpInfo(null)}/>}
         {tab==="leave"&&<LeaveTab user={currentUser} users={users} leaves={leaves} isAdmin={isAdmin} isSuperAdmin={isSuperAdmin} isViewAdmin={isViewAdmin} persist={persist} updateLeaveUsage={updateLeaveUsage}/>}
         {isAdmin&&tab==="rate"&&<RateTab users={users} leaves={leaves} persist={persist} isSuperAdmin={isSuperAdmin}/>}
