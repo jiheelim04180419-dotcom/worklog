@@ -5907,49 +5907,18 @@ function updateEmailBody() {
     ? (_emailInv.projectName || _emailInv.address || '—')
     : (_emailInv.address || _emailInv.projectName || '—');
 
-  // 회사별 서명 분기:
-  // - Bathurst Tiling (BXBT) : 로고 없음 → 본문에 서명 포함
-  // - K&M : 로고 있는 Gmail 서명 사용 → 본문에는 서명 X (Gmail 서명 드롭다운에서 선택)
-  const co = companies.find(c => c.id === _emailInv.companyId) || companies[0] || {};
-  const isBathurst = (co.prefix || '').toUpperCase().includes('BXBT');
-
-  let body;
-  if (isBathurst) {
-    // 본문에 서명 포함
-    const contactName = co.contactPerson || co.contactName || 'Kathleen Lim';
-    const coName = co.name || '';
-    const coPhone = co.phone || '';
-    const coEmail = co.contactEmail || co.email || '';
-    body = `Hello,
-
-Please find the attached invoice below for ${ref}.
-If you have any questions, please do not hesitate to contact us.
-
-
-Kind regards,
-
-${contactName}
-
-Accounting Manager
-${coName}${coPhone ? `\nM. ${coPhone}` : ''}${coEmail ? `\nEmail: ${coEmail}` : ''}`;
-  } else {
-    // 본문에 서명 X (Gmail의 서명 드롭다운에서 로고 있는 서명을 선택)
-    body = `Hello,
+  // 두 회사 모두 Gmail 서명 (로고 포함) 사용 → 본문에는 서명 X.
+  // Gmail 작성창에서 서명 드롭다운으로 회사별 로고 서명을 자동/수동 선택.
+  const body = `Hello,
 
 Please find the attached invoice below for ${ref}.
 If you have any questions, please do not hesitate to contact us.`;
-  }
 
   document.getElementById('em-body').value = body;
 
-  // 안내문구도 회사별로 동적 업데이트
   const hint = document.getElementById('em-hint');
   if (hint) {
-    if (isBathurst) {
-      hint.innerHTML = '💡 "Gmail 열기" 클릭 시 Gmail 새 창과 인쇄 미리보기가 같이 열려요.<br>인쇄 미리보기에서 <strong>"PDF로 저장"</strong> → Gmail 창에 드래그해서 첨부하세요.<br>📝 <strong>Bathurst Tiling</strong>은 로고가 없어서 <strong>본문에 서명 자동 포함</strong>됐어요.';
-    } else {
-      hint.innerHTML = '💡 "Gmail 열기" 클릭 시 Gmail 새 창과 인쇄 미리보기가 같이 열려요.<br>인쇄 미리보기에서 <strong>"PDF로 저장"</strong> → Gmail 창에 드래그해서 첨부하세요.<br>🖼️ <strong>K&amp;M</strong>은 Gmail 보내기 직전 <strong>서명 드롭다운에서 "로고 있는 서명" 선택</strong>해주세요. (본문엔 서명 없음)';
-    }
+    hint.innerHTML = '💡 "Gmail 열기" 클릭 시 Gmail 새 창과 인쇄 미리보기가 같이 열려요.<br>인쇄 미리보기에서 <strong>"PDF로 저장"</strong> → Gmail 창에 드래그해서 첨부하세요.<br>🖼️ Gmail 보내기 직전 <strong>서명 드롭다운에서 회사별 서명을 선택</strong>해주세요. (본문엔 서명 없음)';
   }
 }
 
