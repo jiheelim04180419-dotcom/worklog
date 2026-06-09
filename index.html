@@ -2543,7 +2543,13 @@ function MgmtTab({ fbUrl, fA }) {
                 <div style={{textAlign:'right',flexShrink:0}}>
                   <p style={{margin:0,fontSize:16,fontWeight:900,color:'#111827'}}>
                     {fA(isKS ? (ksFinal??c.total) : c.total)}
+                    {!isKS && c.invGst>0 && <span style={{fontSize:9,fontWeight:600,color:'#6B7280',marginLeft:4}}>inc.GST</span>}
                   </p>
+                  {!isKS && c.invGst>0 && (
+                    <p style={{margin:'2px 0 0',fontSize:11,color:'#6B7280',fontWeight:600}}>
+                      {fA(c.total - c.invGst)} <span style={{fontSize:9,fontWeight:500}}>ex.GST</span>
+                    </p>
+                  )}
                   {isKS && totalDeduct>0 && (
                     <p style={{margin:'2px 0 0',fontSize:10,color:'#DC2626',fontWeight:600}}>
                       공제 -{fA(deductEach)}
