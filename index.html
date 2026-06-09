@@ -3387,6 +3387,7 @@ function BottomNav({ tab, setTab, isAdmin, isSuperAdmin, userHasLeave, user, log
 }
 
 function HomeTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist, onJumpToLog }) {
+  const fA = (n) => new Intl.NumberFormat("en-AU",{style:"currency",currency:"AUD",minimumFractionDigits:2}).format(n||0);
   const myLogs=isAdmin?logs:logs.filter(l=>l.userId===user.id);
   const myLv=normLeave(leaves[user.id],user.joinDate);
   const myAccDays=calcAccruedDays(myLv.leaveStartDate);
