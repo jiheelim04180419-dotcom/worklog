@@ -2406,6 +2406,10 @@ function MgmtTab({ fbUrl, fA }) {
     return m.type === 'invoice_gst';
   };
 
+  // 기간별 type 결정 — entry 에 저장된 type 이 우선, 없으면 전역 m.type 폴백.
+  // (직원이 월급 → 인보이스+GST 같은 형식 변경을 한 시점부터만 새 type 적용)
+  const effectiveType = (m, entry) => (entry && entry.type) || m.type;
+
   const calcAmt = (m) => {
     // 이력이 있으면 이력 기반, 없으면 현재 값 사용
     const hist = Array.isArray(m.history) ? m.history : Object.values(m.history||{});
@@ -2415,15 +2419,16 @@ function MgmtTab({ fbUrl, fA }) {
     const gstOn = gstAppliesFor(m, entry);
     const invGst = gstOn ? inv*0.1 : 0;
     const invTotal = inv + invGst;
+    const t = effectiveType(m, entry);
 
-    if (m.type==='monthly') {
+    if (t==='monthly') {
       const net = parseFloat((entry||m).salary)||0;
       const tax = parseFloat((entry||m).tax)||0;
       const sup = parseFloat((entry||m).super)||0;
-      return { net, tax, sup, inv, invGst, invTotal, total: net+invTotal };
+      return { net, tax, sup, inv, invGst, invTotal, total: net+invTotal, _type: t };
     }
     // 'invoice' 와 'invoice_gst' 모두 동일 — GST 는 invoiceGst 플래그(기간별)로 결정
-    return { inv, gst: invGst, invGst, invTotal, total: invTotal };
+    return { inv, gst: invGst, invGst, invTotal, total: invTotal, _type: t };
   };
 
   // 카일/사라 찾기
@@ -2515,7 +2520,9 @@ function MgmtTab({ fbUrl, fA }) {
         const _entry = _hist.length > 0 ? getHistoryEntry(_hist, periodStart) : null;
         const periodGstOn = gstAppliesFor(m, _entry);
         const periodBase  = parseFloat((_entry||m||{}).invoiceAmount)||0;
-        const periodTypeLabel = m.type==='monthly' ? '월급' : (periodGstOn ? '인보이스+GST' : '인보이스');
+        // 기간별 type — entry.type 우선, 없으면 m.type. 월급에서 인보이스+GST 로 바뀐 시점부터 새 라벨 적용.
+        const periodType = effectiveType(m, _entry);
+        const periodTypeLabel = periodType==='monthly' ? '월급' : (periodGstOn ? '인보이스+GST' : '인보이스');
 
         return (
           <div key={m.id} style={{background:'#fff',borderRadius:16,marginBottom:10,border:'1px solid #E5E8F5',overflow:'hidden',boxShadow:'0 2px 8px rgba(79,70,229,0.07)'}}>
@@ -2673,9 +2680,9 @@ function MgmtMemberForm({ member, onSave, onClose }) {
   };
   const addHistory = () => setHistory(h => [...h, {
     from: today0,
+    type: type,    // 현재 선택된 급여 유형을 entry 에 박아둠 (월급→인보이스 전환 추적)
     salary: sortedHist[0]?.salary||'', tax: sortedHist[0]?.tax||'',
     super: sortedHist[0]?.super||'', invoiceAmount: sortedHist[0]?.invoiceAmount||'',
-    // 새 이력의 GST 기본값: 이전 이력값이 명시되어 있으면 그대로, 아니면 현재 type 으로 추정
     invoiceGst: sortedHist[0]?.invoiceGst !== undefined
       ? !!sortedHist[0].invoiceGst
       : (type === 'invoice_gst')
