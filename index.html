@@ -2332,6 +2332,9 @@ function MgmtTab({ fbUrl, fA }) {
   const fmt = d => localDateStr(d);
   const periodStart = fmt(psDate);
   const periodEnd = fmt(peDate);
+  // 오늘이 속한 실제 "현재" 기간 시작 (편집 폼의 자동 분할 기준)
+  const todayPsDate = new Date(BASE); todayPsDate.setDate(todayPsDate.getDate() + curDiff*14);
+  const todayPeriodStart = fmt(todayPsDate);
 
   // 기간에 날짜 포함 여부
   const periodHasDay = (day) => {
@@ -2671,7 +2674,7 @@ function MgmtTab({ fbUrl, fA }) {
         </div>
       )}
 
-      {showForm && <MgmtMemberForm member={editMember} currentPeriodStart={periodStart} onSave={saveMember} onClose={()=>{setShowForm(false);setEditMember(null);}}/>}
+      {showForm && <MgmtMemberForm member={editMember} currentPeriodStart={todayPeriodStart} onSave={saveMember} onClose={()=>{setShowForm(false);setEditMember(null);}}/>}
     </div>
   );
 }
@@ -2810,7 +2813,8 @@ function MgmtMemberForm({ member, currentPeriodStart, onSave, onClose }) {
 
             // 🛡️ 지난 기간 보호 — latest 이력 값이 변경됐는데 from 이 현재 기간보다 이전이면
             // 원본 latest 는 그대로 두고, 변경된 값으로 새 이력(from=현재 기간 시작)을 추가.
-            // → 같은 이력 항목이 과거+현재 둘 다 커버하던 상황에서 과거가 함께 수정되는 버그 방지.
+            // → 단일 이력으로 모든 기간 다 커버하던 상황에서 과거가 함께 수정되는 버그 방지.
+            // 이력이 2개 이상이면 사용자가 직접 기간을 관리 중인 거니까 자동 분할 안 함.
             let finalHistory = history;
             let didSplit = false;
             const origLatest = origHistory.find(o => o.from === latest.from);
@@ -2822,7 +2826,8 @@ function MgmtMemberForm({ member, currentPeriodStart, onSave, onClose }) {
               !!origLatest.invoiceGst !== !!latest.invoiceGst ||
               ((origLatest.type||member?.type||'') !== (latest.type||type||''))
             );
-            if (origLatest && valuesChanged && currentPeriodStart && latest.from < currentPeriodStart) {
+            const singleEntry = origHistory.length <= 1;
+            if (singleEntry && origLatest && valuesChanged && currentPeriodStart && latest.from < currentPeriodStart) {
               // latest 를 원본 그대로 복구
               finalHistory = history.map(h => h === latest ? {...origLatest} : h);
               // 변경된 값으로 새 이력(from=현재 기간 시작) 추가
