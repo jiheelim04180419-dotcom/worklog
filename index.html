@@ -2552,12 +2552,18 @@ function MgmtTab({ fbUrl, fA }) {
 
               {/* 브레이크다운 */}
               <div style={{marginTop:10,background:'#F8F9FC',borderRadius:10,padding:'10px 12px'}}>
-                {m.type==='monthly' && (
+                {periodType==='monthly' && (
                   <div style={{display:'flex',flexWrap:'wrap',gap:10,fontSize:12}}>
                     <span style={{color:'#6B7280'}}>Net Pay <strong style={{color:'#059669'}}>{fA(c.net)}</strong></span>
                     {c.tax>0&&<span style={{color:'#6B7280'}}>Tax <strong style={{color:'#DC2626'}}>{fA(c.tax)}</strong></span>}
                     {c.sup>0&&<span style={{color:'#6B7280'}}>Super <strong style={{color:'#D97706'}}>{fA(c.sup)}</strong></span>}
-                    {c.invTotal>0&&<span style={{color:'#6B7280'}}>인보이스 <strong style={{color:'#4F46E5'}}>{fA(c.invTotal)}{c.invGst>0?' (GST포함)':''}</strong></span>}
+                    {c.invTotal>0 && (c.invGst>0 ? (<>
+                      <span style={{color:'#6B7280'}}>인보이스(ex.GST) <strong style={{color:'#6B7280'}}>{fA(c.inv)}</strong></span>
+                      <span style={{color:'#6B7280'}}>GST +10% <strong style={{color:'#D97706'}}>{fA(c.invGst)}</strong></span>
+                      <span style={{color:'#6B7280'}}>인보이스(inc.GST) <strong style={{color:'#4F46E5'}}>{fA(c.invTotal)}</strong></span>
+                    </>) : (
+                      <span style={{color:'#6B7280'}}>인보이스 <strong style={{color:'#4F46E5'}}>{fA(c.invTotal)}</strong></span>
+                    ))}
                   </div>
                 )}
 
@@ -2587,7 +2593,17 @@ function MgmtTab({ fbUrl, fA }) {
                   </div>
                 )}
 
-                {!isKS && (m.type==='invoice'||m.type==='invoice_gst') && <span style={{fontSize:12,color:'#6B7280'}}>인보이스{periodGstOn?'(GST포함)':''} <strong style={{color:'#4F46E5'}}>{fA(c.invTotal)}</strong></span>}
+                {!isKS && (periodType==='invoice'||periodType==='invoice_gst') && (
+                  periodGstOn ? (
+                    <div style={{display:'flex',flexWrap:'wrap',gap:10,fontSize:12}}>
+                      <span style={{color:'#6B7280'}}>인보이스(ex.GST) <strong style={{color:'#6B7280'}}>{fA(c.inv)}</strong></span>
+                      <span style={{color:'#6B7280'}}>GST +10% <strong style={{color:'#D97706'}}>{fA(c.invGst)}</strong></span>
+                      <span style={{color:'#6B7280'}}>인보이스(inc.GST) <strong style={{color:'#4F46E5'}}>{fA(c.invTotal)}</strong></span>
+                    </div>
+                  ) : (
+                    <span style={{fontSize:12,color:'#6B7280'}}>인보이스 <strong style={{color:'#4F46E5'}}>{fA(c.invTotal)}</strong></span>
+                  )
+                )}
               </div>
             </div>
 
@@ -2647,12 +2663,12 @@ function MgmtTab({ fbUrl, fA }) {
         </div>
       )}
 
-      {showForm && <MgmtMemberForm member={editMember} onSave={saveMember} onClose={()=>{setShowForm(false);setEditMember(null);}}/>}
+      {showForm && <MgmtMemberForm member={editMember} currentPeriodStart={periodStart} onSave={saveMember} onClose={()=>{setShowForm(false);setEditMember(null);}}/>}
     </div>
   );
 }
 
-function MgmtMemberForm({ member, onSave, onClose }) {
+function MgmtMemberForm({ member, currentPeriodStart, onSave, onClose }) {
   const today0 = new Date().toISOString().split('T')[0];
   const initHistory = () => {
     const existing = Array.isArray(member?.history) ? member.history
@@ -2671,6 +2687,11 @@ function MgmtMemberForm({ member, onSave, onClose }) {
   const [role, setRole] = React.useState(member?.role||'');
   const [type, setType] = React.useState(member?.type||'monthly');
   const [history, setHistory] = React.useState(initHistory);
+  // 원본 이력 스냅샷 — 저장 시 "지난 기간 보호" 자동 분할에 사용
+  const [origHistory] = React.useState(() => {
+    const h = Array.isArray(member?.history) ? member.history : Object.values(member?.history||{});
+    return h.map(x => ({...x}));
+  });
   const sortedHist = [...history].sort((a,b)=>b.from.localeCompare(a.from));
 
   const setH = (i, k, v) => {
@@ -2778,11 +2799,53 @@ function MgmtMemberForm({ member, onSave, onClose }) {
             if(!name) return alert('이름을 입력하세요');
             if(history.length===0) return alert('금액 이력이 필요해요');
             const latest = [...history].sort((a,b)=>b.from.localeCompare(a.from))[0];
+
+            // 🛡️ 지난 기간 보호 — latest 이력 값이 변경됐는데 from 이 현재 기간보다 이전이면
+            // 원본 latest 는 그대로 두고, 변경된 값으로 새 이력(from=현재 기간 시작)을 추가.
+            // → 같은 이력 항목이 과거+현재 둘 다 커버하던 상황에서 과거가 함께 수정되는 버그 방지.
+            let finalHistory = history;
+            let didSplit = false;
+            const origLatest = origHistory.find(o => o.from === latest.from);
+            const valuesChanged = origLatest && (
+              String(origLatest.salary||'') !== String(latest.salary||'') ||
+              String(origLatest.tax||'') !== String(latest.tax||'') ||
+              String(origLatest.super||'') !== String(latest.super||'') ||
+              String(origLatest.invoiceAmount||'') !== String(latest.invoiceAmount||'') ||
+              !!origLatest.invoiceGst !== !!latest.invoiceGst ||
+              ((origLatest.type||member?.type||'') !== (latest.type||type||''))
+            );
+            if (origLatest && valuesChanged && currentPeriodStart && latest.from < currentPeriodStart) {
+              // latest 를 원본 그대로 복구
+              finalHistory = history.map(h => h === latest ? {...origLatest} : h);
+              // 변경된 값으로 새 이력(from=현재 기간 시작) 추가
+              finalHistory = [...finalHistory, {
+                from: currentPeriodStart,
+                type: latest.type || type,
+                salary: latest.salary || '',
+                tax: latest.tax || '',
+                super: latest.super || '',
+                invoiceAmount: latest.invoiceAmount || '',
+                invoiceGst: !!latest.invoiceGst,
+              }];
+              didSplit = true;
+            }
+
+            const finalLatest = [...finalHistory].sort((a,b)=>b.from.localeCompare(a.from))[0];
+
+            if (didSplit) {
+              const ok = confirm(`💡 변경된 금액을 ${currentPeriodStart}부터 새 이력으로 저장할까요?\n→ 이전 기간 금액은 그대로 유지돼요.\n\n취소를 누르면 기존 이력을 그대로 덮어써서 과거 기간까지 함께 바뀝니다.`);
+              if (!ok) {
+                // 사용자가 "취소" 한 경우 — 원래 의도대로 덮어쓰기
+                finalHistory = history;
+              }
+            }
+            const finalLatest2 = [...finalHistory].sort((a,b)=>b.from.localeCompare(a.from))[0];
+
             onSave({
-              ...(member||{}), name, role, type, history,
-              // 하위 호환용 현재 값
-              salary: latest.salary, tax: latest.tax, super: latest.super,
-              invoiceAmount: latest.invoiceAmount, invoiceGst: latest.invoiceGst
+              ...(member||{}), name, role, type, history: finalHistory,
+              // 하위 호환용 현재 값 (latest entry 기준)
+              salary: finalLatest2.salary, tax: finalLatest2.tax, super: finalLatest2.super,
+              invoiceAmount: finalLatest2.invoiceAmount, invoiceGst: finalLatest2.invoiceGst
             });
           }} style={{flex:2,background:'#4F46E5',color:'#fff',border:'none',borderRadius:10,padding:12,fontSize:14,fontWeight:700,cursor:'pointer',fontFamily:'inherit',boxShadow:'0 2px 8px rgba(79,70,229,0.25)'}}>
             💾 저장
