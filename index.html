@@ -594,7 +594,8 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
     const lv = leaves[userId] || {};
     // 로컬 공제항목이 있으면 Firebase savedDeductions에 저장
     if (deductions && deductions.length > 0) {
-      const validDeds = deductions.filter(d => d.desc && parseFloat(d.amount) > 0);
+      // 항목명 + 숫자값(0/음수 허용)만 통과. 빈칸·NaN 만 제외.
+      const validDeds = deductions.filter(d => d.desc && d.amount !== '' && d.amount !== null && d.amount !== undefined && !isNaN(parseFloat(d.amount)));
       if (validDeds.length > 0) {
         const existing = Array.isArray(lv.savedDeductions) ? lv.savedDeductions : Object.values(lv.savedDeductions||{});
         const newEntries = validDeds.map(d => ({
@@ -1234,9 +1235,10 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
               {/* 로컬 공제항목 저장 버튼 */}
               {deductions.length > 0 && (
                 <button onClick={() => {
-                  const validDeds = deductions.filter(d => d.desc && parseFloat(d.amount) > 0);
+                  // 항목명 + 숫자값(0/음수 허용)만 통과. 빈칸·NaN 만 제외.
+                  const validDeds = deductions.filter(d => d.desc && d.amount !== '' && d.amount !== null && d.amount !== undefined && !isNaN(parseFloat(d.amount)));
                   if (validDeds.length === 0) {
-                    alert("저장하려면 항목명과 금액을 모두 입력해주세요.");
+                    alert("저장하려면 항목명과 금액을 모두 입력해주세요. (금액은 0 도 가능)");
                     return;
                   }
                   // 정산완료 잠금 체크 (각 entry의 date 기준)
@@ -1261,7 +1263,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                   setDeductions([]);
                   alert(`✅ 공제항목 ${validDeds.length}개 저장됐어요`);
                 }} style={{ width:"100%",background:"#FFF7ED",color:"#C2410C",border:"1.5px solid #FED7AA",borderRadius:8,padding:"8px 12px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",marginBottom:8 }}>
-                  💾 공제항목 저장 ({deductions.filter(d=>d.desc&&parseFloat(d.amount)>0).length}/{deductions.length}개)
+                  💾 공제항목 저장 ({deductions.filter(d=>d.desc&&d.amount!==''&&d.amount!==null&&d.amount!==undefined&&!isNaN(parseFloat(d.amount))).length}/{deductions.length}개)
                 </button>
               )}
 
