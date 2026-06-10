@@ -5639,9 +5639,10 @@ function previewInv() {
       room: li.room || '',
       placement: li.placement || '',
       isMaterials: !!li.isMaterials,
-      noTax: !!li.noTax
+      noTax: !!li.noTax,
+      discount: !!li.discount   // 💸할인 체크 상태 — 인쇄 시 디스카운트 % 적용 대상
     }));
-  
+
   // Auto-compute due date
   let dueDate = '';
   if (invDate) {
@@ -5649,7 +5650,7 @@ function previewInv() {
     d.setDate(d.getDate() + 14);
     dueDate = d.toISOString().slice(0,10);
   }
-  
+
   const tempInv = {
     id: '__preview__',
     type: curType,
@@ -5663,6 +5664,8 @@ function previewInv() {
     amount: amt,
     poNumber: document.getElementById('f-po').value,
     projectName: document.getElementById('f-proj').value,
+    // 디스카운트 % — 폼 입력값 그대로 미리보기에 반영
+    discountPct: parseFloat(document.getElementById('f-discount')?.value) || 0,
     note: useLegacyAmount
       ? (buildSimpleDesc() + (document.getElementById('f-no').value ? '\n' + document.getElementById('f-no').value : '')).trim()
       : document.getElementById('f-no').value,
