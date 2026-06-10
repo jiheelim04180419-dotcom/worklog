@@ -7571,20 +7571,23 @@ function _partnerSearchDoRender() {
   const inp = document.getElementById('partner-search-input');
   const wasFocused = inp && document.activeElement === inp;
   const caret = wasFocused ? inp.selectionStart : null;
-  renderPartners();
+  // 검색은 캐시된 partnerEntries 로만 재렌더 — Firebase 재로드 안 함 (포커스/커서 보존).
+  _renderPartnersSync();
   if (wasFocused) {
-    requestAnimationFrame(() => {
-      const ni = document.getElementById('partner-search-input');
-      if (ni) {
-        ni.focus();
-        if (caret != null) { try { ni.setSelectionRange(caret, caret); } catch(e){} }
-      }
-    });
+    const ni = document.getElementById('partner-search-input');
+    if (ni) {
+      ni.focus();
+      if (caret != null) { try { ni.setSelectionRange(caret, caret); } catch(e){} }
+    }
   }
 }
 
 function renderPartners() {
-  loadPartnerEntries().then(() => {
+  // Firebase 로드 후 sync 렌더 — 검색/재필터에선 _renderPartnersSync 직접 호출 (포커스 보존)
+  loadPartnerEntries().then(() => { _renderPartnersSync(); });
+}
+function _renderPartnersSync() {
+  {
     const el = document.getElementById('tab-partners');
 
     // 임시저장(drafts) 분리 — 집계/차액 계산에서 제외, 별도 섹션으로 표시
@@ -7733,7 +7736,7 @@ function renderPartners() {
         : (_partnerView === 'period' ? _renderPartnerPeriodTable(periodMap) : _renderPartnerRawList(spends))
       }
     `;
-  });
+  }
 }
 
 function _togglePartnerPeriod(ps) {
