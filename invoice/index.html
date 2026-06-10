@@ -299,12 +299,55 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
 .bxbt-totals-row.bxbt-balance span:first-child { font-size: 13px; color: #000; font-weight: 700; letter-spacing: 0; }
 .bxbt-totals-row.bxbt-balance span:last-child { font-size: 16px; font-weight: 700; }
 
+/* ── 🔒 읽기 전용 모드 (수퍼관리자 아님) — 수정 버튼/메뉴 숨김 ───────────── */
+body.invoice-readonly #hd-bulkpay-btn,
+body.invoice-readonly #hd-perm-btn,
+body.invoice-readonly button.btn-newinv,
+body.invoice-readonly .editor-only,
+body.invoice-readonly button[onclick^="openIM("],
+body.invoice-readonly button[onclick^="openBuilderModal"],
+body.invoice-readonly button[onclick^="openPartnerModal"],
+body.invoice-readonly button[onclick^="vhAddRenewal"],
+body.invoice-readonly button[onclick^="vhEditRenewal"],
+body.invoice-readonly button[onclick^="delInv"],
+body.invoice-readonly button[onclick^="quickPay"],
+body.invoice-readonly button[onclick^="startMemoEdit"],
+body.invoice-readonly button[onclick^="deletePartnerEntry"],
+body.invoice-readonly button[onclick^="expDeleteVendor"],
+body.invoice-readonly button[onclick^="pcDelete"],
+body.invoice-readonly button[onclick^="vhDelete"],
+body.invoice-readonly button[onclick^="addPayment"]      {
+  display: none !important;
+}
+/* 메모 영역 inline editor 클릭으로 인풋 안 열리도록 */
+body.invoice-readonly [onclick*="startMemoEdit"],
+body.invoice-readonly [ondblclick*="startMemoEdit"] {
+  pointer-events: none;
+}
+/* 읽기 전용 배너 — 상단에 자그마하게 */
+body.invoice-readonly::before {
+  content: '🔒 읽기 전용 모드 — 수정은 수퍼관리자만 가능';
+  display: block;
+  background: #FEF3C7;
+  color: #92400E;
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+  padding: 4px 8px;
+  border-bottom: 1px solid #FDE68A;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+
 @media print {
+  /* 읽기 전용 배너 — 인쇄에는 안 나오도록 */
+  body.invoice-readonly::before { display: none !important; }
   /* Reset html/body to avoid extra pages and force exact width */
-  html, body { 
-    margin: 0 !important; 
-    padding: 0 !important; 
-    height: auto !important; 
+  html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+    height: auto !important;
     min-height: 0 !important;
     overflow: visible !important;
     background: #fff !important;
@@ -1287,7 +1330,24 @@ async function fbGet(path) {
     return r.ok ? r.json() : null;
   } catch(e) { return null; }
 }
+// 🔒 인보이스 앱은 수퍼관리자만 수정 가능. 그 외는 모두 읽기 전용.
+function isInvoiceEditor() {
+  return sessionStorage.getItem('invoice_user_role') === 'superadmin';
+}
+// 쓰기 권한 가드 — 한 번만 띄우고 false 반환. 호출부가 그대로 return 하면 됨.
+let _readonlyAlertedAt = 0;
+function _guardWrite() {
+  if (isInvoiceEditor()) return true;
+  const now = (typeof performance!=='undefined' && performance.now) ? performance.now() : 0;
+  // 짧은 시간 안에 여러 번 트리거되는 경우 alert 한 번만
+  if (now - _readonlyAlertedAt > 1500) {
+    _readonlyAlertedAt = now;
+    alert('🔒 읽기 전용 모드예요\n\n인보이스 앱의 수정·삭제·메모는 수퍼관리자만 가능합니다.\n조회는 자유롭게 하세요.');
+  }
+  return false;
+}
 async function fbSet(path, val) {
+  if (!_guardWrite()) return;
   try {
     await fetch(FB_BASE + '/' + path + '.json', {
       method: 'PUT', headers: {'Content-Type':'application/json'},
@@ -1296,6 +1356,7 @@ async function fbSet(path, val) {
   } catch(e) {}
 }
 async function fbPush(path, val) {
+  if (!_guardWrite()) return null;
   try {
     const r = await fetch(FB_BASE + '/' + path + '.json', {
       method: 'POST', headers: {'Content-Type':'application/json'},
@@ -1306,6 +1367,7 @@ async function fbPush(path, val) {
   } catch(e) { return null; }
 }
 async function fbDel(path) {
+  if (!_guardWrite()) return;
   try {
     await fetch(FB_BASE + '/' + path + '.json', { method: 'DELETE' });
   } catch(e) {}
@@ -1818,10 +1880,16 @@ function updateAuthHeader() {
   const userId = sessionStorage.getItem('invoice_user_id');
   const userName = sessionStorage.getItem('invoice_user_name') || userId;
   const userRole = sessionStorage.getItem('invoice_user_role');
+  // 🔒 수퍼관리자가 아니면 body 에 readonly 클래스 추가 → CSS 로 수정 버튼들 흐림/숨김
+  if (userRole === 'superadmin') {
+    document.body.classList.remove('invoice-readonly');
+  } else {
+    document.body.classList.add('invoice-readonly');
+  }
   if (userId) {
     const info = document.getElementById('hd-user-info');
     const infoWrap = document.getElementById('hd-user-info-wrap');
-    if (info) info.textContent = '👤 ' + userName;
+    if (info) info.textContent = '👤 ' + userName + (userRole !== 'superadmin' ? ' (읽기 전용)' : '');
     if (infoWrap) infoWrap.style.display = '';
     const logout = document.getElementById('hd-logout-btn');
     if (logout) logout.style.display = '';
