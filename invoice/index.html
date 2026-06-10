@@ -753,10 +753,14 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
   <datalist id="room-list">
     <!-- Populated dynamically by renderRoomList() -->
   </datalist>
-  <div class="mb"><label class="label">현장 주소 (Job Address)</label><input class="input" id="f-a" list="addr-list" placeholder="주소" oninput="checkPrevInvoice()"/><datalist id="addr-list"></datalist></div>
+  <div class="mb"><label class="label">현장 주소 (Job Address)</label><input class="input" id="f-a" list="addr-list" placeholder="주소" oninput="checkPrevInvoice();checkDraftDuplicate()"/><datalist id="addr-list"></datalist></div>
+  <!-- 같은 주소로 작성 중인 드라프트가 있으면 경고 (중복 작성 방지용) -->
+  <div id="f-a-draft-warn" class="mb" style="display:none;background:#FEE2E2;border:1px solid #FCA5A5;border-radius:8px;padding:10px 12px">
+    <div style="font-size:12px;color:#991B1B;line-height:1.5"></div>
+  </div>
   <!-- Hidden status field — auto-set by saveInv() based on draft vs publish -->
   <input type="hidden" id="f-st" value="INVOICE"/>
-  <div id="f-po-row" class="mb"><label class="label">PO 번호 (선택)</label><input class="input" id="f-po" placeholder="PO Number (있을 때만 입력)" oninput="checkPrevInvoice()"/></div>
+  <div id="f-po-row" class="mb"><label class="label">PO 번호 (선택)</label><input class="input" id="f-po" placeholder="PO Number (있을 때만 입력)" oninput="checkPrevInvoice();checkDraftDuplicate()"/></div>
   <!-- 이전 인보이스 자동 매칭 힌트 (일반/PO 타입) -->
   <div id="prev-inv-row" class="mb" style="display:none;background:#FEF3C7;border:1px solid #FDE68A;border-radius:8px;padding:10px 12px">
     <div id="prev-inv-hint" style="font-size:12px;color:#92400E;margin-bottom:6px;line-height:1.5"></div>
@@ -2728,6 +2732,8 @@ function openIM(id) {
   if (mbox) mbox.scrollTop = 0;
   // 이전 인보이스 자동 매칭 (수정 모드면 안 뜨도록)
   checkPrevInvoice();
+  // 드라프트 중복 안내
+  checkDraftDuplicate();
 }
 function closeIM() { document.getElementById('inv-modal').classList.remove('open'); }
 
@@ -2945,6 +2951,40 @@ function checkPrevInvoice() {
   document.getElementById('prev-inv-hint').innerHTML =
     `${label}: <b>${esc(result.inv.invoiceNum||'(번호없음)')}</b> · 라인 <b>${items.length}개</b> · ${esc(result.inv.invoiceDate||'')}`;
   row.style.display = 'block';
+}
+
+// 🛡️ 중복 작성 방지 — 같은 주소(또는 같은 PO)로 작성 중인 다른 DRAFT 가 있으면 경고.
+// 사용자가 의도적으로 새로 만들 수도 있어서 블록하지 않고 안내만.
+function checkDraftDuplicate() {
+  const warn = document.getElementById('f-a-draft-warn');
+  if (!warn) return;
+  const addr = (document.getElementById('f-a')?.value || '').trim();
+  const po   = (document.getElementById('f-po')?.value || '').trim();
+  if (!addr && !po) { warn.style.display = 'none'; return; }
+
+  const norm = s => (s||'').toLowerCase().replace(/\s+/g,' ').trim();
+  const qAddr = norm(addr);
+  const qPo   = norm(po);
+
+  // editId 와 같은 인보이스는 제외, DRAFT 상태인 것만, 주소나 PO 가 일치하면 매치
+  const dupes = invoices.filter(i =>
+    i.id !== editId &&
+    i.status === 'DRAFT' &&
+    ((qAddr && norm(i.address) === qAddr) || (qPo && qPo === norm(i.poNumber)))
+  );
+  if (dupes.length === 0) { warn.style.display = 'none'; return; }
+
+  // 가장 최근 것 하나만 자세히, 그 외는 갯수 표시
+  dupes.sort((a,b) => (b.updatedAt||'').localeCompare(a.updatedAt||''));
+  const top = dupes[0];
+  const others = dupes.length > 1 ? ` (외 ${dupes.length-1}건 더)` : '';
+  const dateStr = top.invoiceDate ? (() => { const [y,m,d] = top.invoiceDate.split('-'); return `${d}/${m}/${y}`; })() : '날짜 없음';
+  const matchedAs = (qAddr && norm(top.address) === qAddr) ? '주소' : 'PO 번호';
+  warn.querySelector('div').innerHTML =
+    `⚠️ <b>같은 ${matchedAs}로 작성 중인 드라프트가 있어요${others}.</b><br>` +
+    `→ ${esc(top.builderName||'(빌더 없음)')} · ${esc(top.address||'(주소 없음)')} · ${esc(top.invoiceNum||'번호 미정')} · ${dateStr}<br>` +
+    `<span style="font-size:11px;color:#7F1D1D">중복 작성 방지용 안내예요. 의도적으로 새로 만드는 거라면 무시해도 OK.</span>`;
+  warn.style.display = 'block';
 }
 
 function loadPrevInvoice() {
