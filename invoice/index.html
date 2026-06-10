@@ -1015,6 +1015,14 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
 
     <div id="line-items-list"></div>
     <div id="line-items-total" style="margin-top:8px;padding:10px;background:var(--card-bg);border-radius:8px;font-size:13px;display:none"></div>
+    <!-- 디스카운트 (선택) — 소수점 들어가도 OK. 비워두면 디스카운트 없음 -->
+    <div class="mb" style="margin-top:8px;background:#FEF3C7;border:1px solid #FDE68A;border-radius:8px;padding:8px 10px">
+      <label class="label" style="margin:0;color:#92400E;font-size:11px;display:flex;align-items:center;gap:6px">
+        💸 디스카운트 (%)
+        <span style="font-size:10px;color:#A78B4B;font-weight:400">— 비워두면 디스카운트 없음. 라인 아이템 ex.GST 합계에 적용</span>
+      </label>
+      <input type="number" step="0.01" min="0" max="100" class="input" id="f-discount" style="margin-top:4px;padding:6px 10px;font-size:13px" placeholder="예: 5  (= 5% 할인)" oninput="updLineItemsTotal()"/>
+    </div>
   </div>
   
   <!-- Legacy simple amount (for backward compat or when no line items) -->
@@ -2571,6 +2579,7 @@ function openIM(id) {
   }
   document.getElementById('f-po').value = inv?.poNumber||'';
   document.getElementById('f-proj').value = inv?.projectName||'';
+  document.getElementById('f-discount').value = (inv?.discountPct && inv.discountPct > 0) ? inv.discountPct : '';
   
   // For legacy invoices (no simpleDesc field but has note + no lineItems):
   // parse the note to extract simpleDesc/materials/userNote
@@ -4778,16 +4787,26 @@ function updLineItemsTotal() {
   });
   taxableEx = round2(taxableEx);
   nonTaxableEx = round2(nonTaxableEx);
-  const sub = round2(taxableEx + nonTaxableEx); // total ex GST (everything)
-  const gst = round2(taxableEx * 0.1);            // GST only on taxable
-  const total = round2(sub + gst);                // total inc GST
+  const subRaw = round2(taxableEx + nonTaxableEx); // total ex GST (before discount)
+  // 디스카운트 % — 비례적으로 taxable/nonTaxable 양쪽에서 차감 (GST 도 자동 감소)
+  const discPct = parseFloat(document.getElementById('f-discount')?.value) || 0;
+  const discAmt = subRaw > 0 ? round2(subRaw * discPct / 100) : 0;
+  const taxableExAfter   = round2(taxableEx    - round2(taxableEx    * discPct / 100));
+  const nonTaxableExAfter = round2(nonTaxableEx - round2(nonTaxableEx * discPct / 100));
+  const sub = round2(taxableExAfter + nonTaxableExAfter);
+  const gst = round2(taxableExAfter * 0.1);
+  const total = round2(sub + gst);
   const el = document.getElementById('line-items-total');
-  if (sub > 0 && !useLegacyAmount) {
+  if (subRaw > 0 && !useLegacyAmount) {
     el.style.display = 'block';
-    let h = `<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:var(--text-3)">Subtotal (ex GST)</span><span style="font-weight:700">$${sub.toFixed(2)}</span></div>`;
+    let h = `<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:var(--text-3)">Subtotal (ex GST)</span><span style="font-weight:700">$${subRaw.toFixed(2)}</span></div>`;
     if (nonTaxableEx > 0) {
       h += `<div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:11px"><span style="color:#0891B2">  • Taxable</span><span>$${taxableEx.toFixed(2)}</span></div>
       <div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:11px"><span style="color:#0891B2">  • No Tax</span><span>$${nonTaxableEx.toFixed(2)}</span></div>`;
+    }
+    if (discPct > 0) {
+      h += `<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:#92400E;font-weight:700">Discount (${discPct}%)</span><span style="font-weight:700;color:#92400E">-$${discAmt.toFixed(2)}</span></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:11px"><span style="color:var(--text-4)">  • After Discount (ex GST)</span><span>$${sub.toFixed(2)}</span></div>`;
     }
     h += `<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:var(--text-3)">GST (10%)</span><span style="font-weight:700">$${gst.toFixed(2)}</span></div>
     <div style="display:flex;justify-content:space-between;border-top:1px solid var(--border-2);padding-top:6px;margin-top:4px"><span style="font-weight:800;color:var(--text)">TOTAL (inc GST)</span><span style="font-weight:800;color:#4F46E5;font-size:15px">$${total.toFixed(2)}</span></div>`;
@@ -4852,9 +4871,12 @@ function getInvoiceAmount() {
     const ex = parseFloat(document.getElementById('f-am').value) || 0;
     return round2(ex * 1.1);
   }
-  // sum of (ex × 1.1 if taxable, else ex)
+  // 디스카운트 % — 비례적으로 각 라인에서 차감하고 GST 포함 합계 산출
+  const discPct = parseFloat(document.getElementById('f-discount')?.value) || 0;
+  const mult = 1 - (discPct / 100);
   return round2(lineItems.reduce((s,li)=>{
-    const ex = round2((parseFloat(li.qty)||0) * (parseFloat(li.unitPrice)||0));
+    const exRaw = round2((parseFloat(li.qty)||0) * (parseFloat(li.unitPrice)||0));
+    const ex = round2(exRaw * mult);
     return s + (li.noTax ? ex : round2(ex * 1.1));
   }, 0));
 }
@@ -4998,6 +5020,8 @@ async function saveInv(asDraft, sendEmail) {
     poNumber: document.getElementById('f-po').value || '',
     // 프로젝트명은 모든 타입에서 입력 가능 (선택사항)
     projectName: document.getElementById('f-proj').value || '',
+    // 디스카운트 % (소수점 OK, 비워두면 0)
+    discountPct: parseFloat(document.getElementById('f-discount').value) || 0,
     payments: cleanPayments,
     depositDate: lastPay.date || '',
     depositAmount: totalPay,
@@ -6073,9 +6097,11 @@ function closeEmailModal() {
 // Red bars top/bottom, "INVOICE" title, company info LEFT, DATE/INVOICE NO. RIGHT
 // 4-column table (DESCRIPTION | QTY | UNIT PRICE | TOTAL), PO Number as first bold row
 function printInvoiceBXBT(inv, co, b) {
-  const amt = parseFloat(inv.amount) || 0;
-  const sub = exGST(amt);
-  const tax = amt - sub;
+  // BXBT 는 lineItems 없을 때만 inv.amount 폴백, 있을 때는 라인에서 재계산 (디스카운트 반영용)
+  // 일단 폴백 값 — 라인 아이템 있으면 아래에서 다시 계산
+  let amt = parseFloat(inv.amount) || 0;
+  let sub = exGST(amt);
+  let tax = amt - sub;
   
   const fDAu = d => {
     if (!d) return '';
@@ -6218,12 +6244,42 @@ function printInvoiceBXBT(inv, co, b) {
     }
   }
   
+  // 디스카운트 % — 라인 아이템 표 마지막에 별도 행 + sub/tax/amt 재계산
+  const discPctBX = parseFloat(inv.discountPct) || 0;
+  let discAmtBX = 0;
+  if (hasLineItems && discPctBX > 0) {
+    // 라인에서 ex-GST 합계 재계산 (inv.amount 신뢰 안 함 — 디스카운트 적용 전 합계 필요)
+    const items = Array.isArray(inv.lineItems) ? inv.lineItems : Object.values(inv.lineItems);
+    const isProgBX = inv.type === 'PROGRESS';
+    let rawTaxEx = 0, rawNoTaxEx = 0;
+    items.forEach(it => {
+      const q = isProgBX ? (parseFloat(it.qty)||0) : (parseFloat(it.qty)||1);
+      const ex = q * (parseFloat(it.unitPrice)||0);
+      if (it.noTax) rawNoTaxEx += ex; else rawTaxEx += ex;
+    });
+    const subRawBX = round2(rawTaxEx + rawNoTaxEx);
+    discAmtBX = round2(subRawBX * discPctBX / 100);
+    const taxEx = round2(rawTaxEx   - round2(rawTaxEx   * discPctBX / 100));
+    const noTax = round2(rawNoTaxEx - round2(rawNoTaxEx * discPctBX / 100));
+    sub = round2(taxEx + noTax);
+    tax = round2(taxEx * 0.1);
+    amt = round2(sub + tax);
+    // 표 마지막에 Discount 행 추가
+    itemRows += `<tr style="font-weight:700;color:#92400E;background:#FEF3C7">
+      <td>Discount (${discPctBX}%)</td>
+      <td class="center"></td>
+      <td class="num"></td>
+      <td class="num">-${fmtMoney(discAmtBX)}</td>
+    </tr>`;
+    rowsRendered++;
+  }
+
   // 빈 줄로 표 채움 — 회색/흰색 번갈이 → 모두 흰색으로 통일 (내용있는 줄과 일관)
   const minRows = 14;
   for (let i = rowsRendered; i < minRows; i++) {
     itemRows += `<tr class="bxbt-blank"><td></td><td></td><td></td><td></td></tr>`;
   }
-  
+
   // Builder postal address (P.O. Box format) — prefer postalAddress
   const builderAddrHTML = (b.postalAddress || b.businessAddress)
     ? fmtAddr(b.postalAddress || b.businessAddress)
@@ -6309,8 +6365,8 @@ function printInvoiceBXBT(inv, co, b) {
           <span>${fmtMoney(sub)}</span>
         </div>
         <div class="bxbt-totals-row">
-          <span>DISCOUNT</span>
-          <span>&nbsp;</span>
+          <span>DISCOUNT${discPctBX > 0 ? ` (${discPctBX}%)` : ''}</span>
+          <span>${discPctBX > 0 ? '-'+fmtMoney(discAmtBX) : '&nbsp;'}</span>
         </div>
         <div class="bxbt-totals-row">
           <span>TAX RATE</span>
@@ -6516,11 +6572,32 @@ function printInvoiceKM(inv, co, b) {
     }
   }
   
-  // Recompute final amounts based on lineItems (override inv.amount for accuracy)
+  // 디스카운트 % — 라인 아이템 마지막에 별도 행 + 합계에서 차감
+  const discPct = parseFloat(inv.discountPct) || 0;
+  const subRawKM = taxableEx + nonTaxableEx;
+  let discAmtKM = 0, discTaxableKM = 0, discNonTaxableKM = 0;
+  if (discPct > 0 && subRawKM > 0) {
+    discTaxableKM    = round2(taxableEx    * discPct / 100);
+    discNonTaxableKM = round2(nonTaxableEx * discPct / 100);
+    discAmtKM = round2(discTaxableKM + discNonTaxableKM);
+    // 라인 아이템 표 마지막에 Discount 행 추가 (음수 금액)
+    itemRows += `<tr style="font-weight:700;color:#92400E;background:#FEF3C7">
+      <td class="pi-blank-room"></td>
+      <td>Discount (${discPct}%)</td>
+      <td class="center"></td>
+      <td class="num"></td>
+      <td class="center"></td>
+      <td class="num pi-totals-col">-${fmtMoney(discAmtKM)}</td>
+    </tr>`;
+    rowsRendered++;
+  }
+  // Recompute final amounts (after discount)
+  taxableEx    = round2(taxableEx    - discTaxableKM);
+  nonTaxableEx = round2(nonTaxableEx - discNonTaxableKM);
   const sub = taxableEx + nonTaxableEx;
-  const tax = taxableEx * 0.1;
-  const amt = sub + tax;
-  
+  const tax = round2(taxableEx * 0.1);
+  const amt = round2(sub + tax);
+
   // Blank fill rows — first td gets pi-blank-room class for consistent border
   const minRows = 14;
   for (let i = rowsRendered; i < minRows; i++) {
