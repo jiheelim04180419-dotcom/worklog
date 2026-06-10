@@ -765,7 +765,7 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
   <div id="f-proj-row" class="mb" style="display:none">
     <label class="label">프로젝트명 (Project)</label>
     <div style="display:flex;gap:6px;align-items:center">
-      <input class="input" id="f-proj" style="flex:1" placeholder="예: Orange Conservatorium&Planetarium" oninput="checkPrevProgressInvoice()"/>
+      <input class="input" id="f-proj" style="flex:1" placeholder="프로젝트명 · 주소 · 인보이스번호 어느 거든 OK" oninput="checkPrevProgressInvoice()"/>
       <button id="f-proj-load-btn" type="button" onclick="loadPrevProgress()" style="display:none;background:#7C3AED;color:white;border:none;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap" title="같은 빌더/프로젝트의 가장 최근 PROGRESS 인보이스에서 라인 + 누적%를 가져옵니다">📋 이전에서 이어오기</button>
     </div>
     <div id="f-proj-hint" style="font-size:11px;color:#7C3AED;margin-top:4px;display:none"></div>
@@ -2969,18 +2969,33 @@ function loadPrevInvoice() {
 function findPrevProgressInvoice() {
   if (editId) return null; // Only auto-suggest for NEW invoices
   const builderName = document.getElementById('f-b').value.trim();
-  const projectName = (document.getElementById('f-proj')?.value || '').trim();
-  if (!builderName || !projectName) return null;
-  
+  const projectQuery = (document.getElementById('f-proj')?.value || '').trim();
+  if (!builderName || !projectQuery) return null;
+
+  // 빌더명도 공백/대소문자 정규화해서 매치
+  const norm = s => (s||'').toLowerCase().replace(/\s+/g,' ').trim();
+  const qBuilder = norm(builderName);
+  const qProj = norm(projectQuery);
+
+  // 프로젝트 필드 입력값을 projectName / address / invoiceNum 어디든 매치되면 인정 (부분 일치 OK)
+  const projMatch = (inv) => {
+    const fields = [inv.projectName, inv.address, inv.invoiceNum].map(norm);
+    return fields.some(f => f && (f === qProj || f.includes(qProj) || qProj.includes(f)));
+  };
+  const builderMatch = (inv) => {
+    const b = norm(inv.builderName);
+    return b && (b === qBuilder || b.includes(qBuilder) || qBuilder.includes(b));
+  };
+
   const matches = invoices.filter(i =>
     i.id !== editId &&
     i.type === 'PROGRESS' &&
-    (i.builderName||'').toLowerCase() === builderName.toLowerCase() &&
-    (i.projectName||'').toLowerCase() === projectName.toLowerCase() &&
+    builderMatch(i) &&
+    projMatch(i) &&
     i.lineItems && (Array.isArray(i.lineItems) ? i.lineItems.length : Object.keys(i.lineItems).length)
   );
   if (!matches.length) return null;
-  
+
   // Sort by invoiceDate desc, return most recent
   matches.sort((a,b) => (b.invoiceDate||'').localeCompare(a.invoiceDate||''));
   return matches[0];
