@@ -2322,9 +2322,36 @@ function buildDetailHTML(inv) {
   const isRetention = inv.status === 'RETENTION';
   const pays = getPayments(inv);
   
+  // 디스카운트 적용된 인보이스면 원금액 + 디스카운트 줄을 추가로 표시
+  const _discPct = parseFloat(inv.discountPct) || 0;
+  let _discRows = '';
+  if (_discPct > 0 && inv.lineItems) {
+    const _items = Array.isArray(inv.lineItems) ? inv.lineItems : Object.values(inv.lineItems);
+    const _isProg = inv.type === 'PROGRESS';
+    let _origIncGST = 0;
+    _items.forEach(it => {
+      const q = _isProg ? (parseFloat(it.qty)||0) : (parseFloat(it.qty)||1);
+      const ex = q * (parseFloat(it.unitPrice)||0);
+      _origIncGST += it.noTax ? ex : ex * 1.1;
+    });
+    _origIncGST = round2(_origIncGST);
+    const _discCutIncGST = round2(_origIncGST - amt);
+    if (_discCutIncGST > 0.01) {
+      _discRows = `
+      <div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0">
+        <span style="color:#6B7280">원금액 (inc.GST)</span>
+        <span style="color:#9CA3AF;text-decoration:line-through">${fA(_origIncGST)}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0">
+        <span style="color:#92400E;font-weight:700">💸 디스카운트 (${_discPct}%)</span>
+        <span style="color:#92400E;font-weight:700">-${fA(_discCutIncGST)}</span>
+      </div>`;
+    }
+  }
   return `<div class="idetail">
     <div style="background:#F9FAFB;border-radius:8px;padding:8px;margin-bottom:8px">
-      <div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0">
+      ${_discRows}
+      <div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0${_discRows?';border-top:1px solid #E5E7EB;margin-top:4px;padding-top:6px':''}">
         <span style="color:#6B7280">청구금액 (inc.GST)</span>
         <span style="font-weight:700">${fA(amt)}</span>
       </div>
