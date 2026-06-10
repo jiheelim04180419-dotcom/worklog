@@ -1019,13 +1019,13 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
 
     <div id="line-items-list"></div>
     <div id="line-items-total" style="margin-top:8px;padding:10px;background:var(--card-bg);border-radius:8px;font-size:13px;display:none"></div>
-    <!-- 디스카운트 (선택) — 소수점 들어가도 OK. 비워두면 디스카운트 없음 -->
+    <!-- 디스카운트 (선택) — 라인마다 💸할인 체크된 항목에만 적용. 비워두면 디스카운트 없음 -->
     <div class="mb" style="margin-top:8px;background:#FEF3C7;border:1px solid #FDE68A;border-radius:8px;padding:8px 10px">
       <label class="label" style="margin:0;color:#92400E;font-size:11px;display:flex;align-items:center;gap:6px">
         💸 디스카운트 (%)
-        <span style="font-size:10px;color:#A78B4B;font-weight:400">— 비워두면 디스카운트 없음. 라인 아이템 ex.GST 합계에 적용</span>
+        <span style="font-size:10px;color:#A78B4B;font-weight:400">— 위 라인 중 <b>💸할인</b> 체크된 항목에만 적용. 비워두면 무시</span>
       </label>
-      <input type="number" step="0.01" min="0" max="100" class="input" id="f-discount" style="margin-top:4px;padding:6px 10px;font-size:13px" placeholder="예: 5  (= 5% 할인)" oninput="updLineItemsTotal()"/>
+      <input type="number" step="0.01" min="0" max="100" class="input" id="f-discount" style="margin-top:4px;padding:6px 10px;font-size:13px" placeholder="예: 5  (= 체크된 라인에 5% 할인)" oninput="updLineItemsTotal()"/>
     </div>
   </div>
   
@@ -4746,6 +4746,9 @@ function renderLineItems() {
                 <label style="display:flex;align-items:center;gap:2px;cursor:pointer;color:var(--text-3);margin-left:6px">
                   <input type="checkbox" ${li.noTax?'checked':''} onchange="lineItems[${i}].noTax=this.checked;renderLineItems()" style="margin:0"/>NoTax
                 </label>
+                <label style="display:flex;align-items:center;gap:2px;cursor:pointer;color:#92400E;margin-left:4px" title="이 라인에 디스카운트 % 적용">
+                  <input type="checkbox" ${li.discount?'checked':''} onchange="lineItems[${i}].discount=this.checked;updLineItemsTotal()" style="margin:0;accent-color:#D97706"/>💸할인
+                </label>
               </div>
               <div style="display:flex;gap:4px;align-items:center;font-size:10px;flex-wrap:wrap">
                 <span style="color:#7C3AED;min-width:60px;font-weight:700" title="이전 인보이스(외부 포함)에서 이미 청구한 누적 %. 앱 첫 청구라면 직접 입력하세요.">📜 이전%:</span>
@@ -4777,6 +4780,9 @@ function renderLineItems() {
               <input type="number" step="0.01" class="input" style="flex:1;font-size:11px;padding:4px 6px" value="${li.unitPrice||''}" placeholder="단가" oninput="lineItems[${i}].unitPrice=this.value;updLineTotal(${i})"/>
               <label style="display:flex;align-items:center;gap:2px;cursor:pointer;color:var(--text-3)">
                 <input type="checkbox" ${li.noTax?'checked':''} onchange="lineItems[${i}].noTax=this.checked;updLineTotal(${i});renderLineItems()" style="margin:0"/>NoTax
+              </label>
+              <label style="display:flex;align-items:center;gap:2px;cursor:pointer;color:#92400E" title="이 라인에 디스카운트 % 적용">
+                <input type="checkbox" ${li.discount?'checked':''} onchange="lineItems[${i}].discount=this.checked;updLineItemsTotal()" style="margin:0;accent-color:#D97706"/>💸할인
               </label>
             </div>
           </div>
@@ -4817,36 +4823,45 @@ function updLineTotal(i) {
 }
 
 function updLineItemsTotal() {
-  // Taxable amount = sum of items where !noTax (charged GST)
-  // Non-taxable amount = sum of items where noTax
-  let taxableEx = 0, nonTaxableEx = 0;
+  // 라인별 ex.GST 계산 — 노세금/세금 분리. 디스카운트 % 는 라인의 discount===true 인 것에만 적용.
+  let taxableEx = 0, nonTaxableEx = 0;        // 디스카운트 적용 후 합계
+  let taxableExRaw = 0, nonTaxableExRaw = 0;  // 디스카운트 적용 전 (표시용)
+  let discAmt = 0, discountedLineCount = 0;
+  const discPct = parseFloat(document.getElementById('f-discount')?.value) || 0;
+  const mult = 1 - (discPct / 100);
   lineItems.forEach(li => {
-    const ex = round2((parseFloat(li.qty)||0) * (parseFloat(li.unitPrice)||0));
-    if (li.noTax) nonTaxableEx += ex;
-    else taxableEx += ex;
+    const exLine = round2((parseFloat(li.qty)||0) * (parseFloat(li.unitPrice)||0));
+    const applyDisc = !!li.discount && discPct > 0;
+    const exAfter = applyDisc ? round2(exLine * mult) : exLine;
+    if (applyDisc) {
+      discAmt += round2(exLine - exAfter);
+      discountedLineCount++;
+    }
+    if (li.noTax) { nonTaxableEx += exAfter; nonTaxableExRaw += exLine; }
+    else          { taxableEx    += exAfter; taxableExRaw    += exLine; }
   });
   taxableEx = round2(taxableEx);
   nonTaxableEx = round2(nonTaxableEx);
-  const subRaw = round2(taxableEx + nonTaxableEx); // total ex GST (before discount)
-  // 디스카운트 % — 비례적으로 taxable/nonTaxable 양쪽에서 차감 (GST 도 자동 감소)
-  const discPct = parseFloat(document.getElementById('f-discount')?.value) || 0;
-  const discAmt = subRaw > 0 ? round2(subRaw * discPct / 100) : 0;
-  const taxableExAfter   = round2(taxableEx    - round2(taxableEx    * discPct / 100));
-  const nonTaxableExAfter = round2(nonTaxableEx - round2(nonTaxableEx * discPct / 100));
-  const sub = round2(taxableExAfter + nonTaxableExAfter);
-  const gst = round2(taxableExAfter * 0.1);
+  taxableExRaw = round2(taxableExRaw);
+  nonTaxableExRaw = round2(nonTaxableExRaw);
+  discAmt = round2(discAmt);
+  const subRaw = round2(taxableExRaw + nonTaxableExRaw);
+  const sub = round2(taxableEx + nonTaxableEx);
+  const gst = round2(taxableEx * 0.1);
   const total = round2(sub + gst);
   const el = document.getElementById('line-items-total');
   if (subRaw > 0 && !useLegacyAmount) {
     el.style.display = 'block';
     let h = `<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:var(--text-3)">Subtotal (ex GST)</span><span style="font-weight:700">$${subRaw.toFixed(2)}</span></div>`;
-    if (nonTaxableEx > 0) {
-      h += `<div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:11px"><span style="color:#0891B2">  • Taxable</span><span>$${taxableEx.toFixed(2)}</span></div>
-      <div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:11px"><span style="color:#0891B2">  • No Tax</span><span>$${nonTaxableEx.toFixed(2)}</span></div>`;
+    if (nonTaxableExRaw > 0) {
+      h += `<div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:11px"><span style="color:#0891B2">  • Taxable</span><span>$${taxableExRaw.toFixed(2)}</span></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:11px"><span style="color:#0891B2">  • No Tax</span><span>$${nonTaxableExRaw.toFixed(2)}</span></div>`;
     }
-    if (discPct > 0) {
-      h += `<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:#92400E;font-weight:700">Discount (${discPct}%)</span><span style="font-weight:700;color:#92400E">-$${discAmt.toFixed(2)}</span></div>
+    if (discPct > 0 && discountedLineCount > 0) {
+      h += `<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:#92400E;font-weight:700">Discount (${discPct}% · ${discountedLineCount}개 라인)</span><span style="font-weight:700;color:#92400E">-$${discAmt.toFixed(2)}</span></div>
       <div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:11px"><span style="color:var(--text-4)">  • After Discount (ex GST)</span><span>$${sub.toFixed(2)}</span></div>`;
+    } else if (discPct > 0 && discountedLineCount === 0) {
+      h += `<div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:11px"><span style="color:#92400E;font-style:italic">⚠️ 디스카운트 ${discPct}% 입력됐지만 💸할인 체크된 라인이 없음</span></div>`;
     }
     h += `<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:var(--text-3)">GST (10%)</span><span style="font-weight:700">$${gst.toFixed(2)}</span></div>
     <div style="display:flex;justify-content:space-between;border-top:1px solid var(--border-2);padding-top:6px;margin-top:4px"><span style="font-weight:800;color:var(--text)">TOTAL (inc GST)</span><span style="font-weight:800;color:#4F46E5;font-size:15px">$${total.toFixed(2)}</span></div>`;
@@ -4911,12 +4926,12 @@ function getInvoiceAmount() {
     const ex = parseFloat(document.getElementById('f-am').value) || 0;
     return round2(ex * 1.1);
   }
-  // 디스카운트 % — 비례적으로 각 라인에서 차감하고 GST 포함 합계 산출
+  // 디스카운트 % — discount===true 인 라인에만 (1 - X/100) 적용 후 GST 포함 합계
   const discPct = parseFloat(document.getElementById('f-discount')?.value) || 0;
   const mult = 1 - (discPct / 100);
   return round2(lineItems.reduce((s,li)=>{
     const exRaw = round2((parseFloat(li.qty)||0) * (parseFloat(li.unitPrice)||0));
-    const ex = round2(exRaw * mult);
+    const ex = (li.discount && discPct > 0) ? round2(exRaw * mult) : exRaw;
     return s + (li.noTax ? ex : round2(ex * 1.1));
   }, 0));
 }
@@ -5032,6 +5047,7 @@ async function saveInv(asDraft, sendEmail) {
       placement: li.placement || '',
       isMaterials: !!li.isMaterials,
       noTax: !!li.noTax,
+      discount: !!li.discount,  // 디스카운트 % 적용 대상 (체크된 라인만)
       breakdown: li.breakdown || []
     }));
   
@@ -6284,34 +6300,40 @@ function printInvoiceBXBT(inv, co, b) {
     }
   }
   
-  // 디스카운트 % — 라인 아이템 표 마지막에 별도 행 + sub/tax/amt 재계산
+  // 디스카운트 % — discount===true 라인에만 적용. 표 마지막에 별도 행 + sub/tax/amt 재계산.
   const discPctBX = parseFloat(inv.discountPct) || 0;
   let discAmtBX = 0;
   if (hasLineItems && discPctBX > 0) {
-    // 라인에서 ex-GST 합계 재계산 (inv.amount 신뢰 안 함 — 디스카운트 적용 전 합계 필요)
     const items = Array.isArray(inv.lineItems) ? inv.lineItems : Object.values(inv.lineItems);
     const isProgBX = inv.type === 'PROGRESS';
     let rawTaxEx = 0, rawNoTaxEx = 0;
+    let discTaxEx = 0, discNoTaxEx = 0;
     items.forEach(it => {
       const q = isProgBX ? (parseFloat(it.qty)||0) : (parseFloat(it.qty)||1);
       const ex = q * (parseFloat(it.unitPrice)||0);
       if (it.noTax) rawNoTaxEx += ex; else rawTaxEx += ex;
+      if (it.discount) {
+        const cut = ex * discPctBX / 100;
+        if (it.noTax) discNoTaxEx += cut; else discTaxEx += cut;
+      }
     });
-    const subRawBX = round2(rawTaxEx + rawNoTaxEx);
-    discAmtBX = round2(subRawBX * discPctBX / 100);
-    const taxEx = round2(rawTaxEx   - round2(rawTaxEx   * discPctBX / 100));
-    const noTax = round2(rawNoTaxEx - round2(rawNoTaxEx * discPctBX / 100));
-    sub = round2(taxEx + noTax);
-    tax = round2(taxEx * 0.1);
-    amt = round2(sub + tax);
-    // 표 마지막에 Discount 행 추가
-    itemRows += `<tr style="font-weight:700;color:#92400E;background:#FEF3C7">
-      <td>Discount (${discPctBX}%)</td>
-      <td class="center"></td>
-      <td class="num"></td>
-      <td class="num">-${fmtMoney(discAmtBX)}</td>
-    </tr>`;
-    rowsRendered++;
+    discTaxEx = round2(discTaxEx);
+    discNoTaxEx = round2(discNoTaxEx);
+    discAmtBX = round2(discTaxEx + discNoTaxEx);
+    if (discAmtBX > 0) {
+      const taxEx = round2(rawTaxEx   - discTaxEx);
+      const noTax = round2(rawNoTaxEx - discNoTaxEx);
+      sub = round2(taxEx + noTax);
+      tax = round2(taxEx * 0.1);
+      amt = round2(sub + tax);
+      itemRows += `<tr style="font-weight:700;color:#92400E;background:#FEF3C7">
+        <td>Discount (${discPctBX}%)</td>
+        <td class="center"></td>
+        <td class="num"></td>
+        <td class="num">-${fmtMoney(discAmtBX)}</td>
+      </tr>`;
+      rowsRendered++;
+    }
   }
 
   // 빈 줄로 표 채움 — 회색/흰색 번갈이 → 모두 흰색으로 통일 (내용있는 줄과 일관)
@@ -6612,24 +6634,33 @@ function printInvoiceKM(inv, co, b) {
     }
   }
   
-  // 디스카운트 % — 라인 아이템 마지막에 별도 행 + 합계에서 차감
+  // 디스카운트 % — discount===true 체크된 라인의 ex.GST 합계에만 적용. 표 마지막에 별도 행.
   const discPct = parseFloat(inv.discountPct) || 0;
-  const subRawKM = taxableEx + nonTaxableEx;
   let discAmtKM = 0, discTaxableKM = 0, discNonTaxableKM = 0;
-  if (discPct > 0 && subRawKM > 0) {
-    discTaxableKM    = round2(taxableEx    * discPct / 100);
-    discNonTaxableKM = round2(nonTaxableEx * discPct / 100);
+  if (discPct > 0 && hasLineItems) {
+    const items = Array.isArray(inv.lineItems) ? inv.lineItems : Object.values(inv.lineItems);
+    items.forEach(it => {
+      if (!it.discount) return;
+      const q = isProgressType ? (parseFloat(it.qty)||0) : (parseFloat(it.qty)||1);
+      const exLine = q * (parseFloat(it.unitPrice)||0);
+      const cut = round2(exLine * discPct / 100);
+      if (it.noTax) discNonTaxableKM += cut;
+      else          discTaxableKM    += cut;
+    });
+    discTaxableKM    = round2(discTaxableKM);
+    discNonTaxableKM = round2(discNonTaxableKM);
     discAmtKM = round2(discTaxableKM + discNonTaxableKM);
-    // 라인 아이템 표 마지막에 Discount 행 추가 (음수 금액)
-    itemRows += `<tr style="font-weight:700;color:#92400E;background:#FEF3C7">
-      <td class="pi-blank-room"></td>
-      <td>Discount (${discPct}%)</td>
-      <td class="center"></td>
-      <td class="num"></td>
-      <td class="center"></td>
-      <td class="num pi-totals-col">-${fmtMoney(discAmtKM)}</td>
-    </tr>`;
-    rowsRendered++;
+    if (discAmtKM > 0) {
+      itemRows += `<tr style="font-weight:700;color:#92400E;background:#FEF3C7">
+        <td class="pi-blank-room"></td>
+        <td>Discount (${discPct}%)</td>
+        <td class="center"></td>
+        <td class="num"></td>
+        <td class="center"></td>
+        <td class="num pi-totals-col">-${fmtMoney(discAmtKM)}</td>
+      </tr>`;
+      rowsRendered++;
+    }
   }
   // Recompute final amounts (after discount)
   taxableEx    = round2(taxableEx    - discTaxableKM);
