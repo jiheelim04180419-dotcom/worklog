@@ -2693,10 +2693,14 @@ function openIM(id) {
         thisPct: parseFloat(li.thisPct) || 0,
         prevPct: parseFloat(li.prevPct) || 0,
         cumulativePct: parseFloat(li.cumulativePct) || 0,
+        section: li.section || '',
         room: li.room || '',
         placement: li.placement || '',
         isMaterials: !!li.isMaterials,
         noTax: !!li.noTax,
+        discount: !!li.discount,   // 💸할인 체크 복원
+        origQty: li.origQty,
+        origUnitPrice: li.origUnitPrice,
         breakdown: li.breakdown || []
       }));
     useLegacyAmount = false;
@@ -3007,6 +3011,7 @@ function loadPrevInvoice() {
     placement: it.placement || '',
     isMaterials: !!it.isMaterials,
     noTax: !!it.noTax,
+    discount: !!it.discount,
     breakdown: Array.isArray(it.breakdown) ? it.breakdown.map(b => ({...b})) : []
   }));
   alert(`✓ ${lineItems.length}개 라인을 가져왔어요. 필요하면 각 행에서 수정/추가/삭제 가능합니다.`);
@@ -3100,9 +3105,10 @@ function loadPrevProgress() {
     placement: '',
     isMaterials: !!it.isMaterials,
     noTax: !!it.noTax,
+    discount: !!it.discount,
     breakdown: it.isMaterials ? (Array.isArray(it.breakdown)?it.breakdown:Object.values(it.breakdown||{})) : []
   }));
-  
+
   alert(`✓ ${lineItems.length}개 항목을 가져왔습니다.\n이제 각 라인의 "누적%" 또는 "청구%"를 새 값으로 입력하세요.\n전체 일괄 설정도 가능합니다 (라인 위 "전체 일괄 누적%" 버튼).`);
   renderLineItems();
 }
