@@ -6152,7 +6152,9 @@ function openGmailWithEmail() {
   if (su) params.set('su', su);
   if (body) params.set('body', body);
   const userPath = senderEmail ? `u/${encodeURIComponent(senderEmail)}/` : '';
-  const gmailUrl = `https://mail.google.com/mail/${userPath}?${params.toString()}`;
+  // URLSearchParams 는 공백을 '+' 로 인코딩(form 스타일)함. 메일 스킴/딥링크는 '+' 를 리터럴로
+  // 표시하므로 공백은 반드시 %20 이어야 함. 값 내 실제 '+' 는 이미 %2B 이라 아래 치환은 안전.
+  const gmailUrl = `https://mail.google.com/mail/${userPath}?${params.toString().replace(/\+/g, '%20')}`;
 
   // 📱 모바일(iOS) Gmail 앱 딥링크 — 앱 설치 시 네이티브 작성창이 바로 열림. 미설치 시 위 웹 URL 로 폴백.
   // 주의: Gmail 앱 스킴은 파라미터명이 다름 (su→subject). 첨부는 딥링크/웹 모두 불가.
@@ -6161,7 +6163,7 @@ function openGmailWithEmail() {
   if (cc) appParams.set('cc', cc);
   if (su) appParams.set('subject', su);
   if (body) appParams.set('body', body);
-  const gmailAppUrl = `googlegmail:///co?${appParams.toString()}`;
+  const gmailAppUrl = `googlegmail:///co?${appParams.toString().replace(/\+/g, '%20')}`;
 
   // To/CC에서 빌더에 없는 새 이메일 감지
   const inv = _emailInv;
