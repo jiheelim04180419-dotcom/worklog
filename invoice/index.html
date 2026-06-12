@@ -6154,6 +6154,15 @@ function openGmailWithEmail() {
   const userPath = senderEmail ? `u/${encodeURIComponent(senderEmail)}/` : '';
   const gmailUrl = `https://mail.google.com/mail/${userPath}?${params.toString()}`;
 
+  // 📱 모바일(iOS) Gmail 앱 딥링크 — 앱 설치 시 네이티브 작성창이 바로 열림. 미설치 시 위 웹 URL 로 폴백.
+  // 주의: Gmail 앱 스킴은 파라미터명이 다름 (su→subject). 첨부는 딥링크/웹 모두 불가.
+  const appParams = new URLSearchParams();
+  if (to) appParams.set('to', to);
+  if (cc) appParams.set('cc', cc);
+  if (su) appParams.set('subject', su);
+  if (body) appParams.set('body', body);
+  const gmailAppUrl = `googlegmail:///co?${appParams.toString()}`;
+
   // To/CC에서 빌더에 없는 새 이메일 감지
   const inv = _emailInv;
   let newEmails = [];
@@ -6172,7 +6181,7 @@ function openGmailWithEmail() {
   }
 
   closeEmailModal();
-  _pendingEmailSend = {inv, gmailUrl};
+  _pendingEmailSend = {inv, gmailUrl, gmailAppUrl};
 
   if (newEmails.length > 0 && inv) {
     // 새 이메일 발견 → 저장 모달
@@ -6223,7 +6232,18 @@ function finishEmailSend() {
   const pending = _pendingEmailSend;
   if (!pending) return;
 
-  // Gmail 새 창
+  // 📱 iOS(아이폰/아이패드): Gmail 앱 작성창을 바로 연다. 앱 미설치면 ~1.2초 후 Gmail 웹으로 폴백.
+  const ua = navigator.userAgent || '';
+  const isIOS = /iP(hone|od|ad)/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if (isIOS && pending.gmailAppUrl) {
+    openGmailAppWithFallback(pending.gmailAppUrl, pending.gmailUrl);
+    // 모바일에선 PDF 드래그-첨부가 불가하므로 인쇄 미리보기 자동 열기는 생략.
+    // (인보이스 PDF 가 필요하면 목록의 인쇄/PDF 버튼으로 따로 저장 후 Gmail 앱에서 첨부)
+    _pendingEmailSend = null;
+    return;
+  }
+
+  // 🖥️ 데스크톱(및 기타): Gmail 웹 작성창 + 인쇄 미리보기(드래그로 PDF 첨부)
   window.open(pending.gmailUrl, '_blank');
 
   // 인쇄 미리보기 자동 열기
@@ -6248,6 +6268,22 @@ function finishEmailSend() {
     setTimeout(() => openSubcontractorStatement(inv.id), 600);
   }
   _pendingEmailSend = null;
+}
+
+// iOS Gmail 앱 딥링크 시도 → 앱 전환되면 그대로, 미설치라 페이지가 안 사라지면 Gmail 웹으로 폴백
+function openGmailAppWithFallback(appUrl, webUrl) {
+  let switched = false;
+  const onHide = () => { switched = true; };
+  document.addEventListener('visibilitychange', onHide, { once: true });
+  // 앱 스킴으로 이동 시도 (설치돼 있으면 Gmail 앱으로 전환됨)
+  window.location.href = appUrl;
+  // 일정 시간 후에도 페이지가 그대로면(=앱 미설치) Gmail 웹으로 폴백
+  setTimeout(() => {
+    document.removeEventListener('visibilitychange', onHide);
+    if (!switched && document.visibilityState === 'visible') {
+      window.open(webUrl, '_blank');
+    }
+  }, 1200);
 }
 
 function closeEmailModal() {
