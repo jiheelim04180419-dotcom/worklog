@@ -2062,22 +2062,39 @@ function showTab(t) {
 }
 
 // ── Dark Mode ────────────────────────────────────────────────────────────────
+// 3단계 토글: auto (시스템 따라감) → light → dark → auto
+// localStorage 'theme' 가 비었거나 'auto' 면 시스템 prefers-color-scheme 따라감.
+function _sysPrefersDark() {
+  try { return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches; }
+  catch(e) { return false; }
+}
 function toggleTheme() {
-  const cur = document.body.dataset.theme === 'dark' ? 'light' : 'dark';
-  setTheme(cur);
+  const cur = localStorage.getItem('theme') || 'auto';
+  const next = cur === 'auto' ? 'light' : (cur === 'light' ? 'dark' : 'auto');
+  setTheme(next);
 }
 function setTheme(t) {
-  if (t === 'dark') {
-    document.body.dataset.theme = 'dark';
-    document.getElementById('theme-btn').textContent = '☀️';
-  } else {
-    delete document.body.dataset.theme;
-    document.getElementById('theme-btn').textContent = '🌙';
+  const effective = (t === 'auto') ? (_sysPrefersDark() ? 'dark' : 'light') : t;
+  if (effective === 'dark') document.body.dataset.theme = 'dark';
+  else delete document.body.dataset.theme;
+  // 버튼 라벨 — 사용자가 고른 모드를 보여줌 (현재 무엇이 적용 중인지 명확하게)
+  const btn = document.getElementById('theme-btn');
+  if (btn) {
+    if (t === 'auto') btn.textContent = '🌓 자동';
+    else if (t === 'dark') btn.textContent = '☀️ 라이트로';
+    else btn.textContent = '🌙 다크로';
   }
   try { localStorage.setItem('theme', t); } catch(e) {}
 }
-// Load saved theme
-try { setTheme(localStorage.getItem('theme') || 'light'); } catch(e) {}
+// Load saved theme (기본 = auto)
+try { setTheme(localStorage.getItem('theme') || 'auto'); } catch(e) {}
+// 시스템 테마 변경 감지 — auto 모드일 때만 자동 적용
+try {
+  const mq = window.matchMedia('(prefers-color-scheme: dark)');
+  const handler = () => { if ((localStorage.getItem('theme') || 'auto') === 'auto') setTheme('auto'); };
+  if (mq.addEventListener) mq.addEventListener('change', handler);
+  else if (mq.addListener) mq.addListener(handler);
+} catch(e) {}
 
 // ── Prevent mouse wheel from changing number inputs ──────────────────────────
 // User can still type or use arrow keys; scroll is preserved for page
