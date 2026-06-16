@@ -3399,7 +3399,16 @@ function BottomNav({ tab, setTab, isAdmin, isSuperAdmin, userHasLeave, user, log
   );
 }
 
-function HomeTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist, onJumpToLog }) {
+function HomeTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist, onJumpToLog, onJumpToEmp }) {
+  // 헬퍼: 특정 날짜의 fortnight period offset 계산
+  const _jumpToLogAt = (date, userId) => {
+    if (!onJumpToLog) return;
+    const BASE = new Date("2026-04-13T00:00:00");
+    const dDate = new Date(date + "T00:00:00");
+    const absIdx = Math.floor((dDate - BASE) / (14*24*60*60*1000));
+    const curIdx = Math.floor((Date.now() - BASE) / (14*24*60*60*1000));
+    onJumpToLog(date, userId, absIdx - curIdx);
+  };
   const fA = (n) => new Intl.NumberFormat("en-AU",{style:"currency",currency:"AUD",minimumFractionDigits:2}).format(n||0);
   const myLogs=isAdmin?logs:logs.filter(l=>l.userId===user.id);
   const myLv=normLeave(leaves[user.id],user.joinDate);
@@ -3464,7 +3473,12 @@ function HomeTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist, on
                 const km = (l.travel.totalKm != null) ? l.travel.totalKm : ((l.travel.outboundKm||0) + (l.travel.returnKm||0));
                 const amt = (l.travel.allowance||0) + (l.travel.hasDinner ? 25 : 0);
                 return (
-                  <div key={l.id} style={{ background:"#fff", borderRadius:10, padding:"8px 10px", display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
+                  <div key={l.id}
+                    onClick={() => _jumpToLogAt(l.date, l.userId)}
+                    title="클릭해서 근무일지에서 보기"
+                    style={{ background:"#fff", borderRadius:10, padding:"8px 10px", display:"flex", alignItems:"center", gap:8, flexWrap:"wrap", cursor:"pointer", transition:"background 0.15s" }}
+                    onMouseOver={e=>e.currentTarget.style.background='#FFF7ED'}
+                    onMouseOut={e=>e.currentTarget.style.background='#fff'}>
                     <div style={{ flex:1, minWidth:0 }}>
                       <p style={{ margin:0, fontSize:12, fontWeight:700, color:"#111" }}>
                         {nm(l.userId)} · <span style={{ color:"#666", fontWeight:500 }}>{auD(l.date)}</span>
@@ -3473,7 +3487,7 @@ function HomeTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist, on
                         {fmtLeg(l)} · <strong>{km.toFixed(1)}km</strong> · <strong style={{ color:"#10B981" }}>{fA(amt)}</strong>
                       </p>
                     </div>
-                    <button onClick={() => handleConfirm(l.id)}
+                    <button onClick={e => { e.stopPropagation(); handleConfirm(l.id); }}
                       style={{ background:"#10B981", color:"#fff", border:"none", borderRadius:7, padding:"5px 12px", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"inherit", flexShrink:0 }}>
                       ✓ 확인
                     </button>
@@ -3572,7 +3586,12 @@ function HomeTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist, on
             return (
               <div style={{ marginBottom:14 }}>
                 {warnings.map(({ u, diff, expired }) => (
-                  <div key={u.id} style={{ display:"flex",alignItems:"center",gap:12,background:expired||diff<=7?"#FEF2F2":"#FFFBEB",border:`1.5px solid ${expired||diff<=7?"#FECACA":"#FDE68A"}`,borderRadius:12,padding:"12px 14px",marginBottom:8,boxShadow:"0 1px 4px rgba(0,0,0,0.05)" }}>
+                  <div key={u.id}
+                    onClick={()=>{ if(isAdmin && onJumpToEmp) onJumpToEmp(u.id); }}
+                    title={isAdmin?"클릭해서 직원 관리에서 비자 수정":""}
+                    style={{ display:"flex",alignItems:"center",gap:12,background:expired||diff<=7?"#FEF2F2":"#FFFBEB",border:`1.5px solid ${expired||diff<=7?"#FECACA":"#FDE68A"}`,borderRadius:12,padding:"12px 14px",marginBottom:8,boxShadow:"0 1px 4px rgba(0,0,0,0.05)",cursor:isAdmin?"pointer":"default",transition:"transform 0.15s" }}
+                    onMouseOver={e=>{ if(isAdmin) e.currentTarget.style.transform='translateY(-1px)'; }}
+                    onMouseOut={e=>{ if(isAdmin) e.currentTarget.style.transform='none'; }}>
                     <div style={{ fontSize:24,flexShrink:0 }}>{expired?"🚨":diff<=7?"⚠️":"⏰"}</div>
                     <div style={{ flex:1,minWidth:0 }}>
                       {isAdmin && <p style={{ margin:"0 0 1px",fontSize:13,fontWeight:700,color:C.text }}>{u.name}</p>}
@@ -3597,7 +3616,14 @@ function HomeTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist, on
           <div style={{ background:"#fff8f0",border:"1px solid #ffd699",borderRadius:10,padding:"8px 12px",marginBottom:10 }}>
             <p style={{ margin:"0 0 6px",fontSize:11,fontWeight:700,color:"#a05c00" }}>⚠️ 미등록 ({missingStaff.length}명)</p>
             <div style={{ display:"flex",flexWrap:"wrap",gap:6 }}>
-              {missingStaff.map(u=><span key={u.id} style={{ fontSize:11,background:"#fff",border:"1px solid #ffd699",borderRadius:6,padding:"2px 8px",color:"#a05c00" }}>{u.name}</span>)}
+              {missingStaff.map(u=>(
+                <span key={u.id}
+                  onClick={()=>_jumpToLogAt(selectedDate, u.id)}
+                  title="클릭해서 이 직원 근무일지 보기/등록"
+                  style={{ fontSize:11,background:"#fff",border:"1px solid #ffd699",borderRadius:6,padding:"2px 8px",color:"#a05c00",cursor:"pointer",textDecoration:"underline" }}>
+                  {u.name}
+                </span>
+              ))}
             </div>
           </div>
         )}
@@ -4098,7 +4124,7 @@ function EditEmpForm({emp,leaveData,onSave,onClose,companies}){const[form,setFor
 
 function DataBackup({users,leaves,logs,persist}){const[expanded,setExpanded]=useState(false);const[importText,setImportText]=useState("");const[importStatus,setImportStatus]=useState("");const[copied,setCopied]=useState(false);const exportData=()=>{const data=JSON.stringify({users,leaves,logs,exportedAt:new Date().toISOString()},null,2);const ta=document.createElement("textarea");ta.value=data;document.body.appendChild(ta);ta.select();document.execCommand("copy");document.body.removeChild(ta);setCopied(true);setTimeout(()=>setCopied(false),2000);};const importData=()=>{try{const parsed=JSON.parse(importText.trim());if(!parsed.users||!parsed.leaves){setImportStatus("❌ 올바른 백업 데이터가 아닙니다.");return;}persist(parsed.users,parsed.logs||[],parsed.leaves);setImportStatus("✅ 복원 완료!");setImportText("");setTimeout(()=>setImportStatus(""),2000);}catch{setImportStatus("❌ JSON 형식이 올바르지 않습니다.");}};const fbUrl=getFbUrl();return(<div style={styles.backupBox}><div style={styles.backupHeader} onClick={()=>setExpanded(p=>!p)}><span style={styles.backupTitle}>💾 데이터 백업 / 복원</span><span style={{ fontSize:12,color:"#888" }}>{expanded?"▲":"▼"}</span></div>{expanded&&(<div style={{ paddingTop:12 }}>{fbUrl&&<div style={{ background:"#f0f9f4",border:"1.5px solid #34c98b",borderRadius:10,padding:"10px 14px",marginBottom:14 }}><p style={{ margin:0,fontSize:12,fontWeight:700,color:"#1a6644" }}>🔥 Firebase 연결됨 — 실시간 동기화 중</p><p style={{ margin:"2px 0 0",fontSize:10,color:"#888",wordBreak:"break-all" }}>{fbUrl}</p><button style={{ marginTop:8,fontSize:11,color:"#f77",background:"none",border:"1px solid #f77",borderRadius:6,padding:"3px 8px",cursor:"pointer",fontFamily:"inherit" }} onClick={()=>{try{localStorage.removeItem("wm_fb_url");}catch{}window.location.reload();}}>Firebase 재설정</button></div>}<p style={styles.backupDesc}>코드 업데이트 후 데이터 복원용 백업이에요.</p><button style={{ ...styles.btnPrimary,marginBottom:12 }} onClick={exportData}>{copied?"✅ 클립보드에 복사됨!":"📋 현재 데이터 복사 (백업)"}</button><label style={styles.label}>백업 데이터 붙여넣기 (복원)</label><textarea style={{ ...styles.input,height:80,fontSize:11,resize:"vertical",marginBottom:8 }} value={importText} onChange={e=>setImportText(e.target.value)} placeholder='{"users":[...],"leaves":{...},...} 형식으로 붙여넣으세요'/>{importStatus&&<p style={{ margin:"0 0 8px",fontSize:12,fontWeight:600 }}>{importStatus}</p>}<button style={{ ...styles.btnSecondary,width:"100%" }} onClick={importData}>복원하기</button></div>)}</div>);}
 
-function TeamTab({users,leaves,logs,persist,isSuperAdmin,companies}){const[showAdd,setShowAdd]=useState(false);const[editEmp,setEditEmp]=useState(null);const[confirmId,setConfirmId]=useState(null);const[reordering,setReordering]=useState(false);const[showResigned,setShowResigned]=useState(false);const[search,setSearch]=useState("");const emps=users.filter(u=>u.id!=="admin");const activeEmps=emps.filter(u=>!u.resignedDate);const resignedEmps=emps.filter(u=>u.resignedDate);const searchMatch=u=>!search||u.name.includes(search)||u.dept.includes(search);const adminEmps=activeEmps.filter(u=>(u.role==="superadmin"||u.role==="viewadmin")&&searchMatch(u));const staffEmps=activeEmps.filter(u=>u.role==="employee"&&searchMatch(u));const deleteEmp=(id)=>{persist(users.filter(u=>u.id!==id),null,null);setConfirmId(null);};const saveEmp=(updated,leaveData)=>{
+function TeamTab({users,leaves,logs,persist,isSuperAdmin,companies,jumpEmpName,onJumpConsumed}){const[showAdd,setShowAdd]=useState(false);const[editEmp,setEditEmp]=useState(null);const[confirmId,setConfirmId]=useState(null);const[reordering,setReordering]=useState(false);const[showResigned,setShowResigned]=useState(false);const[search,setSearch]=useState(jumpEmpName||"");React.useEffect(()=>{if(jumpEmpName){setSearch(jumpEmpName);if(onJumpConsumed)onJumpConsumed();}},[jumpEmpName]);const emps=users.filter(u=>u.id!=="admin");const activeEmps=emps.filter(u=>!u.resignedDate);const resignedEmps=emps.filter(u=>u.resignedDate);const searchMatch=u=>!search||u.name.includes(search)||u.dept.includes(search);const adminEmps=activeEmps.filter(u=>(u.role==="superadmin"||u.role==="viewadmin")&&searchMatch(u));const staffEmps=activeEmps.filter(u=>u.role==="employee"&&searchMatch(u));const deleteEmp=(id)=>{persist(users.filter(u=>u.id!==id),null,null);setConfirmId(null);};const saveEmp=(updated,leaveData)=>{
     const oldId=editEmp.id;
     const newId=updated.id;
     // 아이디 변경 시 logs, leaves도 같이 이전
@@ -4241,11 +4267,14 @@ function App() {
       <div className={isDesktop?'dt-content-area':''}>
       <Header user={currentUser} onLogout={logout} onChangePw={()=>{setPwForm({cur:"",next:"",confirm:""});setPwErr("");setShowChangePw(true);}}/>
       <div style={styles.content}>
-        {tab==="home"&&<HomeTab user={currentUser} users={users} logs={logs} leaves={leaves} isAdmin={isAdmin} isSuperAdmin={isSuperAdmin} persist={persist} onJumpToLog={(date,userId,periodOffset)=>{setJumpInfo({date,userId,periodOffset});setTab("log");}}/> }
+        {tab==="home"&&<HomeTab user={currentUser} users={users} logs={logs} leaves={leaves} isAdmin={isAdmin} isSuperAdmin={isSuperAdmin} persist={persist}
+          onJumpToLog={(date,userId,periodOffset)=>{setJumpInfo({date,userId,periodOffset});setTab("log");}}
+          onJumpToEmp={(userId)=>{const u=users.find(x=>x.id===userId);setJumpInfo({jumpEmpName:u?u.name:""});setTab("team");}}
+        /> }
         {tab==="log"&&<LogTab user={currentUser} users={users} logs={logs} leaves={leaves} isAdmin={isAdmin} isSuperAdmin={isSuperAdmin} isViewAdmin={isViewAdmin} persist={persist} jumpInfo={jumpInfo} onJumpConsumed={()=>setJumpInfo(null)}/>}
         {tab==="leave"&&<LeaveTab user={currentUser} users={users} leaves={leaves} isAdmin={isAdmin} isSuperAdmin={isSuperAdmin} isViewAdmin={isViewAdmin} persist={persist} updateLeaveUsage={updateLeaveUsage}/>}
         {isAdmin&&tab==="rate"&&<RateTab users={users} leaves={leaves} persist={persist} isSuperAdmin={isSuperAdmin}/>}
-        {isAdmin&&tab==="team"&&<TeamTab users={users} leaves={leaves} logs={logs} persist={persist} isSuperAdmin={isSuperAdmin} companies={companies}/>}
+        {isAdmin&&tab==="team"&&<TeamTab users={users} leaves={leaves} logs={logs} persist={persist} isSuperAdmin={isSuperAdmin} companies={companies} jumpEmpName={jumpInfo?jumpInfo.jumpEmpName:null} onJumpConsumed={()=>setJumpInfo(null)}/>}
         {tab==="payroll"&&<PayrollTab user={currentUser} users={users} logs={logs} leaves={leaves} isAdmin={isAdmin} isSuperAdmin={isSuperAdmin} persist={persist} companies={companies}/>}
         {isAdmin&&tab==="company"&&<CompanyTab companies={companies} persist={persist} isSuperAdmin={isSuperAdmin}/>}
         {isSuperAdmin&&tab==="mgmt"&&<MgmtTab fbUrl={getFbUrl()} fA={n=>new Intl.NumberFormat('en-AU',{style:'currency',currency:'AUD'}).format(n||0)}/>}
