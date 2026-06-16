@@ -166,6 +166,19 @@ body[data-active-tab="calendar"] .content { padding-bottom: 20px }
 .icard.age-4{background:#FFF7ED;border-left-color:#EA580C;border-left-width:5px}             /* 29-56d */
 .icard.age-5{background:#FEF2F2;border-left-color:#DC2626;border-left-width:5px}             /* 57-84d */
 .icard.age-6{background:#FEF2F2;border-left-color:#B91C1C;border-left-width:5px}             /* 85+d */
+
+/* 다크 모드 — status/age 별 하드코딩 라이트 배경을 카드 변수로 일관 통일 (컬러 보더로만 구분) */
+body[data-theme="dark"] .icard.PAID,
+body[data-theme="dark"] .icard.CREDIT,
+body[data-theme="dark"] .icard.SUSPEND,
+body[data-theme="dark"] .icard.ONGOING,
+body[data-theme="dark"] .icard.RETENTION,
+body[data-theme="dark"] .icard.FINISH,
+body[data-theme="dark"] .icard.NO_PAYMENT,
+body[data-theme="dark"] .icard.age-3,
+body[data-theme="dark"] .icard.age-4,
+body[data-theme="dark"] .icard.age-5,
+body[data-theme="dark"] .icard.age-6 { background: var(--card-bg) }
 .aging-txt{font-size:11px;font-weight:700;white-space:nowrap}
 .aging-txt.age-1{color:#92400E}
 .aging-txt.age-2{color:#78350F}
