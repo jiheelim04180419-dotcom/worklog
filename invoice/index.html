@@ -19,7 +19,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-06-12-4';
+const APP_BUILD = '2026-06-17-1';
 (function(){
   try {
     fetch(location.pathname + '?_=' + Date.now(), { cache: 'no-store' })
@@ -101,6 +101,10 @@ body{background:var(--bg);color:var(--text);min-height:100vh;transition:backgrou
 .content{max-width:600px;margin:0 auto;padding:16px 16px 90px}
 .card{background:var(--card-bg);border-radius:14px;padding:15px 16px;margin-bottom:10px;box-shadow:0 2px 8px var(--shadow);border:1px solid var(--border)}
 .input{width:100%;padding:10px 13px;border:1.5px solid var(--border);border-radius:9px;font-size:14px;font-family:inherit;outline:none;background:var(--card-bg);color:var(--text)}
+/* 라인아이템/재료계산기: 모바일에서 수량·단가 number 입력칸이 한 글자로 찌부되지 않게 최소 너비 보장
+   (qty/price 가 flex:1 이라 같은 행의 라벨에 밀려 1글자로 줄던 문제 + 모바일 16px 폰트 대응) */
+#line-items-list input[type=number],
+#materials-calc input[type=number]{min-width:84px}
 .input:focus{border-color:var(--accent)}
 .select{width:100%;padding:10px 13px;border:1.5px solid var(--border);border-radius:9px;font-size:14px;font-family:inherit;background:var(--card-bg);color:var(--text)}
 .label{display:block;font-size:10px;font-weight:700;color:var(--text-3);margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px}
@@ -4929,10 +4933,10 @@ function renderLineItems() {
           <span style="font-size:10px;font-weight:700;color:var(--text-3);min-width:18px">#${i+1}</span>
           <div style="flex:1;min-width:0">
             <input class="input" style="font-size:11px;padding:4px 7px;margin-bottom:3px" value="${esc(finalDesc)}" oninput="lineItems[${i}].desc=this.value;lineItems[${i}].placement='';updLineTotal(${i})" title="설명 (직접 편집 가능 — 다중 컴포넌트도 텍스트로 수정)" placeholder="설명 (편집 가능)"/>
-            <div style="display:flex;gap:4px;align-items:center;font-size:10px">
-              <input type="number" step="0.01" class="input" style="flex:1;font-size:11px;padding:4px 6px" value="${li.qty||''}" placeholder="qty" oninput="lineItems[${i}].qty=this.value;updLineTotal(${i})"/>
+            <div style="display:flex;gap:4px;align-items:center;font-size:10px;flex-wrap:wrap">
+              <input type="number" step="0.01" class="input" style="flex:1 1 84px;font-size:11px;padding:4px 6px" value="${li.qty||''}" placeholder="qty" oninput="lineItems[${i}].qty=this.value;updLineTotal(${i})"/>
               <span style="color:var(--text-4)">×</span>
-              <input type="number" step="0.01" class="input" style="flex:1;font-size:11px;padding:4px 6px" value="${li.unitPrice||''}" placeholder="단가" oninput="lineItems[${i}].unitPrice=this.value;updLineTotal(${i})"/>
+              <input type="number" step="0.01" class="input" style="flex:1 1 84px;font-size:11px;padding:4px 6px" value="${li.unitPrice||''}" placeholder="단가" oninput="lineItems[${i}].unitPrice=this.value;updLineTotal(${i})"/>
               <label style="display:flex;align-items:center;gap:2px;cursor:pointer;color:var(--text-3)">
                 <input type="checkbox" ${li.noTax?'checked':''} onchange="lineItems[${i}].noTax=this.checked;updLineTotal(${i});renderLineItems()" style="margin:0"/>NoTax
               </label>
