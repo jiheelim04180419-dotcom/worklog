@@ -19,7 +19,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-06-17-1';
+const APP_BUILD = '2026-06-17-2';
 (function(){
   try {
     fetch(location.pathname + '?_=' + Date.now(), { cache: 'no-store' })
@@ -4468,6 +4468,34 @@ function buildMaterialsDesc(c) {
   return parts.length ? parts.join(', ') : '';
 }
 
+// 인쇄용 Materials 요약 — breakdown 의 카테고리 이모지로 짧은 카테고리 라벨 생성.
+// 편집화면 buildMaterialsDesc 와 동일 톤(glue, grout, silicone, floor waste, angle, sand&cement).
+// 제품 코드/사이즈/색상(예: "Sedek 316 -Tile insert Black", "오리어스 L BS,MS..")을 풀어쓰지 않음.
+function materialsSummaryFromBreakdown(it) {
+  const bd = Array.isArray(it.breakdown) ? it.breakdown : Object.values(it.breakdown || {});
+  const cats = [
+    ['🧴', 'glue'], ['🟡', 'grout'], ['🔘', 'silicone'],
+    ['🕳', 'floor waste'], ['📐', 'angle'], ['🏖', 'sand&cement']
+  ];
+  const found = new Set();
+  const extras = [];
+  bd.forEach(b => {
+    const name = ((b && b.name) || '').trim();
+    if (!name) return;
+    let matched = false;
+    for (const [emo, label] of cats) { if (name.includes(emo)) { found.add(label); matched = true; break; } }
+    if (!matched) {
+      // 이모지 없는 수기/extra 항목만 정리된 이름으로 유지 (카테고리 불명)
+      const cleaned = name.replace(/^[\p{Emoji_Presentation}\p{Extended_Pictographic}️\s]+/u, '')
+                          .replace(/\s*\(m²\)\s*$/i, '').replace(/\s*\(포\)\s*$/i, '').trim();
+      if (cleaned) extras.push(cleaned);
+    }
+  });
+  const parts = cats.map(c => c[1]).filter(l => found.has(l));
+  extras.forEach(e => { if (!parts.includes(e)) parts.push(e); });
+  return parts.join(', ');
+}
+
 // ── Materials breakdown 인라인 편집 헬퍼 ─────────────────────────────────────
 // breakdown 항목 구조: {name, qty, unitPrice, amount}
 // 옛 데이터({name, amount}만 있던 경우)는 첫 편집 시 qty=1, unitPrice=amount 로 자동 보정
@@ -6421,26 +6449,9 @@ function printInvoiceBXBT(inv, co, b) {
       // For BXBT, build flat description (no grouping)
       let desc = it.desc || '';
       if (it.isMaterials) {
-        // Materials: breakdown 이름으로 desc 재생성 (이모지/단위 접미 제거).
-        // 앵글(📐) 항목은 인쇄 시 "Angle" 로 통일 (단, Flat bar 는 그대로). 중복 제거.
-        if (Array.isArray(it.breakdown) && it.breakdown.length > 0) {
-          const _seen = new Set();
-          const cleanedNames = it.breakdown
-            .map(b => {
-              const orig = (b.name||'').trim();
-              const isAngle = orig.startsWith('📐');
-              let cleaned = orig
-                .replace(/^[\p{Emoji_Presentation}\p{Extended_Pictographic}\s]+/u, '')
-                .replace(/\s*\(m²\)\s*$/i, '')
-                .replace(/\s*\(포\)\s*$/i, '')
-                .trim();
-              if (isAngle && !/flat\s*bar/i.test(cleaned)) cleaned = 'Angle';
-              return cleaned;
-            })
-            .filter(Boolean)
-            .filter(n => { const k = n.toLowerCase(); if (_seen.has(k)) return false; _seen.add(k); return true; });
-          if (cleanedNames.length > 0) desc = cleanedNames.join(', ');
-        }
+        // Materials: 제품 코드/사이즈 대신 카테고리 수준 짧은 요약으로 출력 (편집화면과 동일 톤)
+        const _matSummary = materialsSummaryFromBreakdown(it);
+        if (_matSummary) desc = _matSummary;
         desc = `Materials: ${desc}`;
       } else if (it.placement && !desc.toLowerCase().startsWith(it.placement.toLowerCase())) {
         desc = `${it.placement} ${desc}`;
@@ -6743,17 +6754,10 @@ function printInvoiceKM(inv, co, b) {
         const lineEx = qty * unitEx;
         
         let desc = it.desc || '';
-        // Materials: breakdown 이 있으면 breakdown 이름으로 desc 를 재생성 (이모지/단위 접미 제거)
-        // → 사용자가 breakdown 항목 이름을 자세히(예: "Install strip drain") 적어두면
-        //   인보이스에 그대로 반영되고, 잘리는 일 없음.
-        if (it.isMaterials && Array.isArray(it.breakdown) && it.breakdown.length > 0) {
-          const cleanedNames = it.breakdown
-            .map(b => (b.name||'').replace(/^[\p{Emoji_Presentation}\p{Extended_Pictographic}\s]+/u, '')  // 이모지 제거
-                                  .replace(/\s*\(m²\)\s*$/i, '')                                          // " (m²)" 제거
-                                  .replace(/\s*\(포\)\s*$/i, '')                                           // " (포)" 제거
-                                  .trim())
-            .filter(Boolean);
-          if (cleanedNames.length > 0) desc = cleanedNames.join(', ');
+        // Materials: 제품 코드/사이즈 대신 카테고리 수준 짧은 요약으로 출력 (편집화면과 동일 톤)
+        if (it.isMaterials) {
+          const _matSummary = materialsSummaryFromBreakdown(it);
+          if (_matSummary) desc = _matSummary;
         }
         if (!it.isMaterials && it.placement && !desc.toLowerCase().startsWith(it.placement.toLowerCase())) {
           desc = `${it.placement} ${desc}`;
