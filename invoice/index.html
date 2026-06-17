@@ -19,30 +19,37 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-06-17-11';
+const APP_BUILD = '2026-06-17-12';
+// index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
+// ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
+function _fetchLatestBuild(){
+  return fetch(location.pathname + '?_=' + Date.now(), { cache: 'no-store', headers: { 'Range': 'bytes=0-3000' } })
+    .then(function(r){ return (r.ok || r.status === 206) ? r.text() : ''; })
+    .then(function(html){ var m = html.match(/APP_BUILD\s*=\s*'([^']+)'/); return m ? m[1] : null; });
+}
+// ⚠️ iOS 홈화면 웹클립은 location.reload() 로 옛 index.html 캐시가 안 깨짐(같은 URL=캐시 재사용).
+//    → 다른 URL(?v=빌드)로 이동시키면 캐시미스가 나서 무조건 새로 fetch 됨.
+function _applyUpdate(latest){
+  try {
+    var key = '_appReloaded_' + latest;
+    if (sessionStorage.getItem(key)) return;   // 같은 버전엔 1회만(루프 방지)
+    sessionStorage.setItem(key, '1');
+  } catch(e){}
+  location.replace(location.pathname + '?v=' + encodeURIComponent(latest));
+}
 function _checkAppUpdate(){
   try {
-    fetch(location.pathname + '?_=' + Date.now(), { cache: 'no-store' })
-      .then(function(r){ return r.ok ? r.text() : ''; })
-      .then(function(html){
-        var m = html.match(/APP_BUILD\s*=\s*'([^']+)'/);
-        if (m && m[1] && m[1] !== APP_BUILD) {
-          var key = '_appReloaded_' + m[1];
-          if (!sessionStorage.getItem(key)) {   // 무한 reload 방지: 같은 버전엔 1회만
-            sessionStorage.setItem(key, '1');
-            location.reload();
-          }
-        }
-      })
-      .catch(function(){});
+    _fetchLatestBuild().then(function(latest){
+      if (latest && latest !== APP_BUILD) _applyUpdate(latest);
+    }).catch(function(){});
   } catch(e){}
 }
-_checkAppUpdate();
+_checkAppUpdate();   // 앱 시작 즉시
 // 홈화면 standalone 앱은 로드가 한 번뿐이라 옛 코드가 남기 쉬움 → 앱에 다시 돌아올 때마다 재확인.
 document.addEventListener('visibilitychange', function(){
   if (document.visibilityState === 'visible') _checkAppUpdate();
 });
-window.addEventListener('pageshow', function(e){ if (e.persisted) _checkAppUpdate(); });
+window.addEventListener('pageshow', function(e){ _checkAppUpdate(); });
 </script>
 <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 <!-- PDF 직접 생성용(브라우저 인쇄 미사용 → URL/날짜/페이지번호 안 생김). CDN 실패 시 버튼에서 안내 후 인쇄로 폴백. -->
@@ -5905,17 +5912,13 @@ function _ensureFreshThen(action) {
   let settled = false;
   const go = () => { if (!settled) { settled = true; action(); } };
   try {
-    fetch(location.pathname + '?_=' + Date.now(), { cache: 'no-store' })
-      .then(r => r.ok ? r.text() : '')
-      .then(html => {
-        const m = html.match(/APP_BUILD\s*=\s*'([^']+)'/);
-        if (m && m[1] && m[1] !== APP_BUILD) {
-          settled = true;  // 인쇄 중단하고 갱신
-          alert('🔄 새 버전이 배포됐어요 (지금 화면은 이전 버전이 캐시된 상태).\n확인을 누르면 새로고침합니다 — 그 다음 다시 인쇄/PDF 저장해 주세요.');
-          location.reload();
-        } else { go(); }
-      })
-      .catch(go);
+    _fetchLatestBuild().then(latest => {
+      if (latest && latest !== APP_BUILD) {
+        settled = true;  // 인쇄 중단하고 갱신
+        alert('🔄 새 버전이 배포됐어요 (지금 화면은 이전 버전이 캐시된 상태).\n확인을 누르면 최신 버전을 받아옵니다 — 그 다음 다시 인쇄/PDF 저장해 주세요.');
+        _applyUpdate(latest);
+      } else { go(); }
+    }).catch(go);
     setTimeout(go, 1200);
   } catch (e) { go(); }
 }
