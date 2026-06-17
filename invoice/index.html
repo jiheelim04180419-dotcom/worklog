@@ -19,7 +19,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-06-17-10';
+const APP_BUILD = '2026-06-17-11';
 function _checkAppUpdate(){
   try {
     fetch(location.pathname + '?_=' + Date.now(), { cache: 'no-store' })
@@ -290,7 +290,7 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
 .print-invoice td.pi-blank-room { border-right: 1px solid #E5E7EB; }  /* universal: applies even on non-blank rows */
 .print-invoice tbody tr.pi-blank-row td { border-bottom: 1px solid #E5E7EB; height: 22px; padding: 0; }
 .print-invoice tbody tr.pi-blank-row.shaded td { background: #FAFAFA; }
-.print-invoice td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.print-invoice td.num, .print-invoice th.num { text-align: right; font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1, "lnum" 1; }
 .print-invoice td.center { text-align: center; }
 .print-invoice .pi-totals-col { background: #FAFAFA; }
 
@@ -307,7 +307,7 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
 .print-invoice .pi-totals-row { display: block; box-sizing: border-box; padding: 6px 10px; font-weight: 600; overflow: hidden; }
 .print-invoice .pi-totals-row.shaded { background: #FAFAFA; }
 .print-invoice .pi-totals-row > span:first-child { float: left; text-align: left; white-space: nowrap; font-weight: 700; letter-spacing: 0.3px; font-size: 10.5px; }
-.print-invoice .pi-totals-row > span:last-child { float: right; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.print-invoice .pi-totals-row > span:last-child { float: right; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1, "lnum" 1; }
 .print-invoice .pi-totals-row.total { border: 2px solid #1a1a1a; padding: 9px 10px; margin-top: 8px; background: #fff; }
 .print-invoice .pi-totals-row.total > span:first-child { font-size: 13.5px; font-weight: 700; color: #1a1a1a; letter-spacing: 0.5px; }
 .print-invoice .pi-totals-row.total > span:last-child { font-size: 15px; font-weight: 700; }
@@ -5899,7 +5899,28 @@ function closePrint() {
   document.getElementById('print-modal').classList.remove('open');
   restoreDocTitle();
 }
-function doPrint() {
+// 인쇄/PDF 직전 최신 빌드 확인 — 홈화면 standalone 앱이 옛 빌드를 띄우고 있으면(캐시) 알림 후 새로고침.
+// 최신이면 즉시 action() 실행. 네트워크 지연 시 1.2초 후 그냥 진행.
+function _ensureFreshThen(action) {
+  let settled = false;
+  const go = () => { if (!settled) { settled = true; action(); } };
+  try {
+    fetch(location.pathname + '?_=' + Date.now(), { cache: 'no-store' })
+      .then(r => r.ok ? r.text() : '')
+      .then(html => {
+        const m = html.match(/APP_BUILD\s*=\s*'([^']+)'/);
+        if (m && m[1] && m[1] !== APP_BUILD) {
+          settled = true;  // 인쇄 중단하고 갱신
+          alert('🔄 새 버전이 배포됐어요 (지금 화면은 이전 버전이 캐시된 상태).\n확인을 누르면 새로고침합니다 — 그 다음 다시 인쇄/PDF 저장해 주세요.');
+          location.reload();
+        } else { go(); }
+      })
+      .catch(go);
+    setTimeout(go, 1200);
+  } catch (e) { go(); }
+}
+function doPrint() { _ensureFreshThen(_doPrintNow); }
+function _doPrintNow() {
   // 숨겨진 iframe(srcdoc)로 인쇄. 목적:
   //  (A) srcdoc 문서는 URL 이 about:srcdoc 이라, 브라우저(특히 iOS 사파리/AirPrint)가 자동으로 붙이는
   //      인쇄 머리글/바닥글의 "배포 URL(github.io)" 이 안 들어감. (이 URL/시각은 앱이 그리는 게 아니라
@@ -5972,7 +5993,8 @@ function _pdfFileName() {
 // → iOS Safari/AirPrint 가 박는 URL·날짜·페이지번호가 원천적으로 안 생김.
 // 데스크탑 인쇄(INV-1531.pdf)와 동일 레이아웃: 오프스크린 iframe 에 @media print 규칙을 평문으로
 // 주입해 A4 폭(794px=210mm)으로 렌더 → html2canvas 로 캡처 → jsPDF 로 A4 PDF.
-async function downloadInvoicePDF(btn) {
+function downloadInvoicePDF(btn) { _ensureFreshThen(function () { _downloadInvoicePDFNow(btn); }); }
+async function _downloadInvoicePDFNow(btn) {
   var H2C = window.html2canvas;
   var JS = window.jspdf && window.jspdf.jsPDF;
   if (!H2C || !JS) {
