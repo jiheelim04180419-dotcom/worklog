@@ -19,8 +19,8 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-06-17-5';
-(function(){
+const APP_BUILD = '2026-06-17-6';
+function _checkAppUpdate(){
   try {
     fetch(location.pathname + '?_=' + Date.now(), { cache: 'no-store' })
       .then(function(r){ return r.ok ? r.text() : ''; })
@@ -36,9 +36,18 @@ const APP_BUILD = '2026-06-17-5';
       })
       .catch(function(){});
   } catch(e){}
-})();
+}
+_checkAppUpdate();
+// 홈화면 standalone 앱은 로드가 한 번뿐이라 옛 코드가 남기 쉬움 → 앱에 다시 돌아올 때마다 재확인.
+document.addEventListener('visibilitychange', function(){
+  if (document.visibilityState === 'visible') _checkAppUpdate();
+});
+window.addEventListener('pageshow', function(e){ if (e.persisted) _checkAppUpdate(); });
 </script>
 <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+<!-- PDF 직접 생성용(브라우저 인쇄 미사용 → URL/날짜/페이지번호 안 생김). CDN 실패 시 버튼에서 안내 후 인쇄로 폴백. -->
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
 :root {
@@ -1245,6 +1254,7 @@ body.invoice-readonly::before {
   <div class="no-print" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;border-bottom:1px solid #E5E7EB;padding-bottom:12px">
     <h3 style="font-size:16px;font-weight:800">📄 인쇄용 인보이스</h3>
     <div style="display:flex;gap:8px">
+      <button class="btn-primary" style="background:#4F46E5" onclick="downloadInvoicePDF(this)" title="URL·날짜·페이지번호 없는 깨끗한 PDF 파일로 저장 (모바일은 공유시트로 저장/첨부)">📄 PDF 저장</button>
       <button class="btn-primary" style="background:#10B981" onclick="doPrint()">🖨️ 인쇄</button>
       <button onclick="closePrint()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#9CA3AF">×</button>
     </div>
@@ -5922,6 +5932,115 @@ function doPrint() {
     }, 400);
   };
   document.body.appendChild(f);
+}
+
+// 문서 스타일시트의 @media print 블록을 평문 규칙으로 추출 → 오프스크린 렌더에서도 인쇄 레이아웃 적용.
+function _collectPrintCSS() {
+  var out = '';
+  var sheets = Array.prototype.slice.call(document.styleSheets || []);
+  for (var i = 0; i < sheets.length; i++) {
+    var rules;
+    try { rules = sheets[i].cssRules; } catch (e) { continue; }   // cross-origin 시트는 스킵
+    if (!rules) continue;
+    for (var j = 0; j < rules.length; j++) {
+      var rule = rules[j];
+      if (rule.type === 4 && /print/i.test((rule.media && rule.media.mediaText) || '')) {  // CSSMediaRule
+        for (var k = 0; k < rule.cssRules.length; k++) out += rule.cssRules[k].cssText + '\n';
+      }
+    }
+  }
+  return out;
+}
+
+function _pdfFileName() {
+  var t = (document.title || 'invoice').replace(/[\\/:*?"<>|]+/g, '').trim();
+  if (!t) t = 'invoice';
+  return /\.pdf$/i.test(t) ? t : (t + '.pdf');
+}
+
+// 📄 브라우저 인쇄(window.print)를 거치지 않고 PDF 파일을 직접 생성·다운로드.
+// → iOS Safari/AirPrint 가 박는 URL·날짜·페이지번호가 원천적으로 안 생김.
+// 데스크탑 인쇄(INV-1531.pdf)와 동일 레이아웃: 오프스크린 iframe 에 @media print 규칙을 평문으로
+// 주입해 A4 폭(794px=210mm)으로 렌더 → html2canvas 로 캡처 → jsPDF 로 A4 PDF.
+async function downloadInvoicePDF(btn) {
+  var H2C = window.html2canvas;
+  var JS = window.jspdf && window.jspdf.jsPDF;
+  if (!H2C || !JS) {
+    alert('PDF 라이브러리를 불러오지 못했어요 (인터넷 연결 확인).\n대신 "🖨️ 인쇄" 로 저장해 주세요.');
+    return;
+  }
+  var srcArea = document.getElementById('print-area');
+  if (!srcArea || !srcArea.innerHTML.trim()) { alert('인쇄할 내용이 없어요'); return; }
+
+  var label = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ 생성 중…'; }
+
+  var styles = Array.prototype.map.call(document.querySelectorAll('style'), function (s) { return s.textContent; }).join('\n');
+  var printCSS = _collectPrintCSS();
+  var iframe = document.createElement('iframe');
+  iframe.style.cssText = 'position:fixed;left:-10000px;top:0;width:794px;height:1200px;border:0;background:#fff';
+  document.body.appendChild(iframe);
+
+  function cleanup() {
+    try { iframe.remove(); } catch (e) {}
+    if (btn) { btn.disabled = false; btn.textContent = label; }
+  }
+
+  try {
+    var docHtml =
+      '<!doctype html><html lang="ko"><head><meta charset="utf-8">' +
+      '<meta name="viewport" content="width=794">' +
+      '<style>' + styles + '</style>' +
+      '<style>' + printCSS + '</style>' +   // @media print 를 평문으로 → 화면에서도 인쇄 레이아웃
+      '<style>html,body{margin:0!important;padding:0!important;background:#fff!important}' +
+      '#print-modal{display:block!important;position:static!important;background:#fff!important;width:210mm!important;max-width:210mm!important}' +
+      '#print-modal .mbox{max-width:none!important;width:210mm!important;box-shadow:none!important;border-radius:0!important;padding:0!important;margin:0!important}' +
+      '.no-print{display:none!important}</style>' +
+      '</head><body><div id="print-modal"><div class="mbox"><div id="print-area">' +
+      srcArea.innerHTML +
+      '</div></div></div></body></html>';
+
+    var idoc = iframe.contentDocument || iframe.contentWindow.document;
+    idoc.open(); idoc.write(docHtml); idoc.close();
+
+    // 렌더 + 폰트/이미지(로고) 로딩 대기
+    await new Promise(function (res) {
+      var done = false, fin = function () { if (!done) { done = true; res(); } };
+      if (idoc.readyState === 'complete') setTimeout(fin, 350);
+      iframe.onload = function () { setTimeout(fin, 350); };
+      setTimeout(fin, 1500);  // 안전망
+    });
+    var imgs = Array.prototype.slice.call(idoc.images || []);
+    await Promise.all(imgs.map(function (im) {
+      if (im.complete) return Promise.resolve();
+      return new Promise(function (r) { im.onload = im.onerror = r; });
+    }));
+
+    var target = idoc.querySelector('.print-invoice, .bxbt-invoice') || idoc.body;
+    var canvas = await H2C(target, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false, windowWidth: 794 });
+
+    var pdf = new JS({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    var pageW = 210, pageH = 297;
+    var imgW = pageW;
+    var imgH = canvas.height * (imgW / canvas.width);
+    var img = canvas.toDataURL('image/jpeg', 0.95);
+    if (imgH <= pageH + 1) {
+      pdf.addImage(img, 'JPEG', 0, 0, imgW, imgH);
+    } else {
+      var pos = 0, remaining = imgH;
+      while (remaining > 0) {
+        pdf.addImage(img, 'JPEG', 0, pos, imgW, imgH);
+        remaining -= pageH;
+        if (remaining > 0) { pdf.addPage(); pos -= pageH; }
+      }
+    }
+    pdf.save(_pdfFileName());
+  } catch (e) {
+    console.error('PDF 생성 실패', e);
+    alert('PDF 생성 중 문제가 생겼어요. "🖨️ 인쇄" 로 저장해 주세요.\n(' + ((e && e.message) || e) + ')');
+  } finally {
+    cleanup();
+  }
 }
 
 // Helper: extract "PO Number 11392/3535" from note or use inv.poNumber
