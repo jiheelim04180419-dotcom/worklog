@@ -19,7 +19,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-06-17-6';
+const APP_BUILD = '2026-06-17-7';
 function _checkAppUpdate(){
   try {
     fetch(location.pathname + '?_=' + Date.now(), { cache: 'no-store' })
@@ -6033,6 +6033,15 @@ async function downloadInvoicePDF(btn) {
         remaining -= pageH;
         if (remaining > 0) { pdf.addPage(); pos -= pageH; }
       }
+    }
+    // 페이지 번호만 추가 (URL·날짜·생성시각은 없이). 각 페이지 우하단, 작고 회색 톤.
+    var totalPages = pdf.getNumberOfPages();
+    for (var pn = 1; pn <= totalPages; pn++) {
+      pdf.setPage(pn);
+      try { pdf.setFont('helvetica', 'normal'); } catch (e) {}
+      pdf.setFontSize(8);
+      pdf.setTextColor(150, 150, 150);
+      pdf.text('Page ' + pn + ' of ' + totalPages, pageW - 12, pageH - 6, { align: 'right' });
     }
     pdf.save(_pdfFileName());
   } catch (e) {
