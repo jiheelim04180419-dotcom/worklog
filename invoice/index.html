@@ -19,7 +19,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-06-17-12';
+const APP_BUILD = '2026-06-17-13';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -57,6 +57,9 @@ window.addEventListener('pageshow', function(e){ _checkAppUpdate(); });
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+/* iOS 텍스트 자동확대(text inflation) 비활성화 — 인쇄(특히 iOS 상단 페이지 인쇄)에서 푸터 등
+   문단 텍스트만 부풀어 폰트가 커지고 정렬이 흔들리던 문제 방지. 폰트는 지정한 px 그대로 렌더. */
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 :root {
   --bg: #F0F4FF;
   --bg-grad: linear-gradient(180deg, #F0F4FF 0%, #E0E7FF 100%);
