@@ -19,7 +19,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-06-17-13';
+const APP_BUILD = '2026-06-17-14';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -318,7 +318,9 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
 .print-invoice .pi-totals-row.shaded { background: #FAFAFA; }
 .print-invoice .pi-totals-row > span:first-child { float: left; text-align: left; white-space: nowrap; font-weight: 700; letter-spacing: 0.3px; font-size: 10.5px; }
 .print-invoice .pi-totals-row > span:last-child { float: right; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1, "lnum" 1; }
-.print-invoice .pi-totals-row.total { border: 2px solid #1a1a1a; padding: 9px 10px; margin-top: 8px; background: #fff; }
+/* TOTAL 행은 2px 테두리(box-sizing:border-box)가 내부 폭을 깎아 값/라벨이 다른 행보다 2px 안쪽으로
+   들어감 → 좌우 패딩을 테두리만큼(10→8) 줄여 우측 정렬선을 다른 4줄과 일치시킴. */
+.print-invoice .pi-totals-row.total { border: 2px solid #1a1a1a; padding: 9px 8px; margin-top: 8px; background: #fff; }
 .print-invoice .pi-totals-row.total > span:first-child { font-size: 13.5px; font-weight: 700; color: #1a1a1a; letter-spacing: 0.5px; }
 .print-invoice .pi-totals-row.total > span:last-child { font-size: 15px; font-weight: 700; }
 .print-invoice .pi-totals-row.total .dollar { margin-right: 6px; }
@@ -583,6 +585,7 @@ body.invoice-readonly::before {
     overflow: hidden !important;
   }
   .print-invoice .pi-totals-row { padding: 5px 8px !important; }
+  .print-invoice .pi-totals-row.total { padding: 5px 6px !important; }   /* 테두리 2px + 패딩 6 = 비테두리 행 패딩 8 과 동일 우측선 */
   .print-invoice .pi-totals-row.total > span:first-child { font-size: 12px !important; }
   .print-invoice .pi-totals-row.total > span:last-child { font-size: 13px !important; }
   
