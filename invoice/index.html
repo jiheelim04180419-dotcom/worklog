@@ -19,7 +19,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-06-18-01';
+const APP_BUILD = '2026-06-18-02';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -316,7 +316,11 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
 .print-invoice td.pi-blank-room { border-right: 1px solid #E5E7EB; }  /* universal: applies even on non-blank rows */
 .print-invoice tbody tr.pi-blank-row td { border-bottom: 1px solid #E5E7EB; height: 22px; padding: 0; }
 .print-invoice tbody tr.pi-blank-row.shaded td { background: #FAFAFA; }
-.print-invoice td.num, .print-invoice th.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1, "lnum" 1; }
+/* 숫자 셀 — html2canvas 가 OpenType `tnum` 을 적용 안 해 비례폰트(Helvetica)에선 자릿수 따라
+   폭이 들쭉날쭉 → 우측 정렬해도 콤마/소수점이 어긋남. 모노스페이스 폰트군을 우선 지정해 글리프
+   폭을 강제로 고정 (브라우저 인쇄/캔버스 PDF 모두 동일하게 정렬). */
+.print-invoice td.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1, "lnum" 1; font-family: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace; font-size: 10.5px; letter-spacing: 0.2px; }
+.print-invoice th.num { text-align: right; white-space: nowrap; }
 .print-invoice td.center { text-align: center; }
 .print-invoice .pi-totals-col { background: #FAFAFA; }
 
@@ -333,7 +337,7 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
 .print-invoice .pi-totals-row { display: block; box-sizing: border-box; padding: 6px 10px; font-weight: 600; overflow: hidden; }
 .print-invoice .pi-totals-row.shaded { background: #FAFAFA; }
 .print-invoice .pi-totals-row > span:first-child { float: left; text-align: left; white-space: nowrap; font-weight: 700; letter-spacing: 0.3px; font-size: 10.5px; }
-.print-invoice .pi-totals-row > span:last-child { float: right; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1, "lnum" 1; }
+.print-invoice .pi-totals-row > span:last-child { float: right; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1, "lnum" 1; font-family: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace; letter-spacing: 0.2px; }
 /* TOTAL 행은 2px 테두리(box-sizing:border-box)가 내부 폭을 깎아 값/라벨이 다른 행보다 2px 안쪽으로
    들어감 → 좌우 패딩을 테두리만큼(10→8) 줄여 우측 정렬선을 다른 4줄과 일치시킴. */
 .print-invoice .pi-totals-row.total { border: 2px solid #1a1a1a; padding: 9px 8px; margin-top: 8px; background: #fff; }
@@ -368,7 +372,7 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
 .bxbt-table th.num { text-align: right; }
 .bxbt-table td { padding: 6px 10px; border-bottom: 1px solid #D1D5DB; word-break: break-word; overflow-wrap: anywhere; white-space: normal; }
 .bxbt-table td.center { text-align: center; }
-.bxbt-table td.num { text-align: right; }
+.bxbt-table td.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1, "lnum" 1; font-family: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace; letter-spacing: 0.2px; }
 .bxbt-table tr.bxbt-po-row td { padding-top: 8px; padding-bottom: 6px; border-bottom: 1px solid #D1D5DB; }
 .bxbt-table tr.bxbt-blank-shaded td { background: #F3F4F6; height: 18px; padding: 0; border-bottom: 1px solid #E5E7EB; }
 .bxbt-table tr.bxbt-blank td { background: #fff; height: 18px; padding: 0; border-bottom: 1px solid #E5E7EB; }
@@ -379,7 +383,7 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
 .bxbt-totals { width: 260px; font-size: 11px; }
 .bxbt-totals-row { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #E5E7EB; }
 .bxbt-totals-row span:first-child { font-weight: 700; color: #1E3A8A; font-size: 10px; letter-spacing: 0.3px; }
-.bxbt-totals-row span:last-child { font-size: 11px; }
+.bxbt-totals-row span:last-child { font-size: 11px; font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1, "lnum" 1; font-family: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace; letter-spacing: 0.2px; }
 .bxbt-totals-row.bxbt-balance { border-top: 2px solid #000; border-bottom: none; padding-top: 8px; margin-top: 6px; }
 .bxbt-totals-row.bxbt-balance span:first-child { font-size: 13px; color: #000; font-weight: 700; letter-spacing: 0; }
 .bxbt-totals-row.bxbt-balance span:last-child { font-size: 16px; font-weight: 700; }
