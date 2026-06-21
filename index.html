@@ -2181,21 +2181,19 @@ function DeductTab({ users, leaves, wpStart, wpEnd, persist, removeSavedDeductio
   const removeRow = (id) => setNewRows(r => r.filter(x => x.id!==id));
 
   const saveAll = () => {
-    const valid = newRows.filter(r => r.userId && r.date && r.desc && r.amount);
-    if (valid.length === 0) return alert("입력된 항목이 없어요");
-    // leaves를 직접 사용해서 한 번에 저장
+    // 직원/날짜/항목명만 필수, 금액은 미입력이면 0 으로 저장 (영수증 추적용 등)
+    const valid = newRows.filter(r => r.userId && r.date && r.desc);
+    if (valid.length === 0) return alert("입력된 항목이 없어요 (직원·날짜·항목명 필수)");
     const newLeaves = {};
-    // 기존 leaves 복사
     Object.keys(leaves).forEach(k => { newLeaves[k] = {...leaves[k]}; });
-    // 각 항목 추가
     valid.forEach(r => {
       const lv = newLeaves[r.userId] || {};
-      const prev = lv.savedDeductions || [];
+      const prev = Array.isArray(lv.savedDeductions) ? lv.savedDeductions : Object.values(lv.savedDeductions||{});
       newLeaves[r.userId] = {...lv, savedDeductions: [...prev, {
         id: Date.now() + Math.random(),
         date: r.date,
         desc: r.desc,
-        amount: parseFloat(r.amount)
+        amount: r.amount === "" || r.amount == null ? 0 : (parseFloat(r.amount) || 0)
       }]};
     });
     persist(null, null, newLeaves);
