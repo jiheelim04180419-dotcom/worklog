@@ -1575,7 +1575,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
             <div style={{ background:"#EFF6FF",border:"1px solid #BFDBFE",borderRadius:10,padding:"10px 12px",marginTop:14 }}>
               <p style={{ margin:0,fontSize:12,color:"#1D4ED8" }}>💡 일당은 <strong>일급 탭</strong>에서 변경하세요</p>
             </div>
-            <FYGrossSummary userId={selId} lv={leaves[selId]||{}} logs={logs} getDailyRate={getDailyRate} fA={fA}/>
+            <FYGrossSummary userId={selId} lv={leaves[selId]||{}} logs={logs} users={users} isAdmin={isAdmin} getDailyRate={getDailyRate} fA={fA}/>
             {getKeepBalance(selId) !== 0 && (
               <div style={{ background:getKeepBalance(selId)>0?"#F0FDF4":"#FEF2F2",border:`1px solid ${getKeepBalance(selId)>0?"#BBF7D0":"#FECACA"}`,borderRadius:10,padding:"10px 12px",marginTop:10 }}>
                 <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center" }}>
@@ -3052,7 +3052,7 @@ function SummarySection({users, leaves, periodStart, calcWage, getSavedDeduction
 //     fixedPayHistory 가 있으면 그 정기 시점 값 사용.
 //  2) 컨트랙터 (noLeave + !hasFlatPay + fixedPay 0) → 로그 기반 직접 계산
 //     일당 × 풀타임일 + OT/Part 시급 + Travel.
-function FYGrossSummary({ userId, lv, logs, getDailyRate, fA }) {
+function FYGrossSummary({ userId, lv, logs, users, isAdmin, getDailyRate, fA }) {
   const userLogs = (logs || []).filter(l => l && l.userId === userId && l.date);
   if (userLogs.length === 0) return null;
 
@@ -3131,12 +3131,57 @@ function FYGrossSummary({ userId, lv, logs, getDailyRate, fA }) {
   if (fys.length === 0) return null;
   const todayFy = fyKeyFor(today);
 
+  // 🚨 Tax 부족 알림 (admin 전용, fixedPay 직원만)
+  // 현재 정기 (Net + Tax) × 26 = 연간 환산 그로스 → ATO 세금표 기준 필요 세금 계산
+  // 현재 원천징수(fixedTax × 26) 보다 필요 세금이 크면 underwithholding → 알림.
+  let taxAlert = null;
+  if (useFixedPay && isAdmin && lv) {
+    const lvNet = parseFloat(lv.fixedNet) || 0;
+    const lvTax = parseFloat(lv.fixedTax) || 0;
+    const annualGross = (lvNet + lvTax) * 26;
+    if (annualGross > 18200) {
+      const empUser = (users || []).find(u => u.id === userId);
+      const visaType = empUser && empUser.visa ? empUser.visa.type : null;
+      const isWHV = visaType && (visaType.toUpperCase().includes('WHV') || visaType==='417' || visaType==='462' || visaType.toUpperCase().includes('WH1') || visaType.toUpperCase().includes('WH2') || visaType.toUpperCase().includes('WH3'));
+      const reqAnnualTax = isWHV ? calcAnnualTaxWHV(annualGross) : calcAnnualTaxResident(annualGross);
+      const actualAnnualTax = lvTax * 26;
+      const shortfall = reqAnnualTax - actualAnnualTax;
+      // $200 이상 부족하면 알림 (작은 차이는 노이즈)
+      if (shortfall > 200) {
+        const idealFortnightlyTax = reqAnnualTax / 26;
+        const newNet = (lvNet + lvTax) - idealFortnightlyTax;  // Tax 올리면서 Total 정기 유지 시 Net
+        const crossedBracket = annualGross > 45000;
+        taxAlert = { annualGross, reqAnnualTax, actualAnnualTax, shortfall, idealFortnightlyTax, currentFortnightlyTax: lvTax, currentFortnightlyNet: lvNet, newNet, isWHV, crossedBracket };
+      }
+    }
+  }
+
   return (
     <div style={{ marginTop:14, background:"#FEF3C7", border:"1px solid #FDE68A", borderRadius:10, padding:"12px 14px" }}>
       <p style={{ margin:"0 0 6px", fontSize:12, fontWeight:700, color:"#92400E" }}>📊 회계연도별 Gross Income</p>
       <p style={{ margin:"0 0 10px", fontSize:10, color:"#92400E", lineHeight:1.4 }}>
         호주 FY (7/1 ~ 다음해 6/30) {useFixedPay ? '· 정기 Net + Tax 합산 (Super 제외)' : '· 근무일지에서 직접 계산'}
       </p>
+
+      {taxAlert && (
+        <div style={{ background:"#FEE2E2", border:"1.5px solid #FCA5A5", borderRadius:8, padding:"10px 12px", marginBottom:10 }}>
+          <p style={{ margin:0, fontSize:12, fontWeight:800, color:"#991B1B" }}>
+            🚨 Tax 조정 필요 {taxAlert.crossedBracket && <span style={{ fontSize:10, background:"#DC2626", color:"#fff", padding:"1px 6px", borderRadius:4, marginLeft:4 }}>$45k 초과 구간</span>}
+          </p>
+          <p style={{ margin:"6px 0 0", fontSize:11, color:"#7F1D1D", lineHeight:1.6 }}>
+            정기 <strong>{fA(taxAlert.currentFortnightlyNet + taxAlert.currentFortnightlyTax)}</strong> (Net {fA(taxAlert.currentFortnightlyNet)} + Tax {fA(taxAlert.currentFortnightlyTax)})
+            × 26회 = 연간 환산 <strong>{fA(taxAlert.annualGross)}</strong>
+            <br/>
+            ATO {taxAlert.isWHV ? 'WHV' : '거주자'} 세율 기준 연간 세금: <strong>{fA(taxAlert.reqAnnualTax)}</strong> · 현재 원천징수: <strong>{fA(taxAlert.actualAnnualTax)}</strong>
+            <br/>
+            💸 부족분: <strong style={{ color:"#DC2626", fontSize:13 }}>{fA(taxAlert.shortfall)}</strong>
+            <br/>
+            → 정기 Tax 를 <strong style={{ color:"#DC2626" }}>{fA(taxAlert.idealFortnightlyTax)}</strong> 로 올리기 권장
+            (Net 동일 유지 시 정기 총액 증가, 또는 Net 을 <strong>{fA(taxAlert.newNet)}</strong> 로 낮추고 Tax 인상)
+          </p>
+        </div>
+      )}
+
       {fys.map(fy => {
         const d = byFY[fy];
         const isCurrent = fy === todayFy;
