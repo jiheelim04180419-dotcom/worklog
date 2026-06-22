@@ -2957,9 +2957,9 @@ function SummarySection({users, leaves, periodStart, calcWage, getSavedDeduction
         const splitPay0 = !!(ci0.splitPay);
         const gstReg0 = !!(ci0.gstRegistered);
         const sd2pre = getSavedDeductions(emp.id).reduce((s,d)=>s+(parseFloat(d.amount)||0),0);
-        const netPay   = w ? (w.isContractor && !w.hasFlatPay ? Math.max(0, (parseFloat(w.gross)||0) - sd2pre) : (parseFloat(lv.fixedNet)||0)) : 0;
-        const taxAmt   = w ? (w.isContractor && !w.hasFlatPay ? 0 : (parseFloat(lv.fixedTax)||0)) : 0;
-        const superAmt = w ? (w.isContractor && !w.hasFlatPay ? 0 : (parseFloat(lv.fixedSuper)||0)) : 0;
+        const netPay   = w ? (w.isContractor && !w.hasFlatPay ? Math.max(0, (parseFloat(w.gross)||0) - sd2pre) : (parseFloat(w.fixedNet)||0)) : 0;
+        const taxAmt   = w ? (w.isContractor && !w.hasFlatPay ? 0 : (parseFloat(w.fixedTax)||0)) : 0;
+        const superAmt = w ? (w.isContractor && !w.hasFlatPay ? 0 : (parseFloat(w.fixedSuper)||0)) : 0;
         const splitCash = (splitPay0 && w) ? (w.stats.fullDays * w.dailyRate / 2) : 0;
         const splitAbnBase = (splitPay0 && w) ? (w.stats.fullDays*w.dailyRate/2 + (w.stats.partHours||0)*w.partHourlyRate + (w.stats.otHours||0)*w.otHourlyRate + (w.travel||0)) : 0;
         const splitGst  = (splitPay0 && gstReg0) ? splitAbnBase * 0.1 : 0;
@@ -3010,9 +3010,9 @@ function SummarySection({users, leaves, periodStart, calcWage, getSavedDeduction
       {/* 합계 행 */}
       {activeEmps.length > 0 && (() => {
         const settledEmps = activeEmps;
-        const totNet   = settledEmps.reduce((s,u)=>{const w2=calcWage(u.id);const lv2=leaves[u.id]||{};return s+(w2&&w2.isContractor&&!w2.hasFlatPay?(parseFloat(w2.gross)||0):(parseFloat(lv2.fixedNet)||0));},0);
-        const totTax   = settledEmps.reduce((s,u)=>{const w2=calcWage(u.id);const lv2=leaves[u.id]||{};return s+(w2&&w2.isContractor&&!w2.hasFlatPay?0:(parseFloat(lv2.fixedTax)||0));},0);
-        const totSuper = settledEmps.reduce((s,u)=>s+(parseFloat((leaves[u.id]||{}).fixedSuper)||0),0);
+        const totNet   = settledEmps.reduce((s,u)=>{const w2=calcWage(u.id);return s+(w2&&w2.isContractor&&!w2.hasFlatPay?(parseFloat(w2.gross)||0):(parseFloat(w2?.fixedNet)||0));},0);
+        const totTax   = settledEmps.reduce((s,u)=>{const w2=calcWage(u.id);return s+(w2&&w2.isContractor&&!w2.hasFlatPay?0:(parseFloat(w2?.fixedTax)||0));},0);
+        const totSuper = settledEmps.reduce((s,u)=>{const w2=calcWage(u.id);return s+(parseFloat(w2?.fixedSuper)||0);},0);
         const totKeep  = settledEmps.reduce((s,u,ei) => {
           const lv = leaves[u.id]||{};
           const keep = getKeepBalanceAtPeriod(u.id, periodStart) + getPeriodDeposits(u.id, periodStart);
@@ -3311,10 +3311,17 @@ function FixedPayHistoryEditor({ lv, selId, persist, leaves, isSuperAdmin }) {
 
   const save = () => {
     if (!newFrom) return;
-    const entry = { from: newFrom, net: parseFloat(newNet)||0, tax: parseFloat(newTax)||0, sup: parseFloat(newSup)||0 };
-    const newHist = [...hist.filter(h=>h.from!==newFrom), entry].sort((a,b)=>a.from.localeCompare(b.from));
-    const latest = newHist[newHist.length-1];
     const lv2 = leaves[selId]||{};
+    // 히스토리가 비어있는데 기존 고정값이 있으면, 옛 값을 초기 베이스라인('2000-01-01')으로 먼저 보존.
+    // (안 하면 새 적용일 이전 기간이 fallback 로 새 값을 가져가 과거 정산이 틀어짐)
+    let base = hist;
+    if (hist.length === 0) {
+      const oNet=parseFloat(lv2.fixedNet)||0, oTax=parseFloat(lv2.fixedTax)||0, oSup=parseFloat(lv2.fixedSuper)||0;
+      if ((oNet||oTax||oSup) && newFrom > "2000-01-01") base = [{ from:"2000-01-01", net:oNet, tax:oTax, sup:oSup }];
+    }
+    const entry = { from: newFrom, net: parseFloat(newNet)||0, tax: parseFloat(newTax)||0, sup: parseFloat(newSup)||0 };
+    const newHist = [...base.filter(h=>h.from!==newFrom), entry].sort((a,b)=>a.from.localeCompare(b.from));
+    const latest = newHist[newHist.length-1];
     persist(null,null,{...leaves,[selId]:{...lv2,fixedPayHistory:newHist,fixedNet:latest.net,fixedTax:latest.tax,fixedSuper:latest.sup}});
     setNewNet(""); setNewTax(""); setNewSup("");
   };
