@@ -1377,6 +1377,10 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                         <span style={{ fontSize:16,fontWeight:800,color:wage.keepBalance>0?"#10B981":"#EF4444" }}>{fA(wage.keepBalance)}</span>
                       </div>
                     )}
+                    {isSuperAdmin && wage.keepBalance > 0 && (
+                      <KeepCashWithdraw selId={selId} leaves={leaves} persist={persist}
+                        balance={wage.keepBalance} fA={fA} isAdmin={isAdmin} />
+                    )}
                     {/* 내역 */}
                     <div style={{ background:"#F9FAFB",borderRadius:10,padding:"10px 12px",marginBottom:10,fontSize:12 }}>
                       {wage.hasFlatPay ? (<>
@@ -3234,7 +3238,6 @@ function computeTaxShortfall(user, lv, logs) {
 //   (target/daily + 31) / (52 × 0.88)
 // 페이슬립 시급 = Gross / (52 × 38) — 호주 표준 주 38시간 기준.
 function TSSMinCalculator({ userId, lv, users, getDailyRate, fA }) {
-  const TSS_MIN = 76515;            // 2024-25 TSS 비자 최저 연봉
   const LEAVE_PUB_DAYS = 31;        // 연차 20일 + 공휴일 11일 가정
   const WEEKS = 52;
   const SUPER_PCT = 0.12;
@@ -3247,15 +3250,21 @@ function TSSMinCalculator({ userId, lv, users, getDailyRate, fA }) {
   const hasHist = !!(lv && Array.isArray(lv.fixedPayHistory) && lv.fixedPayHistory.length > 0);
   const fixedSum = ((parseFloat((lv||{}).fixedNet)||0) + (parseFloat((lv||{}).fixedTax)||0));
   const useFixedPay = (!isContractor || (lv && lv.hasFlatPay) || hasHist) && (fixedSum > 0 || hasHist);
-  if (isWHV || !useFixedPay) return null;
 
+  // ⚠️ hook 은 early-return 보다 위에 (직원 전환 시 hook 순서 보장)
   const currentDaily = getDailyRate(userId, today) || 0;
   const [dailyStr, setDailyStr] = React.useState(String(currentDaily || ''));
   React.useEffect(() => { setDailyStr(String(currentDaily || '')); }, [currentDaily]);
+  // 최저 연봉은 정책에 따라 바뀔 수 있어 관리자가 직접 수정 (기기에 저장)
+  const [tssMinStr, setTssMinStr] = React.useState(() => localStorage.getItem('tss_min_salary') || "76515");
 
+  if (isWHV || !useFixedPay) return null;
+
+  const TSS_MIN = parseFloat(tssMinStr) || 0;
+  const onTssMin = (val) => { setTssMinStr(val); const v = parseFloat(val); if (!isNaN(v) && v > 0) localStorage.setItem('tss_min_salary', String(v)); };
   const d = parseFloat(dailyStr) || 0;
   let r = null;
-  if (d > 0) {
+  if (d > 0 && TSS_MIN > 0) {
     const denom = WEEKS * (1 - SUPER_PCT);            // 45.76
     let dpw = (TSS_MIN / d + LEAVE_PUB_DAYS) / denom;
     dpw = Math.ceil(dpw * 100) / 100;                 // 0.01일 단위 올림
@@ -3290,6 +3299,13 @@ function TSSMinCalculator({ userId, lv, users, getDailyRate, fA }) {
           style={{ width:90, fontSize:13, fontWeight:700, padding:"5px 8px", border:"1.5px solid #BAE6FD", borderRadius:6, fontFamily:"inherit", outline:"none" }}/>
         <span style={{ fontSize:10, color:"#0369A1" }}>현재 일당: ${currentDaily}</span>
       </div>
+      <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10, flexWrap:"wrap" }}>
+        <label style={{ fontSize:11, fontWeight:600, color:"#075985" }}>최저 연봉:</label>
+        <span style={{ fontSize:13, color:"#0369A1", fontWeight:700 }}>$</span>
+        <input type="number" value={tssMinStr} onChange={e => onTssMin(e.target.value)}
+          style={{ width:110, fontSize:13, fontWeight:700, padding:"5px 8px", border:"1.5px solid #BAE6FD", borderRadius:6, fontFamily:"inherit", outline:"none" }}/>
+        <span style={{ fontSize:10, color:"#0369A1" }}>정책 바뀌면 직접 수정</span>
+      </div>
       {r && (
         <div style={{ background:"#fff", borderRadius:8, padding:"10px 12px", fontSize:12 }}>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:8 }}>
@@ -3303,28 +3319,6 @@ function TSSMinCalculator({ userId, lv, users, getDailyRate, fA }) {
               <p style={{ margin:0, fontSize:16, fontWeight:800, color:"#0369A1" }}>${r.payslipHourlyRounded.toFixed(2)}<span style={{ fontSize:10, fontWeight:400 }}>/hr</span></p>
               <p style={{ margin:"2px 0 0", fontSize:10, color:"#0369A1", fontWeight:700 }}>= 연 그로스 {fA(r.payslipAnnualGross)}</p>
               <p style={{ margin:"1px 0 0", fontSize:9, color:"#888" }}>시급 × 1976h (52주×38h)</p>
-            </div>
-          </div>
-          <div style={{ borderTop:"1px solid #E0F2FE", paddingTop:6 }}>
-            <div style={{ display:"flex", justifyContent:"space-between", marginBottom:2, fontSize:11 }}>
-              <span style={{ color:"#555" }}>연 일당총액 ({r.totalDays.toFixed(1)}일 × ${d})</span>
-              <span>{fA(r.totalAtDaily)}</span>
-            </div>
-            <div style={{ display:"flex", justifyContent:"space-between", marginBottom:2, fontSize:11 }}>
-              <span style={{ color:"#888" }}>− Super (12%)</span>
-              <span style={{ color:"#888" }}>−{fA(r.annualSuper)}</span>
-            </div>
-            <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4, fontSize:11 }}>
-              <span style={{ color:"#888" }}>− 연차/공휴일 {LEAVE_PUB_DAYS}일</span>
-              <span style={{ color:"#888" }}>−{fA(r.annualLeave)}</span>
-            </div>
-            <div style={{ display:"flex", justifyContent:"space-between", borderTop:"1px solid #BAE6FD", paddingTop:5, marginTop:2 }}>
-              <span style={{ fontWeight:700, color:"#075985" }}>예상 연 그로스</span>
-              <span style={{ fontWeight:800, color:"#075985", fontSize:14 }}>{fA(r.annualGross)}</span>
-            </div>
-            <div style={{ display:"flex", justifyContent:"space-between", marginTop:3, fontSize:10, color:"#888" }}>
-              <span>정기 환산 (÷ 26)</span>
-              <span>{fA(r.fortnightlyGross)}</span>
             </div>
           </div>
         </div>
@@ -3402,6 +3396,55 @@ function FixedPayHistoryEditor({ lv, selId, persist, leaves, isSuperAdmin }) {
   );
 }
 
+
+// 💵 정산과 무관하게, 누적된 킵 잔액을 즉시 캐시로 출금 (25% 공제 후 지급).
+// keepDeposits 에 음수 항목 + keepBalance 차감 (기존 입금 로직과 대칭).
+function KeepCashWithdraw({ selId, leaves, persist, balance, fA, isAdmin }) {
+  const [amt, setAmt] = React.useState("");
+  const lv = leaves[selId] || {};
+  const raw = parseFloat(amt) || 0;
+  const a = Math.min(Math.max(0, raw), Math.max(0, balance));
+  const cash = a * 0.75;
+  const withdraw = () => {
+    if (!(a > 0)) return;
+    const lockInfo = isLogLocked(selId, today, leaves);
+    if (lockInfo && !isAdmin) { alert(`🔒 ${lockInfo.periodStart} 기간은 정산완료되어 출금할 수 없어요.`); return; }
+    if (lockInfo && isAdmin && !confirm(`⚠️ ${lockInfo.periodStart} 기간은 정산완료된 기간이에요.\n그래도 출금할까요?`)) return;
+    if (!confirm(`킵 잔액에서 ${fA(a)} 출금합니다.\n💵 캐시 지급: ${fA(cash)} (25% 공제 ${fA(a*0.25)})\n출금 후 킵 잔액: ${fA(balance - a)}\n\n진행할까요?`)) return;
+    const entry = { id: Date.now()+Math.random(), date: today, amount: -a, desc: `캐시 출금 (지급 ${fA(cash)} · 25% 공제)`, cashPaid: cash, addedBy: 'admin' };
+    const newDeposits = [...(lv.keepDeposits||[]), entry];
+    const newKeep = (parseFloat(lv.keepBalance)||0) - a;
+    persist(null, null, {...leaves, [selId]: {...lv, keepDeposits: newDeposits, keepBalance: newKeep}});
+    setAmt("");
+    alert(`✅ 캐시 출금 완료\n지급: ${fA(cash)}\n남은 킵 잔액: ${fA(newKeep)}`);
+  };
+  return (
+    <div style={{ background:"#FFF7ED", border:"1px solid #FED7AA", borderRadius:10, padding:"10px 12px", marginBottom:10 }}>
+      <p style={{ margin:"0 0 2px", fontSize:12, fontWeight:700, color:"#C2410C" }}>💵 킵 캐시 출금 (정산 전 가능)</p>
+      <p style={{ margin:"0 0 8px", fontSize:10, color:"#9A3412" }}>지난 기간까지 정산된 킵 잔액을 지금 캐시로 출금해요. 25% 공제 후 지급.</p>
+      <div style={{ display:"flex", gap:6, marginBottom:6 }}>
+        <div style={{ flex:1, position:"relative" }}>
+          <span style={{ position:"absolute", left:9, top:"50%", transform:"translateY(-50%)", color:"#888", fontSize:13, pointerEvents:"none" }}>$</span>
+          <input type="number" placeholder="0.00" value={amt} min={0} step={0.01} onChange={e=>setAmt(e.target.value)}
+            style={{ width:"100%", boxSizing:"border-box", padding:"7px 10px 7px 22px", border:"1.5px solid #FED7AA", borderRadius:8, fontSize:14, fontWeight:700, fontFamily:"inherit" }}/>
+        </div>
+        <button onClick={()=>setAmt(String(Math.max(0,balance).toFixed(2)))}
+          style={{ padding:"0 12px", borderRadius:8, border:"1.5px solid #FED7AA", background:"#FFEDD5", color:"#9A3412", fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>전액</button>
+      </div>
+      {a > 0 && (
+        <div style={{ background:"#fff", borderRadius:8, padding:"8px 10px", fontSize:12, marginBottom:6 }}>
+          <div style={{ display:"flex", justifyContent:"space-between", marginBottom:2 }}><span style={{ color:"#555" }}>캐시 지급 ({fA(a)} × 75%)</span><span style={{ fontWeight:800, color:"#C2410C" }}>{fA(cash)}</span></div>
+          <div style={{ display:"flex", justifyContent:"space-between", color:"#aaa" }}><span>25% 공제</span><span>−{fA(a*0.25)}</span></div>
+          <div style={{ display:"flex", justifyContent:"space-between", borderTop:"1px solid #eee", paddingTop:4, marginTop:4 }}><span style={{ color:"#555" }}>출금 후 킵 잔액</span><span style={{ fontWeight:700 }}>{fA(balance - a)}</span></div>
+        </div>
+      )}
+      <button onClick={withdraw} disabled={!(a>0)}
+        style={{ width:"100%", background: a>0?"#C2410C":"#E5E7EB", color:"#fff", border:"none", borderRadius:10, padding:11, fontSize:13, fontWeight:700, cursor: a>0?"pointer":"default", fontFamily:"inherit" }}>
+        💵 캐시 출금 {a>0?`→ ${fA(cash)} 지급`:""}
+      </button>
+    </div>
+  );
+}
 
 function KeepDepositLog({ selId, leaves, persist, getKeepBalance, fA, wpStart, wpEnd, isAdmin }) {
   const [date, setDate] = React.useState(wpStart || today);
