@@ -1096,7 +1096,9 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
             const lv0 = leaves[selId]||{};
             const loanBal = parseFloat(lv0.keepBalance)||0;
             const periodDeps = getPeriodDeposits(selId, periodStart);
-            const savedDedTotal = getSavedDeductions(selId).reduce((s,d)=>s+(parseFloat(d.amount)||0),0);
+            // 선지급(가불) 잔액엔 '잔액 조정(가불/상환)' 항목만 반영. 일반 비용 공제(공구·회사카드 등)는 제외.
+            const isLoanDed = (d) => d.isLoan === true || (d.desc||'').startsWith('잔액 조정');
+            const savedDedTotal = getSavedDeductions(selId).reduce((s,d)=>s+(isLoanDed(d)?(parseFloat(d.amount)||0):0),0);
             const hist0 = Array.isArray(lv0.keepBalanceHistory)?lv0.keepBalanceHistory:Object.values(lv0.keepBalanceHistory||{});
             const isSettled0 = !!hist0.find(h=>h.periodStart===periodStart);
             const prevEntry = [...hist0].sort((a,b)=>b.periodStart.localeCompare(a.periodStart)).find(h=>h.periodStart<periodStart);
@@ -1117,7 +1119,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                   <span style={{ fontWeight:700,color:startBal<0?"#DC2626":"#059669" }}>{fA(startBal)}</span>
                 </div>
                 {savedDedTotal>0 && <div style={{ display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:4 }}>
-                  <span style={{ color:"#555" }}>이번 기간 공제 (상환)</span>
+                  <span style={{ color:"#555" }}>이번 기간 가불 상환</span>
                   <span style={{ fontWeight:700,color:"#059669" }}>+{fA(savedDedTotal)}</span>
                 </div>}
                 <div style={{ borderTop:"1px solid #FED7AA",marginTop:6,paddingTop:6,display:"flex",justifyContent:"space-between",fontSize:14,fontWeight:800 }}>
@@ -1157,6 +1159,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                           desc: (loanMemo || '').trim() || (amt>0?'잔액 조정 (상환)':'잔액 조정 (선지급)'),
                           amount: amt,
                           addedBy: user?.id || 'admin',
+                          isLoan: true,  // 선지급(가불) 잔액에 반영되는 항목 표시
                         };
                         const existing = Array.isArray(lv0.savedDeductions)?lv0.savedDeductions:Object.values(lv0.savedDeductions||{});
                         persist(null,null,{...leaves,[selId]:{...lv0,savedDeductions:[...existing,entry]}});
