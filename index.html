@@ -3728,7 +3728,7 @@ function HomeTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist, on
                     <div style={{ flex:1, minWidth:0 }}>
                       <p style={{ margin:0, fontSize:13, fontWeight:800, color:"#111" }}>
                         {u.name}
-                        {sf.crossedBracket && <span style={{ marginLeft:6, fontSize:9, background:"#DC2626", color:"#fff", padding:"1px 6px", borderRadius:4, fontWeight:700 }}>$45k 초과</span>}
+                        {sf.crossedBracket && <span style={{ marginLeft:6, fontSize:9, background:"#DC2626", color:"#fff", padding:"1px 6px", borderRadius:4, fontWeight:700 }}>연환산 $45k 초과</span>}
                       </p>
                       <p style={{ margin:"2px 0 0", fontSize:11, color:"#555", lineHeight:1.5 }}>
                         정기 ${sf.currentFortnightlyNet.toFixed(2)} + Tax ${sf.currentFortnightlyTax.toFixed(2)} × 26회 = 연간 <strong>${sf.annualGross.toFixed(0)}</strong>
