@@ -1371,8 +1371,8 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                         border:`1px solid ${wage.keepBalance>0?"#BBF7D0":"#FECACA"}`,
                         borderRadius:10,padding:"8px 12px",marginBottom:10 }}>
                         <div>
-                          <p style={{ margin:0,fontSize:11,fontWeight:600,color:wage.keepBalance>0?"#166534":"#DC2626" }}>🏦 누적 킵 잔액 (이번 입금 포함)</p>
-                          <p style={{ margin:0,fontSize:10,color:"#555" }}>이번 기간 입금까지 반영된 누적 킵 잔액</p>
+                          <p style={{ margin:0,fontSize:11,fontWeight:600,color:wage.keepBalance>0?"#166534":"#DC2626" }}>🏦 누적 킵 잔액 (이번 입출금 반영)</p>
+                          <p style={{ margin:0,fontSize:10,color:"#555" }}>이번 기간 입·출금까지 반영된 누적 킵 잔액</p>
                         </div>
                         <span style={{ fontSize:16,fontWeight:800,color:wage.keepBalance>0?"#10B981":"#EF4444" }}>{fA(wage.keepBalance)}</span>
                       </div>
@@ -1417,10 +1417,13 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                           <span style={{ color:"#555" }}>이전 누적 킵</span>
                           <span style={{ fontWeight:600,color:(wage.keepBalance-getPeriodDeposits(selId,periodStart))>0?"#10B981":"#EF4444" }}>{fA(wage.keepBalance-getPeriodDeposits(selId,periodStart))}</span>
                         </div>
-                        {getPeriodDeposits(selId,periodStart)!==0 && <div style={{ display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:4 }}>
-                          <span style={{ color:"#555" }}>💰 이번 기간 입금</span>
-                          <span style={{ fontWeight:600,color:"#10B981" }}>+{fA(getPeriodDeposits(selId,periodStart))}</span>
-                        </div>}
+                        {getPeriodDeposits(selId,periodStart)!==0 && (() => {
+                          const dep = getPeriodDeposits(selId,periodStart);
+                          return (<div style={{ display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:4 }}>
+                            <span style={{ color:"#555" }}>{dep>0 ? "💰 이번 기간 입금" : "💵 이번 기간 출금"}</span>
+                            <span style={{ fontWeight:600,color:dep>0?"#10B981":"#EF4444" }}>{dep>0?"+":""}{fA(dep)}</span>
+                          </div>);
+                        })()}
                         <div style={{ display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:6 }}>
                           <span style={{ color:"#555" }}>이번 변동분</span>
                           <span style={{ fontWeight:600,color:variable>=0?"#10B981":"#EF4444" }}>{variable>=0?"+":""}{fA(variable)}</span>
@@ -1588,7 +1591,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
               <div style={{ background:getKeepBalance(selId)>0?"#F0FDF4":"#FEF2F2",border:`1px solid ${getKeepBalance(selId)>0?"#BBF7D0":"#FECACA"}`,borderRadius:10,padding:"10px 12px",marginTop:10 }}>
                 <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center" }}>
                   <div>
-                    <p style={{ margin:0,fontSize:12,fontWeight:700,color:getKeepBalance(selId)>0?"#166534":"#DC2626" }}>🏦 누적 킵 잔액 (이번 입금 포함)</p>
+                    <p style={{ margin:0,fontSize:12,fontWeight:700,color:getKeepBalance(selId)>0?"#166534":"#DC2626" }}>🏦 누적 킵 잔액 (이번 입출금 반영)</p>
                     <p style={{ margin:"2px 0 0",fontSize:18,fontWeight:800,color:getKeepBalance(selId)>0?"#10B981":"#EF4444" }}>{fA(getKeepBalance(selId))}</p>
                   </div>
                   <button onClick={() => {
