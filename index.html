@@ -3172,31 +3172,55 @@ function FYGrossSummary({ userId, lv, logs, users, isAdmin, getDailyRate, fA }) 
   );
 }
 
-// 한 직원의 Tax 부족 진단 — fixedPay 직원 + 비WHV 만 의미 있음.
+// 한 직원의 Tax 부족 진단 — fixedPay 직원 (거주자/WHV).
+// 현재 회계연도에 '실제로 지급된' 격주 정기들의 누적(Net+Tax) 기준 (연환산 ×26 예측 아님).
 // 반환: null (부족 없음) 또는 { ... 진단 정보 }
-function computeTaxShortfall(user, lv) {
+function computeTaxShortfall(user, lv, logs) {
   if (!lv) return null;
   const isContractor = !!lv.noLeave;
   const fixedSum = (parseFloat(lv.fixedNet)||0) + (parseFloat(lv.fixedTax)||0) + (parseFloat(lv.fixedSuper)||0);
   const hasHist = Array.isArray(lv.fixedPayHistory) && lv.fixedPayHistory.length > 0;
   const useFixedPay = (!isContractor || lv.hasFlatPay || hasHist) && (fixedSum > 0 || hasHist);
   if (!useFixedPay) return null;
-  const lvNet = parseFloat(lv.fixedNet)||0;
-  const lvTax = parseFloat(lv.fixedTax)||0;
-  const annualGross = (lvNet + lvTax) * 26;
-  if (annualGross <= 18200) return null;
+
+  // ── 현재 회계연도(7/1~다음해 6/30) 실제 누적 — 근무로그가 있는 격주 정기만, 정기 시점 고정값으로 Net+Tax 합산 ──
+  const fyKeyFor = (s) => { const [y,m] = s.split('-').map(Number); return m >= 7 ? y : y - 1; };
+  const FORT_BASE = new Date("2026-04-13T00:00:00");
+  const periodStartOf = (s) => {
+    const d = new Date(s + "T00:00:00");
+    const idx = Math.floor((d - FORT_BASE) / (14*24*60*60*1000));
+    const ps = new Date(FORT_BASE); ps.setDate(ps.getDate() + idx*14);
+    return `${ps.getFullYear()}-${String(ps.getMonth()+1).padStart(2,"0")}-${String(ps.getDate()).padStart(2,"0")}`;
+  };
+  const fixedPayAt = (ps) => {
+    const h = (lv.fixedPayHistory || []).slice().sort((a,b)=>(b.from||"").localeCompare(a.from||""));
+    if (h.length === 0) return { net: parseFloat(lv.fixedNet)||0, tax: parseFloat(lv.fixedTax)||0 };
+    const e = h.find(x => x.from <= ps) || h[h.length-1];
+    return { net: parseFloat(e.net)||0, tax: parseFloat(e.tax)||0 };
+  };
+  const curFy = fyKeyFor(today);
+  const periods = new Set();
+  (logs || []).forEach(l => {
+    if (l && l.userId === user.id && l.date) {
+      const ps = periodStartOf(l.date);
+      if (fyKeyFor(ps) === curFy) periods.add(ps);
+    }
+  });
+  if (periods.size === 0) return null;
+  let grossYTD = 0, taxYTD = 0;
+  periods.forEach(ps => { const fp = fixedPayAt(ps); grossYTD += fp.net + fp.tax; taxYTD += fp.tax; });
+  if (grossYTD <= 0) return null;
+
   const visaType = (user && user.visa) ? user.visa.type : null;
   const isWHV = visaType && (visaType.toUpperCase().includes('WHV') || visaType==='417' || visaType==='462' || visaType.toUpperCase().includes('WH1') || visaType.toUpperCase().includes('WH2') || visaType.toUpperCase().includes('WH3'));
-  const reqAnnualTax = isWHV ? calcAnnualTaxWHV(annualGross) : calcAnnualTaxResident(annualGross);
-  const actualAnnualTax = lvTax * 26;
-  const shortfall = reqAnnualTax - actualAnnualTax;
-  if (shortfall <= 200) return null;  // 노이즈 컷
-  const idealFortnightlyTax = reqAnnualTax / 26;
+  const reqTax = isWHV ? calcAnnualTaxWHV(grossYTD) : calcAnnualTaxResident(grossYTD);
+  const shortfall = reqTax - taxYTD;
+  if (shortfall <= 200) return null;  // 노이즈 컷 (충분히 떼고 있거나 과세 전)
+  const periodCount = periods.size;
   return {
-    annualGross, reqAnnualTax, actualAnnualTax, shortfall, idealFortnightlyTax,
-    currentFortnightlyTax: lvTax, currentFortnightlyNet: lvNet,
-    newNet: (lvNet + lvTax) - idealFortnightlyTax,
-    isWHV, crossedBracket: annualGross > 45000,
+    grossYTD, reqTax, taxYTD, shortfall, periodCount,
+    suggestFortnightlyTax: reqTax / periodCount,
+    isWHV, crossedBracket: grossYTD > 45000,
   };
 }
 
@@ -3705,7 +3729,7 @@ function HomeTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist, on
       {isAdmin && (() => {
         const items = (users||[])
           .filter(u => u && u.role === 'employee' && !u.resignedDate)
-          .map(u => ({ user: u, sf: computeTaxShortfall(u, leaves[u.id]) }))
+          .map(u => ({ user: u, sf: computeTaxShortfall(u, leaves[u.id], logs) }))
           .filter(x => x.sf);
         if (items.length === 0) return null;
         return (
@@ -3714,7 +3738,7 @@ function HomeTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist, on
               🚨 Tax 조정 필요 {items.length}명
             </p>
             <p style={{ margin:"0 0 10px", fontSize:11, color:"#7F1D1D", lineHeight:1.5 }}>
-              현재 정기 (Net + Tax) × 26 으로 계산한 연간 환산 그로스 기준, 원천징수가 ATO 세율보다 부족한 직원들. 정기 Tax 를 올리거나 Net 을 낮춰 조정 권장.
+현재 회계연도에 실제 지급된 격주 정기들의 누적 (Net + Tax) 기준, 원천징수가 ATO 세율보다 부족한 직원들. 정기 Tax 를 올리거나 Net 을 낮춰 조정 권장.
             </p>
             <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
               {items.map(({ user: u, sf }) => (
@@ -3728,18 +3752,18 @@ function HomeTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist, on
                     <div style={{ flex:1, minWidth:0 }}>
                       <p style={{ margin:0, fontSize:13, fontWeight:800, color:"#111" }}>
                         {u.name}
-                        {sf.crossedBracket && <span style={{ marginLeft:6, fontSize:9, background:"#DC2626", color:"#fff", padding:"1px 6px", borderRadius:4, fontWeight:700 }}>연환산 $45k 초과</span>}
+                        {sf.crossedBracket && <span style={{ marginLeft:6, fontSize:9, background:"#DC2626", color:"#fff", padding:"1px 6px", borderRadius:4, fontWeight:700 }}>누적 $45k 초과</span>}
                       </p>
                       <p style={{ margin:"2px 0 0", fontSize:11, color:"#555", lineHeight:1.5 }}>
-                        정기 ${sf.currentFortnightlyNet.toFixed(2)} + Tax ${sf.currentFortnightlyTax.toFixed(2)} × 26회 = 연간 <strong>${sf.annualGross.toFixed(0)}</strong>
+                        실제 누적 (정기 {sf.periodCount}회): 그로스 <strong>${sf.grossYTD.toFixed(0)}</strong>
                         <br/>
-                        ATO 필요 세금 <strong>${sf.reqAnnualTax.toFixed(0)}</strong> · 현재 <strong>${sf.actualAnnualTax.toFixed(0)}</strong>
+                        ATO 필요 세금 <strong>${sf.reqTax.toFixed(0)}</strong> · 현재 원천징수 <strong>${sf.taxYTD.toFixed(0)}</strong>
                       </p>
                     </div>
                     <div style={{ textAlign:"right", flexShrink:0 }}>
                       <p style={{ margin:0, fontSize:10, color:"#7F1D1D", fontWeight:600 }}>부족분</p>
                       <p style={{ margin:0, fontSize:16, fontWeight:900, color:"#DC2626" }}>${sf.shortfall.toFixed(0)}</p>
-                      <p style={{ margin:"2px 0 0", fontSize:10, color:"#555" }}>→ 정기 Tax ${sf.idealFortnightlyTax.toFixed(2)}</p>
+                      <p style={{ margin:"2px 0 0", fontSize:10, color:"#555" }}>→ 정기당 권장 Tax ${sf.suggestFortnightlyTax.toFixed(2)}</p>
                     </div>
                   </div>
                 </div>
