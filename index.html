@@ -1575,7 +1575,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
             <div style={{ background:"#EFF6FF",border:"1px solid #BFDBFE",borderRadius:10,padding:"10px 12px",marginTop:14 }}>
               <p style={{ margin:0,fontSize:12,color:"#1D4ED8" }}>💡 일당은 <strong>일급 탭</strong>에서 변경하세요</p>
             </div>
-            <FYGrossSummary userId={selId} logs={logs} getDailyRate={getDailyRate} fA={fA}/>
+            <FYGrossSummary userId={selId} lv={leaves[selId]||{}} logs={logs} getDailyRate={getDailyRate} fA={fA}/>
             {getKeepBalance(selId) !== 0 && (
               <div style={{ background:getKeepBalance(selId)>0?"#F0FDF4":"#FEF2F2",border:`1px solid ${getKeepBalance(selId)>0?"#BBF7D0":"#FECACA"}`,borderRadius:10,padding:"10px 12px",marginTop:10 }}>
                 <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center" }}>
@@ -3043,11 +3043,16 @@ function SummarySection({users, leaves, periodStart, calcWage, getSavedDeduction
 }
 
 
-// 회계연도별 Gross Income 요약 — 사용자가 FY 단위로 누적 소득을 보고 Tax 조정 판단할 수 있게.
-// 호주 회계연도: 7월 1일 ~ 다음해 6월 30일.
-// 계산: 근무일지에서 직접 — 풀타임 일당 + OT/Part 시급(일당÷8 / 일당÷9) + Travel 수당.
-// 각 로그의 dailyRate 는 rateHistory 의 그 날짜 시점 값(getDailyRate) 사용 → 시급 변경 이력도 반영.
-function FYGrossSummary({ userId, logs, getDailyRate, fA }) {
+// 회계연도별 Gross Income 요약 — 호주 FY (7/1 ~ 다음해 6/30) 기준.
+//
+// 두 경로:
+//  1) 고정지급 직원 (fixedNet/Tax/Super) → 정기마다 (Net + Tax) 합산
+//     ATO PAYG 신고 그로스 = Net + Tax. Super 는 제외 (회사 부담분, 임금 아님).
+//     로그가 1개라도 있는 fortnight 만 카운트 → 미근무 정기는 제외.
+//     fixedPayHistory 가 있으면 그 정기 시점 값 사용.
+//  2) 컨트랙터 (noLeave + !hasFlatPay + fixedPay 0) → 로그 기반 직접 계산
+//     일당 × 풀타임일 + OT/Part 시급 + Travel.
+function FYGrossSummary({ userId, lv, logs, getDailyRate, fA }) {
   const userLogs = (logs || []).filter(l => l && l.userId === userId && l.date);
   if (userLogs.length === 0) return null;
 
@@ -3058,40 +3063,79 @@ function FYGrossSummary({ userId, logs, getDailyRate, fA }) {
   const fyLabel = (sy) => `FY ${String(sy).slice(-2)}/${String(sy+1).slice(-2)}`;
   const fyRange = (sy) => `01/07/${sy} ~ 30/06/${sy+1}`;
 
-  const byFY = {};
-  userLogs.forEach(l => {
-    const fy = fyKeyFor(l.date);
-    if (!byFY[fy]) byFY[fy] = { gross: 0, fullDays: 0, partHours: 0, otHours: 0, travel: 0, count: 0 };
-    const dailyRate = getDailyRate(userId, l.date) || 0;
-    let g = 0;
-    if (l.workType === "fulltime" || l.workType === "publicholiday" || !l.workType) {
-      g += dailyRate;
-      byFY[fy].fullDays++;
-    } else if (l.workType === "overtime") {
-      const otH = calcHours(l.otStart || FULLTIME_END, l.otEnd || FULLTIME_END);
-      g += dailyRate + otH * (dailyRate / 8);
-      byFY[fy].fullDays++;
-      byFY[fy].otHours += otH;
-    } else if (l.workType === "parttime") {
-      const pH = l.hours || 0;
-      g += pH * (dailyRate / 9);
-      byFY[fy].partHours += pH;
+  // fixedPay 직원 여부 — 컨트랙터(noLeave)인데 hasFlatPay 도 아니고 고정값 0 이면 로그 기반.
+  const isContractor = !!(lv && lv.noLeave);
+  const fixedSum = ((parseFloat((lv||{}).fixedNet)||0) + (parseFloat((lv||{}).fixedTax)||0) + (parseFloat((lv||{}).fixedSuper)||0));
+  const hasHist = !!(lv && Array.isArray(lv.fixedPayHistory) && lv.fixedPayHistory.length > 0);
+  const useFixedPay = (!isContractor || (lv && lv.hasFlatPay) || hasHist) && (fixedSum > 0 || hasHist);
+
+  // 어떤 날짜의 fortnight 정기 시작일 (월요일 격주, BASE = 2026-04-13)
+  const FORT_BASE = new Date("2026-04-13T00:00:00");
+  const periodStartOf = (dateStr) => {
+    const d = new Date(dateStr + "T00:00:00");
+    const idx = Math.floor((d - FORT_BASE) / (14*24*60*60*1000));
+    const ps = new Date(FORT_BASE); ps.setDate(ps.getDate() + idx * 14);
+    return `${ps.getFullYear()}-${String(ps.getMonth()+1).padStart(2,"0")}-${String(ps.getDate()).padStart(2,"0")}`;
+  };
+
+  // 정기 시점 fixedPay 조회
+  const fixedPayAt = (ps) => {
+    if (!lv) return { net: 0, tax: 0, sup: 0 };
+    const hist = (lv.fixedPayHistory || []).slice().sort((a,b) => (b.from||"").localeCompare(a.from||""));
+    if (hist.length === 0) {
+      return { net: parseFloat(lv.fixedNet)||0, tax: parseFloat(lv.fixedTax)||0, sup: parseFloat(lv.fixedSuper)||0 };
     }
-    if (l.travel && l.travel.allowance) { g += l.travel.allowance; byFY[fy].travel += l.travel.allowance; }
-    if (l.travel && l.travel.hasDinner)  { g += 25; byFY[fy].travel += 25; }
-    byFY[fy].gross += g;
-    byFY[fy].count++;
-  });
+    const entry = hist.find(h => h.from <= ps) || hist[hist.length-1];
+    return { net: parseFloat(entry.net)||0, tax: parseFloat(entry.tax)||0, sup: parseFloat(entry.sup)||0 };
+  };
+
+  const byFY = {};
+  const ensureFY = (fy) => byFY[fy] = byFY[fy] || { gross: 0, net: 0, tax: 0, periods: 0, fullDays: 0, partHours: 0, otHours: 0, travel: 0, count: 0 };
+
+  if (useFixedPay) {
+    // 정기마다 (Net + Tax) 합산 — 로그가 있는 fortnight 만 인정 (미근무 정기 제외)
+    const periodsWithLogs = new Set();
+    userLogs.forEach(l => periodsWithLogs.add(periodStartOf(l.date)));
+    Array.from(periodsWithLogs).forEach(ps => {
+      const fy = fyKeyFor(ps);
+      const fp = fixedPayAt(ps);
+      const g = fp.net + fp.tax;
+      const F = ensureFY(fy);
+      F.gross += g; F.net += fp.net; F.tax += fp.tax; F.periods++;
+    });
+  } else {
+    // 컨트랙터: 로그 기반 직접 계산 (이전 로직 유지)
+    userLogs.forEach(l => {
+      const fy = fyKeyFor(l.date);
+      const F = ensureFY(fy);
+      const dailyRate = getDailyRate(userId, l.date) || 0;
+      let g = 0;
+      if (l.workType === "fulltime" || l.workType === "publicholiday" || !l.workType) {
+        g += dailyRate; F.fullDays++;
+      } else if (l.workType === "overtime") {
+        const otH = calcHours(l.otStart || FULLTIME_END, l.otEnd || FULLTIME_END);
+        g += dailyRate + otH * (dailyRate / 8);
+        F.fullDays++; F.otHours += otH;
+      } else if (l.workType === "parttime") {
+        const pH = l.hours || 0;
+        g += pH * (dailyRate / 9);
+        F.partHours += pH;
+      }
+      if (l.travel && l.travel.allowance) { g += l.travel.allowance; F.travel += l.travel.allowance; }
+      if (l.travel && l.travel.hasDinner)  { g += 25; F.travel += 25; }
+      F.gross += g; F.count++;
+    });
+  }
 
   const fys = Object.keys(byFY).map(Number).sort((a, b) => b - a);
+  if (fys.length === 0) return null;
   const todayFy = fyKeyFor(today);
 
   return (
     <div style={{ marginTop:14, background:"#FEF3C7", border:"1px solid #FDE68A", borderRadius:10, padding:"12px 14px" }}>
       <p style={{ margin:"0 0 6px", fontSize:12, fontWeight:700, color:"#92400E" }}>📊 회계연도별 Gross Income</p>
       <p style={{ margin:"0 0 10px", fontSize:10, color:"#92400E", lineHeight:1.4 }}>
-        호주 FY (7/1 ~ 다음해 6/30) · 근무일지에서 직접 계산<br/>
-        풀타임 일당 + OT/Part 시급 + Travel 수당
+        호주 FY (7/1 ~ 다음해 6/30) {useFixedPay ? '· 정기 Net + Tax 합산 (Super 제외)' : '· 근무일지에서 직접 계산'}
       </p>
       {fys.map(fy => {
         const d = byFY[fy];
@@ -3107,9 +3151,15 @@ function FYGrossSummary({ userId, logs, getDailyRate, fA }) {
               </div>
               <p style={{ margin:0, fontSize:16, fontWeight:800, color:"#92400E" }}>{fA(d.gross)}</p>
             </div>
-            <p style={{ margin:"4px 0 0", fontSize:10, color:"#888" }}>
-              풀타임 {d.fullDays}일 · OT {d.otHours.toFixed(1)}h · 파트 {d.partHours.toFixed(1)}h · Travel {fA(d.travel)} · 로그 {d.count}건
-            </p>
+            {useFixedPay ? (
+              <p style={{ margin:"4px 0 0", fontSize:10, color:"#888" }}>
+                정기 {d.periods}회 · Net {fA(d.net)} · Tax {fA(d.tax)}
+              </p>
+            ) : (
+              <p style={{ margin:"4px 0 0", fontSize:10, color:"#888" }}>
+                풀타임 {d.fullDays}일 · OT {d.otHours.toFixed(1)}h · 파트 {d.partHours.toFixed(1)}h · Travel {fA(d.travel)} · 로그 {d.count}건
+              </p>
+            )}
           </div>
         );
       })}
