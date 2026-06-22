@@ -19,7 +19,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-06-18-04';
+const APP_BUILD = '2026-06-23-01';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -3635,6 +3635,10 @@ const SIZABLE_BASE_ITEMS = ['Screeding&Floor Tiling', 'Floor Tiling', 'Wall Tili
 function isItemSizable(desc) {
   return SIZABLE_BASE_ITEMS.includes(desc);
 }
+// Subway 단품 항목 — 사이즈는 subway 고정, 패턴만 선택 가능
+function isSubwayItem(desc) {
+  return /^lay subway tiles/i.test((desc || '').trim());
+}
 
 // When size dropdown changes — show/hide Mosaic piece sub-selector + hide pattern for Mosaic
 function onTileSizeChange() {
@@ -3677,7 +3681,7 @@ function recomputeDynamicRate() {
   const rates = RATE_SHEET[bt] || RATE_SHEET[curBuildType] || RATE_SHEET.NEW || [];
   const r = rates[parseInt(itemIdx)];
   if (!r || !r.rate || isNaN(r.rate)) return;
-  if (!isItemSizable(r.desc)) return; // only apply dynamic rate to sizable items
+  if (!isItemSizable(r.desc) && !isSubwayItem(r.desc)) return; // sizable 항목 + subway 단품에만 적용
 
   let finalRate = r.rate;
 
@@ -3829,11 +3833,14 @@ function onPickItemChange() {
   if (tilePanel) {
     tilePanel.style.display = 'none';
     document.getElementById('pick-tile-size').value = '';
+    document.getElementById('pick-tile-size').style.display = '';   // subway 모드에서 숨겼던 것 복구
     document.getElementById('pick-tile-pattern').value = '';
     const mosaicSel = document.getElementById('pick-mosaic-piece');
     if (mosaicSel) { mosaicSel.style.display = 'none'; mosaicSel.value = ''; }
+    const hdr = tilePanel.querySelector('div');
+    if (hdr) hdr.textContent = '✏️ 사이즈 & 패턴 (선택사항 - 빈 칸이면 추가 안 됨):';
   }
-  
+
   const v = document.getElementById('pick-item').value;
   if (!v) return;
   const [bt, itemIdx] = v.split('|');
@@ -3858,7 +3865,19 @@ function onPickItemChange() {
     recomputeDynamicRate();
     return; // sizable items don't use component selector
   }
-  
+
+  // Subway 단품 — 사이즈는 subway 고정, 패턴만 선택 (브릭/헤링본 추가요금 적용)
+  if (isSubwayItem(r.desc) && tilePanel) {
+    tilePanel.style.display = 'block';
+    document.getElementById('pick-tile-size').style.display = 'none';   // 사이즈 숨김
+    const ms = document.getElementById('pick-mosaic-piece'); if (ms) ms.style.display = 'none';
+    document.getElementById('pick-tile-pattern').style.display = '';
+    const hdr = tilePanel.querySelector('div');
+    if (hdr) hdr.textContent = '✏️ 패턴 (선택사항 - stack 은 기본, brick/Herringbone 추가요금):';
+    recomputeDynamicRate();
+    return;
+  }
+
   // Check if this is a multi-component item:
   //   A) 괄호 안 "A/B" → radio (둘 중 하나만 선택, prefix 는 고정)
   //   B) 최상위 "A / B / C" → checkbox (다중 선택)
