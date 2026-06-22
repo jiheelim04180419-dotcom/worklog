@@ -19,7 +19,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-06-23-01';
+const APP_BUILD = '2026-06-23-02';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -1048,6 +1048,7 @@ body.invoice-readonly::before {
           <span style="font-size:11px;font-weight:700;color:#92400E;min-width:80px">🧴 Glue</span>
           <select class="select" id="mat-glue-mode" style="flex:1;font-size:11px;padding:4px 6px" onchange="onGlueModeChange();calcMaterials()">
             <option value="bags">포 단위 (1포 = $37)</option>
+            <option value="calc">m² ÷ 나누기 → 포 수</option>
             <option value="flat">금액 직접 입력</option>
             <option value="none">사용 안함</option>
           </select>
@@ -1057,6 +1058,14 @@ body.invoice-readonly::before {
           <input type="number" step="1" class="input" id="mat-glue-bags" style="width:80px;font-size:11px;padding:4px 6px" placeholder="포 수" oninput="calcMaterials()"/>
           <span style="font-size:10px;color:#92400E">포 × $37</span>
         </div>
+        <div id="mat-glue-calc-row" style="display:none;align-items:center;gap:6px;padding-left:86px;flex-wrap:wrap">
+          <input type="number" step="0.01" class="input" id="mat-glue-sqm" style="width:78px;font-size:11px;padding:4px 6px" placeholder="타일 m²" oninput="calcMaterials()"/>
+          <button type="button" onclick="autoFillGlueSqm()" style="background:#FEF3C7;color:#92400E;border:1px solid #FDE68A;border-radius:6px;padding:3px 8px;font-size:10px;font-weight:700;cursor:pointer" title="라인 항목에서 벽/바닥 타일링 m²를 자동 합산">📐 라인에서 가져오기</button>
+          <span style="font-size:10px;color:#92400E">÷</span>
+          <input type="number" step="0.01" class="input" id="mat-glue-div" style="width:62px;font-size:11px;padding:4px 6px" placeholder="나누기" oninput="calcMaterials()"/>
+          <span id="mat-glue-calc-formula" style="font-size:10px;color:#92400E">= 0포 × $37</span>
+        </div>
+        <div id="mat-glue-info" style="display:none;font-size:10px;color:#059669;margin-top:4px;padding-left:86px"></div>
         <div id="mat-glue-flat-row" style="display:none;padding-left:86px">
           <input type="number" step="0.01" class="input" id="mat-glue-flat" style="width:100px;font-size:11px;padding:4px 6px" placeholder="금액 $" oninput="calcMaterials()"/>
         </div>
@@ -4378,7 +4387,10 @@ function round2(n) {
 function onGlueModeChange() {
   const mode = document.getElementById('mat-glue-mode').value;
   document.getElementById('mat-glue-bags-row').style.display = (mode === 'bags') ? 'flex' : 'none';
+  document.getElementById('mat-glue-calc-row').style.display = (mode === 'calc') ? 'flex' : 'none';
   document.getElementById('mat-glue-flat-row').style.display = (mode === 'flat') ? 'block' : 'none';
+  const info = document.getElementById('mat-glue-info');
+  if (info && mode !== 'calc') info.style.display = 'none';
 }
 
 function onSiliconeModeChange() {
@@ -4410,6 +4422,26 @@ function autoFillScreedingSqm() {
   info.innerHTML = `✓ ${floorItems.length}개 항목 합산: ${totalSqm.toFixed(2)} m²<br>${lines}`;
   info.style.display = 'block';
   
+  calcMaterials();
+}
+
+// Auto-fill glue sqm — 모든 타일링 라인의 m² 합산 (방수/실리콘/그라우트/씰러 등 비타일 제외)
+function autoFillGlueSqm() {
+  const items = lineItems.filter(li => {
+    if (li.isMaterials) return false;
+    const d = (li.desc || '').toLowerCase();
+    if (/waterproof|silicone|grout|sealer|tactile/.test(d)) return false;
+    return /tiling|lay tiles|lay subway|splashback|feature tiles|direct stick|mosaic/.test(d);
+  });
+  if (items.length === 0) {
+    alert('현재 라인 항목에 타일링 항목이 없습니다.\n\n벽/바닥 타일링 항목을 먼저 추가한 뒤 다시 눌러주세요.');
+    return;
+  }
+  const totalSqm = round2(items.reduce((sum, li) => sum + (parseFloat(li.qty) || 0), 0));
+  document.getElementById('mat-glue-sqm').value = totalSqm.toFixed(2);
+  const info = document.getElementById('mat-glue-info');
+  info.innerHTML = `✓ ${items.length}개 항목 합산: ${totalSqm.toFixed(2)} m²<br>${items.map(li => `  • ${esc(li.desc)} (${li.qty} m²)`).join('<br>')}`;
+  info.style.display = 'block';
   calcMaterials();
 }
 
@@ -4460,9 +4492,20 @@ function calcMaterials() {
   // Glue
   const glueMode = document.getElementById('mat-glue-mode').value;
   let glueTotal = 0;
+  let glueBagsOut = 0;
   if (glueMode === 'bags') {
-    const bags = parseFloat(document.getElementById('mat-glue-bags').value) || 0;
-    glueTotal = bags * 37;
+    glueBagsOut = parseFloat(document.getElementById('mat-glue-bags').value) || 0;
+    glueTotal = glueBagsOut * 37;
+  } else if (glueMode === 'calc') {
+    const sqm = parseFloat(document.getElementById('mat-glue-sqm').value) || 0;
+    const div = parseFloat(document.getElementById('mat-glue-div').value) || 0;
+    glueBagsOut = (div > 0) ? Math.ceil(sqm / div) : 0;        // 포는 올림 (낱개 구매 불가)
+    glueTotal = glueBagsOut * 37;
+    const q = (div > 0) ? (sqm / div) : 0;
+    const fEl = document.getElementById('mat-glue-calc-formula');
+    if (fEl) fEl.textContent = (div > 0)
+      ? `= ${glueBagsOut}포 (${sqm.toFixed(2)} ÷ ${div} = ${q.toFixed(2)}) × $37`
+      : `= 0포 × $37`;
   } else if (glueMode === 'flat') {
     glueTotal = parseFloat(document.getElementById('mat-glue-flat').value) || 0;
   }
@@ -4521,7 +4564,7 @@ function calcMaterials() {
   document.getElementById('mat-grand-total').textContent = '$' + grand.toFixed(2);
   
   return {glueTotal, groutTotal, siliconeTotal, fwTotal, angleTotal, scTotal, extraTotal, grand,
-          glueMode, glueBags: parseFloat(document.getElementById('mat-glue-bags').value) || 0,
+          glueMode, glueBags: glueBagsOut,
           silWall: wall, silFloor: floor, silRate: rate, scSqm};
 }
 
@@ -4701,7 +4744,7 @@ function addCalculatedMaterials() {
   // 갯수/단가가 있는 항목은 그대로 기록, 없는 항목(flat)은 qty=1, unitPrice=amount 로
   const breakdown = [];
   if (c.glueTotal > 0) {
-    if (c.glueMode === 'bags' && c.glueBags > 0) {
+    if ((c.glueMode === 'bags' || c.glueMode === 'calc') && c.glueBags > 0) {
       breakdown.push({name: '🧴 Glue (포)', qty: c.glueBags, unitPrice: 37, amount: c.glueTotal});
     } else {
       breakdown.push({name: '🧴 Glue', qty: 1, unitPrice: c.glueTotal, amount: c.glueTotal});
