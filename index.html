@@ -1576,6 +1576,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
               <p style={{ margin:0,fontSize:12,color:"#1D4ED8" }}>💡 일당은 <strong>일급 탭</strong>에서 변경하세요</p>
             </div>
             <FYGrossSummary userId={selId} lv={leaves[selId]||{}} logs={logs} users={users} isAdmin={isAdmin} getDailyRate={getDailyRate} fA={fA}/>
+            <TSSMinCalculator userId={selId} lv={leaves[selId]||{}} users={users} getDailyRate={getDailyRate} fA={fA}/>
             {getKeepBalance(selId) !== 0 && (
               <div style={{ background:getKeepBalance(selId)>0?"#F0FDF4":"#FEF2F2",border:`1px solid ${getKeepBalance(selId)>0?"#BBF7D0":"#FECACA"}`,borderRadius:10,padding:"10px 12px",marginTop:10 }}>
                 <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center" }}>
@@ -3131,56 +3132,12 @@ function FYGrossSummary({ userId, lv, logs, users, isAdmin, getDailyRate, fA }) 
   if (fys.length === 0) return null;
   const todayFy = fyKeyFor(today);
 
-  // 🚨 Tax 부족 알림 (admin 전용, fixedPay 직원만)
-  // 현재 정기 (Net + Tax) × 26 = 연간 환산 그로스 → ATO 세금표 기준 필요 세금 계산
-  // 현재 원천징수(fixedTax × 26) 보다 필요 세금이 크면 underwithholding → 알림.
-  let taxAlert = null;
-  if (useFixedPay && isAdmin && lv) {
-    const lvNet = parseFloat(lv.fixedNet) || 0;
-    const lvTax = parseFloat(lv.fixedTax) || 0;
-    const annualGross = (lvNet + lvTax) * 26;
-    if (annualGross > 18200) {
-      const empUser = (users || []).find(u => u.id === userId);
-      const visaType = empUser && empUser.visa ? empUser.visa.type : null;
-      const isWHV = visaType && (visaType.toUpperCase().includes('WHV') || visaType==='417' || visaType==='462' || visaType.toUpperCase().includes('WH1') || visaType.toUpperCase().includes('WH2') || visaType.toUpperCase().includes('WH3'));
-      const reqAnnualTax = isWHV ? calcAnnualTaxWHV(annualGross) : calcAnnualTaxResident(annualGross);
-      const actualAnnualTax = lvTax * 26;
-      const shortfall = reqAnnualTax - actualAnnualTax;
-      // $200 이상 부족하면 알림 (작은 차이는 노이즈)
-      if (shortfall > 200) {
-        const idealFortnightlyTax = reqAnnualTax / 26;
-        const newNet = (lvNet + lvTax) - idealFortnightlyTax;  // Tax 올리면서 Total 정기 유지 시 Net
-        const crossedBracket = annualGross > 45000;
-        taxAlert = { annualGross, reqAnnualTax, actualAnnualTax, shortfall, idealFortnightlyTax, currentFortnightlyTax: lvTax, currentFortnightlyNet: lvNet, newNet, isWHV, crossedBracket };
-      }
-    }
-  }
-
   return (
     <div style={{ marginTop:14, background:"#FEF3C7", border:"1px solid #FDE68A", borderRadius:10, padding:"12px 14px" }}>
       <p style={{ margin:"0 0 6px", fontSize:12, fontWeight:700, color:"#92400E" }}>📊 회계연도별 Gross Income</p>
       <p style={{ margin:"0 0 10px", fontSize:10, color:"#92400E", lineHeight:1.4 }}>
         호주 FY (7/1 ~ 다음해 6/30) {useFixedPay ? '· 정기 Net + Tax 합산 (Super 제외)' : '· 근무일지에서 직접 계산'}
       </p>
-
-      {taxAlert && (
-        <div style={{ background:"#FEE2E2", border:"1.5px solid #FCA5A5", borderRadius:8, padding:"10px 12px", marginBottom:10 }}>
-          <p style={{ margin:0, fontSize:12, fontWeight:800, color:"#991B1B" }}>
-            🚨 Tax 조정 필요 {taxAlert.crossedBracket && <span style={{ fontSize:10, background:"#DC2626", color:"#fff", padding:"1px 6px", borderRadius:4, marginLeft:4 }}>$45k 초과 구간</span>}
-          </p>
-          <p style={{ margin:"6px 0 0", fontSize:11, color:"#7F1D1D", lineHeight:1.6 }}>
-            정기 <strong>{fA(taxAlert.currentFortnightlyNet + taxAlert.currentFortnightlyTax)}</strong> (Net {fA(taxAlert.currentFortnightlyNet)} + Tax {fA(taxAlert.currentFortnightlyTax)})
-            × 26회 = 연간 환산 <strong>{fA(taxAlert.annualGross)}</strong>
-            <br/>
-            ATO {taxAlert.isWHV ? 'WHV' : '거주자'} 세율 기준 연간 세금: <strong>{fA(taxAlert.reqAnnualTax)}</strong> · 현재 원천징수: <strong>{fA(taxAlert.actualAnnualTax)}</strong>
-            <br/>
-            💸 부족분: <strong style={{ color:"#DC2626", fontSize:13 }}>{fA(taxAlert.shortfall)}</strong>
-            <br/>
-            → 정기 Tax 를 <strong style={{ color:"#DC2626" }}>{fA(taxAlert.idealFortnightlyTax)}</strong> 로 올리기 권장
-            (Net 동일 유지 시 정기 총액 증가, 또는 Net 을 <strong>{fA(taxAlert.newNet)}</strong> 로 낮추고 Tax 인상)
-          </p>
-        </div>
-      )}
 
       {fys.map(fy => {
         const d = byFY[fy];
@@ -3208,6 +3165,138 @@ function FYGrossSummary({ userId, lv, logs, users, isAdmin, getDailyRate, fA }) 
           </div>
         );
       })}
+    </div>
+  );
+}
+
+// 한 직원의 Tax 부족 진단 — fixedPay 직원 + 비WHV 만 의미 있음.
+// 반환: null (부족 없음) 또는 { ... 진단 정보 }
+function computeTaxShortfall(user, lv) {
+  if (!lv) return null;
+  const isContractor = !!lv.noLeave;
+  const fixedSum = (parseFloat(lv.fixedNet)||0) + (parseFloat(lv.fixedTax)||0) + (parseFloat(lv.fixedSuper)||0);
+  const hasHist = Array.isArray(lv.fixedPayHistory) && lv.fixedPayHistory.length > 0;
+  const useFixedPay = (!isContractor || lv.hasFlatPay || hasHist) && (fixedSum > 0 || hasHist);
+  if (!useFixedPay) return null;
+  const lvNet = parseFloat(lv.fixedNet)||0;
+  const lvTax = parseFloat(lv.fixedTax)||0;
+  const annualGross = (lvNet + lvTax) * 26;
+  if (annualGross <= 18200) return null;
+  const visaType = (user && user.visa) ? user.visa.type : null;
+  const isWHV = visaType && (visaType.toUpperCase().includes('WHV') || visaType==='417' || visaType==='462' || visaType.toUpperCase().includes('WH1') || visaType.toUpperCase().includes('WH2') || visaType.toUpperCase().includes('WH3'));
+  const reqAnnualTax = isWHV ? calcAnnualTaxWHV(annualGross) : calcAnnualTaxResident(annualGross);
+  const actualAnnualTax = lvTax * 26;
+  const shortfall = reqAnnualTax - actualAnnualTax;
+  if (shortfall <= 200) return null;  // 노이즈 컷
+  const idealFortnightlyTax = reqAnnualTax / 26;
+  return {
+    annualGross, reqAnnualTax, actualAnnualTax, shortfall, idealFortnightlyTax,
+    currentFortnightlyTax: lvTax, currentFortnightlyNet: lvNet,
+    newNet: (lvNet + lvTax) - idealFortnightlyTax,
+    isWHV, crossedBracket: annualGross > 45000,
+  };
+}
+
+// 🧮 TSS 비자 최저 연봉 계산기 (fixedPay 비WHV 만 표시)
+// 사용자의 스프레드시트 공식:
+//   A (총 일당비) = daily × days/week × 52
+//   B (Super)    = A × 12%
+//   C (연차+공휴일) = daily × 31
+//   Gross = A − B − C
+// 역산: TSS 최저 ($76,515) 만족하는 최소 days/week =
+//   (target/daily + 31) / (52 × 0.88)
+// 페이슬립 시급 = Gross / (52 × 38) — 호주 표준 주 38시간 기준.
+function TSSMinCalculator({ userId, lv, users, getDailyRate, fA }) {
+  const TSS_MIN = 76515;            // 2024-25 TSS 비자 최저 연봉
+  const LEAVE_PUB_DAYS = 31;        // 연차 20일 + 공휴일 11일 가정
+  const WEEKS = 52;
+  const SUPER_PCT = 0.12;
+  const STD_HOURS_PER_YEAR = WEEKS * 38;  // 1976
+
+  const empUser = (users || []).find(u => u.id === userId);
+  const visaType = empUser && empUser.visa ? empUser.visa.type : null;
+  const isWHV = visaType && (visaType.toUpperCase().includes('WHV') || visaType==='417' || visaType==='462' || visaType.toUpperCase().includes('WH1') || visaType.toUpperCase().includes('WH2') || visaType.toUpperCase().includes('WH3'));
+  const isContractor = !!(lv && lv.noLeave);
+  const hasHist = !!(lv && Array.isArray(lv.fixedPayHistory) && lv.fixedPayHistory.length > 0);
+  const fixedSum = ((parseFloat((lv||{}).fixedNet)||0) + (parseFloat((lv||{}).fixedTax)||0));
+  const useFixedPay = (!isContractor || (lv && lv.hasFlatPay) || hasHist) && (fixedSum > 0 || hasHist);
+  if (isWHV || !useFixedPay) return null;
+
+  const currentDaily = getDailyRate(userId, today) || 0;
+  const [dailyStr, setDailyStr] = React.useState(String(currentDaily || ''));
+  React.useEffect(() => { setDailyStr(String(currentDaily || '')); }, [currentDaily]);
+
+  const d = parseFloat(dailyStr) || 0;
+  let r = null;
+  if (d > 0) {
+    const denom = WEEKS * (1 - SUPER_PCT);            // 45.76
+    let dpw = (TSS_MIN / d + LEAVE_PUB_DAYS) / denom;
+    dpw = Math.ceil(dpw * 100) / 100;                 // 0.01일 단위 올림
+    const totalDays = dpw * WEEKS;
+    const totalAtDaily = d * totalDays;
+    const annualSuper = totalAtDaily * SUPER_PCT;
+    const annualLeave = d * LEAVE_PUB_DAYS;
+    const annualGross = totalAtDaily - annualSuper - annualLeave;
+    const fortnightlyGross = annualGross / 26;
+    const payslipHourly = annualGross / STD_HOURS_PER_YEAR;
+    const dpf = dpw * 2;
+    r = { dpw, dpf, totalDays, totalAtDaily, annualSuper, annualLeave, annualGross, fortnightlyGross, payslipHourly };
+  }
+
+  return (
+    <div style={{ marginTop:14, background:"#F0F9FF", border:"1px solid #BAE6FD", borderRadius:10, padding:"12px 14px" }}>
+      <p style={{ margin:"0 0 4px", fontSize:12, fontWeight:700, color:"#075985" }}>
+        🧮 TSS 비자 최저 연봉 계산기
+      </p>
+      <p style={{ margin:"0 0 10px", fontSize:10, color:"#0369A1", lineHeight:1.45 }}>
+        TSS (482 비자) 최저 ${TSS_MIN.toLocaleString()} 만족하는 <strong>최소 근무일수</strong> 계산.<br/>
+        Super 12% + 연차/공휴일 {LEAVE_PUB_DAYS}일 제외한 그로스 기준.
+      </p>
+      <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10, flexWrap:"wrap" }}>
+        <label style={{ fontSize:11, fontWeight:600, color:"#075985" }}>일당:</label>
+        <span style={{ fontSize:13, color:"#0369A1", fontWeight:700 }}>$</span>
+        <input type="number" value={dailyStr} onChange={e => setDailyStr(e.target.value)}
+          style={{ width:90, fontSize:13, fontWeight:700, padding:"5px 8px", border:"1.5px solid #BAE6FD", borderRadius:6, fontFamily:"inherit", outline:"none" }}/>
+        <span style={{ fontSize:10, color:"#0369A1" }}>현재 일당: ${currentDaily}</span>
+      </div>
+      {r && (
+        <div style={{ background:"#fff", borderRadius:8, padding:"10px 12px", fontSize:12 }}>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:8 }}>
+            <div>
+              <p style={{ margin:"0 0 2px", fontSize:10, color:"#888" }}>주당 근무</p>
+              <p style={{ margin:0, fontSize:16, fontWeight:800, color:"#0369A1" }}>{r.dpw.toFixed(2)} 일</p>
+              <p style={{ margin:"2px 0 0", fontSize:10, color:"#888" }}>2주: {r.dpf.toFixed(2)} 일 · 연 {r.totalDays.toFixed(1)} 일</p>
+            </div>
+            <div>
+              <p style={{ margin:"0 0 2px", fontSize:10, color:"#888" }}>페이슬립 시급</p>
+              <p style={{ margin:0, fontSize:16, fontWeight:800, color:"#0369A1" }}>${r.payslipHourly.toFixed(2)}<span style={{ fontSize:10, fontWeight:400 }}>/hr</span></p>
+              <p style={{ margin:"2px 0 0", fontSize:10, color:"#888" }}>주 38h 기준 (52주 × 38h)</p>
+            </div>
+          </div>
+          <div style={{ borderTop:"1px solid #E0F2FE", paddingTop:6 }}>
+            <div style={{ display:"flex", justifyContent:"space-between", marginBottom:2, fontSize:11 }}>
+              <span style={{ color:"#555" }}>연 일당총액 ({r.totalDays.toFixed(1)}일 × ${d})</span>
+              <span>{fA(r.totalAtDaily)}</span>
+            </div>
+            <div style={{ display:"flex", justifyContent:"space-between", marginBottom:2, fontSize:11 }}>
+              <span style={{ color:"#888" }}>− Super (12%)</span>
+              <span style={{ color:"#888" }}>−{fA(r.annualSuper)}</span>
+            </div>
+            <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4, fontSize:11 }}>
+              <span style={{ color:"#888" }}>− 연차/공휴일 {LEAVE_PUB_DAYS}일</span>
+              <span style={{ color:"#888" }}>−{fA(r.annualLeave)}</span>
+            </div>
+            <div style={{ display:"flex", justifyContent:"space-between", borderTop:"1px solid #BAE6FD", paddingTop:5, marginTop:2 }}>
+              <span style={{ fontWeight:700, color:"#075985" }}>예상 연 그로스</span>
+              <span style={{ fontWeight:800, color:"#075985", fontSize:14 }}>{fA(r.annualGross)}</span>
+            </div>
+            <div style={{ display:"flex", justifyContent:"space-between", marginTop:3, fontSize:10, color:"#888" }}>
+              <span>정기 환산 (÷ 26)</span>
+              <span>{fA(r.fortnightlyGross)}</span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -3601,6 +3690,54 @@ function HomeTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist, on
         <h2 style={styles.greetingText}>안녕하세요, {user.name}님 👋</h2>
         <p style={styles.dateText}>{korDate(todayStr)}</p>
       </div>
+
+      {/* ── 🚨 Tax 부족 알림 (admin 전용) — fixedPay 비WHV 직원 중 원천징수 부족분 ── */}
+      {isAdmin && (() => {
+        const items = (users||[])
+          .filter(u => u && u.role === 'employee' && !u.resignedDate)
+          .map(u => ({ user: u, sf: computeTaxShortfall(u, leaves[u.id]) }))
+          .filter(x => x.sf);
+        if (items.length === 0) return null;
+        return (
+          <div style={{ background:"linear-gradient(135deg,#FEE2E2 0%,#FECACA 100%)", border:"2px solid #F87171", borderRadius:14, padding:"14px 16px", marginBottom:14 }}>
+            <p style={{ margin:"0 0 6px", fontSize:14, fontWeight:800, color:"#991B1B" }}>
+              🚨 Tax 조정 필요 {items.length}명
+            </p>
+            <p style={{ margin:"0 0 10px", fontSize:11, color:"#7F1D1D", lineHeight:1.5 }}>
+              현재 정기 (Net + Tax) × 26 으로 계산한 연간 환산 그로스 기준, 원천징수가 ATO 세율보다 부족한 직원들. 정기 Tax 를 올리거나 Net 을 낮춰 조정 권장.
+            </p>
+            <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+              {items.map(({ user: u, sf }) => (
+                <div key={u.id}
+                  onClick={() => onJumpToEmp && onJumpToEmp(u.id)}
+                  title="클릭해서 직원 관리 → 일급 탭에서 조정"
+                  style={{ background:"#fff", borderRadius:10, padding:"10px 12px", cursor: onJumpToEmp?"pointer":"default", transition:"transform 0.15s" }}
+                  onMouseOver={e => { if (onJumpToEmp) e.currentTarget.style.transform='translateY(-1px)'; }}
+                  onMouseOut={e => { if (onJumpToEmp) e.currentTarget.style.transform='none'; }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:8, flexWrap:"wrap" }}>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <p style={{ margin:0, fontSize:13, fontWeight:800, color:"#111" }}>
+                        {u.name}
+                        {sf.crossedBracket && <span style={{ marginLeft:6, fontSize:9, background:"#DC2626", color:"#fff", padding:"1px 6px", borderRadius:4, fontWeight:700 }}>$45k 초과</span>}
+                      </p>
+                      <p style={{ margin:"2px 0 0", fontSize:11, color:"#555", lineHeight:1.5 }}>
+                        정기 ${sf.currentFortnightlyNet.toFixed(2)} + Tax ${sf.currentFortnightlyTax.toFixed(2)} × 26회 = 연간 <strong>${sf.annualGross.toFixed(0)}</strong>
+                        <br/>
+                        ATO 필요 세금 <strong>${sf.reqAnnualTax.toFixed(0)}</strong> · 현재 <strong>${sf.actualAnnualTax.toFixed(0)}</strong>
+                      </p>
+                    </div>
+                    <div style={{ textAlign:"right", flexShrink:0 }}>
+                      <p style={{ margin:0, fontSize:10, color:"#7F1D1D", fontWeight:600 }}>부족분</p>
+                      <p style={{ margin:0, fontSize:16, fontWeight:900, color:"#DC2626" }}>${sf.shortfall.toFixed(0)}</p>
+                      <p style={{ margin:"2px 0 0", fontSize:10, color:"#555" }}>→ 정기 Tax ${sf.idealFortnightlyTax.toFixed(2)}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── 🚨 수동 km 확인 대기 경고 (수퍼관리자 전용, 처리하기 전까지 안 없어짐) ── */}
       {isSuperAdmin && (() => {
