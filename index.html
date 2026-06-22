@@ -1575,6 +1575,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
             <div style={{ background:"#EFF6FF",border:"1px solid #BFDBFE",borderRadius:10,padding:"10px 12px",marginTop:14 }}>
               <p style={{ margin:0,fontSize:12,color:"#1D4ED8" }}>💡 일당은 <strong>일급 탭</strong>에서 변경하세요</p>
             </div>
+            <FYGrossSummary userId={selId} logs={logs} getDailyRate={getDailyRate} fA={fA}/>
             {getKeepBalance(selId) !== 0 && (
               <div style={{ background:getKeepBalance(selId)>0?"#F0FDF4":"#FEF2F2",border:`1px solid ${getKeepBalance(selId)>0?"#BBF7D0":"#FECACA"}`,borderRadius:10,padding:"10px 12px",marginTop:10 }}>
                 <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center" }}>
@@ -3041,6 +3042,80 @@ function SummarySection({users, leaves, periodStart, calcWage, getSavedDeduction
   );
 }
 
+
+// 회계연도별 Gross Income 요약 — 사용자가 FY 단위로 누적 소득을 보고 Tax 조정 판단할 수 있게.
+// 호주 회계연도: 7월 1일 ~ 다음해 6월 30일.
+// 계산: 근무일지에서 직접 — 풀타임 일당 + OT/Part 시급(일당÷8 / 일당÷9) + Travel 수당.
+// 각 로그의 dailyRate 는 rateHistory 의 그 날짜 시점 값(getDailyRate) 사용 → 시급 변경 이력도 반영.
+function FYGrossSummary({ userId, logs, getDailyRate, fA }) {
+  const userLogs = (logs || []).filter(l => l && l.userId === userId && l.date);
+  if (userLogs.length === 0) return null;
+
+  const fyKeyFor = (dateStr) => {
+    const [y, m] = dateStr.split('-').map(Number);
+    return m >= 7 ? y : y - 1;
+  };
+  const fyLabel = (sy) => `FY ${String(sy).slice(-2)}/${String(sy+1).slice(-2)}`;
+  const fyRange = (sy) => `01/07/${sy} ~ 30/06/${sy+1}`;
+
+  const byFY = {};
+  userLogs.forEach(l => {
+    const fy = fyKeyFor(l.date);
+    if (!byFY[fy]) byFY[fy] = { gross: 0, fullDays: 0, partHours: 0, otHours: 0, travel: 0, count: 0 };
+    const dailyRate = getDailyRate(userId, l.date) || 0;
+    let g = 0;
+    if (l.workType === "fulltime" || l.workType === "publicholiday" || !l.workType) {
+      g += dailyRate;
+      byFY[fy].fullDays++;
+    } else if (l.workType === "overtime") {
+      const otH = calcHours(l.otStart || FULLTIME_END, l.otEnd || FULLTIME_END);
+      g += dailyRate + otH * (dailyRate / 8);
+      byFY[fy].fullDays++;
+      byFY[fy].otHours += otH;
+    } else if (l.workType === "parttime") {
+      const pH = l.hours || 0;
+      g += pH * (dailyRate / 9);
+      byFY[fy].partHours += pH;
+    }
+    if (l.travel && l.travel.allowance) { g += l.travel.allowance; byFY[fy].travel += l.travel.allowance; }
+    if (l.travel && l.travel.hasDinner)  { g += 25; byFY[fy].travel += 25; }
+    byFY[fy].gross += g;
+    byFY[fy].count++;
+  });
+
+  const fys = Object.keys(byFY).map(Number).sort((a, b) => b - a);
+  const todayFy = fyKeyFor(today);
+
+  return (
+    <div style={{ marginTop:14, background:"#FEF3C7", border:"1px solid #FDE68A", borderRadius:10, padding:"12px 14px" }}>
+      <p style={{ margin:"0 0 6px", fontSize:12, fontWeight:700, color:"#92400E" }}>📊 회계연도별 Gross Income</p>
+      <p style={{ margin:"0 0 10px", fontSize:10, color:"#92400E", lineHeight:1.4 }}>
+        호주 FY (7/1 ~ 다음해 6/30) · 근무일지에서 직접 계산<br/>
+        풀타임 일당 + OT/Part 시급 + Travel 수당
+      </p>
+      {fys.map(fy => {
+        const d = byFY[fy];
+        const isCurrent = fy === todayFy;
+        return (
+          <div key={fy} style={{ background:"#fff", borderRadius:8, padding:"8px 10px", marginBottom:6, border: isCurrent ? "1.5px solid #F59E0B" : "1px solid #FDE68A" }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:3 }}>
+              <div style={{ minWidth:0 }}>
+                <p style={{ margin:0, fontSize:13, fontWeight:700, color:"#111" }}>
+                  {fyLabel(fy)} {isCurrent && <span style={{ fontSize:10, color:"#D97706", fontWeight:700 }}>(진행중)</span>}
+                </p>
+                <p style={{ margin:0, fontSize:10, color:"#888" }}>{fyRange(fy)}</p>
+              </div>
+              <p style={{ margin:0, fontSize:16, fontWeight:800, color:"#92400E" }}>{fA(d.gross)}</p>
+            </div>
+            <p style={{ margin:"4px 0 0", fontSize:10, color:"#888" }}>
+              풀타임 {d.fullDays}일 · OT {d.otHours.toFixed(1)}h · 파트 {d.partHours.toFixed(1)}h · Travel {fA(d.travel)} · 로그 {d.count}건
+            </p>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 function FixedPayHistoryEditor({ lv, selId, persist, leaves, isSuperAdmin }) {
   const hist = (lv.fixedPayHistory || []).sort((a,b) => a.from.localeCompare(b.from));
