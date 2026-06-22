@@ -3266,8 +3266,12 @@ function TSSMinCalculator({ userId, lv, users, getDailyRate, fA }) {
     const annualGross = totalAtDaily - annualSuper - annualLeave;
     const fortnightlyGross = annualGross / 26;
     const payslipHourly = annualGross / STD_HOURS_PER_YEAR;
+    const payslipHourlyRounded = Math.round(payslipHourly * 100) / 100;   // 페이슬립에 실제 찍히는 시급 (소수 2자리)
+    const payslipAnnualGross = payslipHourlyRounded * STD_HOURS_PER_YEAR;  // 그 시급 × 1976h 로 역산한 연 그로스 (검증용)
     const dpf = dpw * 2;
-    r = { dpw, dpf, totalDays, totalAtDaily, annualSuper, annualLeave, annualGross, fortnightlyGross, payslipHourly };
+    const dpfWhole = Math.floor(dpf);
+    const dpfHours = (dpf - dpfWhole) * FULLTIME_HOURS;                    // 1 근무일 = FULLTIME_HOURS(9h) 기준
+    r = { dpw, dpf, dpfWhole, dpfHours, totalDays, totalAtDaily, annualSuper, annualLeave, annualGross, fortnightlyGross, payslipHourly, payslipHourlyRounded, payslipAnnualGross };
   }
 
   return (
@@ -3290,14 +3294,15 @@ function TSSMinCalculator({ userId, lv, users, getDailyRate, fA }) {
         <div style={{ background:"#fff", borderRadius:8, padding:"10px 12px", fontSize:12 }}>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:8 }}>
             <div>
-              <p style={{ margin:"0 0 2px", fontSize:10, color:"#888" }}>주당 근무</p>
-              <p style={{ margin:0, fontSize:16, fontWeight:800, color:"#0369A1" }}>{r.dpw.toFixed(2)} 일</p>
-              <p style={{ margin:"2px 0 0", fontSize:10, color:"#888" }}>2주: {r.dpf.toFixed(2)} 일 · 연 {r.totalDays.toFixed(1)} 일</p>
+              <p style={{ margin:"0 0 2px", fontSize:10, color:"#888" }}>2주당 근무</p>
+              <p style={{ margin:0, fontSize:16, fontWeight:800, color:"#0369A1" }}>{r.dpfWhole}일 {r.dpfHours.toFixed(1)}h</p>
+              <p style={{ margin:"2px 0 0", fontSize:10, color:"#888" }}>주당 {r.dpw.toFixed(2)}일 · 연 {r.totalDays.toFixed(1)}일</p>
             </div>
             <div>
               <p style={{ margin:"0 0 2px", fontSize:10, color:"#888" }}>페이슬립 시급</p>
-              <p style={{ margin:0, fontSize:16, fontWeight:800, color:"#0369A1" }}>${r.payslipHourly.toFixed(2)}<span style={{ fontSize:10, fontWeight:400 }}>/hr</span></p>
-              <p style={{ margin:"2px 0 0", fontSize:10, color:"#888" }}>주 38h 기준 (52주 × 38h)</p>
+              <p style={{ margin:0, fontSize:16, fontWeight:800, color:"#0369A1" }}>${r.payslipHourlyRounded.toFixed(2)}<span style={{ fontSize:10, fontWeight:400 }}>/hr</span></p>
+              <p style={{ margin:"2px 0 0", fontSize:10, color:"#0369A1", fontWeight:700 }}>= 연 그로스 {fA(r.payslipAnnualGross)}</p>
+              <p style={{ margin:"1px 0 0", fontSize:9, color:"#888" }}>시급 × 1976h (52주×38h)</p>
             </div>
           </div>
           <div style={{ borderTop:"1px solid #E0F2FE", paddingTop:6 }}>
