@@ -613,7 +613,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
     // 변동분 계산
     const savedDedTotal = getSavedDeductions(userId).reduce((s,d) => s + (parseFloat(d.amount)||0), 0);
     const allDeductionsTotal = totalDeductions + savedDedTotal;
-    const variable = (w.isContractor && !w.hasFlatPay)
+    const variable = Math.round(((w.isContractor && !w.hasFlatPay)
       ? 0
       : w.hasFlatPay
       ? w.gross - w.fixedTotal - allDeductionsTotal
@@ -621,7 +621,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
       + w.excessOtH   * w.otHourlyRate
       - w.deficitH    * w.partHourlyRate
       + w.travel
-      - allDeductionsTotal;
+      - allDeductionsTotal) * 100) / 100;  // 센트 단위 반올림 (표시/정산 일치)
     const cashInput = parseFloat(partialCash) || 0;
     const directKeepInput = parseFloat(directKeep) || 0;
     // skipVariable=true면 변동분 무시하고 directKeep만 반영
@@ -633,7 +633,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
       : Math.max(0, variable) - cashAmt;
     // 기존 킵잔액에 누적 추가 - 현재 조회 기간 기준 잔액 + 당기 입금
     const prevKeep = getKeepBalanceAtPeriod(userId, periodStart) + getPeriodDeposits(userId, periodStart);
-    const newKeep  = prevKeep + keepAmt;
+    const newKeep  = Math.round((prevKeep + keepAmt) * 100) / 100;  // 센트 단위 반올림
     // keepBalance 히스토리 저장 (기간별 잔액 추적)
     const histEntry = { periodStart, balance: newKeep, savedAt: new Date().toISOString() };
     const prevHist = lv.keepBalanceHistory || [];
@@ -1344,7 +1344,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
               {(() => {
                 // 변동분 계산
                 const allDeductions = totalDeductions + savedTotal(selId);
-                const variable = (wage.isContractor && !wage.hasFlatPay)
+                const variable = Math.round(((wage.isContractor && !wage.hasFlatPay)
                   ? 0  // 순수 인보이스: 고정급여 없음, 변동분 없음
                   : wage.hasFlatPay
                   ? wage.gross - wage.fixedTotal - allDeductions
@@ -1352,7 +1352,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                   + wage.excessOtH   * wage.otHourlyRate
                   - wage.deficitH    * wage.partHourlyRate
                   + wage.travel
-                  - allDeductions;
+                  - allDeductions) * 100) / 100;  // 센트 단위 반올림 (표시/정산 일치)
                 const rawCash = parseFloat(partialCash);
                 const availForCash = Math.max(0, wage.keepBalance);
                 const cashAmt = isNaN(rawCash) || rawCash < 0 ? 0 : Math.min(rawCash, availForCash);
@@ -1411,29 +1411,35 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                     
 
                     {/* 킵 합산 표시 - 전액킵일 때 */}
-                    {cashAmt === 0 && wage.keepBalance !== 0 && (
+                    {cashAmt === 0 && wage.keepBalance !== 0 && (() => {
+                      const r2 = n => Math.round(n*100)/100;
+                      const dep = r2(getPeriodDeposits(selId,periodStart));
+                      const prevKeep = r2(wage.keepBalance - getPeriodDeposits(selId,periodStart));
+                      const varAmt = r2(skipVariable ? (parseFloat(directKeep)||0) : variable);
+                      const total = r2(prevKeep + dep + varAmt);  // 표시 3줄 합과 항상 일치
+                      return (
                       <div style={{ background:"#F0FDF4",border:"1px solid #BBF7D0",borderRadius:10,padding:"10px 12px",marginBottom:10 }}>
                         <div style={{ display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:4 }}>
                           <span style={{ color:"#555" }}>이전 누적 킵</span>
-                          <span style={{ fontWeight:600,color:(wage.keepBalance-getPeriodDeposits(selId,periodStart))>0?"#10B981":"#EF4444" }}>{fA(wage.keepBalance-getPeriodDeposits(selId,periodStart))}</span>
+                          <span style={{ fontWeight:600,color:prevKeep>0?"#10B981":"#EF4444" }}>{fA(prevKeep)}</span>
                         </div>
-                        {getPeriodDeposits(selId,periodStart)!==0 && (() => {
-                          const dep = getPeriodDeposits(selId,periodStart);
-                          return (<div style={{ display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:4 }}>
+                        {dep!==0 && (
+                          <div style={{ display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:4 }}>
                             <span style={{ color:"#555" }}>{dep>0 ? "💰 이번 기간 입금" : "💵 이번 기간 출금"}</span>
                             <span style={{ fontWeight:600,color:dep>0?"#10B981":"#EF4444" }}>{dep>0?"+":""}{fA(dep)}</span>
-                          </div>);
-                        })()}
+                          </div>
+                        )}
                         <div style={{ display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:6 }}>
                           <span style={{ color:"#555" }}>이번 변동분</span>
-                          <span style={{ fontWeight:600,color:variable>=0?"#10B981":"#EF4444" }}>{variable>=0?"+":""}{fA(variable)}</span>
+                          <span style={{ fontWeight:600,color:varAmt>=0?"#10B981":"#EF4444" }}>{varAmt>=0?"+":""}{fA(varAmt)}</span>
                         </div>
                         <div style={{ display:"flex",justifyContent:"space-between",fontSize:14,fontWeight:800,borderTop:"1px solid #BBF7D0",paddingTop:6 }}>
                           <span>정산 후 총 킵 잔액</span>
-                          <span style={{ color:(wage.keepBalance+variable)>=0?"#10B981":"#EF4444" }}>{fA(wage.keepBalance + (skipVariable ? (parseFloat(directKeep)||0) : variable))}</span>
+                          <span style={{ color: total>=0?"#10B981":"#EF4444" }}>{fA(total)}</span>
                         </div>
                       </div>
-                    )}
+                      );
+                    })()}
                     {/* 출금 금액 입력 - 슈퍼관리자만 */}
                     {isSuperAdmin && <p style={{ margin:"0 0 6px",fontSize:12,fontWeight:600,color:"#555" }}>
                       💵 캐시 출금 금액 (킵 잔액에서 차감)
@@ -1504,9 +1510,9 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                       )}
                       <button onClick={() => saveCarryover(selId)}
                         style={{ width:"100%",background:"#111",color:"#fff",border:"none",borderRadius:12,padding:13,fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit",marginTop:12 }}>
-                        💾 정산 완료 {(() => { const tot = skipVariable
+                        💾 정산 완료 {(() => { const tot = Math.round((skipVariable
               ? wage.keepBalance + (parseFloat(directKeep)||0)
-              : wage.keepBalance + (variable < 0 ? variable + (parseFloat(directKeep)||0) : Math.max(0,variable) - Math.min(parseFloat(partialCash)||0, Math.max(0,variable))); return tot !== wage.keepBalance ? `→ 킵 ${fA(tot)}` : ""; })()}{cashAmt > 0 ? ` (캐시 ${fA(cashOut)})` : ""}
+              : wage.keepBalance + (variable < 0 ? variable + (parseFloat(directKeep)||0) : Math.max(0,variable) - Math.min(parseFloat(partialCash)||0, Math.max(0,variable)))) * 100) / 100; return tot !== Math.round(wage.keepBalance*100)/100 ? `→ 킵 ${fA(tot)}` : ""; })()}{cashAmt > 0 ? ` (캐시 ${fA(cashOut)})` : ""}
                       </button>
                     </>)}
                   </div>
