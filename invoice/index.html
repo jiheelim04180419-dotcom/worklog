@@ -19,7 +19,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-06-23-02';
+const APP_BUILD = '2026-06-23-03';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -6155,18 +6155,6 @@ async function _renderInvoiceCanvas() {
       '#print-modal{display:block!important;position:static!important;background:#fff!important;width:210mm!important;max-width:210mm!important}' +
       '#print-modal .mbox{max-width:none!important;width:210mm!important;box-shadow:none!important;border-radius:0!important;padding:0!important;margin:0!important}' +
       '.no-print{display:none!important}</style>' +
-      // 🖨️ 캔버스(html2canvas) 전용: html2canvas 는 OpenType `tnum` 미지원 → 비례폰트에선
-      // 자릿수 따라 폭이 들쭉날쭉. 화면 미리보기는 영향 없이 PDF/인쇄 출력에서만 .num 셀을
-      // 모노스페이스로 강제해 콤마·소수점·끝자리 깔끔하게 한 라인 정렬.
-      '<style>' +
-      '.print-invoice td.num,' +
-      '.print-invoice .pi-totals-row > span:last-child,' +
-      '.bxbt-table td.num,' +
-      '.bxbt-totals-row span:last-child' +
-      '{font-family:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace!important;' +
-      'letter-spacing:0.2px!important;font-feature-settings:"tnum" 1,"lnum" 1!important;' +
-      'font-variant-numeric:tabular-nums!important}' +
-      '</style>' +
       '</head><body><div id="print-modal"><div class="mbox"><div id="print-area">' +
       srcArea.innerHTML +
       '</div></div></div></body></html>';
