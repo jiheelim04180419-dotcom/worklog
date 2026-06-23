@@ -19,7 +19,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-06-23-07';
+const APP_BUILD = '2026-06-23-08';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -309,12 +309,12 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
 .print-invoice th.num, .print-invoice th.center { text-align: right; }
 .print-invoice th.center { text-align: center; }
 .print-invoice th.pi-room-col { text-align: left; }
-.print-invoice td { padding: 6px 8px; vertical-align: top; word-break: break-word; overflow-wrap: anywhere; white-space: normal; }
+.print-invoice td { padding: 6px 8px; vertical-align: middle; word-break: break-word; overflow-wrap: anywhere; white-space: normal; }
 .print-invoice tbody tr { border-bottom: 1px solid #E5E7EB; }
 .print-invoice tbody td { border-bottom: 1px solid #E5E7EB; }   /* 행 구분선도 셀에 부여 (html2canvas 대응) */
 .print-invoice td.pi-room-cell { font-weight: 700; vertical-align: middle; color: #1a1a1a; border-right: 1px solid #E5E7EB; padding: 8px; }
 .print-invoice td.pi-blank-room { border-right: 1px solid #E5E7EB; }  /* universal: applies even on non-blank rows */
-.print-invoice tbody tr.pi-blank-row td { border-bottom: 1px solid #E5E7EB; height: 22px; padding: 0; }
+.print-invoice tbody tr.pi-blank-row td { border-bottom: 1px solid #E5E7EB; height: 18px; padding: 0; }
 .print-invoice tbody tr.pi-blank-row.shaded td { background: #FAFAFA; }
 .print-invoice td.num, .print-invoice th.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1, "lnum" 1; }
 .print-invoice td.center { text-align: center; }
@@ -6955,7 +6955,8 @@ function printInvoiceBXBT(inv, co, b) {
   }
 
   // 빈 줄로 표 채움 — 회색/흰색 번갈이 → 모두 흰색으로 통일 (내용있는 줄과 일관)
-  const minRows = 14;
+  // 짧은 인보이스가 한 장에 들어가도록 최소 채움을 적게 (긴 인보이스는 영향 없음)
+  const minRows = 10;
   for (let i = rowsRendered; i < minRows; i++) {
     itemRows += `<tr class="bxbt-blank"><td></td><td></td><td></td><td></td></tr>`;
   }
@@ -7281,7 +7282,8 @@ function printInvoiceKM(inv, co, b) {
   const amt = round2(sub + tax);
 
   // Blank fill rows — first td gets pi-blank-room class for consistent border
-  const minRows = 14;
+  // 짧은 인보이스가 한 장에 들어가도록 최소 채움을 적게 (긴 인보이스는 영향 없음)
+  const minRows = 10;
   for (let i = rowsRendered; i < minRows; i++) {
     itemRows += `<tr class="pi-blank-row"><td class="pi-blank-room"></td><td></td><td></td><td></td><td></td><td class="pi-totals-col"></td></tr>`;
   }
