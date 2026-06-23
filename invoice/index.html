@@ -19,7 +19,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-06-23-04';
+const APP_BUILD = '2026-06-23-05';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -618,8 +618,13 @@ body.invoice-readonly::before {
   .print-invoice .pi-thanks { margin-top: 16px !important; font-size: 9.5px !important; }
   
   .print-invoice table { page-break-inside: auto !important; }
-  .print-invoice tr { page-break-inside: avoid !important; page-break-after: auto !important; }
-  .print-invoice .pi-room-header { page-break-after: avoid !important; }
+  /* 컬럼 헤더(AREA/DESCRIPTION/...)를 페이지마다 반복 → 다음 장도 헤더 있음 */
+  .print-invoice thead { display: table-header-group !important; }
+  .print-invoice tfoot { display: table-footer-group !important; }
+  /* 행이 페이지 경계에서 반토막 나지 않게 (모던 break-inside + 레거시 page-break) */
+  .print-invoice tr { break-inside: avoid !important; page-break-inside: avoid !important; page-break-after: auto !important; }
+  .print-invoice td, .print-invoice th { break-inside: avoid !important; page-break-inside: avoid !important; }
+  .print-invoice .pi-room-header { page-break-after: avoid !important; break-after: avoid !important; }
   
   /* BXBT template — fill content width with padding */
   .bxbt-invoice {
@@ -6015,6 +6020,13 @@ function doPrint() { _ensureFreshThen(_doPrintNow); }
 //  → iOS 사파리의 표 레이아웃 엔진을 완전히 우회 → 데스크탑/모바일/PDF 픽셀 단위 동일.
 //  html2canvas 미로드/렌더 실패 시에만 기존 벡터(srcdoc) 인쇄로 폴백.
 async function _doPrintNow() {
+  // iOS Safari 는 표 레이아웃 버그 회피 위해 이미지(html2canvas) 출력.
+  // 그 외(데스크탑 Chrome 등)는 벡터 인쇄 → 실제 텍스트라 (1) 숫자 tabular 정렬,
+  // (2) CSS 페이지나눔(헤더 페이지마다 반복 + 행이 경계에서 안 잘림)이 제대로 적용됨.
+  var ua = navigator.userAgent || '';
+  var isIOS = /iPad|iPhone|iPod/.test(ua) ||
+              (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if (!isIOS) { _printViaSrcdoc(); return; }
   if (!window.html2canvas) { _printViaSrcdoc(); return; }
   try {
     var canvas = await _renderInvoiceCanvas();
