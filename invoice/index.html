@@ -19,7 +19,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-06-23-03';
+const APP_BUILD = '2026-06-23-04';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -300,7 +300,7 @@ body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
 
 /* table-layout:fixed 를 base 에도 (예전엔 @media print 에만 있어, iOS Safari 인쇄가 @media print 의
    table-layout 을 적용 안 하고 base 의 auto 를 쓰면 컬럼폭이 내용따라 달라져 긴 숫자가 어긋났음) */
-.print-invoice table { width: 100%; table-layout: fixed; border-collapse: collapse; margin-bottom: 0; font-size: 11px; }
+.print-invoice table { width: 100%; table-layout: fixed; border-collapse: collapse; margin-bottom: 0; font-size: 11px; font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1, "lnum" 1; }
 .print-invoice thead tr { border-bottom: 1.5px solid #1a1a1a; }
 /* html2canvas 는 <tr> 에 준 border 를 잘 못 그림 → 셀(th/td)에도 동일 두께 부여해 인쇄/PDF 두께 일치
    (border-collapse:collapse 라 브라우저에선 tr/셀 테두리가 합쳐져 두꺼워지지 않음) */
