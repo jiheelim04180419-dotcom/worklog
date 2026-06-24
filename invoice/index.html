@@ -19,7 +19,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-06-23-09';
+const APP_BUILD = '2026-06-25-01';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -1265,7 +1265,14 @@ body.invoice-readonly::before {
       <input type="checkbox" id="bf-stmt" style="width:16px;height:16px;accent-color:#C2410C"/>
       <span style="font-weight:700;color:#92400E;font-size:13px">📄 Subcontractor Statement 같이 보냄</span>
     </label>
-    <p style="font-size:11px;color:#92400E;margin:6px 0 0 24px;line-height:1.5">이 빌더에게 인보이스 발송 시 NSW Subcontractor Statement PDF 도 자동 생성. (Workers Comp/Payroll Tax 양식 — Zauner 등 일부 빌더 요구)</p>
+    <p style="font-size:11px;color:#92400E;margin:6px 0 0 24px;line-height:1.5">이 빌더에게 인보이스 발송 시 Subcontractor Statement PDF 도 자동 생성. (Workers Comp/Payroll Tax 양식 — Zauner 등 일부 빌더 요구)</p>
+    <div style="margin:8px 0 0 24px">
+      <label style="font-size:11px;color:#92400E;font-weight:600;display:block;margin-bottom:3px">양식 종류</label>
+      <select class="select" id="bf-stmt-tpl" style="font-size:12px;padding:6px 8px">
+        <option value="">NSW 기본 양식 (Zauner 등)</option>
+        <option value="renascent">Renascent 전용 양식 (프로젝트명·날짜만 입력)</option>
+      </select>
+    </div>
   </div>
 
   <!-- Custom Rates (Q4) -->
@@ -2633,7 +2640,7 @@ function buildDetailHTML(inv) {
       <button class="btn-primary" style="flex:1;min-width:90px;padding:8px;font-size:12px;background:#10B981" onclick="printInvoice('${inv.id}')" title="인쇄용 인보이스 생성">🖨️ 인쇄 / PDF</button>
       ${(() => {
         const _b = builders.find(x => x.name === inv.builderName);
-        return _b && _b.needsStatement
+        return _b && (_b.needsStatement || _b.statementTemplate)
           ? `<button class="btn-secondary" style="flex:1;min-width:120px;padding:8px;font-size:12px;background:#FFFBEB;color:#92400E;border-color:#FDE68A" onclick="openSubcontractorStatement('${inv.id}')" title="Subcontractor Statement PDF 생성">📄 Statement</button>`
           : '';
       })()}
@@ -6312,6 +6319,45 @@ function restoreDocTitle() {
   }
 }
 
+// Renascent 전용 Subcontractor Statement — 폼 필드 없는 자체 PDF(계약서 내 양식 한 장).
+// 프로젝트명(Project 라벨 오른쪽) + 날짜(생성일)만 좌표에 오버레이. 좌표는 상수라 필요시 미세조정.
+async function _renascentStatement(inv, b) {
+  if (typeof PDFLib === 'undefined') return alert('PDF 라이브러리 로드 실패. 페이지 새로고침 후 다시 시도해주세요.');
+  const project = (inv.projectName || inv.address || '').trim();
+  const d = new Date(today + 'T00:00:00');
+  const dateStr = String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0') + '/' + d.getFullYear();
+  try {
+    const resp = await fetch('/worklog/invoice/renascent_statement_template.pdf', { cache: 'no-cache' });
+    if (!resp.ok) throw new Error('Renascent 템플릿 로드 실패 (' + resp.status + ')');
+    const bytes = await resp.arrayBuffer();
+    const pdfDoc = await PDFLib.PDFDocument.load(bytes);
+    const page = pdfDoc.getPages()[0];
+    const font = await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica);
+    const rgb = PDFLib.rgb;
+    // ── 좌표(상수) — PDF 좌하단 원점, MediaBox 595.2 x 841.92 ──
+    const PROJECT = { x: 150, y: 652, size: 11 };   // "Project:" 라벨(x≈83, y≈653) 오른쪽
+    const DATE    = { x: 94,  y: 108, size: 12 };   // "Date" 라벨 오른쪽(기존 박힌 날짜 자리)
+    // 1) 기존 날짜 가리기(흰 사각형) → 2) 새 날짜
+    page.drawRectangle({ x: 90, y: 104, width: 100, height: 16, color: rgb(1, 1, 1) });
+    page.drawText(dateStr, { x: DATE.x, y: DATE.y, size: DATE.size, font, color: rgb(0, 0, 0) });
+    // 3) 프로젝트명
+    if (project) page.drawText(project, { x: PROJECT.x, y: PROJECT.y, size: PROJECT.size, font, color: rgb(0, 0, 0) });
+
+    const out = await pdfDoc.save();
+    const blob = new Blob([out], { type: 'application/pdf' });
+    const url = URL.createObjectURL(blob);
+    const safeBuilder = (b.name || 'Renascent').replace(/[^\w가-힣\-]/g, '_').slice(0, 30);
+    const fname = `Statement_${safeBuilder}_${inv.invoiceNum || inv.id}.pdf`;
+    const a = document.createElement('a'); a.href = url; a.download = fname;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    window.open(url, '_blank');
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } catch (err) {
+    console.error('Renascent Statement 생성 실패:', err);
+    alert('⚠️ Renascent Statement 생성 실패:\n' + (err.message || err));
+  }
+}
+
 // ─── Subcontractor Statement PDF (NSW form) ─────────────────────────────────
 // 인보이스 + 빌더 + 회사 정보로 NSW 원본 PDF 템플릿(AcroForm)에 모든 필드 자동 채움.
 // pdf-lib 사용해서 브라우저에서 직접 PDF 다운로드. 디렉터 서명 이미지가 등록되어 있으면 서명란에 자동 삽입.
@@ -6320,6 +6366,8 @@ async function openSubcontractorStatement(invId) {
   if (!inv) return alert('인보이스를 찾을 수 없어요');
   const b = builders.find(x => x.name === inv.builderName) || {};
   const co = companies.find(c => c.id === inv.companyId) || companies[0] || {};
+  // Renascent 전용 양식 — 프로젝트명 + 날짜만 오버레이하고 종료
+  if (b.statementTemplate === 'renascent') { return _renascentStatement(inv, b); }
   // 필수 정보 검증
   const missing = [];
   if (!co.name)          missing.push('회사명');
@@ -7930,6 +7978,7 @@ function openBM(id) {
   document.getElementById('bf-a').value = b?.abn||'';
   document.getElementById('bf-stmt-name').value = b?.statementName||'';
   document.getElementById('bf-stmt').checked = !!(b?.needsStatement);
+  document.getElementById('bf-stmt-tpl').value = b?.statementTemplate||'';
 
   // Custom rates
   customRatesEditing = b?.customRates ? 
@@ -8006,6 +8055,7 @@ async function saveBuilder() {
     abn: document.getElementById('bf-a').value,
     statementName: document.getElementById('bf-stmt-name').value.trim(),
     needsStatement: document.getElementById('bf-stmt').checked,
+    statementTemplate: document.getElementById('bf-stmt-tpl').value,
     customRates: cleanCustomRates
   };
   if (editBId) await fbSet('invoiceBuilders/'+editBId, data);
