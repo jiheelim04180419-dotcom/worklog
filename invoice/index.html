@@ -19,7 +19,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-06-25-01';
+const APP_BUILD = '2026-06-25-02';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -904,6 +904,7 @@ body.invoice-readonly::before {
   <!-- Hidden status field — auto-set by saveInv() based on draft vs publish -->
   <input type="hidden" id="f-st" value="INVOICE"/>
   <div id="f-po-row" class="mb"><label class="label">PO 번호 (선택)</label><input class="input" id="f-po" placeholder="PO Number (있을 때만 입력)" oninput="checkPrevInvoice();checkDraftDuplicate()"/></div>
+  <div id="f-contract-row" class="mb"><label class="label">Contract 번호 (선택)</label><input class="input" id="f-contract" placeholder="Contract Number (PO 없이 계약번호만 있을 때 · Statement 에 기재)"/></div>
   <!-- 이전 인보이스 자동 매칭 힌트 (일반/PO 타입) -->
   <div id="prev-inv-row" class="mb" style="display:none;background:#FEF3C7;border:1px solid #FDE68A;border-radius:8px;padding:10px 12px">
     <div id="prev-inv-hint" style="font-size:12px;color:#92400E;margin-bottom:6px;line-height:1.5"></div>
@@ -2390,6 +2391,7 @@ function renderInv() {
           || (i.projectName||'').toLowerCase().includes(q)
           || (i.note||'').toLowerCase().includes(q)
           || (i.poNumber||'').toLowerCase().includes(q)
+          || (i.contractNumber||'').toLowerCase().includes(q)
           || (i.invoiceDate||'').includes(q)
           || (i.startDate||'').includes(q);
     }
@@ -2813,6 +2815,7 @@ function openIM(id) {
     document.getElementById('f-am').value = round2(incAmt / 1.1).toFixed(2);
   }
   document.getElementById('f-po').value = inv?.poNumber||'';
+  document.getElementById('f-contract').value = inv?.contractNumber||'';
   document.getElementById('f-proj').value = inv?.projectName||'';
   document.getElementById('f-discount').value = (inv?.discountPct && inv.discountPct > 0) ? inv.discountPct : '';
   
@@ -5392,6 +5395,7 @@ async function saveInv(asDraft, sendEmail) {
     amount: amt,
     // PO 번호는 모든 타입에서 입력 가능 (선택사항)
     poNumber: document.getElementById('f-po').value || '',
+    contractNumber: document.getElementById('f-contract').value || '',
     // 프로젝트명은 모든 타입에서 입력 가능 (선택사항)
     projectName: document.getElementById('f-proj').value || '',
     // 디스카운트 % (소수점 OK, 비워두면 0)
@@ -5981,6 +5985,7 @@ function previewInv() {
     dueDate: dueDate,
     amount: amt,
     poNumber: document.getElementById('f-po').value,
+    contractNumber: document.getElementById('f-contract').value,
     projectName: document.getElementById('f-proj').value,
     // 디스카운트 % — 폼 입력값 그대로 미리보기에 반영
     discountPct: parseFloat(document.getElementById('f-discount')?.value) || 0,
@@ -6399,7 +6404,7 @@ async function openSubcontractorStatement(invId) {
   const insIssue = co.insuranceIssueDate || co.insuranceDate || '';
   const [insd, insm, insy] = fAuS(insIssue);
   const [sd, sm, sy] = fAuS(today);
-  const contractRef = inv.projectName || inv.address || '';
+  const contractRef = inv.contractNumber || inv.projectName || inv.address || '';
   const addr = (co.address||'').split(/[,\n]/).map(s=>s.trim()).filter(Boolean).join(', ');
 
   try {
@@ -6875,6 +6880,11 @@ function printInvoiceBXBT(inv, co, b) {
   // PO Number bold header row
   if (poNum) {
     itemRows += `<tr class="bxbt-po-row"><td><b>PO Number ${esc(poNum)}</b></td><td></td><td></td><td></td></tr>`;
+    rowsRendered++;
+  }
+  // Contract Number bold header row (PO 없이 계약번호만 있는 경우)
+  if (inv.contractNumber) {
+    itemRows += `<tr class="bxbt-po-row"><td><b>Contract No. ${esc(inv.contractNumber)}</b></td><td></td><td></td><td></td></tr>`;
     rowsRendered++;
   }
   // Project name bold header row (PROGRESS invoices)
@@ -7397,6 +7407,10 @@ function printInvoiceKM(inv, co, b) {
         <div class="pi-meta-label">PO #</div>
         <div class="pi-meta-value">${esc(po)}</div>
       </div>` : ''; })()}
+      ${inv.contractNumber ? `<div class="pi-meta-cell">
+        <div class="pi-meta-label">Contract #</div>
+        <div class="pi-meta-value">${esc(inv.contractNumber)}</div>
+      </div>` : ''}
       <div class="pi-meta-cell" style="flex:1.5">
         <div class="pi-meta-label">Job Address</div>
         <div class="pi-meta-value">${esc(inv.address||'—')}</div>
