@@ -19,7 +19,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-06-25-04';
+const APP_BUILD = '2026-06-25-05';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -3256,7 +3256,8 @@ function loadPrevInvoice() {
 // ── Progress invoice continuation ──────────────────────────────────────────────
 // Find the most recent PROGRESS invoice matching current builder + project name
 function findPrevProgressInvoice() {
-  if (editId) return null; // Only auto-suggest for NEW invoices
+  // 새 인보이스, 또는 라인 항목이 아직 없는 초안을 편집 중일 때만 제안 (편집 중이어도 빈 초안이면 이어오기 허용)
+  if (editId && lineItems.length > 0) return null;
   const builderName = document.getElementById('f-b').value.trim();
   const projectQuery = (document.getElementById('f-proj')?.value || '').trim();
   if (!builderName || !projectQuery) return null;
