@@ -19,7 +19,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-06-25-05';
+const APP_BUILD = '2026-06-25-06';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -2272,6 +2272,15 @@ function isOverdue(inv) {
 }
 function isUnpaid(inv) {
   return inv.status === 'INVOICE' || inv.status === 'ONGOING';
+}
+// % (PROGRESS) 인보이스가 전부 100% 청구됐는지 (모든 라인 누적% >= 100). 비-PROGRESS 는 true.
+// 입금 완료돼도 100% 미만이면 PAID 대신 ONGOING 으로 둬서 남은 현장이 한눈에 보이게 함.
+function isProgressFullyComplete(inv) {
+  if (!inv || inv.type !== 'PROGRESS') return true;
+  const li = inv.lineItems ? (Array.isArray(inv.lineItems) ? inv.lineItems : Object.values(inv.lineItems)) : [];
+  const prog = li.filter(it => it && it.cumulativePct != null && it.cumulativePct !== '');
+  if (!prog.length) return true;
+  return prog.every(it => (parseFloat(it.cumulativePct) || 0) >= 99.99);
 }
 
 // ── Invoice tab setup (static parts rendered ONCE) ───────────────────────────
@@ -5307,7 +5316,8 @@ async function saveInv(asDraft, sendEmail) {
       status = 'INVOICE';
     }
     if (isProg && status === 'INVOICE') {
-      const allDone = lineItems.length>0 && lineItems.every(i=>parseFloat(i.pct)>=100);
+      // 모든 라인 누적% >= 100 이라야 완료(INVOICE→PAID 가능), 아니면 ONGOING 유지
+      const allDone = lineItems.length>0 && lineItems.every(i=>(parseFloat(i.cumulativePct)||0)>=99.99);
       if (!allDone) status = 'ONGOING';
     }
     if (status === 'INVOICE' && totalPay >= amt - 0.01 && amt > 0) {
@@ -5737,8 +5747,9 @@ async function saveBulkPay() {
       updated.depositAmount = totalPay;
       updated.updatedAt = new Date().toISOString();
       // 전액 입금되면 자동 PAID (RETENTION 은 그대로 둠)
+      // 단, % 청구인데 아직 100% 미완료면 ONGOING 유지 (남은 현장 한눈에)
       if (totalPay >= total - 0.01 && updated.status !== 'RETENTION') {
-        updated.status = 'PAID';
+        updated.status = (inv.type === 'PROGRESS' && !isProgressFullyComplete(inv)) ? 'ONGOING' : 'PAID';
       }
       await fbSet('invoices/' + a.id, updated);
       okCnt++;
@@ -5783,7 +5794,11 @@ async function quickPay(id) {
 
   // 전액 입금: PAID 로 자동 변경 제안
   if (totalPay >= total - 0.01) {
-    if (confirm('전액 입금됐어요. 상태를 PAID로 변경할까요?')) {
+    if (inv.type === 'PROGRESS' && !isProgressFullyComplete(inv)) {
+      // % 청구인데 아직 100% 미완료 → 입금 다 돼도 ONGOING 유지 (남은 현장 한눈에)
+      updated.status = 'ONGOING';
+      alert('전액 입금됐어요. 아직 100% 미완료 현장이라 ONGOING 탭으로 유지합니다.');
+    } else if (confirm('전액 입금됐어요. 상태를 PAID로 변경할까요?')) {
       updated.status = 'PAID';
     }
   } else if (newRem > 0.01) {
