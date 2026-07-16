@@ -19,7 +19,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-07-16-05';
+const APP_BUILD = '2026-07-16-06';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -2281,7 +2281,16 @@ function printLetter(){
   idoc.write(`<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${esc(title)}</title><style>@page{size:A4;margin:0}html,body{margin:0;padding:0;background:#fff}</style></head><body>${html}</body></html>`);
   idoc.close();
   const imgs=idoc.images?Array.from(idoc.images):[];
-  const go=()=>{ try{fr.contentWindow.focus();fr.contentWindow.print();}catch(e){try{window.print();}catch(e2){}} setTimeout(()=>{try{fr.remove();}catch(e){}},60000); };
+  // Chromium 은 iframe 인쇄 시 부모 문서의 title 을 파일명으로 씀 → 메인 document.title 을 임시 변경.
+  const _origTitle=document.title; let _restored=false;
+  const restore=()=>{ if(_restored) return; _restored=true; document.title=_origTitle; };
+  const go=()=>{
+    document.title=title;
+    try{ window.addEventListener('afterprint', function _ap(){ window.removeEventListener('afterprint',_ap); setTimeout(restore,800); }); }catch(e){}
+    try{ fr.contentWindow.addEventListener('afterprint', function _ap2(){ setTimeout(restore,800); }); }catch(e){}
+    try{ fr.contentWindow.focus(); fr.contentWindow.print(); }catch(e){ try{ window.print(); }catch(e2){} }
+    setTimeout(()=>{ try{fr.remove();}catch(e){} restore(); },60000);
+  };
   if(imgs.length===0 || imgs.every(i=>i.complete)) setTimeout(go,250);
   else { let n=imgs.length; imgs.forEach(i=>{ i.onload=i.onerror=()=>{ if(--n<=0) setTimeout(go,150); }; }); setTimeout(go,1800); }
 }
