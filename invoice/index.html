@@ -19,7 +19,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-07-16-04';
+const APP_BUILD = '2026-07-16-05';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -2269,9 +2269,9 @@ function updateLetterPreview(){ const p=document.getElementById('letter-preview'
 
 function printLetter(){
   const tpl=LETTER_TEMPLATES[letterType]; const f=_letterFieldVals();
-  const who=(f.name||f.title||f.accountName||'').replace(/[^\w가-힣]+/g,'_').replace(/^_|_$/g,'').slice(0,24);
-  const tName=((letterType==='custom'?(f.title||'Letter'):tpl.title)||'Letter').replace(/[^\w가-힣]+/g,'_').replace(/^_|_$/g,'').slice(0,30) || 'Letter';
-  const title=`KM_Letter_${tName}${who?'_'+who:''}`;
+  // 저장 파일명 = 레터 제목 (파일명에 못 쓰는 문자만 제거, 공백은 유지)
+  const rawTitle = (letterType==='custom' ? (f.title||'') : tpl.title) || 'Letter';
+  const title = rawTitle.replace(/[\/\\:*?"<>|]+/g,' ').replace(/\s+/g,' ').trim() || 'Letter';
   const html=buildLetterHtml();
   const fr=document.createElement('iframe');
   fr.style.cssText='position:fixed;left:-10000px;top:0;width:794px;height:1123px;border:0;opacity:0';
