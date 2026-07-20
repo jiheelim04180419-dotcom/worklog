@@ -19,7 +19,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-07-16-06';
+const APP_BUILD = '2026-07-16-07';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -2180,6 +2180,22 @@ const LETTER_TEMPLATES = {
       + `Please use the above bank details for all payments due to ${cn}.<br><br>`
       + `Should you require any further information or verification, please contact us.`; }
   },
+  bank2: {
+    label: '은행 정보 확인서 — 디렉터 2인 서명',
+    title: 'CONFIRMATION OF BANK DETAILS',
+    dualSign: true,
+    fields: [
+      { id:'recipient', label:'수신처', def:'To Whom It May Concern' },
+      { id:'accountName', label:'계좌명 / 회사명', ph:'K&M Tiling Bathurst Pty Ltd', def:'K&M Tiling Bathurst Pty Ltd' },
+      { id:'bsb', label:'BSB', ph:'032814', def:'032814' },
+      { id:'acc', label:'Account Number', ph:'576638', def:'576638' },
+    ],
+    body: f => { const cn=esc(f.accountName||'K&M Tiling Bathurst Pty Ltd'); return `${esc(f.recipient||'To Whom It May Concern')},<br><br>`
+      + `Please accept this letter as confirmation of the bank account details for ${cn}.<br><br>`
+      + `<b>Account Name:</b> ${cn}<br><b>BSB:</b> ${esc(f.bsb||'')}<br><b>Account Number:</b> ${esc(f.acc||'')}<br><br>`
+      + `Please use the above bank details for all payments due to ${cn}.<br><br>`
+      + `Should you require any further information or verification, please contact us.`; }
+  },
   custom: {
     label: '사용자 정의 (Custom)',
     title: '',
@@ -2202,9 +2218,17 @@ function buildLetterHtml(){
   const dateEl=document.getElementById('letter-date');
   const dateStr = fmtLetterDate((dateEl&&dateEl.value)||today);
   const logo = (typeof LOGO_DATA_URL!=='undefined') ? LOGO_DATA_URL : '';
-  const sig = (co.signatureImg && String(co.signatureImg).startsWith('data:image'))
-    ? `<img src="${co.signatureImg}" style="height:62px;margin:6px 0 2px;display:block">`
+  const _sigImg = src => (src && String(src).startsWith('data:image'))
+    ? `<img src="${src}" style="height:62px;margin:6px 0 2px;display:block">`
     : '<div style="height:50px"></div>';
+  // 서명 블록 — dualSign 이면 디렉터 2명을 나란히
+  const _signer = (img,nm,ttl) => `${_sigImg(img)}<div style="font-weight:600">${esc(nm||'')}</div><div>${esc(ttl||'')}</div>`;
+  const sigBlock = tpl.dualSign
+    ? `<div style="display:flex;gap:70px;margin-top:2px">
+         <div style="flex:0 0 auto">${_signer(co.signatureImg, co.signerName, co.signerTitle)}</div>
+         <div style="flex:0 0 auto">${_signer(co.signature2Img, co.signer2Name, co.signer2Title)}</div>
+       </div>`
+    : _signer(co.signatureImg, co.signerName, co.signerTitle);
   return `<div class="km-letter" style="width:210mm;min-height:296mm;box-sizing:border-box;padding:18mm 22mm;font-family:'Helvetica Neue',Arial,sans-serif;color:#1a1a1a;font-size:13px;line-height:1.75;background:#fff">
     <div style="display:flex;justify-content:space-between;align-items:flex-start">
       <img src="${logo}" style="height:82px" alt="">
@@ -2214,10 +2238,8 @@ function buildLetterHtml(){
     ${title?`<div style="text-align:center;font-size:19px;font-weight:700;letter-spacing:1px;margin:78px 0 34px;font-family:Georgia,'Times New Roman',serif">${esc(title)}</div>`:'<div style="height:60px"></div>'}
     <div style="margin-top:16px">${tpl.body(f)}</div>
     <div style="margin-top:46px">${esc(tpl.closing||'Sincerely,')}</div>
-    ${sig}
-    <div style="font-weight:600">${esc(co.signerName||'')}</div>
-    <div>${esc(co.signerTitle||'')}</div>
-    <div>${esc(co.name||'K&M Tiling Bathurst')}</div>
+    ${sigBlock}
+    <div style="margin-top:2px">${esc(co.name||'K&M Tiling Bathurst')}</div>
   </div>`;
 }
 
@@ -8062,6 +8084,23 @@ function renderCoList() {
           </div>
           <input type="hidden" id="co-sig-${c.id}" value="${esc(c.signatureImg||'')}"/>
         </div>
+        <div style="border-top:1px dashed var(--border-2);margin:14px 0 12px"></div>
+        <p style="margin:0 0 8px;font-size:12px;font-weight:700;color:var(--text-3,#666)">👥 두 번째 디렉터 <span style="font-weight:400;font-size:10px">— 레터 "디렉터 2인 서명" 버전에 사용</span></p>
+        <div class="row2 mb">
+          <div><label class="label">서명자 이름 (영문)</label><input class="input" id="co-signer2-${c.id}" value="${esc(c.signer2Name||'')}" placeholder="Seungchan Yang"/></div>
+          <div><label class="label">직책 (영문)</label><input class="input" id="co-signtitle2-${c.id}" value="${esc(c.signer2Title||'')}" placeholder="Director"/></div>
+        </div>
+        <div class="mb">
+          <label class="label">두 번째 디렉터 서명 이미지 (PNG 권장 · 투명배경)</label>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <input type="file" id="co-sig2-file-${c.id}" accept="image/png,image/jpeg" style="font-size:12px;flex:1;min-width:160px" onchange="onSigUpload('${c.id}', this, '2')"/>
+            <button type="button" class="btn-secondary" style="padding:6px 10px;font-size:11px" onclick="clearSig('${c.id}','2')">초기화</button>
+          </div>
+          <div id="co-sig2-preview-${c.id}" style="margin-top:8px;${c.signature2Img?'':'display:none;'}padding:8px;background:#F9FAFB;border:1px dashed var(--border-2);border-radius:6px;text-align:center">
+            ${c.signature2Img?`<img src="${c.signature2Img}" style="max-height:60px;max-width:240px;background:#fff;padding:4px;border-radius:4px"/>`:''}
+          </div>
+          <input type="hidden" id="co-sig2-${c.id}" value="${esc(c.signature2Img||'')}"/>
+        </div>
       </div>
     </div>`;
   });
@@ -8069,7 +8108,9 @@ function renderCoList() {
 }
 
 // Convert uploaded signature image file → base64 data URL, preview & stash in hidden input
-function onSigUpload(coId, input) {
+// slot: '' = 대표 디렉터, '2' = 두 번째 디렉터
+function onSigUpload(coId, input, slot) {
+  slot = slot || '';
   const file = input.files && input.files[0];
   if (!file) return;
   if (file.size > 1024 * 1024) {  // 1MB
@@ -8080,20 +8121,21 @@ function onSigUpload(coId, input) {
   const reader = new FileReader();
   reader.onload = e => {
     const dataUrl = e.target.result;
-    document.getElementById('co-sig-'+coId).value = dataUrl;
-    const prev = document.getElementById('co-sig-preview-'+coId);
+    document.getElementById('co-sig'+slot+'-'+coId).value = dataUrl;
+    const prev = document.getElementById('co-sig'+slot+'-preview-'+coId);
     prev.innerHTML = `<img src="${dataUrl}" style="max-height:60px;max-width:240px;background:#fff;padding:4px;border-radius:4px"/>`;
     prev.style.display = 'block';
   };
   reader.readAsDataURL(file);
 }
 
-function clearSig(coId) {
+function clearSig(coId, slot) {
+  slot = slot || '';
   if (!confirm('서명 이미지를 제거할까요? (저장을 눌러야 실제 반영됩니다)')) return;
-  document.getElementById('co-sig-'+coId).value = '';
-  const fileInput = document.getElementById('co-sig-file-'+coId);
+  document.getElementById('co-sig'+slot+'-'+coId).value = '';
+  const fileInput = document.getElementById('co-sig'+slot+'-file-'+coId);
   if (fileInput) fileInput.value = '';
-  const prev = document.getElementById('co-sig-preview-'+coId);
+  const prev = document.getElementById('co-sig'+slot+'-preview-'+coId);
   prev.innerHTML = '';
   prev.style.display = 'none';
 }
@@ -8129,7 +8171,11 @@ async function saveAllCo() {
       // insuranceDate = 만료일 (expiry). Statement (b) 용 발급일은 insuranceIssueDate 에 별도 저장.
       insuranceDate: document.getElementById('co-insexp-'+c.id)?.value || '',
       insuranceIssueDate: document.getElementById('co-insissue-'+c.id)?.value || '',
-      signatureImg: document.getElementById('co-sig-'+c.id)?.value || ''
+      signatureImg: document.getElementById('co-sig-'+c.id)?.value || '',
+      // 두 번째 디렉터 (레터 2인 서명 버전용)
+      signer2Name: document.getElementById('co-signer2-'+c.id)?.value || '',
+      signer2Title: document.getElementById('co-signtitle2-'+c.id)?.value || '',
+      signature2Img: document.getElementById('co-sig2-'+c.id)?.value || ''
     };
     await fbSet('invoiceCompanies/'+c.id, data);
   }
