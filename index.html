@@ -3635,6 +3635,7 @@ function LoginScreen({ users, onLogin }) {
   const submit = () => {
     const user = users.find(u => u.id === id && u.pw === pw);
     if (!user) { setErr("아이디 또는 비밀번호가 올바르지 않습니다."); return; }
+    if (user.resignedDate) { setErr("🚫 퇴사 처리된 계정이에요. 앱 접근이 제한됩니다. 관리자에게 문의하세요."); return; }
     onLogin(user);
   };
   return (
@@ -3649,6 +3650,23 @@ function LoginScreen({ users, onLogin }) {
         <div style={styles.field}><label style={styles.label}>비밀번호</label><input style={styles.input} type="password" value={pw} onChange={e=>setPw(e.target.value)} placeholder="비밀번호 입력" onKeyDown={e=>e.key==="Enter"&&submit()}/></div>
         {err&&<p style={styles.errText}>{err}</p>}
         <button style={styles.btnPrimary} onClick={submit}>로그인</button>
+      </div>
+    </div>
+  );
+}
+
+// 퇴사 처리된 계정이 (이미 로그인된 세션으로) 접근 시 차단하는 화면
+function ResignedGate({ name, onLogout }) {
+  return (
+    <div style={styles.loginWrap}>
+      <div style={{ ...styles.loginBox, textAlign:"center" }}>
+        <div style={{ fontSize:44, marginBottom:12 }}>🚫</div>
+        <h1 style={{ ...styles.logoTitle, fontSize:20 }}>접근 제한</h1>
+        <p style={{ color:C.sub, fontSize:14, lineHeight:1.6, margin:"10px 0 20px" }}>
+          <b>{name}</b> 님은 <b>퇴사 처리</b>되어<br/>더 이상 WorkLog 에 접근할 수 없어요.<br/>
+          <span style={{ fontSize:12, color:"#888" }}>문의사항은 관리자에게 연락해주세요.</span>
+        </p>
+        <button style={styles.btnPrimary} onClick={onLogout}>로그인 화면으로</button>
       </div>
     </div>
   );
@@ -4600,6 +4618,8 @@ function App() {
   if(!session)return<LoginScreen users={users} onLogin={login}/>;
 
   const currentUser=users.find(u=>u.id===session.id)||session;
+  // 퇴사 처리된 계정은 이미 로그인돼 있어도 접근 차단 (users 는 30초마다 갱신되므로 곧 반영됨)
+  if(currentUser.resignedDate)return<ResignedGate name={currentUser.name} onLogout={logout}/>;
   const isAdmin=currentUser.role==="admin"||currentUser.role==="superadmin"||currentUser.role==="viewadmin";
   const isSuperAdmin=currentUser.role==="admin"||currentUser.role==="superadmin";
   const isViewAdmin=currentUser.role==="viewadmin";
