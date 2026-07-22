@@ -19,7 +19,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-07-16-07';
+const APP_BUILD = '2026-07-16-08';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -5375,7 +5375,7 @@ function updLineItemsTotal() {
     if (curType === 'PROGRESS') {
       let quoteTotalEx = 0, prevBilledEx = 0, thisBilledEx = 0;
       lineItems.forEach(li => {
-        if (li.isMaterials) return;
+        // 자재(Materials)도 진행률 청구에 포함되므로 쿼트 검증에도 포함 (Subtotal 과 일치)
         const totalAmt = parseFloat(li.totalAmount) || 0;
         const prevPct = parseFloat(li.prevPct) || 0;
         const thisPct = parseFloat(li.thisPct) || 0;
