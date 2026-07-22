@@ -9,6 +9,50 @@
 <meta name="apple-mobile-web-app-title" content="WorkLog"/>
 <meta name="theme-color" content="#1E1B4B"/>
 <meta name="color-scheme" content="light"/>
+<!-- 모바일/PWA 캐시 방지 — 새 버전 받아오도록 -->
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
+<meta http-equiv="Pragma" content="no-cache"/>
+<meta http-equiv="Expires" content="0"/>
+<script>
+// 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
+// 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
+// ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
+// ℹ️ reload 는 코드만 갱신 — Firebase 주소(wm_fb_url)·로그인 세션(wm_session)은 localStorage 라 유지됨(재로그인 불필요).
+const APP_BUILD = '2026-07-16-01';
+// index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출. ?_=타임스탬프 + no-store 로 캐시 우회.
+function _fetchLatestBuild(){
+  return fetch(location.pathname + '?_=' + Date.now(), { cache: 'no-store', headers: { 'Range': 'bytes=0-3000' } })
+    .then(function(r){ return (r.ok || r.status === 206) ? r.text() : ''; })
+    .then(function(html){ var m = html.match(/APP_BUILD\s*=\s*'([^']+)'/); return m ? m[1] : null; });
+}
+// iOS 홈화면 웹클립은 location.reload() 로 옛 캐시가 안 깨짐 → 다른 URL(?v=빌드)로 이동시켜 캐시미스 유도.
+function _applyUpdate(latest){
+  try {
+    var key = '_appReloaded_' + latest;
+    if (sessionStorage.getItem(key)) return;   // 같은 버전엔 1회만(루프 방지)
+    sessionStorage.setItem(key, '1');
+  } catch(e){}
+  location.replace(location.pathname + '?v=' + encodeURIComponent(latest));
+}
+function _checkAppUpdate(){
+  try {
+    _fetchLatestBuild().then(function(latest){
+      if (latest && latest !== APP_BUILD) _applyUpdate(latest);
+    }).catch(function(){});
+  } catch(e){}
+}
+_checkAppUpdate();   // 앱 시작 즉시
+// 홈화면 standalone 앱은 로드가 한 번뿐 → 앱에 다시 돌아올 때마다 재확인.
+document.addEventListener('visibilitychange', function(){
+  if (document.visibilityState === 'visible') _checkAppUpdate();
+});
+window.addEventListener('pageshow', function(){ _checkAppUpdate(); });
+// 수동 강제갱신 탈출구
+function _forceUpdate(){
+  try { location.replace(location.pathname + '?v=' + Date.now()); }
+  catch(e){ location.href = location.pathname + '?v=' + Date.now(); }
+}
+</script>
 <style>
   *, *::before, *::after { box-sizing: border-box; }
   html, body {
