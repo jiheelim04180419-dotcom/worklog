@@ -2460,7 +2460,9 @@ function MgmtTab({ fbUrl, fA }) {
   const d20amt = has20 ? (parseFloat(ksConfig.d20)||0) : 0;
   const d27amt = has27 ? (parseFloat(ksConfig.d27)||0) : 0;
   const totalDeduct = d20amt + d27amt;
-  const deductEach = totalDeduct / 2;
+  // 공제 분담 인원 = Kyle/Sara 중 실제 존재하는 멤버 수. 한 명만 있으면 전액 그 사람이 부담.
+  const ksCount = (kyleMember?1:0) + (saraMember?1:0);
+  const deductEach = ksCount > 0 ? totalDeduct / ksCount : 0;
   const ksFinal = (mem) => {
     if (!mem) return 0;
     const hist = Array.isArray(mem.history) ? mem.history : Object.values(mem.history||{});
