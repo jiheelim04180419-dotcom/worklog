@@ -18,7 +18,7 @@
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
 // ℹ️ reload 는 코드만 갱신 — Firebase 주소(wm_fb_url)·로그인 세션(wm_session)은 localStorage 라 유지됨(재로그인 불필요).
-const APP_BUILD = '2026-07-16-01';
+const APP_BUILD = '2026-07-16-02';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출. ?_=타임스탬프 + no-store 로 캐시 우회.
 function _fetchLatestBuild(){
   return fetch(location.pathname + '?_=' + Date.now(), { cache: 'no-store', headers: { 'Range': 'bytes=0-3000' } })
@@ -346,7 +346,7 @@ const Icon = {
 
 
 
-const LOCATION_COORDS={"Bathurst":[-33.4254,149.6215],"Orange":[-33.2837,149.1001],"Black Springs":[-33.8500,149.8200],"Blayney":[-33.5327,149.2593],"Browns Creek":[-33.5800,149.8500],"Caloola":[-33.6200,149.4000],"Canowindra":[-33.5680,148.6609],"Capertee":[-33.1300,150.0100],"Cargo":[-33.4300,148.7400],"Cowra":[-33.8303,148.6838],"Cumnock":[-32.9300,148.7600],"Dubbo":[-32.2569,148.6011],"Eugowra":[-33.4322,148.3800],"Forbes":[-33.3838,148.0022],"Gilgandra":[-31.7194,148.6630],"Gooloogong":[-33.5700,148.4600],"Hobbys Yards":[-33.7300,149.6300],"Hill End":[-33.0300,149.4200],"Jenolan":[-33.8200,150.0200],"Kandos / Rylstone":[-32.8700,149.9600],"Killongbutta":[-33.1800,149.5200],"Lidsdale":[-33.2800,150.0700],"Lithgow":[-33.4826,150.1578],"Marrangaroo":[-33.4500,150.1100],"Millthorpe":[-33.4497,149.1758],"Molong":[-33.0996,148.8699],"Moorbel":[-33.5000,149.0000],"Mudgee / Cudgegong":[-32.5935,149.5871],"Oberon":[-33.7056,149.8594],"Parkes":[-33.1311,148.1726],"Tarana":[-33.5200,149.7800],"Trunkey":[-33.7200,149.3700],"Wallerawang":[-33.4100,150.0700],"Wellington":[-32.5537,148.9437]};
+const LOCATION_COORDS={"Bathurst":[-33.4254,149.6215],"Orange":[-33.2837,149.1001],"Black Springs":[-33.8500,149.8200],"Blayney":[-33.5327,149.2593],"Browns Creek":[-33.5800,149.8500],"Caloola":[-33.6200,149.4000],"Canowindra":[-33.5680,148.6609],"Capertee":[-33.1300,150.0100],"Cargo":[-33.4300,148.7400],"Cessnock":[-32.8342,151.3556],"Cowra":[-33.8303,148.6838],"Cumnock":[-32.9300,148.7600],"Dubbo":[-32.2569,148.6011],"Eugowra":[-33.4322,148.3800],"Forbes":[-33.3838,148.0022],"Gilgandra":[-31.7194,148.6630],"Gooloogong":[-33.5700,148.4600],"Hobbys Yards":[-33.7300,149.6300],"Hill End":[-33.0300,149.4200],"Jenolan":[-33.8200,150.0200],"Kandos / Rylstone":[-32.8700,149.9600],"Killongbutta":[-33.1800,149.5200],"Lidsdale":[-33.2800,150.0700],"Lithgow":[-33.4826,150.1578],"Marrangaroo":[-33.4500,150.1100],"Millthorpe":[-33.4497,149.1758],"Molong":[-33.0996,148.8699],"Moorbel":[-33.5000,149.0000],"Mudgee / Cudgegong":[-32.5935,149.5871],"Oberon":[-33.7056,149.8594],"Parkes":[-33.1311,148.1726],"Tarana":[-33.5200,149.7800],"Trunkey":[-33.7200,149.3700],"Wallerawang":[-33.4100,150.0700],"Wellington":[-32.5537,148.9437]};
 const ALL_LOCATIONS=Object.keys(LOCATION_COORDS).sort();
 // 스프레드시트 기준 Bathurst 편도 실제 도로거리 (왕복km/2)
 const BATHURST_ONE_WAY_KM = {
