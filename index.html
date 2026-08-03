@@ -18,7 +18,7 @@
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
 // ℹ️ reload 는 코드만 갱신 — Firebase 주소(wm_fb_url)·로그인 세션(wm_session)은 localStorage 라 유지됨(재로그인 불필요).
-const APP_BUILD = '2026-07-16-04';
+const APP_BUILD = '2026-07-16-05';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출. ?_=타임스탬프 + no-store 로 캐시 우회.
 function _fetchLatestBuild(){
   return fetch(location.pathname + '?_=' + Date.now(), { cache: 'no-store', headers: { 'Range': 'bytes=0-3000' } })
@@ -865,7 +865,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
             </button>
           </div>
           {subView === "summary" && isAdmin && (
-            <SummarySection users={users} leaves={leaves} periodStart={periodStart} calcWage={calcWage} getSavedDeductions={getSavedDeductions} getKeepBalance={getKeepBalance} getKeepBalanceAtPeriod={getKeepBalanceAtPeriod} getPeriodDeposits={getPeriodDeposits} EMP_COLORS={EMP_COLORS} fA={fA} C={C} selId={selId} setSelId={setSelId} setSubView={setSubView}/>
+            <SummarySection users={users} leaves={leaves} periodStart={periodStart} calcWage={calcWage} getSavedDeductions={getSavedDeductions} getKeepBalance={getKeepBalance} getKeepBalanceAtPeriod={getKeepBalanceAtPeriod} getPeriodDeposits={getPeriodDeposits} EMP_COLORS={EMP_COLORS} fA={fA} C={C} selId={selId} setSelId={setSelId} setSubView={setSubView} companies={companies}/>
           )}
           {subView === "deduct" && (
             <DeductTab users={users.filter(u=>!u.resignedDate&&u.role==="employee")}
@@ -2935,8 +2935,21 @@ function MgmtMemberForm({ member, currentPeriodStart, onSave, onClose }) {
 }
 
 
-function SummarySection({users, leaves, periodStart, calcWage, getSavedDeductions, getKeepBalance, getKeepBalanceAtPeriod, getPeriodDeposits, EMP_COLORS, fA, C, selId, setSelId, setSubView}) {
+function SummarySection({users, leaves, periodStart, calcWage, getSavedDeductions, getKeepBalance, getKeepBalanceAtPeriod, getPeriodDeposits, EMP_COLORS, fA, C, selId, setSelId, setSubView, companies}) {
   const activeEmps = users.filter(u => !u.resignedDate && u.role === "employee");
+  // 소속 회사 첫 글자 뱃지 (K&M→K, Bathurst→B). 해당 기간의 workHistory 소속 기준.
+  const coBadge = (empId, ps) => {
+    const lv = leaves[empId] || {};
+    const wh = Array.isArray(lv.workHistory) ? lv.workHistory : Object.values(lv.workHistory || {});
+    if (!wh.length || !companies) return null;
+    const inP = wh.find(w => w.from && w.from <= ps && (!w.to || w.to >= ps));
+    const active = inP || wh.find(w => !w.to) || [...wh].sort((a,b)=>(b.from||"").localeCompare(a.from||""))[0];
+    const co = active && companies.find(c => c.id === active.companyId);
+    if (!co) return null;
+    const L = (co.name||"").trim().charAt(0).toUpperCase();
+    if (!L) return null;
+    return <span style={{ display:"inline-block",minWidth:14,textAlign:"center",background:L==="K"?"#4F46E5":"#0891B2",color:"#fff",borderRadius:4,fontSize:9,fontWeight:800,padding:"0 3px",marginRight:3,lineHeight:"14px",verticalAlign:"middle" }}>{L}</span>;
+  };
   const fmtD = (ps) => { const d=new Date(ps+"T00:00:00"); d.setDate(d.getDate()+13); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); };
   // 이 기간이 입사일 이전, 또는 퇴사일 이후라면 "정산 미완료" 알림에서 제외
   const empWorkedInPeriod = (emp, ps) => {
@@ -2993,7 +3006,7 @@ function SummarySection({users, leaves, periodStart, calcWage, getSavedDeduction
             }).map(emp => (
               <span key={emp.id} onClick={()=>{ setSelId(emp.id); setSubView("calc"); }}
                 style={{ background:"#FEF08A",color:"#713F12",borderRadius:6,padding:"3px 8px",fontSize:12,fontWeight:600,cursor:"pointer" }}>
-                {emp.name}
+                {coBadge(emp.id,periodStart)}{emp.name}
               </span>
             ))}
           </div>
@@ -3048,7 +3061,7 @@ function SummarySection({users, leaves, periodStart, calcWage, getSavedDeduction
             <div style={{ display:"flex",alignItems:"center",gap:6 }}>
               <div style={{ width:24,height:24,borderRadius:"50%",background:col,color:"#fff",fontSize:11,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0 }}>{emp.name[0]}</div>
               <div>
-                <p style={{ margin:0,fontSize:12,fontWeight:700,lineHeight:1.2 }}>{emp.name}</p>
+                <p style={{ margin:0,fontSize:12,fontWeight:700,lineHeight:1.2 }}>{coBadge(emp.id,periodStart)}{emp.name}</p>
                 <p style={{ margin:0,fontSize:9,color:"#aaa" }}>{typeLabel}</p>
               </div>
             </div>
