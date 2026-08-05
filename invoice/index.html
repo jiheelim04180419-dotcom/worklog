@@ -19,7 +19,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-07-16-12';
+const APP_BUILD = '2026-07-16-13';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -3266,7 +3266,23 @@ function suggestInvNum() {
 }
 
 function setType(t) {
+  const prevType = curType;
   curType = t;
+  // 진행률 → 일반/PO 전환: 라인을 원본 "몇 × 몇"(origQty × origUnitPrice)으로 복원.
+  // (진행률 모드에선 qty=thisPct/100, unitPrice=총액 으로 덮여 있어 그대로 두면 총액만 남음)
+  if (prevType === 'PROGRESS' && t !== 'PROGRESS') {
+    lineItems.forEach(li => {
+      if (li.origQty != null && li.origUnitPrice != null) {
+        li.qty = parseFloat(li.origQty) || 0;
+        li.unitPrice = parseFloat(li.origUnitPrice) || 0;
+      } else if (li.totalAmount) {
+        li.qty = 1;
+        li.unitPrice = parseFloat(li.totalAmount) || 0;
+      }
+      // 진행률 전용 필드 정리
+      delete li.thisPct; delete li.cumulativePct; delete li.prevPct;
+    });
+  }
   document.getElementById('tt-normal').classList.toggle('active', t==='NORMAL');
   document.getElementById('tt-po').classList.toggle('active', t==='PO');
   document.getElementById('tt-prog').classList.toggle('active', t==='PROGRESS');
@@ -3877,9 +3893,8 @@ function onTileSizeChange() {
   if (!mosaicSel || !patternSel) return;
   if (size === 'Mosaic') {
     mosaicSel.style.display = '';
-    // Pattern doesn't apply to Mosaic — hide and clear
-    patternSel.style.display = 'none';
-    patternSel.value = '';
+    // Mosaic 도 패턴 선택 가능 (패턴 추가금은 mosaic 고정단가 위에 가산)
+    patternSel.style.display = '';
   } else {
     mosaicSel.style.display = 'none';
     mosaicSel.value = '';
@@ -3932,9 +3947,16 @@ function recomputeDynamicRate() {
   //       예) Wall Tiling NEW + 600x600 = $65 + ($67 - $65) = $67
   const size = document.getElementById('pick-tile-size').value;
   const isScreedingCombo = /^screeding\s*&\s*floor\s+tiling/i.test(r.desc);
+  const MOSAIC_RATES = { NEW:{Small:110,Large:100}, RENO:{Small:120,Large:110} };
 
+  // Mosaic — 조각 크기별 고정 단가 (패턴 추가금은 아래 패턴 블록에서 별도 가산)
+  if (size === 'Mosaic') {
+    const piece = document.getElementById('pick-mosaic-piece').value;
+    const mRate = (MOSAIC_RATES[curBuildType] || MOSAIC_RATES[bt] || {})[piece];
+    if (mRate) finalRate = mRate;
+  }
   // (A) Screeding&Floor Tiling — 항상 합산 (사이즈 미선택이면 300x300 기본)
-  if (isScreedingCombo) {
+  else if (isScreedingCombo) {
     const screedingRate = rates.find(x =>
       x.rate && !isNaN(x.rate) && /^screeding\s*\/\s*m/i.test((x.desc || '').trim())
     );
@@ -4008,16 +4030,8 @@ function lookupSizeRate(rates, size) {
 // When Mosaic piece (Small/Large) changes — auto-adjust rate based on typical pricing
 // From rate sheet: Small piece $110 (NEW) / $120 (RENO), Large piece $100 (NEW) / $110 (RENO)
 function onMosaicPieceChange() {
-  const piece = document.getElementById('pick-mosaic-piece').value;
-  if (!piece) return;
-  const rateMap = {
-    NEW:  { Small: 110, Large: 100 },
-    RENO: { Small: 120, Large: 110 }
-  };
-  const newRate = rateMap[curBuildType]?.[piece];
-  if (newRate) {
-    document.getElementById('pick-unit').value = newRate;
-  }
+  // Mosaic 고정단가 + (선택 시) 패턴 추가금을 recomputeDynamicRate 에서 일관 계산
+  recomputeDynamicRate();
 }
 
 // Parse multi-component item descriptions.
