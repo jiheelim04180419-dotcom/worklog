@@ -19,7 +19,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-07-16-16';
+const APP_BUILD = '2026-07-16-17';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -5493,14 +5493,20 @@ function getInvoiceAmount() {
     const incGst = document.getElementById('f-am-incgst')?.checked;
     return incGst ? round2(raw) : round2(raw * 1.1);
   }
-  // 디스카운트 % — discount===true 인 라인에만 (1 - X/100) 적용 후 GST 포함 합계
+  // 디스카운트 % — discount===true 인 라인에만 (1 - X/100) 적용.
+  // ⚠️ GST 는 taxable ex 합계에 "한 번" 계산 (라인별 반올림 X) — 화면 TOTAL·인쇄와 동일한 반올림.
   const discPct = parseFloat(document.getElementById('f-discount')?.value) || 0;
   const mult = 1 - (discPct / 100);
-  return round2(lineItems.reduce((s,li)=>{
+  let taxableEx = 0, nonTaxableEx = 0;
+  lineItems.forEach(li => {
     const exRaw = round2((parseFloat(li.qty)||0) * (parseFloat(li.unitPrice)||0));
     const ex = (li.discount && discPct > 0) ? round2(exRaw * mult) : exRaw;
-    return s + (li.noTax ? ex : round2(ex * 1.1));
-  }, 0));
+    if (li.noTax) nonTaxableEx += ex; else taxableEx += ex;
+  });
+  taxableEx = round2(taxableEx);
+  nonTaxableEx = round2(nonTaxableEx);
+  const gst = round2(taxableEx * 0.1);
+  return round2(round2(taxableEx + nonTaxableEx) + gst);
 }
 
 async function saveInv(asDraft, sendEmail) {
