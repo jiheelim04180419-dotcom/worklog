@@ -19,7 +19,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-07-16-13';
+const APP_BUILD = '2026-07-16-14';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -1223,7 +1223,12 @@ body.invoice-readonly::before {
         </div>
       </div>
     </div>
-    <label class="label">💵 금액 (ex GST) *</label>
+    <label class="label" style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+      <span id="f-am-label">💵 금액 (ex GST) *</span>
+      <label style="display:flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:#92400E;cursor:pointer;text-transform:none;letter-spacing:0">
+        <input type="checkbox" id="f-am-incgst" onchange="onIncGstToggle()" style="margin:0"/> GST 포함 금액으로 입력
+      </label>
+    </label>
     <input type="number" step="0.01" class="input" id="f-am" placeholder="0.00 (GST 빠진 금액)" oninput="updPayInfo()"/>
     <div id="f-gst-info" style="font-size:11px;color:var(--text-4);margin-top:4px"></div>
   </div>
@@ -2991,12 +2996,18 @@ function openIM(id) {
   // Only apply this division for invoices using legacy amount (no lineItems)
   const incAmt = parseFloat(inv?.amount) || 0;
   const hasLineItems = inv && inv.lineItems && (Array.isArray(inv.lineItems) ? inv.lineItems.length : Object.keys(inv.lineItems).length);
+  const incGstChk = document.getElementById('f-am-incgst');
+  if (incGstChk) incGstChk.checked = !!(inv && inv.simpleIncGst);
   if (hasLineItems || !incAmt) {
     document.getElementById('f-am').value = inv?.amount||'';
+  } else if (inv && inv.simpleIncGst) {
+    // GST 포함으로 입력했던 인보이스: 저장된 inc-GST 총액을 그대로 표시
+    document.getElementById('f-am').value = round2(incAmt).toFixed(2);
   } else {
     // Legacy simple-amount invoice: convert inc-GST → ex-GST for display
     document.getElementById('f-am').value = round2(incAmt / 1.1).toFixed(2);
   }
+  if (typeof onIncGstToggle === 'function') onIncGstToggle();
   document.getElementById('f-po').value = inv?.poNumber||'';
   document.getElementById('f-contract').value = inv?.contractNumber||'';
   document.getElementById('f-proj').value = inv?.projectName||'';
@@ -3178,6 +3189,15 @@ function renderPayments() {
   }
   document.getElementById('payments-list').innerHTML = h;
 }
+function onIncGstToggle() {
+  const inc = document.getElementById('f-am-incgst')?.checked;
+  const lbl = document.getElementById('f-am-label');
+  const inp = document.getElementById('f-am');
+  if (lbl) lbl.textContent = inc ? '💵 금액 (inc GST) *' : '💵 금액 (ex GST) *';
+  if (inp) inp.placeholder = inc ? '0.00 (GST 포함 금액)' : '0.00 (GST 빠진 금액)';
+  updPayInfo();
+}
+
 function updPayInfo() {
   const amt = (typeof getInvoiceAmount === 'function' ? getInvoiceAmount() : 0) || 0;
   document.getElementById('f-gst-info').innerHTML = amt > 0
@@ -5461,9 +5481,10 @@ function updLineItemsTotal() {
 
 function getInvoiceAmount() {
   if (useLegacyAmount) {
-    // f-am is now ex-GST → multiply by 1.1 to get total inc-GST
-    const ex = parseFloat(document.getElementById('f-am').value) || 0;
-    return round2(ex * 1.1);
+    const raw = parseFloat(document.getElementById('f-am').value) || 0;
+    // GST 포함 입력이면 그대로 총액, 아니면 ex-GST → ×1.1
+    const incGst = document.getElementById('f-am-incgst')?.checked;
+    return incGst ? round2(raw) : round2(raw * 1.1);
   }
   // 디스카운트 % — discount===true 인 라인에만 (1 - X/100) 적용 후 GST 포함 합계
   const discPct = parseFloat(document.getElementById('f-discount')?.value) || 0;
@@ -5628,6 +5649,8 @@ async function saveInv(asDraft, sendEmail) {
     simpleMaterials: (useLegacyAmount && document.getElementById('f-am-incmat')?.checked)
       ? (document.getElementById('f-am-incmat-text')?.value || 'silicone').trim()
       : '',
+    // 단순금액 입력을 GST 포함으로 했는지 (편집 복원용). amount 는 항상 inc-GST 총액으로 저장됨.
+    simpleIncGst: useLegacyAmount ? !!document.getElementById('f-am-incgst')?.checked : false,
     privateName: /^private$/i.test(b) ? (document.getElementById('f-private-name')?.value.trim() || '') : '',
     privateEmail: /^private$/i.test(b) ? (document.getElementById('f-private-email')?.value.trim() || '') : '',
     lineItems: cleanLineItems,
