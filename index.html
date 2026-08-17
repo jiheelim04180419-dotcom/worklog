@@ -18,7 +18,7 @@
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
 // ℹ️ reload 는 코드만 갱신 — Firebase 주소(wm_fb_url)·로그인 세션(wm_session)은 localStorage 라 유지됨(재로그인 불필요).
-const APP_BUILD = '2026-07-16-08';
+const APP_BUILD = '2026-07-16-09';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출. ?_=타임스탬프 + no-store 로 캐시 우회.
 function _fetchLatestBuild(){
   return fetch(location.pathname + '?_=' + Date.now(), { cache: 'no-store', headers: { 'Range': 'bytes=0-3000' } })
@@ -551,20 +551,21 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
     // (계약자 이력이 있는 직원만 해당 — 일반 직원/계약자는 영향 없음. 과거 지급기간 소급 방지)
     const _crhLen = (Array.isArray(lv.contractorRateHistory) ? lv.contractorRateHistory : Object.values(lv.contractorRateHistory||{})).length;
     const isContractor = !!lv.noLeave || (_crhLen > 0 && !!lv.leaveStartDate && periodStart < lv.leaveStartDate);
-    const hasFlatPay = !!(lv.hasFlatPay);
-    // fixedPay 기간별 조회 (fixedPayHistory 우선, 없으면 현재값)
+    // fixedPay 기간별 조회 — 이력(fixedPayHistory)이 있으면 그 기간에 해당하는 이력만 적용.
+    // ⚠️ 첫 이력일(from) 이전 기간엔 고정급여 미적용(0) — 날짜지정한 고정급여가 지난 기간에 소급되던 버그 방지.
+    const _fph = Array.isArray(lv.fixedPayHistory) ? lv.fixedPayHistory : Object.values(lv.fixedPayHistory||{});
+    const _fpEntry = _fph.length
+      ? [..._fph].sort((a,b)=>(b.from||"").localeCompare(a.from||"")).find(h => (h.from||"") <= periodStart)
+      : null;
+    // 이 기간에 고정급여 적용 여부: 이력 있으면 해당 기간 이력 존재 여부, 이력 없으면 hasFlatPay 플래그
+    const hasFlatPay = _fph.length ? !!_fpEntry : !!lv.hasFlatPay;
     const getFixedPayForPeriod = () => {
-      const hist = lv.fixedPayHistory || [];
-      if (hist.length === 0) {
-        return { net: parseFloat(lv.fixedNet)||0, tax: parseFloat(lv.fixedTax)||0, sup: parseFloat(lv.fixedSuper)||0 };
-      }
-      const sorted = [...hist].sort((a,b) => b.from.localeCompare(a.from));
-      const entry = sorted.find(h => h.from <= periodStart) || sorted[sorted.length-1];
-      return { net: parseFloat(entry.net)||0, tax: parseFloat(entry.tax)||0, sup: parseFloat(entry.sup)||0 };
+      if (!_fph.length) return { net: parseFloat(lv.fixedNet)||0, tax: parseFloat(lv.fixedTax)||0, sup: parseFloat(lv.fixedSuper)||0 };
+      if (!_fpEntry) return { net: 0, tax: 0, sup: 0 };
+      return { net: parseFloat(_fpEntry.net)||0, tax: parseFloat(_fpEntry.tax)||0, sup: parseFloat(_fpEntry.sup)||0 };
     };
-    // fixedPayHistory가 있거나 hasFlatPay면 기간별 고정지급 조회
-    const hasFixedHist = (lv.fixedPayHistory||[]).length > 0;
-    const fp = (!isContractor || hasFlatPay || hasFixedHist) ? getFixedPayForPeriod() : {net:0,tax:0,sup:0};
+    const hasFixedHist = _fph.length > 0;
+    const fp = (!isContractor || hasFlatPay) ? getFixedPayForPeriod() : {net:0,tax:0,sup:0};
     const fixedNet   = fp.net;
     const fixedTax   = fp.tax;
     const fixedSuper = fp.sup;
@@ -3188,7 +3189,8 @@ function FYGrossSummary({ userId, lv, logs, users, isAdmin, getDailyRate, fA }) 
     if (hist.length === 0) {
       return { net: parseFloat(lv.fixedNet)||0, tax: parseFloat(lv.fixedTax)||0, sup: parseFloat(lv.fixedSuper)||0 };
     }
-    const entry = hist.find(h => h.from <= ps) || hist[hist.length-1];
+    const entry = hist.find(h => h.from <= ps);
+    if (!entry) return { net: 0, tax: 0, sup: 0 };  // 첫 이력일 이전 기간 — 고정급여 미적용(소급 방지)
     return { net: parseFloat(entry.net)||0, tax: parseFloat(entry.tax)||0, sup: parseFloat(entry.sup)||0 };
   };
 
@@ -3294,7 +3296,8 @@ function computeTaxShortfall(user, lv, logs) {
   const fixedPayAt = (ps) => {
     const h = (lv.fixedPayHistory || []).slice().sort((a,b)=>(b.from||"").localeCompare(a.from||""));
     if (h.length === 0) return { net: parseFloat(lv.fixedNet)||0, tax: parseFloat(lv.fixedTax)||0 };
-    const e = h.find(x => x.from <= ps) || h[h.length-1];
+    const e = h.find(x => x.from <= ps);
+    if (!e) return { net: 0, tax: 0 };  // 첫 이력일 이전 기간 — 고정급여 미적용(소급 방지)
     return { net: parseFloat(e.net)||0, tax: parseFloat(e.tax)||0 };
   };
   const curFy = fyKeyFor(today);
