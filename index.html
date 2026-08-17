@@ -18,7 +18,7 @@
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
 // ℹ️ reload 는 코드만 갱신 — Firebase 주소(wm_fb_url)·로그인 세션(wm_session)은 localStorage 라 유지됨(재로그인 불필요).
-const APP_BUILD = '2026-07-16-10';
+const APP_BUILD = '2026-07-16-11';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출. ?_=타임스탬프 + no-store 로 캐시 우회.
 function _fetchLatestBuild(){
   return fetch(location.pathname + '?_=' + Date.now(), { cache: 'no-store', headers: { 'Range': 'bytes=0-3000' } })
@@ -2532,18 +2532,25 @@ function MgmtTab({ fbUrl, fA }) {
   const d20amt = has20 ? (parseFloat(ksConfig.d20)||0) : 0;
   const d27amt = has27 ? (parseFloat(ksConfig.d27)||0) : 0;
   const totalDeduct = d20amt + d27amt;
-  // 공제 분담 인원 = Kyle/Sara 중 실제 존재하는 멤버 수. 한 명만 있으면 전액 그 사람이 부담.
-  const ksCount = (kyleMember?1:0) + (saraMember?1:0);
+  // 이 구간에 인보이스가 있는 KS 멤버만 공제 분담 (통합 후 금액 0인 멤버는 제외 → 남은 인원이 전액 부담)
+  const _ksActive = (mem) => {
+    if (!mem) return false;
+    const hist = Array.isArray(mem.history) ? mem.history : Object.values(mem.history||{});
+    const entry = hist.length > 0 ? getHistoryEntry(hist, periodStart) : null;
+    return (parseFloat((entry||mem).invoiceAmount)||0) > 0;
+  };
+  const ksCount = (_ksActive(kyleMember)?1:0) + (_ksActive(saraMember)?1:0);
   const deductEach = ksCount > 0 ? totalDeduct / ksCount : 0;
   const ksFinal = (mem) => {
     if (!mem) return 0;
     const hist = Array.isArray(mem.history) ? mem.history : Object.values(mem.history||{});
     const entry = hist.length > 0 ? getHistoryEntry(hist, periodStart) : null;
     const base = parseFloat((entry||mem).invoiceAmount)||0;
-    const afterDeduct = base - deductEach;
-    const invTotal = gstAppliesFor(mem, entry) ? afterDeduct * 1.1 : afterDeduct;
     // monthly 타입 기간이면 급여(net)도 합산 (급여 + 인보이스 하이브리드)
     const net = (effectiveType(mem, entry) === 'monthly') ? (parseFloat((entry||mem).salary)||0) : 0;
+    if (base <= 0 && net <= 0) return 0;  // 이 구간에 금액 없는 멤버(예: 통합 후 사라) → 0, 공제 미부담
+    const afterDeduct = base - deductEach;
+    const invTotal = gstAppliesFor(mem, entry) ? afterDeduct * 1.1 : afterDeduct;
     return invTotal + net;
   };
   const kyleFinal = ksFinal(kyleMember);
@@ -2613,6 +2620,8 @@ function MgmtTab({ fbUrl, fA }) {
 
         // 카일/사라 최종 금액
         const ksFinal = isKyle ? kyleFinal : isSara ? saraFinal : null;
+        // KS 멤버가 이 구간에 금액 0(예: 통합 후 사라)이면 카드 자체를 숨김
+        if (isKS && (ksFinal || 0) <= 0) return null;
         // 기간별 GST/금액 상태 (Kyle/Sara 표시용)
         const _hist  = Array.isArray(m.history) ? m.history : Object.values(m.history||{});
         const _entry = _hist.length > 0 ? getHistoryEntry(_hist, periodStart) : null;
