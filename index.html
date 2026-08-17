@@ -18,7 +18,7 @@
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
 // ℹ️ reload 는 코드만 갱신 — Firebase 주소(wm_fb_url)·로그인 세션(wm_session)은 localStorage 라 유지됨(재로그인 불필요).
-const APP_BUILD = '2026-07-16-06';
+const APP_BUILD = '2026-07-16-07';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출. ?_=타임스탬프 + no-store 로 캐시 우회.
 function _fetchLatestBuild(){
   return fetch(location.pathname + '?_=' + Date.now(), { cache: 'no-store', headers: { 'Range': 'bytes=0-3000' } })
@@ -2270,6 +2270,26 @@ function DeductTab({ users, leaves, wpStart, wpEnd, persist, removeSavedDeductio
   const allSaved = users.flatMap(u => (getSavedDeductions(u.id)||[]).map(d => ({...d, userName: u.name, userId: u.id})))
     .sort((a,b) => a.date.localeCompare(b.date));
 
+  // 최근 자주 쓰는 항목명 (전 직원·전 기간 savedDeductions 에서 수집 → 최근/빈도순 상위 20개)
+  const recentDescs = (() => {
+    const seen = new Map();
+    users.forEach(u => {
+      const lv = leaves[u.id] || {};
+      const sd = Array.isArray(lv.savedDeductions) ? lv.savedDeductions : Object.values(lv.savedDeductions||{});
+      sd.forEach(d => {
+        const desc = (d.desc||"").trim();
+        if (!desc) return;
+        const e = seen.get(desc) || { count:0, lastDate:"" };
+        e.count++; if ((d.date||"") > e.lastDate) e.lastDate = d.date||"";
+        seen.set(desc, e);
+      });
+    });
+    return [...seen.entries()]
+      .sort((a,b) => (b[1].count - a[1].count) || (b[1].lastDate).localeCompare(a[1].lastDate))
+      .slice(0, 20)
+      .map(x => x[0]);
+  })();
+
   return (
     <div style={{ padding:"0 0 20px" }}>
       {/* 기간 표시 */}
@@ -2294,6 +2314,10 @@ function DeductTab({ users, leaves, wpStart, wpEnd, persist, removeSavedDeductio
           ))}
         </div>
 
+        <datalist id="deduct-desc-list">
+          {recentDescs.map(dsc => <option key={dsc} value={dsc}/>)}
+        </datalist>
+
         {newRows.map(row => (
           <div key={row.id} style={{ display:"grid",gridTemplateColumns:"2fr 1.2fr 2fr 1.2fr 32px",gap:4,marginBottom:6,alignItems:"center" }}>
             <select value={row.userId} onChange={e=>updateRow(row.id,"userId",e.target.value)}
@@ -2304,7 +2328,7 @@ function DeductTab({ users, leaves, wpStart, wpEnd, persist, removeSavedDeductio
             <input type="date" value={row.date} min={wpStart} max={wpEnd}
               onChange={e=>updateRow(row.id,"date",e.target.value)}
               style={{...inp,fontSize:11,padding:"6px 6px"}}/>
-            <input placeholder="항목명" value={row.desc}
+            <input placeholder="항목명" value={row.desc} list="deduct-desc-list"
               onChange={e=>updateRow(row.id,"desc",e.target.value)}
               style={inp}/>
             <input type="number" placeholder="0.00" value={row.amount} step={0.01}
