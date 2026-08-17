@@ -18,7 +18,7 @@
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
 // ℹ️ reload 는 코드만 갱신 — Firebase 주소(wm_fb_url)·로그인 세션(wm_session)은 localStorage 라 유지됨(재로그인 불필요).
-const APP_BUILD = '2026-07-16-07';
+const APP_BUILD = '2026-07-16-08';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출. ?_=타임스탬프 + no-store 로 캐시 우회.
 function _fetchLatestBuild(){
   return fetch(location.pathname + '?_=' + Date.now(), { cache: 'no-store', headers: { 'Range': 'bytes=0-3000' } })
@@ -4644,6 +4644,47 @@ function TeamTab({users,leaves,logs,persist,isSuperAdmin,companies,jumpEmpName,o
             </div><div style={{ display:"flex",gap:4,flexShrink:0,alignItems:"center" }}>{reordering?<><button style={{ ...styles.iconBtn,fontSize:16 }} onClick={()=>moveEmp(u.id,-1)}>▲</button><button style={{ ...styles.iconBtn,fontSize:16 }} onClick={()=>moveEmp(u.id,1)}>▼</button></>:<>{isSuperAdmin&&!u.resignedDate&&<button style={styles.iconBtn} onClick={()=>{setConfirmId(null);setEditEmp(u);}}>{Icon.edit}</button>}{isSuperAdmin&&(confirmId===`resign_${u.id}`?<div style={styles.confirmInline}><span style={{ fontSize:11,color:"#e67e22" }}>퇴사?</span><button style={styles.confirmYes} onClick={()=>resignEmp(u.id)}>예</button><button style={styles.confirmNo} onClick={()=>setConfirmId(null)}>아니오</button></div>:confirmId===`delete_${u.id}`?<div style={styles.confirmInline}><span style={{ fontSize:11,color:"#f77" }}>삭제?</span><button style={styles.confirmYes} onClick={()=>deleteEmp(u.id)}>예</button><button style={styles.confirmNo} onClick={()=>setConfirmId(null)}>아니오</button></div>:u.resignedDate?<div style={{ display:"flex",gap:4 }}><button style={{ ...styles.btnSecondary,fontSize:11,padding:"4px 8px" }} onClick={()=>reinstateEmp(u.id)}>복직</button><button style={{ ...styles.iconBtn,color:"#f77" }} onClick={()=>{setEditEmp(null);setConfirmId(`delete_${u.id}`);}}>{Icon.trash}</button></div>:<div style={{ display:"flex",gap:4 }}><button style={{ ...styles.iconBtn,color:"#e67e22",fontSize:11,fontWeight:700 }} onClick={()=>{setEditEmp(null);setConfirmId(`resign_${u.id}`);}}>퇴사</button><button style={{ ...styles.iconBtn,color:"#f77" }} onClick={()=>{setEditEmp(null);setConfirmId(`delete_${u.id}`);}}>{Icon.trash}</button></div>)}</>}</div></div>);})} {resignedEmps.length>0&&<div style={{ marginTop:16 }}><button style={{ ...styles.btnSecondary,fontSize:12,width:"100%",marginBottom:showResigned?10:0,background:showResigned?"#fff0f0":undefined,borderColor:"#f77",color:"#c0392b" }} onClick={()=>setShowResigned(v=>!v)}>{showResigned?`▲ 퇴사 직원 숨기기`:`▼ 퇴사 직원 보기 (${resignedEmps.length}명)`}</button>{showResigned&&resignedEmps.map(u=>(<div key={u.id} style={{ ...styles.empCard,opacity:0.7,borderLeft:"3px solid #f77" }}><div style={styles.empCardLeft}><div style={{ ...styles.logAvatar,width:44,height:44,fontSize:18,background:"#eee",color:"#999" }}>{u.name[0]}</div><div><p style={styles.logName}>{u.name}<span style={styles.deptBadge}>{u.dept}</span><span style={{ fontSize:10,background:"#f77",color:"#fff",borderRadius:4,padding:"1px 5px",marginLeft:4 }}>퇴사</span></p><p style={styles.logContent}>퇴사일: {auD(u.resignedDate)} &nbsp;|&nbsp; 입사: {auD(u.joinDate)}</p></div></div><div style={{ display:"flex",gap:4 }}><button style={{ ...styles.btnSecondary,fontSize:11,padding:"4px 8px" }} onClick={()=>reinstateEmp(u.id)}>복직</button>{confirmId===`delete_${u.id}`?<div style={styles.confirmInline}><span style={{ fontSize:11,color:"#f77" }}>삭제?</span><button style={styles.confirmYes} onClick={()=>deleteEmp(u.id)}>예</button><button style={styles.confirmNo} onClick={()=>setConfirmId(null)}>아니오</button></div>:<button style={{ ...styles.iconBtn,color:"#f77" }} onClick={()=>setConfirmId(`delete_${u.id}`)}>{Icon.trash}</button>}</div></div>))}</div>}{showAdd&&<AddEmpForm companies={companies} onSave={(emp,leaveData)=>{persist([...users,emp],null,{...leaves,[emp.id]:leaveData});setShowAdd(false);}} onClose={()=>setShowAdd(false)}/>}{editEmp&&<EditEmpForm emp={editEmp} leaveData={normLeave(leaves[editEmp.id],editEmp.joinDate)} companies={companies} onSave={saveEmp} onClose={()=>setEditEmp(null)}/>}<DataBackup users={users} leaves={leaves} logs={logs} persist={persist}/></div>);}
 
 // ─── App ───────────────────────────────────────────────────────────────────
+// 격주(또는 지정 간격) 자동 반복 공제 생성기.
+// recurringDeductions 설정 배열을 받아, startDate 부터 오늘까지 간격마다의 날짜에
+// 각 직원 savedDeductions 에 (같은 날짜+항목명이 없으면) 항목을 추가한 새 leaves 반환.
+// 변경 없으면 null (멱등 — 여러 번 돌려도 중복 안 생김).
+function computeRecurringDeductions(configs, leaves, todayStr) {
+  if (!configs || !configs.length || !leaves) return null;
+  const newLeaves = {...leaves};
+  let changed = false;
+  configs.forEach(cfg => {
+    if (!cfg || cfg.active === false) return;
+    const desc = (cfg.desc || "").trim();
+    const emps = cfg.employees || [];
+    if (!desc || !cfg.startDate || !emps.length) return;
+    const step = parseInt(cfg.intervalDays) || 14;
+    const amount = parseFloat(cfg.amount) || 0;
+    // startDate ~ today 까지 step 간격 날짜 목록
+    const dates = [];
+    const end = new Date(todayStr + "T00:00:00");
+    let d = new Date(cfg.startDate + "T00:00:00"), guard = 0;
+    while (d <= end && guard < 520) {
+      dates.push(d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"));
+      d.setDate(d.getDate() + step); guard++;
+    }
+    emps.forEach(uid => {
+      const lv = newLeaves[uid];
+      if (!lv) return;
+      const sd = Array.isArray(lv.savedDeductions) ? [...lv.savedDeductions] : Object.values(lv.savedDeductions || {});
+      let uChanged = false;
+      dates.forEach(ds => {
+        const exists = sd.some(x => x && x.date === ds && (x.desc || "").trim() === desc);
+        if (!exists) {
+          sd.push({ id: Date.now() + Math.random(), date: ds, desc, amount, recurId: cfg.id || true });
+          uChanged = true; changed = true;
+        }
+      });
+      if (uChanged) newLeaves[uid] = {...lv, savedDeductions: sd};
+    });
+  });
+  return changed ? newLeaves : null;
+}
+
 function App() {
   const [isDesktop, setIsDesktop] = React.useState(window.innerWidth >= 768);
   React.useEffect(() => {
@@ -4685,6 +4726,26 @@ function App() {
   },[]);
 
   const saveFb=useCallback(async(u,l,lv,co)=>{const base=_fbUrl||getFbUrl();if(!base)return;if(u)fbSet("users",u);if(l)fbSet("logs",l);if(lv)fbSet("leaves",lv);if(co)fbSet("companies",co);},[]);
+
+  // 자동 반복 공제 — 관리자 로그인 시 1회, 지난 격주분을 자동 생성(멱등)
+  const recurRanRef=useRef(false);
+  useEffect(()=>{
+    if(!ready||!session||recurRanRef.current)return;
+    const cu=users.find(u=>u.id===session.id)||session;
+    if(!cu||!(cu.role==="admin"||cu.role==="superadmin"||cu.role==="viewadmin"))return;
+    recurRanRef.current=true;
+    (async()=>{
+      const base=_fbUrl||getFbUrl(); if(!base)return;
+      try{
+        const [cfgR,lvR]=await Promise.all([fetch(base+"/recurringDeductions.json"),fetch(base+"/leaves.json")]);
+        let configs=await cfgR.json(); const lv=await lvR.json();
+        configs=Array.isArray(configs)?configs:(configs?Object.values(configs):[]);
+        if(!configs.length||!lv)return;
+        const merged=computeRecurringDeductions(configs,lv,today);
+        if(merged)persist(null,null,merged);
+      }catch(e){}
+    })();
+  },[ready,session,users]);
 
   const persist=useCallback(async(u,l,lv,co)=>{
     if(u){setUsers(u);saveFb(u,null,null,null);}
