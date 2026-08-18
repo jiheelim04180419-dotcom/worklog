@@ -19,7 +19,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-08-18-02';
+const APP_BUILD = '2026-08-18-03';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -481,12 +481,13 @@ body.invoice-readonly::before {
   }
   .no-print { display: none !important; }
   .print-invoice {
-    /* @page margin: 0 — fill A4 entirely, use padding for safe whitespace.
-       This avoids Chrome's "default margin" overriding @page margin.
+    /* 세로 여백은 @page margin(모든 페이지 상·하단 14mm)으로, 가로 여백만 padding(15mm)으로.
+       예전엔 padding 14mm 로 위/아래 여백을 줬는데, 여러 페이지로 넘어가면 2페이지 상단·1페이지
+       하단에 여백이 안 생겨(잘려 보임) → 세로는 @page 로 옮겨 모든 페이지 동일 여백.
        폭은 A4 고정(210mm) — 모바일에서도 데스크탑과 픽셀 단위로 동일한 레이아웃이 나오게. */
     width: 210mm !important;
     max-width: 210mm !important;
-    padding: 14mm 15mm !important;
+    padding: 0 15mm !important;
     box-sizing: border-box !important;
     margin: 0 !important;
     font-size: 11px !important;
@@ -629,9 +630,9 @@ body.invoice-readonly::before {
   .print-invoice td, .print-invoice th { break-inside: avoid !important; page-break-inside: avoid !important; }
   .print-invoice .pi-room-header { page-break-after: avoid !important; break-after: avoid !important; }
   
-  /* BXBT template — fill content width with padding */
+  /* BXBT template — 가로 여백만 padding, 세로 여백은 @page margin (모든 페이지 동일) */
   .bxbt-invoice {
-    padding: 14mm 15mm !important;
+    padding: 0 15mm !important;
     width: 100% !important;
     max-width: 100% !important;
     box-sizing: border-box !important;
@@ -647,9 +648,10 @@ body.invoice-readonly::before {
     white-space: normal !important;
   }
   
-  /* @page margin: 0 — content uses internal padding for safe whitespace.
-     Avoids Chrome ignoring @page margin and clipping the right edge. */
-  @page { size: A4 portrait; margin: 0; }
+  /* 세로 여백(위·아래 14mm)은 @page 로 → 여러 페이지 모두 동일 여백.
+     가로는 0 (좌우 여백은 .print-invoice/.bxbt-invoice 의 padding:0 15mm 이 담당) →
+     예전 Chrome 가로 @page margin 무시/오른쪽 잘림 이슈 회피. */
+  @page { size: A4 portrait; margin: 14mm 0; }
 }
 
 /* ── Print preview MODAL (on-screen, not actually printing) ──────────────── */
@@ -3743,7 +3745,7 @@ function _progressLightUpdate(i) {
     const thisP = parseFloat(li.thisPct) || 0;
     const cumP = parseFloat(li.cumulativePct) || 0;
     const computed = round2((parseFloat(li.qty)||0) * (parseFloat(li.unitPrice)||0));
-    summaryEl.innerHTML = `→ 이번 청구: ${fA(computed)} ex (= ${round2(thisP)}% × ${fA(totalAmt)})${cumP > 0 ? ` · 누적 ${round2(cumP)}% Completed` : ''}`;
+    summaryEl.innerHTML = `→ 이번 청구: ${fA(computed)} ex (= ${fmtPctDisp(thisP)}% × ${fA(totalAmt)})${cumP > 0 ? ` · 누적 ${fmtPctDisp(cumP)}% Completed` : ''}`;
   }
   // 3.5) "이번 금액($)" 입력칸 동기화 — %/누적% 를 바꾸면 금액칸도 따라오게
   const amtEl = document.getElementById(`pi-amt-${i}`);
@@ -4698,6 +4700,16 @@ function round8(n) {
   return Math.round((n + Number.EPSILON) * 1e8) / 1e8;
 }
 
+// 진행률 % 를 화면/PDF 에 보여줄 때 쓰는 포맷.
+//  - 반올림하면 75.9976% 가 76% 로 보여 실제 청구비율이 가려지므로 2자리에서 '버림'.
+//  - 정수 %(100, 95…)는 뒤 0 을 떼어 그대로(100), 소수는 최대 2자리(75.99).
+function fmtPctDisp(n) {
+  var v = parseFloat(n);
+  if (!isFinite(v)) return '0';
+  var f = Math.floor(v * 100 + 1e-6) / 100;
+  return f.toFixed(2).replace(/\.?0+$/, '');
+}
+
 function onGlueModeChange() {
   const mode = document.getElementById('mat-glue-mode').value;
   document.getElementById('mat-glue-bags-row').style.display = (mode === 'bags') ? 'flex' : 'none';
@@ -5157,9 +5169,9 @@ function lineDescFinal(li) {
 // For print/PDF: include cumulative % suffix if available
 function lineDescForPrint(li) {
   let d = lineDescFinal(li);
-  const cum = round2(parseFloat(li.cumulativePct));  // 표시용 반올림
+  const cum = parseFloat(li.cumulativePct);
   if (cum > 0) {
-    d += ` - ${cum}% Completed`;
+    d += ` - ${fmtPctDisp(cum)}% Completed`;
   }
   return d;
 }
@@ -5319,7 +5331,7 @@ function renderLineItems() {
             <input id="pi-cum-${i}" type="number" step="0.01" class="input" style="width:65px;font-size:11px;padding:4px 6px" value="${li.cumulativePct ?? ''}" placeholder="누적%" oninput="updateProgressCumPct(${i}, this.value)"/>
             <span id="pi-past-${i}" style="font-size:10px;color:#7C3AED;font-weight:600;margin-left:6px;${matPrevPct>0?'':'display:none'}">지난: ${fA(round2(matTotalAmt * matPrevPct / 100))}</span>
           </div>
-          <div id="pi-summary-${i}" style="font-size:10px;color:#4F46E5;padding-left:75px;font-weight:600;margin-bottom:5px">→ 이번 청구: ${fA(matChargedEx)} ex (= ${round2(matThisPct)}% × ${fA(matTotalAmt)})${matCumPct > 0 ? ` · 누적 ${round2(matCumPct)}% Completed` : ''}</div>
+          <div id="pi-summary-${i}" style="font-size:10px;color:#4F46E5;padding-left:75px;font-weight:600;margin-bottom:5px">→ 이번 청구: ${fA(matChargedEx)} ex (= ${fmtPctDisp(matThisPct)}% × ${fA(matTotalAmt)})${matCumPct > 0 ? ` · 누적 ${fmtPctDisp(matCumPct)}% Completed` : ''}</div>
           ` : ''}
           ${breakdownHTML}
         </div>`;
@@ -5388,7 +5400,7 @@ function renderLineItems() {
                 <input id="pi-cum-${i}" type="number" step="0.01" class="input" style="width:70px;font-size:11px;padding:4px 6px" value="${li.cumulativePct ?? ''}" placeholder="누적%" oninput="updateProgressCumPct(${i}, this.value)"/>
               </div>
               <div style="font-size:9px;color:var(--text-4);font-style:italic;margin-top:2px">↑ 이전% + 이번% = 새 누적%. 셋 중 하나 바꾸면 나머지 자동 계산.</div>
-              <div id="pi-summary-${i}" style="font-size:10px;color:#4F46E5;margin-top:3px;font-weight:600">→ 이번 청구: ${fA(computedEx)} ex (= ${round2(thisPct)}% × ${fA(totalAmt)})${cumPct > 0 ? ` · 누적 ${round2(cumPct)}% Completed` : ''}</div>
+              <div id="pi-summary-${i}" style="font-size:10px;color:#4F46E5;margin-top:3px;font-weight:600">→ 이번 청구: ${fA(computedEx)} ex (= ${fmtPctDisp(thisPct)}% × ${fA(totalAmt)})${cumPct > 0 ? ` · 누적 ${fmtPctDisp(cumPct)}% Completed` : ''}</div>
             </div>
             <span id="line-total-${i}" style="min-width:90px;text-align:right;font-weight:700;font-size:11px;color:var(--text)">${fA(computedEx)}<div style="font-size:9px;color:var(--text-4);font-weight:400">${li.noTax?'(no tax)':'ex GST'}</div><div style="font-size:9px;color:var(--text-4);font-weight:400;margin-top:2px">원래: ${fA(totalAmt)}</div><div id="pi-past-${i}" style="font-size:9px;color:#7C3AED;font-weight:600;${prevPct>0?'':'display:none'}">지난: ${fA(round2(totalAmt * prevPct / 100))}</div></span>
             <div style="display:flex;flex-direction:column;gap:1px">
@@ -6407,7 +6419,7 @@ function _printCanvasImage(canvas) {
       '<meta name="viewport" content="width=794">' +
       '<title>' + title + '</title>' +
       '<style>html,body{margin:0!important;padding:0!important;background:#fff}' +
-      'img{display:block;width:100%}@page{size:A4;margin:0}' +
+      'img{display:block;width:100%}@page{size:A4;margin:14mm 0}' +
       '@media print{html,body{width:210mm}}</style>' +
       '</head><body><img id="__pimg__" src="' + imgSrc + '"></body></html>'
     );
@@ -6592,18 +6604,26 @@ async function _downloadInvoicePDFNow(btn) {
 
     var pdf = new JS({ orientation: 'portrait', unit: 'mm', format: 'a4' });
     var pageW = 210, pageH = 297;
-    var imgW = pageW;
-    var imgH = canvas.height * (imgW / canvas.width);
-    var img = canvas.toDataURL('image/jpeg', 0.95);
-    if (imgH <= pageH + 1) {
-      pdf.addImage(img, 'JPEG', 0, 0, imgW, imgH);
-    } else {
-      var pos = 0, remaining = imgH;
-      while (remaining > 0) {
-        pdf.addImage(img, 'JPEG', 0, pos, imgW, imgH);
-        remaining -= pageH;
-        if (remaining > 0) { pdf.addPage(); pos -= pageH; }
-      }
+    // 모든 페이지 상·하단에 동일한 세로 여백. (가로 여백 15mm 는 이미지에 이미 구워져 있음)
+    var mTop = 14, mBottom = 14;
+    var contentHmm = pageH - mTop - mBottom;          // 페이지당 실제 내용 높이(mm)
+    var mmPerPx = pageW / canvas.width;               // 캔버스 폭을 210mm 로 배치할 때의 스케일
+    var bandPx = contentHmm / mmPerPx;                // 한 페이지에 담을 캔버스 세로 픽셀 수
+    var totalPx = canvas.height;
+    var pages = Math.max(1, Math.ceil(totalPx / bandPx));
+    for (var p = 0; p < pages; p++) {
+      if (p > 0) pdf.addPage();
+      var sy = Math.round(p * bandPx);
+      var sh = Math.min(Math.round(bandPx), totalPx - sy);
+      if (sh <= 0) break;
+      // 캔버스에서 이 페이지에 해당하는 가로 밴드만 잘라 별도 캔버스로 복사 → JPEG.
+      var tmp = document.createElement('canvas');
+      tmp.width = canvas.width;
+      tmp.height = sh;
+      tmp.getContext('2d').drawImage(canvas, 0, sy, canvas.width, sh, 0, 0, canvas.width, sh);
+      var sliceImg = tmp.toDataURL('image/jpeg', 0.95);
+      var sliceHmm = sh * mmPerPx;
+      pdf.addImage(sliceImg, 'JPEG', 0, mTop, pageW, sliceHmm);  // 매 페이지 상단 여백 mTop 부터
     }
     // 페이지 번호만 추가 (URL·날짜·생성시각은 없이). 각 페이지 우하단, 작고 회색 톤.
     var totalPages = pdf.getNumberOfPages();
@@ -7258,11 +7278,11 @@ function printInvoiceBXBT(inv, co, b) {
       }
       // PROGRESS: always show % Completed (even 0%), so client sees status of every line
       if (isProgressTypeBXBT) {
-        const cumPct = round2(parseFloat(it.cumulativePct) || 0);  // 표시용 반올림(청구액은 qty 기준)
-        desc += ` - ${cumPct}% Completed`;
+        const cumPct = parseFloat(it.cumulativePct) || 0;  // 원본(표시는 fmtPctDisp 로 2자리 버림)
+        desc += ` - ${fmtPctDisp(cumPct)}% Completed`;
       } else {
         const cumPct = parseFloat(it.cumulativePct);
-        if (cumPct > 0) desc += ` - ${cumPct}% Completed`;
+        if (cumPct > 0) desc += ` - ${fmtPctDisp(cumPct)}% Completed`;
       }
       
       const qtyDisplay = (qty === 0) ? '0'
@@ -7563,13 +7583,13 @@ function printInvoiceKM(inv, co, b) {
         }
         // PROGRESS: always show "% Completed" (cumulative), even at 0%, so client sees status of every line
         if (isProgressType) {
-          const cumPct = round2(parseFloat(it.cumulativePct) || 0);  // 표시용 반올림(청구액은 qty 기준)
-          desc += ` - ${cumPct}% Completed`;
+          const cumPct = parseFloat(it.cumulativePct) || 0;  // 원본(표시는 fmtPctDisp 로 2자리 버림)
+          desc += ` - ${fmtPctDisp(cumPct)}% Completed`;
         } else {
           // Non-progress: legacy fallback
           const cumPct = parseFloat(it.cumulativePct);
           if (cumPct > 0) {
-            desc += ` - ${cumPct}% Completed`;
+            desc += ` - ${fmtPctDisp(cumPct)}% Completed`;
           } else if (it.pct) {
             desc += ` (${it.pct}% completed)`;
           }
