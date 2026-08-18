@@ -19,7 +19,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-08-18-03';
+const APP_BUILD = '2026-08-18-04';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -7285,9 +7285,7 @@ function printInvoiceBXBT(inv, co, b) {
         if (cumPct > 0) desc += ` - ${fmtPctDisp(cumPct)}% Completed`;
       }
       
-      const qtyDisplay = (qty === 0) ? '0'
-        : (qty % 1 === 0 ? qty
-          : (isProgressTypeBXBT ? parseFloat(qty.toFixed(6)).toString() : qty.toFixed(2).replace(/\.?0+$/, '')));
+      const qtyDisplay = (qty === 0) ? '0' : (qty % 1 === 0 ? qty : qty.toFixed(2).replace(/\.?0+$/, ''));
       
       itemRows += `<tr>
         <td>${esc(desc)}</td>
@@ -7595,11 +7593,8 @@ function printInvoiceKM(inv, co, b) {
           }
         }
         
-        // PROGRESS 라인은 소수%(예: 75.9976%)를 청구하면 qty 가 0.759976 처럼 나옴.
-        // 2자리(0.76)로 뭉개면 qty×단가 ≠ 금액 이 되므로 6자리까지 표시해 정합성 유지.
-        const qtyDisplay = (qty === 0) ? '0'
-          : (qty % 1 === 0 ? qty
-            : (isProgressType ? parseFloat(qty.toFixed(6)).toString() : qty.toFixed(2).replace(/\.?0+$/, '')));
+        // QTY 표시는 최대 2자리(진행률 라인의 소수% qty 도 0.76 처럼 깔끔하게). 청구 금액은 저장된 정밀 qty 로 정확.
+        const qtyDisplay = (qty === 0) ? '0' : (qty % 1 === 0 ? qty : qty.toFixed(2).replace(/\.?0+$/, ''));
         const taxMark = it.noTax ? '' : 'x';
         
         // First row of group gets the area cell with rowspan
