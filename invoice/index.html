@@ -19,7 +19,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-08-18-04';
+const APP_BUILD = '2026-08-18-05';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -2554,11 +2554,33 @@ function renderInv() {
     return false;
   };
 
+  // ONGOING 탭 전용: 같은 현장(빌더+프로젝트명, 없으면 주소)은 가장 최근 발행 건만 남김.
+  //   진행률 청구는 한 현장에서 회차마다 인보이스가 쌓이는데, ONGOING 탭에선 최신 회차만 보이면 됨.
+  const _ongoingSiteKey = i => {
+    const b = (i.builderName||'').trim().toLowerCase();
+    const p = (i.projectName||'').trim().toLowerCase();
+    const a = (i.address||'').trim().toLowerCase();
+    const site = p || a;                       // 프로젝트명 우선, 없으면 주소
+    return site ? (b + '|' + site) : ('__' + i.id);  // 현장 식별 불가하면 병합 안 함(개별 유지)
+  };
+  const _dedupeOngoingRecent = list => {
+    const byKey = new Map();
+    for (const i of list) {
+      const key = _ongoingSiteKey(i);
+      const prev = byKey.get(key);
+      if (!prev) { byKey.set(key, i); continue; }
+      const pd = prev.invoiceDate || '', cd = i.invoiceDate || '';
+      // 더 최근(발행일 큰, 같으면 나중에 생성된 id 큰) 것만 유지
+      if (cd > pd || (cd === pd && (i.id||'') > (prev.id||''))) byKey.set(key, i);
+    }
+    return Array.from(byKey.values());
+  };
+
   const countFor = s => {
     if (s === 'ALL') return invoices.filter(i => i.status !== 'DRAFT').length;
     if (s === 'OVERDUE') return invoices.filter(isOverdue).length;
     if (s === 'INVOICE') return invoices.filter(_isInvoicePending).length;
-    if (s === 'ONGOING') return invoices.filter(_isOngoingDone).length;
+    if (s === 'ONGOING') return _dedupeOngoingRecent(invoices.filter(_isOngoingDone)).length;
     return invoices.filter(i => i.status === s).length;
   };
 
@@ -2573,7 +2595,7 @@ function renderInv() {
     return i.status === curFilter;
   };
   
-  const filtered = invoices.filter(i => {
+  let _filteredBase = invoices.filter(i => {
     if (searchQ) {
       // 검색 scope 체크: 'tab'이면 현재 탭 필터도 적용, 'all'이면 무시 (전체)
       if (searchScope === 'tab' && !matchesFilter(i)) return false;
@@ -2591,7 +2613,12 @@ function renderInv() {
     // 검색어 없음 → 탭 필터 적용
     if (!matchesFilter(i)) return false;
     return true;
-  }).sort((a,b) => {
+  });
+  // ONGOING 탭에서만 같은 현장 최근 건만 표시 (전체 범위 검색 중엔 탭 필터가 무시되므로 제외)
+  if (curFilter === 'ONGOING' && !(searchQ && searchScope === 'all')) {
+    _filteredBase = _dedupeOngoingRecent(_filteredBase);
+  }
+  const filtered = _filteredBase.sort((a,b) => {
     if (invSort === 'amount-desc') return (parseFloat(b.amount)||0) - (parseFloat(a.amount)||0);
     if (invSort === 'amount-asc')  return (parseFloat(a.amount)||0) - (parseFloat(b.amount)||0);
     if (invSort === 'builder')     return (a.builderName||'').localeCompare(b.builderName||'');
