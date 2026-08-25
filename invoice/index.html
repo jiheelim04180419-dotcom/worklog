@@ -19,7 +19,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-08-18-07';
+const APP_BUILD = '2026-08-18-08';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -1510,6 +1510,7 @@ async function fbDel(path) {
 
 // ── State ─────────────────────────────────────────────────────────────────────
 let invoices = [], builders = [], companies = [], customRooms = [], curFilter = 'INVOICE', curType = 'NORMAL', editId = null, editBId = null, invItems = [], progItems = [], invPayments = [];
+let _savingInv = false;  // 저장 재진입(더블클릭/이벤트 중복) 방지 플래그 — 신규 초안 중복 저장 방지
 // 정기 지출 (Vendors + Monthly Payments)
 let expenseVendors = []; // {id, name, order, archived}
 let monthlyPayments = []; // {id, vendorId, month:"YYYY-MM", paid, paidDate, amount, notes, status}
@@ -5789,31 +5790,43 @@ async function saveInv(asDraft, sendEmail) {
     updatedAt: new Date().toISOString()
   };
   
-  if (editId) {
-    await fbSet('invoices/'+editId, data);
-  } else {
-    await fbPush('invoices', data);
-    // Publishing(=!asDraft) → nextNumber를 invoiceNum+1보다 작으면 점프 갱신
-    if (!asDraft) {
-      const co = companies.find(c=>c.id===coId);
-      if (co && data.invoiceNum) {
-        const num = parseInt((data.invoiceNum || '').replace(/\D/g, ''), 10);
-        if (!isNaN(num) && (num + 1) > (co.nextNumber || 0)) {
-          const updated = {...co, nextNumber: num + 1};
-          delete updated.id;
-          await fbSet('invoiceCompanies/'+co.id, updated);
+  // 중복 저장 방지: 저장이 이미 진행 중이면(더블클릭·이벤트 중복 등) 무시.
+  //   신규 초안은 editId 가 없어 재호출 때마다 fbPush(신규) 되어 중복 저장되던 문제 해결.
+  if (_savingInv) return;
+  _savingInv = true;
+  let savedNewId = null;
+  try {
+    if (editId) {
+      await fbSet('invoices/'+editId, data);
+    } else {
+      savedNewId = await fbPush('invoices', data);
+      // 방금 만든 레코드로 editId 고정 → 뒤이어 또 저장돼도 갱신(중복 X)
+      if (savedNewId) editId = savedNewId;
+      // Publishing(=!asDraft) → nextNumber를 invoiceNum+1보다 작으면 점프 갱신
+      if (!asDraft) {
+        const co = companies.find(c=>c.id===coId);
+        if (co && data.invoiceNum) {
+          const num = parseInt((data.invoiceNum || '').replace(/\D/g, ''), 10);
+          if (!isNaN(num) && (num + 1) > (co.nextNumber || 0)) {
+            const updated = {...co, nextNumber: num + 1};
+            delete updated.id;
+            await fbSet('invoiceCompanies/'+co.id, updated);
+          }
         }
       }
     }
+  } finally {
+    _savingInv = false;
   }
   closeIM();
   await loadAll();
 
   // 발행+이메일: 발행 직후 이메일 모달 띄움
   if (sendEmail && !asDraft) {
-    // editId가 있으면 그 인보이스, 없으면 방금 생성된 데이터 객체 사용
-    const inv = editId
-      ? (invoices.find(i => i.id === editId) || {...data, id: editId})
+    // 방금 생성/수정된 인보이스
+    const useId = editId || savedNewId;
+    const inv = useId
+      ? (invoices.find(i => i.id === useId) || {...data, id: useId})
       : {...data};
     composeEmailForInvoice(inv);
   }
