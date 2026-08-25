@@ -19,7 +19,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-08-18-05';
+const APP_BUILD = '2026-08-18-06';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -3357,54 +3357,74 @@ function setType(t) {
 
 // ── 일반/PO 인보이스 자동 라인 매칭 ──────────────────────────────────────────
 // 우선순위: 1) PO 일치  2) 빌더 + 주소 일치  3) 빌더 일치 (가장 최근)
+// PO "/" 뒤 부분만 키로 (QLINC 규칙: 12345/A1 → A1 같으면 같은 작업)
+function _prevPoKey(p) {
+  const s = (p||'').toString().trim();
+  if (!s) return '';
+  const parts = s.split('/');
+  return (parts.length >= 2 ? parts[1] : s).trim().toLowerCase();
+}
+function _prevNorm(s){ return (s||'').toString().toLowerCase().replace(/\s+/g,' ').trim(); }
+// 현재 입력폼에서 매칭 쿼리 읽기 (빌더/PO/주소/프로젝트명/컨트랙)
+function _readPrevQuery() {
+  return {
+    builder: _prevNorm(document.getElementById('f-b')?.value),
+    po: _prevPoKey(document.getElementById('f-po')?.value),
+    project: _prevNorm(document.getElementById('f-proj')?.value),
+    address: _prevNorm(document.getElementById('f-a')?.value),
+    contract: _prevNorm(document.getElementById('f-contract')?.value),
+  };
+}
+// 이전 인보이스 매칭 점수. 빌더 필수(부분 허용). PO/프로젝트명/주소/컨트랙/인보이스번호 중
+// 하나라도 맞으면 점수 부여 — 정확(정규화) 일치가 부분 일치보다 높음. -1 = 빌더 불일치(제외).
+//   반환 0 = 빌더만 일치(텍스트/PO 매칭 없음, 폴백용).
+function _prevMatchScore(inv, q) {
+  const nb = _prevNorm(inv.builderName);
+  if (!nb || !q.builder) return -1;
+  if (!(nb === q.builder || nb.includes(q.builder) || q.builder.includes(nb))) return -1;
+  let best = 0;
+  if (q.po && _prevPoKey(inv.poNumber) && _prevPoKey(inv.poNumber) === q.po) best = 120;
+  const fields = [inv.projectName, inv.address, inv.contractNumber, inv.invoiceNum].map(_prevNorm).filter(Boolean);
+  const texts = [q.project, q.address, q.contract].filter(Boolean);
+  for (const t of texts) {
+    for (const f of fields) {
+      if (f === t) best = Math.max(best, 100);              // 정확 일치
+      else if (t.length >= 4 && f.includes(t)) best = Math.max(best, 60);  // 입력이 기존값의 일부
+      else if (f.length >= 4 && t.includes(f)) best = Math.max(best, 45);  // 기존값이 입력의 일부
+    }
+  }
+  return best;
+}
+// 후보 중 최고 점수(동점이면 최근) 하나 반환. wantProgress=true 면 진행률만, false 면 일반만.
+//   requireTextMatch=true 면 score>0 (텍스트/PO 매칭)만 인정 — 빌더만 일치는 제외.
+function _bestPrevMatch(q, wantProgress, requireTextMatch) {
+  const hasItems = i => i.lineItems && (Array.isArray(i.lineItems) ? i.lineItems.length : Object.keys(i.lineItems).length);
+  let best = null, bestScore = requireTextMatch ? 0 : -1, bestDate = '';
+  for (const i of invoices) {
+    if (i.id === editId) continue;
+    if (wantProgress ? i.type !== 'PROGRESS' : i.type === 'PROGRESS') continue;
+    if (!hasItems(i)) continue;
+    const s = _prevMatchScore(i, q);
+    if (s < 0) continue;
+    if (requireTextMatch && s <= 0) continue;
+    const d = i.invoiceDate || '';
+    if (s > bestScore || (s === bestScore && d > bestDate)) { best = i; bestScore = s; bestDate = d; }
+  }
+  return best ? { inv: best, score: bestScore } : null;
+}
+
 function findPrevInvoice() {
   if (editId) return null;
   if (curType === 'PROGRESS') return null;  // PROGRESS는 별도 함수 사용
-
-  const builderName = (document.getElementById('f-b')?.value || '').trim();
-  if (!builderName) return null;
-  const poNum   = (document.getElementById('f-po')?.value || '').trim();
-  const address = (document.getElementById('f-a')?.value || '').trim();
-
-  const hasItems = i => i.lineItems && (Array.isArray(i.lineItems) ? i.lineItems.length : Object.keys(i.lineItems).length);
-  const sameBuilder = i =>
-    i.id !== editId &&
-    i.type !== 'PROGRESS' &&
-    (i.builderName||'').toLowerCase() === builderName.toLowerCase() &&
-    hasItems(i);
-
-  // 1) PO 일치 — "/" 기준 두 번째 부분만 비교 (QLINC 등 규칙: 12345/A1 → A1이 같으면 같은 작업)
-  const poKey = (p) => {
-    const s = (p||'').toString().trim();
-    if (!s) return '';
-    const parts = s.split('/');
-    return (parts.length >= 2 ? parts[1] : s).trim().toLowerCase();
-  };
-  if (poNum) {
-    const target = poKey(poNum);
-    if (target) {
-      const m = invoices.filter(i => sameBuilder(i) && poKey(i.poNumber) === target);
-      if (m.length) {
-        m.sort((a,b) => (b.invoiceDate||'').localeCompare(a.invoiceDate||''));
-        return { inv: m[0], matchType: 'PO' };
-      }
-    }
-  }
-  // 2) 빌더 + 주소 일치
-  if (address) {
-    const m = invoices.filter(i => sameBuilder(i) && (i.address||'').toLowerCase() === address.toLowerCase());
-    if (m.length) {
-      m.sort((a,b) => (b.invoiceDate||'').localeCompare(a.invoiceDate||''));
-      return { inv: m[0], matchType: 'address' };
-    }
-  }
-  // 3) 빌더 일치 (가장 최근)
-  const m = invoices.filter(sameBuilder);
-  if (m.length) {
-    m.sort((a,b) => (b.invoiceDate||'').localeCompare(a.invoiceDate||''));
-    return { inv: m[0], matchType: 'builder' };
-  }
-  return null;
+  const q = _readPrevQuery();
+  if (!q.builder) return null;
+  // 주소·프로젝트명·PO·컨트랙을 구체적으로 입력했으면 "실제로 그것과 일치"할 때만 제안.
+  //   (매칭 없을 때 빌더-최근으로 폴백하면 엉뚱한 주소가 떠서 혼동 → 폴백은 아무것도 안 쳤을 때만)
+  const hasSpecific = !!(q.po || q.project || q.address || q.contract);
+  const r = _bestPrevMatch(q, false, hasSpecific);
+  if (!r) return null;
+  const matchType = r.score >= 120 ? 'PO' : (r.score > 0 ? 'match' : 'builder');
+  return { inv: r.inv, matchType };
 }
 
 // 같은 빌더의 최근 주소들을 datalist에 채움 (최근 20개, 중복 제거)
@@ -3438,7 +3458,7 @@ function checkPrevInvoice() {
   if (!result) { row.style.display = 'none'; return; }
 
   const items = Array.isArray(result.inv.lineItems) ? result.inv.lineItems : Object.values(result.inv.lineItems);
-  const labelMap = { PO: '🎯 같은 PO 발견', address: '🏠 같은 주소 발견', builder: '🏗️ 같은 빌더 (가장 최근)' };
+  const labelMap = { PO: '🎯 같은 PO 발견', match: '🏠 같은 현장 발견 (주소·프로젝트명·PO)', address: '🏠 같은 주소 발견', builder: '🏗️ 같은 빌더 (가장 최근)' };
   const label = labelMap[result.matchType];
   document.getElementById('prev-inv-hint').innerHTML =
     `${label}: <b>${esc(result.inv.invoiceNum||'(번호없음)')}</b> · 라인 <b>${items.length}개</b> · ${esc(result.inv.invoiceDate||'')}`;
@@ -3537,40 +3557,13 @@ function loadPrevInvoice() {
 function findPrevProgressInvoice() {
   // 새 인보이스, 또는 라인 항목이 아직 없는 초안을 편집 중일 때만 제안 (편집 중이어도 빈 초안이면 이어오기 허용)
   if (editId && lineItems.length > 0) return null;
-  const builderName = document.getElementById('f-b').value.trim();
-  // 프로젝트명이 비어도 주소·컨트랙트 번호로 매칭 (프로젝트명만 필수였던 제약 완화)
-  const norm = s => (s||'').toLowerCase().replace(/\s+/g,' ').trim();
-  const queries = [
-    document.getElementById('f-proj')?.value,
-    document.getElementById('f-a')?.value,
-    document.getElementById('f-contract')?.value,
-  ].map(norm).filter(Boolean);
-  if (!builderName || !queries.length) return null;
-
-  const qBuilder = norm(builderName);
-
-  // 입력값(프로젝트명·주소·컨트랙트) 중 하나라도 이전 인보이스의 projectName/address/invoiceNum/contractNumber 와 매치되면 인정 (부분 일치 OK)
-  const projMatch = (inv) => {
-    const fields = [inv.projectName, inv.address, inv.invoiceNum, inv.contractNumber].map(norm).filter(Boolean);
-    return queries.some(q => fields.some(f => f === q || f.includes(q) || q.includes(f)));
-  };
-  const builderMatch = (inv) => {
-    const b = norm(inv.builderName);
-    return b && (b === qBuilder || b.includes(qBuilder) || qBuilder.includes(b));
-  };
-
-  const matches = invoices.filter(i =>
-    i.id !== editId &&
-    i.type === 'PROGRESS' &&
-    builderMatch(i) &&
-    projMatch(i) &&
-    i.lineItems && (Array.isArray(i.lineItems) ? i.lineItems.length : Object.keys(i.lineItems).length)
-  );
-  if (!matches.length) return null;
-
-  // Sort by invoiceDate desc, return most recent
-  matches.sort((a,b) => (b.invoiceDate||'').localeCompare(a.invoiceDate||''));
-  return matches[0];
+  const q = _readPrevQuery();
+  if (!q.builder) return null;
+  // 진행률 이어오기는 주소·프로젝트명·컨트랙·PO 중 하나라도 입력돼야 (빌더만으론 X)
+  if (!q.project && !q.address && !q.contract && !q.po) return null;
+  // PROGRESS 중에서 매칭 점수 최고(동점이면 최근) — 정확 일치가 부분 일치보다 우선 → 엉뚱한 주소 방지
+  const r = _bestPrevMatch(q, true, true);
+  return r ? r.inv : null;
 }
 
 // Check and show the "이전에서 이어오기" hint button if previous PROGRESS exists
