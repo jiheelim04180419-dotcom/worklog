@@ -19,7 +19,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-08-18-10';
+const APP_BUILD = '2026-08-18-11';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -1336,6 +1336,7 @@ body.invoice-readonly::before {
     <div style="display:flex;gap:8px;align-items:center">
       <button onclick="_forceUpdate()" title="최신 버전 강제로 받기 (캐시 무시하고 새로고침)" style="background:#F3F4F6;color:#374151;border:1px solid #E5E7EB;border-radius:8px;padding:7px 11px;font-size:14px;cursor:pointer">🔄</button>
       <button class="btn-primary" style="background:#4F46E5" onclick="downloadInvoicePDF(this)" title="URL·날짜·페이지번호 없는 깨끗한 PDF 파일로 저장 (모바일은 공유시트로 저장/첨부)">📄 PDF 저장</button>
+      <button id="pkg-pdf-btn" class="btn-primary" style="display:none;background:#0891B2" onclick="downloadPackagePDF(this)" title="인보이스 + Subcontractor Statement + Work Comp 를 한 PDF로 병합 다운로드">📦 패키지 PDF</button>
       <button class="btn-primary" style="background:#10B981" onclick="doPrint()">🖨️ 인쇄</button>
       <button onclick="closePrint()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#9CA3AF">×</button>
     </div>
@@ -6645,6 +6646,122 @@ function _pdfFileName() {
 // 데스크탑 인쇄(INV-1531.pdf)와 동일 레이아웃: 오프스크린 iframe 에 @media print 규칙을 평문으로
 // 주입해 A4 폭(794px=210mm)으로 렌더 → html2canvas 로 캡처 → jsPDF 로 A4 PDF.
 function downloadInvoicePDF(btn) { _ensureFreshThen(function () { _downloadInvoicePDFNow(btn); }); }
+// 캔버스 → A4 jsPDF(페이지별 14mm 상·하단 여백 + 페이지번호). PDF저장/패키지가 공유.
+function _buildInvoiceJsPdf(canvas) {
+  var JS = window.jspdf && window.jspdf.jsPDF;
+  var pdf = new JS({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  var pageW = 210, pageH = 297;
+  var mTop = 14, mBottom = 14;
+  var contentHmm = pageH - mTop - mBottom;
+  var mmPerPx = pageW / canvas.width;
+  var bandPx = contentHmm / mmPerPx;
+  var totalPx = canvas.height;
+  var pages = Math.max(1, Math.ceil(totalPx / bandPx));
+  for (var p = 0; p < pages; p++) {
+    if (p > 0) pdf.addPage();
+    var sy = Math.round(p * bandPx);
+    var sh = Math.min(Math.round(bandPx), totalPx - sy);
+    if (sh <= 0) break;
+    var tmp = document.createElement('canvas');
+    tmp.width = canvas.width; tmp.height = sh;
+    tmp.getContext('2d').drawImage(canvas, 0, sy, canvas.width, sh, 0, 0, canvas.width, sh);
+    var sliceImg = tmp.toDataURL('image/jpeg', 0.95);
+    pdf.addImage(sliceImg, 'JPEG', 0, mTop, pageW, sh * mmPerPx);
+  }
+  var totalPages = pdf.getNumberOfPages();
+  for (var pn = 1; pn <= totalPages; pn++) {
+    pdf.setPage(pn);
+    try { pdf.setFont('helvetica', 'normal'); } catch (e) {}
+    pdf.setFontSize(8); pdf.setTextColor(150, 150, 150);
+    pdf.text('Page ' + pn + ' of ' + totalPages, pageW - 12, pageH - 6, { align: 'right' });
+  }
+  return pdf;
+}
+
+// Subcontractor Statement 를 채워 PDF 바이트(Uint8Array) 로 반환 (다운로드 없이). 실패 시 throw.
+//   openSubcontractorStatement 의 pdf-lib 채우기 로직과 동일 — 패키지 병합에서 재사용.
+async function _buildStatementBytes(inv, b, co) {
+  if (typeof PDFLib === 'undefined') throw new Error('PDF 라이브러리(PDFLib) 미로드');
+  const fAuS = s => { if (!s) return ['','','']; const [y,m,d]=(s||'').split('-'); return [d||'',m||'',(y||'').slice(-2)]; };
+  const _minusMonth = s => { if(!s) return ''; const d=new Date(s+'T00:00:00'); d.setMonth(d.getMonth()-1); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
+  const [fd,fm,fy]=fAuS(_minusMonth(inv.invoiceDate||today));
+  const [td,tm,ty]=fAuS(inv.invoiceDate||today);
+  const [pd,pm,py]=fAuS(inv.invoiceDate||today);
+  const [insd,insm,insy]=fAuS(co.insuranceIssueDate||co.insuranceDate||'');
+  const [sd,sm,sy]=fAuS(today);
+  const contractRef = inv.contractNumber || inv.projectName || inv.address || '';
+  const addr = (co.address||'').split(/[,\n]/).map(s=>s.trim()).filter(Boolean).join(', ');
+  const tplResp = await fetch('/worklog/invoice/subcontractor_statement_template.pdf', { cache: 'no-cache' });
+  if (!tplResp.ok) throw new Error('Statement 템플릿 로드 실패 ('+tplResp.status+')');
+  const pdfDoc = await PDFLib.PDFDocument.load(await tplResp.arrayBuffer());
+  const form = pdfDoc.getForm();
+  const fill = (name,val)=>{ try{ form.getTextField(name).setText(String(val??'')); }catch(e){} };
+  fill('subcontractor', co.name); fill('subcontractor address', addr); fill('ABN', co.abn);
+  fill('business name of principal contractor', b.statementName||b.name||''); fill('ABN2', b.abn||'');
+  fill('contract number/identifier', contractRef);
+  fill('dd1',fd);fill('mm1',fm);fill('yy1',fy); fill('dd2',td);fill('mm2',tm);fill('yy2',ty); fill('dd3',pd);fill('mm3',pm);fill('yy3',py);
+  fill('name', co.signerName); fill('dd4',insd);fill('mm4',insm);fill('yy4',insy);
+  fill('full name', co.signerName); fill('position/title', co.signerTitle); fill('dd5',sd);fill('mm5',sm);fill('yy5',sy);
+  try{ form.getCheckBox('Check Box3').check(); }catch(e){} try{ form.getCheckBox('Check Box4').uncheck(); }catch(e){}
+  if (co.signatureImg && co.signatureImg.startsWith('data:image/')) {
+    try {
+      const sigBytes = await fetch(co.signatureImg).then(r=>r.arrayBuffer());
+      const isJpeg = /^data:image\/jpe?g/.test(co.signatureImg);
+      const sigImg = isJpeg ? await pdfDoc.embedJpg(sigBytes) : await pdfDoc.embedPng(sigBytes);
+      const boxW=130,boxH=30,boxX=105,boxY=152; const r1=sigImg.width/sigImg.height,r2=boxW/boxH;
+      let dw,dh; if(r1>r2){dw=boxW;dh=boxW/r1;}else{dh=boxH;dw=boxH*r1;}
+      pdfDoc.getPages()[0].drawImage(sigImg,{x:boxX+(boxW-dw)/2,y:boxY+(boxH-dh)/2,width:dw,height:dh});
+    } catch(e){ console.warn('서명 삽입 실패(무시):',e); }
+  }
+  return await pdfDoc.save();
+}
+
+// 📦 패키지 PDF: 인보이스 + Subcontractor Statement + Work Comp 를 한 파일로 병합.
+async function downloadPackagePDF(btn) {
+  const inv = _curPrintInv;
+  if (!inv) return alert('인보이스를 먼저 여세요');
+  const JS = window.jspdf && window.jspdf.jsPDF;
+  if (!window.html2canvas || !JS || typeof PDFLib === 'undefined') {
+    return alert('PDF 라이브러리를 불러오지 못했어요 (인터넷 연결 확인).');
+  }
+  const b = builders.find(x => x.name === inv.builderName) || {};
+  const co = companies.find(c => c.id === inv.companyId) || companies[0] || {};
+  const label = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ 병합 중…'; }
+  try {
+    // 1) 인보이스 PDF 바이트
+    const canvas = await _renderInvoiceCanvas();
+    const invBytes = _buildInvoiceJsPdf(canvas).output('arraybuffer');
+    // 2) Subcontractor Statement 바이트
+    const stmtBytes = await _buildStatementBytes(inv, b, co);
+    // 3) Work Comp (Certificate of Currency) 바이트
+    const wcResp = await fetch('/worklog/invoice/workcomp_certificate.pdf', { cache: 'no-cache' });
+    if (!wcResp.ok) throw new Error('Work Comp PDF 로드 실패 ('+wcResp.status+')');
+    const wcBytes = await wcResp.arrayBuffer();
+    // 4) 병합 (인보이스 → Statement → Work Comp 순)
+    const merged = await PDFLib.PDFDocument.create();
+    for (const src of [invBytes, stmtBytes, wcBytes]) {
+      const doc = await PDFLib.PDFDocument.load(src, { ignoreEncryption: true });
+      const pages = await merged.copyPages(doc, doc.getPageIndices());
+      pages.forEach(p => merged.addPage(p));
+    }
+    const out = await merged.save();
+    const blob = new Blob([out], { type: 'application/pdf' });
+    const url = URL.createObjectURL(blob);
+    const safe = (inv.builderName || 'builder').replace(/[^\w가-힣\-]/g,'_').slice(0,24);
+    const a = document.createElement('a');
+    a.href = url; a.download = `${inv.invoiceNum || inv.id}_${safe}_Package.pdf`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    alert('✅ 패키지 PDF 다운로드됨 (인보이스 + Subcontractor Statement + Work Comp)\n\n다운로드 폴더에서 확인 후 첨부하세요.');
+  } catch (e) {
+    console.error('패키지 PDF 실패', e);
+    alert('패키지 PDF 생성 실패: ' + (e.message || e));
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = label; }
+  }
+}
+
 async function _downloadInvoicePDFNow(btn) {
   var JS = window.jspdf && window.jspdf.jsPDF;
   if (!window.html2canvas || !JS) {
@@ -6661,39 +6778,7 @@ async function _downloadInvoicePDFNow(btn) {
   try {
     // 🖨️ 인쇄와 동일한 공유 렌더 사용 → 두 출력이 픽셀 동일
     var canvas = await _renderInvoiceCanvas();
-
-    var pdf = new JS({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-    var pageW = 210, pageH = 297;
-    // 모든 페이지 상·하단에 동일한 세로 여백. (가로 여백 15mm 는 이미지에 이미 구워져 있음)
-    var mTop = 14, mBottom = 14;
-    var contentHmm = pageH - mTop - mBottom;          // 페이지당 실제 내용 높이(mm)
-    var mmPerPx = pageW / canvas.width;               // 캔버스 폭을 210mm 로 배치할 때의 스케일
-    var bandPx = contentHmm / mmPerPx;                // 한 페이지에 담을 캔버스 세로 픽셀 수
-    var totalPx = canvas.height;
-    var pages = Math.max(1, Math.ceil(totalPx / bandPx));
-    for (var p = 0; p < pages; p++) {
-      if (p > 0) pdf.addPage();
-      var sy = Math.round(p * bandPx);
-      var sh = Math.min(Math.round(bandPx), totalPx - sy);
-      if (sh <= 0) break;
-      // 캔버스에서 이 페이지에 해당하는 가로 밴드만 잘라 별도 캔버스로 복사 → JPEG.
-      var tmp = document.createElement('canvas');
-      tmp.width = canvas.width;
-      tmp.height = sh;
-      tmp.getContext('2d').drawImage(canvas, 0, sy, canvas.width, sh, 0, 0, canvas.width, sh);
-      var sliceImg = tmp.toDataURL('image/jpeg', 0.95);
-      var sliceHmm = sh * mmPerPx;
-      pdf.addImage(sliceImg, 'JPEG', 0, mTop, pageW, sliceHmm);  // 매 페이지 상단 여백 mTop 부터
-    }
-    // 페이지 번호만 추가 (URL·날짜·생성시각은 없이). 각 페이지 우하단, 작고 회색 톤.
-    var totalPages = pdf.getNumberOfPages();
-    for (var pn = 1; pn <= totalPages; pn++) {
-      pdf.setPage(pn);
-      try { pdf.setFont('helvetica', 'normal'); } catch (e) {}
-      pdf.setFontSize(8);
-      pdf.setTextColor(150, 150, 150);
-      pdf.text('Page ' + pn + ' of ' + totalPages, pageW - 12, pageH - 6, { align: 'right' });
-    }
+    var pdf = _buildInvoiceJsPdf(canvas);
     pdf.save(_pdfFileName());
   } catch (e) {
     console.error('PDF 생성 실패', e);
@@ -6998,11 +7083,17 @@ p{margin-bottom:10pt;font-size:10pt}
   w.focus();
 }
 
+let _curPrintInv = null;  // 인쇄 모달에 현재 띄운 인보이스 (패키지 PDF 에서 사용)
 function printInvoice(id) {
   const inv = invoices.find(i => i.id === id);
   if (!inv) return alert('인보이스를 찾을 수 없어요');
   const co = companies.find(c => c.id === inv.companyId) || companies[0] || {};
   const b = builders.find(b => b.name === inv.builderName) || {};
+
+  _curPrintInv = inv;
+  // 📦 패키지 PDF 버튼: work comp 패키지가 필요한 빌더(Baseline)에만 표시
+  const pkgBtn = document.getElementById('pkg-pdf-btn');
+  if (pkgBtn) pkgBtn.style.display = b.needsWorkComp ? '' : 'none';
 
   setPrintTitle(inv);
 
