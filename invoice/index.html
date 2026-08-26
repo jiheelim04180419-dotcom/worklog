@@ -19,7 +19,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-08-18-11';
+const APP_BUILD = '2026-08-18-12';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -1600,6 +1600,18 @@ function totalPaid(inv) {
 function remaining(inv) {
   return (parseFloat(inv.amount)||0) - totalPaid(inv);
 }
+// 리텐션 보류: 진행률 인보이스가 입금됐는데 잔액이 청구액의 12% 이하 → 남은 건 리텐션(보통 10%)으로 간주.
+//   RETENTION 탭으로 분류되고, 미수/연체에서는 제외.
+function isRetentionHeld(inv) {
+  if (!inv || inv.type !== 'PROGRESS') return false;
+  const st = inv.status;
+  if (st === 'PAID' || st === 'CREDIT' || st === 'DRAFT' || st === 'RETENTION') return false;
+  const amt = parseFloat(inv.amount) || 0;
+  if (amt <= 0) return false;
+  const rem = Math.round(remaining(inv) * 100) / 100;   // 센트 반올림(부동소수 noise 제거)
+  // 입금 있고, 잔액이 청구액의 2%~12% (≈리텐션 10%). 1센트 반올림 잔액(실질 완납)은 제외.
+  return totalPaid(inv) > 0.01 && rem >= amt * 0.02 && rem <= amt * 0.12;
+}
 // 청구일 → 마지막 입금일 까지 며칠 걸렸는지 (full paid 인 경우만 계산 의미 있음)
 function _daysToPaid(inv) {
   if (!inv || !inv.invoiceDate) return null;
@@ -2544,16 +2556,22 @@ function renderInv() {
   //   type='PROGRESS' 중에서 아직 결제 안 됐거나 일부만 받은(리텐션 아닌) 것.
   //   "청구 했으나 미수금" 의 통합 뷰.
   // RETENTION 탭: status='RETENTION' (변경 없음).
+  // 리텐션 보류 판정은 전역 isRetentionHeld() 사용 (연체·미수 계산과 일관).
+  const _isRetentionHeld = isRetentionHeld;
+  // RETENTION 탭: 명시적 RETENTION 상태 + 리텐션 보류 건.
+  const _isRetention = i => i.status === 'RETENTION' || _isRetentionHeld(i);
   const _isOngoingDone = i => {
     if (i.type !== 'PROGRESS') return false;
     if (i.status === 'RETENTION') return true;        // 명시적 리텐션
+    if (_isRetentionHeld(i)) return true;             // 입금+리텐션 보류(이번 회차 정산됨)
     if (i.status !== 'ONGOING') return false;
-    return remaining(i) <= 0.01;                      // 풀페이
+    return Math.round(remaining(i)*100)/100 <= 0.01;  // 풀페이(센트 반올림)
   };
   const _isInvoicePending = i => {
+    if (_isRetentionHeld(i)) return false;            // 리텐션 보류는 미수 아님 → RETENTION 으로
     if (i.status === 'INVOICE') return true;
-    // PROGRESS + ONGOING 상태인데 아직 입금 잔액 남음 → 인보이스(미수) 쪽으로
-    if (i.status === 'ONGOING' && i.type === 'PROGRESS' && remaining(i) > 0.01) return true;
+    // PROGRESS + ONGOING 상태인데 아직 입금 잔액 남음(리텐션 아님) → 인보이스(미수) 쪽으로
+    if (i.status === 'ONGOING' && i.type === 'PROGRESS' && Math.round(remaining(i)*100)/100 > 0.01) return true;
     return false;
   };
 
@@ -2584,6 +2602,7 @@ function renderInv() {
     if (s === 'OVERDUE') return invoices.filter(isOverdue).length;
     if (s === 'INVOICE') return invoices.filter(_isInvoicePending).length;
     if (s === 'ONGOING') return _dedupeOngoingRecent(invoices.filter(_isOngoingDone)).length;
+    if (s === 'RETENTION') return invoices.filter(_isRetention).length;
     return invoices.filter(i => i.status === s).length;
   };
 
@@ -2595,6 +2614,7 @@ function renderInv() {
     if (curFilter === 'OVERDUE') return isOverdue(i);
     if (curFilter === 'INVOICE') return _isInvoicePending(i);
     if (curFilter === 'ONGOING') return _isOngoingDone(i);
+    if (curFilter === 'RETENTION') return _isRetention(i);
     return i.status === curFilter;
   };
   
