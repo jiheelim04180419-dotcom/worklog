@@ -19,7 +19,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-08-18-09';
+const APP_BUILD = '2026-08-18-10';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -4030,7 +4030,7 @@ function onTilePatternChange() {
 // Examples (NEW):
 //   Wall Tiling base $65, 600x600 → 65 + (67 - 65) = $67
 //   Screeding&Floor Tiling base $155, 200x200 → 155 + (80 - 65) = $170
-//   Splashback base $85, 600x600 → 85 + (67 - 65) = $87
+//   Splashback → 순수 사이즈 요율 (subway → 85, subway+brick → 90, 600x600 → 67)
 //   Wall Tiling + brick → 65 + (0 size diff) + $5 = $70
 // 핵심: 사이즈 베이스라인은 "Lay Tiles 300x300" (= 300x600 동가).
 // 선택한 사이즈가 그 베이스라인보다 비싸면 차액을 base에 더함.
@@ -4088,7 +4088,13 @@ function recomputeDynamicRate() {
   else if (size && size !== 'Mosaic') {
     const sizeRate = lookupSizeRate(rates, size);
     const baselineRate = lookupSizeRate(rates, '300x300');
-    if (sizeRate !== null && baselineRate !== null) {
+    const isSplashback = /^splashback/i.test((r.desc || '').trim());
+    if (isSplashback && sizeRate !== null) {
+      // Splashback 은 명칭만 splashback, 가격은 순수 타일 사이즈+패턴 요율로.
+      //   기본가 $85 는 subway 기본값일 뿐 → 사이즈 선택 시 그 사이즈 요율 그대로 사용.
+      //   예) subway + brick = 85 + 5 = $90 (기존엔 85 + (85-65) + 5 = $110 로 과다 계산됨)
+      finalRate = sizeRate;
+    } else if (sizeRate !== null && baselineRate !== null) {
       finalRate = round2(finalRate + (sizeRate - baselineRate));
     } else if (sizeRate !== null) {
       finalRate = sizeRate;
