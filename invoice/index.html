@@ -19,7 +19,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-08-18-13';
+const APP_BUILD = '2026-08-18-14';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -8852,7 +8852,7 @@ function _renderPartnersSync() {
                  <div style="font-size:15px;font-weight:800;color:#166534;margin-top:4px">✅ 완료</div>`
               : `<div style="font-size:9px;color:#047857;font-weight:700;letter-spacing:0.3px">받을 사람</div>
                  <div style="font-size:16px;font-weight:900;color:#065F46;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${finalDiff>0?'🟦 Kyle':'🟧 Max'}</div>
-                 <div style="font-size:13px;font-weight:800;color:#047857;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${fA(Math.abs(finalDiff))} 받음</div>`}
+                 <div style="font-size:13px;font-weight:800;color:#047857;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${fA(Math.abs(finalDiff))} 받아야 함</div>`}
           </div>
         </div>
 
@@ -8878,7 +8878,7 @@ function _renderPartnersSync() {
                  <div style="font-size:15px;font-weight:800;color:#166534;margin-top:4px">✅ 완료</div>`
               : `<div style="font-size:9px;color:#047857;font-weight:700;letter-spacing:0.3px">받을 사람</div>
                  <div style="font-size:16px;font-weight:900;color:#065F46;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cashDiff>0?'🟧 Max':'🟦 Kyle'}</div>
-                 <div style="font-size:13px;font-weight:800;color:#047857;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${fA(Math.abs(cashDiff))} 받음</div>`}
+                 <div style="font-size:13px;font-weight:800;color:#047857;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${fA(Math.abs(cashDiff))} 받아야 함</div>`}
           </div>
         </div>
       </div>
