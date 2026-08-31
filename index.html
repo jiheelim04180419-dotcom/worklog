@@ -18,7 +18,7 @@
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
 // ℹ️ reload 는 코드만 갱신 — Firebase 주소(wm_fb_url)·로그인 세션(wm_session)은 localStorage 라 유지됨(재로그인 불필요).
-const APP_BUILD = '2026-08-31-04';
+const APP_BUILD = '2026-08-31-05';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출. ?_=타임스탬프 + no-store 로 캐시 우회.
 function _fetchLatestBuild(){
   return fetch(location.pathname + '?_=' + Date.now(), { cache: 'no-store', headers: { 'Range': 'bytes=0-3000' } })
@@ -2766,13 +2766,13 @@ function MgmtTab({ fbUrl, fA }) {
                       <span style={{color:'#6B7280'}}>기본 인보이스</span>
                       <span style={{fontWeight:600,color:'#111827'}}>{fA(periodBase)}</span>
                     </div>
-                    {d20amt>0&&<div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
-                      <span style={{color:'#DC2626'}}>20일 공제</span>
-                      <span style={{fontWeight:600,color:'#DC2626'}}>-{fA(d20amt/2)}</span>
+                    {d20amt>0&&periodBase>0&&<div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
+                      <span style={{color:'#DC2626'}}>20일 공제{ksCount<=1?' (전액)':' (½ 분담)'}</span>
+                      <span style={{fontWeight:600,color:'#DC2626'}}>-{fA(d20amt/(ksCount||1))}</span>
                     </div>}
-                    {d27amt>0&&<div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
-                      <span style={{color:'#DC2626'}}>27일 공제</span>
-                      <span style={{fontWeight:600,color:'#DC2626'}}>-{fA(d27amt/2)}</span>
+                    {d27amt>0&&periodBase>0&&<div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
+                      <span style={{color:'#DC2626'}}>27일 공제{ksCount<=1?' (전액)':' (½ 분담)'}</span>
+                      <span style={{fontWeight:600,color:'#DC2626'}}>-{fA(d27amt/(ksCount||1))}</span>
                     </div>}
                     {periodGstOn&&<div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
                       <span style={{color:'#D97706'}}>GST +10%</span>
