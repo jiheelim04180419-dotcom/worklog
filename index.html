@@ -18,7 +18,7 @@
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
 // ℹ️ reload 는 코드만 갱신 — Firebase 주소(wm_fb_url)·로그인 세션(wm_session)은 localStorage 라 유지됨(재로그인 불필요).
-const APP_BUILD = '2026-08-31-03';
+const APP_BUILD = '2026-08-31-04';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출. ?_=타임스탬프 + no-store 로 캐시 우회.
 function _fetchLatestBuild(){
   return fetch(location.pathname + '?_=' + Date.now(), { cache: 'no-store', headers: { 'Range': 'bytes=0-3000' } })
@@ -459,6 +459,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
   const [partialCash, setPartialCash] = useState("");
   const [directKeep, setDirectKeep] = useState("");
   const [skipVariable, setSkipVariable] = useState(false);
+  const [fixOvrEdit, setFixOvrEdit] = useState(null);   // 기간별 고정급 오버라이드 편집 {net,tax,sup}|null
   const [loanDeposit, setLoanDeposit] = useState('');
   const [loanMemo, setLoanMemo] = useState('');
   const [periodStart, setPeriodStart] = useState(() => {
@@ -594,6 +595,9 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
     // 이 기간에 고정급여 적용 여부: 이력 있으면 해당 기간 이력 존재 여부, 이력 없으면 hasFlatPay 플래그
     const hasFlatPay = _fph.length ? !!_fpEntry : !!lv.hasFlatPay;
     const getFixedPayForPeriod = () => {
+      // 기간별 고정급 오버라이드(부분근무 기간 등) 우선 적용
+      const _ovr = (lv.fixedPayOverrides || {})[periodStart];
+      if (_ovr) return { net: parseFloat(_ovr.net)||0, tax: parseFloat(_ovr.tax)||0, sup: parseFloat(_ovr.sup)||0 };
       if (!_fph.length) return { net: parseFloat(lv.fixedNet)||0, tax: parseFloat(lv.fixedTax)||0, sup: parseFloat(lv.fixedSuper)||0 };
       if (!_fpEntry) return { net: 0, tax: 0, sup: 0 };
       return { net: parseFloat(_fpEntry.net)||0, tax: parseFloat(_fpEntry.tax)||0, sup: parseFloat(_fpEntry.sup)||0 };
@@ -1410,12 +1414,39 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
             {/* Tax + Super */}
             {(wage.fixedNet > 0 || wage.fixedTax > 0 || wage.fixedSuper > 0) && (
               <div style={{ background:"#fff",borderRadius:14,padding:"14px 16px",marginBottom:10,boxShadow:"0 1px 4px #0000000a" }}>
-                <p style={S.sectionTitle}>📌 지급액</p>
+                <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6 }}>
+                  <p style={{ ...S.sectionTitle,margin:0 }}>📌 지급액{(((leaves[selId]||{}).fixedPayOverrides||{})[periodStart])&&<span style={{ marginLeft:6,fontSize:10,color:"#B45309",background:"#FEF3C7",borderRadius:6,padding:"1px 6px",fontWeight:700 }}>이 기간 조정됨</span>}</p>
+                  {isSuperAdmin && <button onClick={()=>setFixOvrEdit(fixOvrEdit?null:{net:String(wage.fixedNet||""),tax:String(wage.fixedTax||""),sup:String(wage.fixedSuper||"")})} style={{ fontSize:11,color:"#3B82F6",background:"none",border:"none",cursor:"pointer",fontFamily:"inherit",fontWeight:600 }}>{fixOvrEdit?"닫기":"✏️ 이 기간만 조정"}</button>}
+                </div>
                 {wage.fixedNet > 0 && <div style={S.row}><span style={{ fontSize:13,color:C.text }}>Net Pay</span><span style={{ fontSize:13,fontWeight:700,color:"#10B981" }}>{fA(wage.fixedNet)}</span></div>}
                 {wage.fixedTax > 0 && <div style={S.row}><span style={{ fontSize:13,color:C.text }}>Tax</span><span style={{ fontSize:13,fontWeight:700,color:"#EF4444" }}>{fA(wage.fixedTax)}</span></div>}
                 {wage.fixedSuper > 0 && <div style={S.row}><span style={{ fontSize:13,color:C.text }}>Super</span><span style={{ fontSize:13,fontWeight:700,color:"#F59E0B" }}>{fA(wage.fixedSuper)}</span></div>}
                 {!wage.fixedNet && !wage.fixedTax && !wage.fixedSuper && (
                   <p style={{ fontSize:12,color:"#aaa",textAlign:"center",margin:"4px 0" }}>⚙️ 설정 탭에서 지급액을 입력하세요</p>
+                )}
+                {fixOvrEdit && (
+                  <div style={{ marginTop:8,padding:"10px 12px",background:"#F8FAFC",border:"1px solid #E2E8F0",borderRadius:10 }}>
+                    <p style={{ margin:"0 0 8px",fontSize:11,color:"#555" }}>이 기간({fD(periodStart)})만 적용할 지급액 — 부분근무 등 (비우거나 닫으면 표준값 적용)</p>
+                    {[["net","Net Pay"],["tax","Tax"],["sup","Super"]].map(([k,l])=>(
+                      <div key={k} style={{ display:"flex",alignItems:"center",gap:8,marginBottom:6 }}>
+                        <span style={{ width:64,fontSize:12,color:"#555" }}>{l}</span>
+                        <input type="number" step={0.01} value={fixOvrEdit[k]} onChange={e=>setFixOvrEdit(o=>({...o,[k]:e.target.value}))} style={{ ...styles.input,flex:1,fontSize:13,padding:"7px 9px" }}/>
+                      </div>
+                    ))}
+                    <div style={{ display:"flex",gap:6,marginTop:8 }}>
+                      <button onClick={()=>{
+                        const lv0=leaves[selId]||{};
+                        const ovr={...(lv0.fixedPayOverrides||{}),[periodStart]:{net:parseFloat(fixOvrEdit.net)||0,tax:parseFloat(fixOvrEdit.tax)||0,sup:parseFloat(fixOvrEdit.sup)||0}};
+                        persist(null,null,{...leaves,[selId]:{...lv0,fixedPayOverrides:ovr}});
+                        setFixOvrEdit(null);
+                      }} style={{ flex:1,background:"#0F766E",color:"#fff",border:"none",borderRadius:8,padding:"9px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit" }}>이 기간 저장</button>
+                      {(((leaves[selId]||{}).fixedPayOverrides||{})[periodStart])&&<button onClick={()=>{
+                        const lv0=leaves[selId]||{};const ovr={...(lv0.fixedPayOverrides||{})};delete ovr[periodStart];
+                        persist(null,null,{...leaves,[selId]:{...lv0,fixedPayOverrides:ovr}});
+                        setFixOvrEdit(null);
+                      }} style={{ background:"#fff",color:"#EF4444",border:"1px solid #FECACA",borderRadius:8,padding:"9px 12px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit" }}>표준복원</button>}
+                    </div>
+                  </div>
                 )}
               </div>
             )}
