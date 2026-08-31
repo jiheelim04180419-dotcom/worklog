@@ -18,7 +18,7 @@
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
 // ℹ️ reload 는 코드만 갱신 — Firebase 주소(wm_fb_url)·로그인 세션(wm_session)은 localStorage 라 유지됨(재로그인 불필요).
-const APP_BUILD = '2026-07-16-11';
+const APP_BUILD = '2026-07-16-12';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출. ?_=타임스탬프 + no-store 로 캐시 우회.
 function _fetchLatestBuild(){
   return fetch(location.pathname + '?_=' + Date.now(), { cache: 'no-store', headers: { 'Range': 'bytes=0-3000' } })
@@ -4672,15 +4672,18 @@ function computeRecurringDeductions(configs, leaves, todayStr) {
     const desc = (cfg.desc || "").trim();
     const emps = cfg.employees || [];
     if (!desc || !cfg.startDate || !emps.length) return;
+    const monthly = cfg.intervalType === 'monthly';   // 매월 같은 '일'(day-of-month)
     const step = parseInt(cfg.intervalDays) || 14;
     const amount = parseFloat(cfg.amount) || 0;
-    // startDate ~ today 까지 step 간격 날짜 목록
+    // startDate ~ today: monthly 면 매월 같은 날, 아니면 step(일) 간격
     const dates = [];
     const end = new Date(todayStr + "T00:00:00");
     let d = new Date(cfg.startDate + "T00:00:00"), guard = 0;
     while (d <= end && guard < 520) {
       dates.push(d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"));
-      d.setDate(d.getDate() + step); guard++;
+      if (monthly) d.setMonth(d.getMonth() + 1);
+      else d.setDate(d.getDate() + step);
+      guard++;
     }
     emps.forEach(uid => {
       const lv = newLeaves[uid];
