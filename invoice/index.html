@@ -19,7 +19,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-08-18-15';
+const APP_BUILD = '2026-08-18-16';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -2389,9 +2389,16 @@ document.addEventListener('wheel', e => {
 
 // ── Keyboard Shortcuts ───────────────────────────────────────────────────────
 document.addEventListener('keydown', e => {
-  // Skip if user is typing in input
-  if (e.target.matches('input, textarea, select')) {
-    if (e.key === 'Escape') e.target.blur();
+  // 한글 등 IME 조합 중엔 단축키(n/d/ 등) 절대 발동 금지 — 조합 중 keydown 은
+  //   e.key 가 'Process'/keyCode 229 로 오거나 e.target 이 입력창이 아닐 수 있어
+  //   아래 input 가드만으로는 새는 경우가 있음(예: ㅇ=d → toggleTheme 재렌더로 커서 튐).
+  if (e.isComposing || e.keyCode === 229 || e.key === 'Process') return;
+  // Skip if user is typing in an editable field — e.target 뿐 아니라 실제 포커스된
+  //   activeElement 도 확인(조합 중 e.target 이 body 로 오는 브라우저 대비).
+  const _ae = document.activeElement;
+  const _editableSel = 'input, textarea, select, [contenteditable=""], [contenteditable="true"]';
+  if ((e.target.matches && e.target.matches(_editableSel)) || (_ae && _ae.matches && _ae.matches(_editableSel))) {
+    if (e.key === 'Escape') { (e.target.blur ? e.target : _ae).blur(); }
     return;
   }
   // Skip if any modal is open (except Esc)
