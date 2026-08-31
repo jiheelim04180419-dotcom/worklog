@@ -18,7 +18,7 @@
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
 // ℹ️ reload 는 코드만 갱신 — Firebase 주소(wm_fb_url)·로그인 세션(wm_session)은 localStorage 라 유지됨(재로그인 불필요).
-const APP_BUILD = '2026-08-31-02';
+const APP_BUILD = '2026-08-31-03';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출. ?_=타임스탬프 + no-store 로 캐시 우회.
 function _fetchLatestBuild(){
   return fetch(location.pathname + '?_=' + Date.now(), { cache: 'no-store', headers: { 'Range': 'bytes=0-3000' } })
@@ -481,7 +481,8 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
   })();
 
   const emps = isAdmin
-    ? users.filter(u => u.role === "employee" && !u.resignedDate)
+    ? users.filter(u => u.role === "employee" && !u.resignedDate
+        && (!u.joinDate || u.joinDate <= periodEnd))   // 입사일이 기간종료일 이후면 그 기간엔 미표시
     : users.filter(u => u.id === user.id);
 
   const selEmp = emps.find(e => e.id === selId);
@@ -3109,7 +3110,7 @@ function SummarySection({users, leaves, periodStart, calcWage, getSavedDeduction
         </div>
       )}
 
-      {activeEmps.map((emp,ei) => {
+      {activeEmps.filter(emp => empWorkedInPeriod(emp, periodStart)).map((emp,ei) => {
         const lv = leaves[emp.id] || {};
         const w = calcWage(emp.id);
         // 기간별 킵잔액 (정산 전 시작잔액 + 당기입금)
