@@ -18,7 +18,7 @@
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
 // ℹ️ reload 는 코드만 갱신 — Firebase 주소(wm_fb_url)·로그인 세션(wm_session)은 localStorage 라 유지됨(재로그인 불필요).
-const APP_BUILD = '2026-08-31-05';
+const APP_BUILD = '2026-09-01-01';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출. ?_=타임스탬프 + no-store 로 캐시 우회.
 function _fetchLatestBuild(){
   return fetch(location.pathname + '?_=' + Date.now(), { cache: 'no-store', headers: { 'Range': 'bytes=0-3000' } })
@@ -258,6 +258,12 @@ async function fbGet(path) {
 async function fbSet(path, value) {
   const base = _fbUrl || getFbUrl(); if (!base) return false;
   try { const r = await fetch(base + "/" + path + ".json", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(value) }); return r.ok; } catch { return false; }
+}
+// PATCH — 지정한 키들만 갱신(값 null 이면 해당 키 삭제). 나머지 키는 건드리지 않음.
+// 근무일지를 통째로 덮어쓰지 않고 변경분만 저장 → 여러 기기 동시저장 시 손실 방지.
+async function fbUpdate(path, value) {
+  const base = _fbUrl || getFbUrl(); if (!base) return false;
+  try { const r = await fetch(base + "/" + path + ".json", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(value) }); return r.ok; } catch { return false; }
 }
 function lsGet(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch{return d;}}
 function lsSave(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch{}}
@@ -4802,11 +4808,22 @@ function App() {
   const [pwErr,setPwErr]=useState("");
   const [fbConfigured,setFbConfigured]=useState(false);
   const pollRef=useRef(null);
+  const logsRef=useRef([]);   // 최신 logs 스냅샷(개별저장 diff용)
+  React.useEffect(()=>{ logsRef.current=logs; },[logs]);
 
   const loadFromFb=async()=>{
     const[u,l,lv,co]=await Promise.all([fbGet("users"),fbGet("logs"),fbGet("leaves"),fbGet("companies")]);
     if(u)setUsers(Array.isArray(u)?u:Object.values(u));
-    if(l)setLogs(Array.isArray(l)?l:Object.values(l));
+    if(l){
+      setLogs(Array.isArray(l)?l:Object.values(l));
+      // 자가치유 마이그레이션: logs 가 아직 배열이면 id-키 객체로 1회 변환.
+      //   (id별 개별저장이 배열 위에서 동작하면 중복이 생기므로, 객체 형태를 강제)
+      if(Array.isArray(l) && l.length){
+        const obj={}; let ok=true;
+        l.forEach(x=>{ if(x&&x.id!=null) obj[String(x.id)]=x; else if(x) ok=false; });
+        if(ok) fbSet("logs",obj);   // 모든 항목에 id 있을 때만(현재 100% 보유)
+      }
+    }
     if(lv)setLeaves(lv);
     if(co)setCompanies(Array.isArray(co)?co:Object.values(co));
     return!!(u||l||lv);
@@ -4846,7 +4863,24 @@ function App() {
 
   const persist=useCallback(async(u,l,lv,co)=>{
     if(u){setUsers(u);saveFb(u,null,null,null);}
-    if(l){setLogs(l);saveFb(null,l,null,null);}
+    if(l){
+      // 근무일지: 전체 배열 통째로 저장(fbSet) 하면 다른 기기가 옛 목록으로 저장 시
+      //   방금 추가된 일지가 통째로 사라짐(lost update). → 변경된 id 만 PATCH 로 개별 저장.
+      const prev=logsRef.current||[];
+      setLogs(l); logsRef.current=l;
+      const prevById={}; prev.forEach(x=>{ if(x&&x.id!=null) prevById[String(x.id)]=x; });
+      const updates={}; let allHaveId=true;
+      l.forEach(x=>{
+        if(!x) return;
+        if(x.id==null){ allHaveId=false; return; }
+        const k=String(x.id);
+        if(JSON.stringify(prevById[k])!==JSON.stringify(x)) updates[k]=x;
+        delete prevById[k];
+      });
+      Object.keys(prevById).forEach(k=>{ updates[k]=null; });  // 남은 건 삭제된 일지
+      if(!allHaveId){ saveFb(null,l,null,null); }             // id 없는 항목 있으면 안전하게 전체저장(폴백)
+      else if(Object.keys(updates).length){ fbUpdate("logs",updates); }
+    }
     if(lv){setLeaves(lv);saveFb(null,null,lv,null);}
     if(co){setCompanies(co);saveFb(null,null,null,co);}
   },[saveFb]);
