@@ -19,7 +19,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-09-02-03';
+const APP_BUILD = '2026-09-14-01';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -2191,6 +2191,43 @@ const LETTER_TEMPLATES = {
       + `This letter is to certify that <b>${esc(f.name||'')}</b> has been our employee in this company as ${esc(f.role||'tiler')} from <b>${esc(f.startDate||'')}</b>.<br><br>`
       + `This certification is being issued upon ${esc(f.pronoun||'his')} request for whatever purpose it may serve.`
   },
+  charref: {
+    label: '인성 진술서 (Character Reference — 법원 제출용)',
+    title: 'CHARACTER REFERENCE',
+    closing: 'Yours faithfully,',
+    signerName: 'Max Yang',
+    signerTitle: 'Director',
+    signImgField: 'signature2Img',
+    contactLine: true,
+    fields: [
+      { id:'name', label:'직원 이름 (영문)', ph:'Heesong Lee', def:'Heesong Lee' },
+      { id:'dob', label:'생년월일 (DD/MM/YYYY)', ph:'26/04/1990', def:'26/04/1990' },
+      { id:'court', label:'법원명', ph:'Bathurst Local Court', def:'Bathurst Local Court' },
+      { id:'offence', label:'혐의', ph:'a speeding offence', def:'a speeding offence' },
+      { id:'speed', label:'속도 상세', ph:'approximately 30 km/h above the posted speed limit', def:'approximately 30 km/h above the posted speed limit' },
+      { id:'startText', label:'근무 시작 (문구)', ph:'since September 2019', def:'since September 2019' },
+      { id:'years', label:'근무 연수 (문구)', ph:'seven years', def:'seven years' },
+    ],
+    body: f => {
+      const name = esc(f.name||'Heesong Lee');
+      const first = esc((f.name||'Heesong Lee').trim().split(/\s+/)[0]);
+      const NAME = esc((f.name||'Heesong Lee').toUpperCase());
+      const court = esc(f.court||'Bathurst Local Court');
+      const start = esc(f.startText||'since September 2019');
+      const years = esc(f.years||'seven years');
+      return `To the Presiding Magistrate<br>${court}<br><br>`
+        + `<b>RE: CHARACTER REFERENCE — ${NAME}, DOB ${esc(f.dob||'')}</b><br><br>`
+        + `Your Honour,<br><br>`
+        + `My name is Max Yang and I am the owner and director of K&amp;M Tiling Bathurst Pty Ltd, a tiling and waterproofing business based in Bathurst, New South Wales. We work regularly with more than twenty construction companies across the Central West region.<br><br>`
+        + `I am writing in support of ${name}, who I understand is appearing before the Court in relation to ${esc(f.offence||'a speeding offence')}. I have been made aware of the nature of the charge, including that he was detected travelling ${esc(f.speed||'')}, and I understand how seriously the Court and the community regard offending of this kind. Nothing in this letter is intended to excuse his conduct, and ${first} himself does not attempt to excuse it.<br><br>`
+        + `${first} has been employed by my company on a full-time basis ${start} — a period of ${years}. In that time he has been one of the most dependable members of my team. He arrives on site early, he does not take leave without genuine reason, and he is trusted to attend client sites unsupervised and to represent my business directly to builders and site supervisors. In all those years I have not received a single complaint about him from a client, a supervisor, or a fellow worker. For a small business such as mine, that record speaks for itself.<br><br>`
+        + `${first} married within the past year. His wife and her family are in Sydney, while his employment is here in Bathurst, and since the marriage he has travelled between the two cities almost every week, effectively maintaining two households, so that he can keep both his marriage and his job. He has carried that cost and that fatigue without complaint. I raise this not as a justification for his driving, but because it is the honest context of the period in which this occurred, and because it shows how completely his licence underpins both his working life and his family life.<br><br>`
+        + `Since the offence, ${first} raised the matter with me himself, before I had heard of it from any other source. He was plainly ashamed. He has spoken to me about the risk he created — not only to himself but to other road users — and I am satisfied that his remorse is genuine, rather than simply a reaction to having been caught. In all my dealings with him he has been an honest and straightforward man, and I believe this to be conduct entirely out of character.<br><br>`
+        + `If ${first} were to lose his licence, the practical consequences would be severe. The majority of our work is carried out on residential and commercial construction sites across the Bathurst region that are not serviced by public transport and cannot be reached without a vehicle. His continued employment would be placed at real risk, and his ability to travel to his wife each week would effectively come to an end.<br><br>`
+        + `I respectfully ask that Your Honour take into account his ${years} of steady and honest work, his character, and his genuine remorse in determining the appropriate penalty. For my part, I have no hesitation whatsoever in continuing to employ him, and I will personally reinforce to him the standard of conduct expected of him on the road.<br><br>`
+        + `I am willing to be contacted should the Court require anything further.`;
+    }
+  },
   bank: {
     label: '은행 정보 확인서 (Bank Details Confirmation)',
     title: 'CONFIRMATION OF BANK DETAILS',
@@ -2249,12 +2286,16 @@ function buildLetterHtml(){
     : '<div style="height:50px"></div>';
   // 서명 블록 — dualSign 이면 디렉터 2명을 나란히
   const _signer = (img,nm,ttl) => `${_sigImg(img)}<div style="font-weight:600">${esc(nm||'')}</div><div>${esc(ttl||'')}</div>`;
+  // 템플릿에서 서명자 지정 가능(tpl.signerName/signerTitle/signImgField). 없으면 회사 기본 서명자.
+  const _sName = tpl.signerName || co.signerName;
+  const _sTitle = tpl.signerTitle || co.signerTitle;
+  const _sImg = tpl.signImgField ? co[tpl.signImgField] : co.signatureImg;
   const sigBlock = tpl.dualSign
     ? `<div style="display:flex;gap:70px;margin-top:2px">
          <div style="flex:0 0 auto">${_signer(co.signatureImg, co.signerName, co.signerTitle)}</div>
          <div style="flex:0 0 auto">${_signer(co.signature2Img, co.signer2Name, co.signer2Title)}</div>
        </div>`
-    : _signer(co.signatureImg, co.signerName, co.signerTitle);
+    : _signer(_sImg, _sName, _sTitle);
   return `<div class="km-letter" style="width:210mm;min-height:296mm;box-sizing:border-box;padding:18mm 22mm;font-family:'Helvetica Neue',Arial,sans-serif;color:#1a1a1a;font-size:13px;line-height:1.75;background:#fff">
     <div style="display:flex;justify-content:space-between;align-items:flex-start">
       <img src="${logo}" style="height:82px" alt="">
@@ -2266,6 +2307,7 @@ function buildLetterHtml(){
     <div style="margin-top:46px">${esc(tpl.closing||'Sincerely,')}</div>
     ${sigBlock}
     <div style="margin-top:2px">${esc(co.name||'K&M Tiling Bathurst')}</div>
+    ${tpl.contactLine ? `<div style="margin-top:16px;font-size:11px;color:#555">Mobile: ${esc(co.phone||'')}&nbsp;&nbsp;|&nbsp;&nbsp;${esc(co.contactEmail||'')}</div>` : ''}
   </div>`;
 }
 
