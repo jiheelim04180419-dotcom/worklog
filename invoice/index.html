@@ -19,7 +19,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-09-14-04';
+const APP_BUILD = '2026-09-14-05';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -2195,7 +2195,7 @@ const LETTER_TEMPLATES = {
     label: '인성 진술서 — Kyle본 (Character Reference)',
     title: 'CHARACTER REFERENCE',
     closing: 'Yours faithfully,',
-    signerName: 'Kyle Park',
+    signerName: 'Seongho (Kyle) Park',
     signerTitle: 'Director',
     signImgField: 'signatureImg',
     fields: [
@@ -2217,7 +2217,7 @@ const LETTER_TEMPLATES = {
       return `To the Presiding Magistrate<br>${court}<br><br>`
         + `<b>RE: CHARACTER REFERENCE — ${NAME}, DOB ${esc(f.dob||'')}</b><br><br>`
         + `Your Honour,<br><br>`
-        + `My name is Kyle Park and I am the owner and director of K&amp;M Tiling Bathurst Pty Ltd, a tiling and waterproofing business based in Bathurst, New South Wales. We work regularly with more than twenty construction companies across the Central West region.<br><br>`
+        + `My name is Seongho (Kyle) Park and I am the owner and director of K&amp;M Tiling Bathurst Pty Ltd, a tiling and waterproofing business based in Bathurst, New South Wales. We work regularly with more than twenty construction companies across the Central West region.<br><br>`
         + `I am writing in support of ${name}, who I understand is appearing before the Court in relation to ${esc(f.offence||'a speeding offence')}. I have been made aware of the nature of the charge, including that he was detected travelling ${esc(f.speed||'')}, and I understand how seriously the Court and the community regard offending of this kind. Nothing in this letter is intended to excuse his conduct, and ${first} himself does not attempt to excuse it.<br><br>`
         + `${first} has been employed by my company on a full-time basis ${start} — a period of ${years}. In that time he has been one of the most dependable members of my team. He arrives on site early, he does not take leave without genuine reason, and he is trusted to attend client sites unsupervised and to represent my business directly to builders and site supervisors. In all those years I have not received a single complaint about him from a client, a supervisor, or a fellow worker. For a small business such as mine, that record speaks for itself.<br><br>`
         + `${first} married in March this year. His wife and her family are in Sydney, while his employment is here in Bathurst, and since the marriage he has travelled between the two cities almost every week, effectively maintaining two households, so that he can keep both his marriage and his job. He has carried that cost and that fatigue without complaint. I raise this not as a justification for his driving, but because it is the honest context of the period in which this occurred, and because it shows how completely his licence underpins both his working life and his family life.<br><br>`
@@ -2231,7 +2231,7 @@ const LETTER_TEMPLATES = {
     label: '인성 진술서 — Max본 (Character Reference)',
     title: 'CHARACTER REFERENCE',
     closing: 'Yours faithfully,',
-    signerName: 'Max Yang',
+    signerName: 'Seungchan (Max) Yang',
     signerTitle: 'Director',
     signImgField: 'signature2Img',
     fields: [
@@ -2251,7 +2251,7 @@ const LETTER_TEMPLATES = {
       return `To the Presiding Magistrate<br>${court}<br><br>`
         + `<b>RE: CHARACTER REFERENCE — ${NAME}, DOB ${esc(f.dob||'')}</b><br><br>`
         + `Your Honour,<br><br>`
-        + `My name is Max Yang and I am the owner and director of K&amp;M Tiling Bathurst Pty Ltd, a tiling and waterproofing business operating throughout Bathurst and the wider Central West region of New South Wales.<br><br>`
+        + `My name is Seungchan (Max) Yang and I am the owner and director of K&amp;M Tiling Bathurst Pty Ltd, a tiling and waterproofing business operating throughout Bathurst and the wider Central West region of New South Wales.<br><br>`
         + `I understand that ${name} is appearing before the Court in relation to ${esc(f.offence||'a speeding offence')}, and that it is alleged he was detected travelling ${esc(f.speed||'')}. I have been told the nature of the charge and I understand how seriously the Court treats offending of this kind. I do not write to make light of it, and ${first} has not asked me to.<br><br>`
         + `I have worked directly alongside ${first} for much of the ${years} he has been with the company, so I have seen his work and his conduct at close range rather than only through reports. He is the person I am most comfortable sending to a client's site on his own. Builders and site supervisors we work with regularly ask for him by name, because he is punctual, he finishes what he starts, and he treats other people's homes and job sites with genuine care. In a trade where a small business lives or dies on its reputation, he has only ever added to ours.<br><br>`
         + `In all the time I have known him he has been completely honest in his dealings — with money, with materials, and in what he tells me. When this matter arose he did not hide it: he raised it himself and was plainly embarrassed and remorseful. That is entirely consistent with the man I know, and it is why I regard this as genuinely out of character for him.<br><br>`
