@@ -19,7 +19,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-09-14-03';
+const APP_BUILD = '2026-09-14-04';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -2192,7 +2192,7 @@ const LETTER_TEMPLATES = {
       + `This certification is being issued upon ${esc(f.pronoun||'his')} request for whatever purpose it may serve.`
   },
   charref: {
-    label: '인성 진술서 (Character Reference — 법원 제출용)',
+    label: '인성 진술서 — Kyle본 (Character Reference)',
     title: 'CHARACTER REFERENCE',
     closing: 'Yours faithfully,',
     signerName: 'Kyle Park',
@@ -2225,6 +2225,38 @@ const LETTER_TEMPLATES = {
         + `If ${first} were to lose his licence, the practical consequences would be severe. The majority of our work is carried out on residential and commercial construction sites across the Bathurst region that are not serviced by public transport and cannot be reached without a vehicle. His continued employment would be placed at real risk, and his ability to travel to his wife each week would effectively come to an end.<br><br>`
         + `I respectfully ask that Your Honour take into account his ${years} of steady and honest work, his character, and his genuine remorse in determining the appropriate penalty. For my part, I have no hesitation whatsoever in continuing to employ him, and I will personally reinforce to him the standard of conduct expected of him on the road.<br><br>`
         + `I am willing to be contacted should the Court require anything further.`;
+    }
+  },
+  charrefMax: {
+    label: '인성 진술서 — Max본 (Character Reference)',
+    title: 'CHARACTER REFERENCE',
+    closing: 'Yours faithfully,',
+    signerName: 'Max Yang',
+    signerTitle: 'Director',
+    signImgField: 'signature2Img',
+    fields: [
+      { id:'name', label:'직원 이름 (영문)', ph:'Heesong Lee', def:'Heesong Lee' },
+      { id:'dob', label:'생년월일 (DD/MM/YYYY)', ph:'26/04/1990', def:'26/04/1990' },
+      { id:'court', label:'법원명', ph:'Bathurst Local Court', def:'Bathurst Local Court' },
+      { id:'offence', label:'혐의', ph:'a speeding offence', def:'a speeding offence' },
+      { id:'speed', label:'속도 상세', ph:'approximately 30 km/h above the posted speed limit', def:'approximately 30 km/h above the posted speed limit' },
+      { id:'years', label:'근무 연수 (문구)', ph:'seven years', def:'seven years' },
+    ],
+    body: f => {
+      const name = esc(f.name||'Heesong Lee');
+      const first = esc((f.name||'Heesong Lee').trim().split(/\s+/)[0]);
+      const NAME = esc((f.name||'Heesong Lee').toUpperCase());
+      const court = esc(f.court||'Bathurst Local Court');
+      const years = esc(f.years||'seven years');
+      return `To the Presiding Magistrate<br>${court}<br><br>`
+        + `<b>RE: CHARACTER REFERENCE — ${NAME}, DOB ${esc(f.dob||'')}</b><br><br>`
+        + `Your Honour,<br><br>`
+        + `My name is Max Yang and I am the owner and director of K&amp;M Tiling Bathurst Pty Ltd, a tiling and waterproofing business operating throughout Bathurst and the wider Central West region of New South Wales.<br><br>`
+        + `I understand that ${name} is appearing before the Court in relation to ${esc(f.offence||'a speeding offence')}, and that it is alleged he was detected travelling ${esc(f.speed||'')}. I have been told the nature of the charge and I understand how seriously the Court treats offending of this kind. I do not write to make light of it, and ${first} has not asked me to.<br><br>`
+        + `I have worked directly alongside ${first} for much of the ${years} he has been with the company, so I have seen his work and his conduct at close range rather than only through reports. He is the person I am most comfortable sending to a client's site on his own. Builders and site supervisors we work with regularly ask for him by name, because he is punctual, he finishes what he starts, and he treats other people's homes and job sites with genuine care. In a trade where a small business lives or dies on its reputation, he has only ever added to ours.<br><br>`
+        + `In all the time I have known him he has been completely honest in his dealings — with money, with materials, and in what he tells me. When this matter arose he did not hide it: he raised it himself and was plainly embarrassed and remorseful. That is entirely consistent with the man I know, and it is why I regard this as genuinely out of character for him.<br><br>`
+        + `${first}'s licence is central to both his work and his family. Our sites are spread across the region and cannot be reached by public transport, so without a licence he simply could not carry out the job he does for us. He also married in March this year and travels to his wife in Sydney most weeks; the loss of his licence would cut into both at once. I mention this as honest context, not as an excuse.<br><br>`
+        + `I respectfully ask that Your Honour take into account his long record of honest and reliable work, and his genuine remorse, in determining the appropriate penalty. For my part, I intend to continue employing him, and I will make clear to him what is expected of him behind the wheel. I am happy to be contacted should the Court require anything further.`;
     }
   },
   bank: {
