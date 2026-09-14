@@ -19,7 +19,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-09-14-01';
+const APP_BUILD = '2026-09-14-02';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -2198,7 +2198,6 @@ const LETTER_TEMPLATES = {
     signerName: 'Max Yang',
     signerTitle: 'Director',
     signImgField: 'signature2Img',
-    contactLine: true,
     fields: [
       { id:'name', label:'직원 이름 (영문)', ph:'Heesong Lee', def:'Heesong Lee' },
       { id:'dob', label:'생년월일 (DD/MM/YYYY)', ph:'26/04/1990', def:'26/04/1990' },
@@ -2368,7 +2367,9 @@ function printLetter(){
   document.body.appendChild(fr);
   const idoc=fr.contentDocument||fr.contentWindow.document;
   idoc.open();
-  idoc.write(`<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${esc(title)}</title><style>@page{size:A4;margin:0}html,body{margin:0;padding:0;background:#fff}</style></head><body>${html}</body></html>`);
+  // 세로 여백은 @page(모든 페이지 위·아래 18mm 동일)로, 가로 여백만 km-letter padding(22mm)으로.
+  //   기존처럼 컨테이너 padding 으로 세로여백을 주면 2페이지 상단에 여백이 안 생김 → @page 로 이동.
+  idoc.write(`<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${esc(title)}</title><style>@page{size:A4;margin:18mm 0}html,body{margin:0;padding:0;background:#fff}.km-letter{min-height:0!important;padding:0 22mm!important}</style></head><body>${html}</body></html>`);
   idoc.close();
   const imgs=idoc.images?Array.from(idoc.images):[];
   // Chromium 은 iframe 인쇄 시 부모 문서의 title 을 파일명으로 씀 → 메인 document.title 을 임시 변경.
