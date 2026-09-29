@@ -18,7 +18,7 @@
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
 // ℹ️ reload 는 코드만 갱신 — Firebase 주소(wm_fb_url)·로그인 세션(wm_session)은 localStorage 라 유지됨(재로그인 불필요).
-const APP_BUILD = '2026-09-01-01';
+const APP_BUILD = '2026-09-29-01';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출. ?_=타임스탬프 + no-store 로 캐시 우회.
 function _fetchLatestBuild(){
   return fetch(location.pathname + '?_=' + Date.now(), { cache: 'no-store', headers: { 'Range': 'bytes=0-3000' } })
@@ -599,13 +599,14 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
       ? [..._fph].sort((a,b)=>(b.from||"").localeCompare(a.from||"")).find(h => (h.from||"") <= periodStart)
       : null;
     // 이 기간에 고정급여 적용 여부: 이력 있으면 해당 기간 이력 존재 여부, 이력 없으면 hasFlatPay 플래그
-    const hasFlatPay = _fph.length ? !!_fpEntry : !!lv.hasFlatPay;
+    //   단, 이력 항목에 end:true(고정급 종료 마커)면 그 시점부터 고정급 미적용(TFN→ABN 전환 등).
+    const hasFlatPay = _fph.length ? (!!_fpEntry && !_fpEntry.end) : !!lv.hasFlatPay;
     const getFixedPayForPeriod = () => {
       // 기간별 고정급 오버라이드(부분근무 기간 등) 우선 적용
       const _ovr = (lv.fixedPayOverrides || {})[periodStart];
       if (_ovr) return { net: parseFloat(_ovr.net)||0, tax: parseFloat(_ovr.tax)||0, sup: parseFloat(_ovr.sup)||0 };
       if (!_fph.length) return { net: parseFloat(lv.fixedNet)||0, tax: parseFloat(lv.fixedTax)||0, sup: parseFloat(lv.fixedSuper)||0 };
-      if (!_fpEntry) return { net: 0, tax: 0, sup: 0 };
+      if (!_fpEntry || _fpEntry.end) return { net: 0, tax: 0, sup: 0 };
       return { net: parseFloat(_fpEntry.net)||0, tax: parseFloat(_fpEntry.tax)||0, sup: parseFloat(_fpEntry.sup)||0 };
     };
     const hasFixedHist = _fph.length > 0;
