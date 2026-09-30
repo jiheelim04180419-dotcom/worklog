@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<title>K&M 현장사진</title>
+<style>
+/* ⚠️ 배포 시 코드 바뀌면 APP_BUILD 올릴 것 */
+:root{--pri:#6d5efc;--pri2:#8b7bff;--bg:#f4f5fb;--card:#fff;--text:#1a1a2e;--sub:#6b7280;--line:#e6e7ef;--red:#ef4444}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Apple SD Gothic Neo",sans-serif;font-size:15px}
+img{max-width:100%}
+button{font-family:inherit;cursor:pointer}
+input,textarea,select{font-family:inherit;font-size:16px}
+.hdr{position:sticky;top:0;z-index:20;background:linear-gradient(135deg,var(--pri),var(--pri2));color:#fff;padding:calc(env(safe-area-inset-top) + 12px) 14px 12px;display:flex;align-items:center;gap:10px;box-shadow:0 2px 8px #0002}
+.hdr h1{font-size:17px;font-weight:800;margin:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hdr .icn{background:rgba(255,255,255,.18);border:none;color:#fff;width:36px;height:36px;border-radius:10px;font-size:18px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.wrap{padding:12px 12px 90px;max-width:760px;margin:0 auto}
+.card{background:var(--card);border-radius:14px;box-shadow:0 1px 6px #0000000d;margin-bottom:10px;overflow:hidden}
+.proj{display:flex;align-items:center;gap:12px;padding:14px}
+.swatch{width:44px;height:44px;border-radius:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:18px}
+.proj .nm{font-weight:700;font-size:15px}
+.proj .meta{font-size:12px;color:var(--sub);margin-top:2px}
+.badge{margin-left:auto;background:var(--red);color:#fff;border-radius:20px;min-width:22px;height:22px;padding:0 6px;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center}
+.tabs{display:flex;gap:8px;overflow-x:auto;padding:10px 12px;position:sticky;top:calc(env(safe-area-inset-top) + 60px);background:var(--bg);z-index:10}
+.tab{white-space:nowrap;padding:7px 14px;border-radius:20px;border:1.5px solid var(--line);background:#fff;color:var(--sub);font-weight:700;font-size:13px}
+.tab.on{background:var(--pri);color:#fff;border-color:var(--pri)}
+.entry{padding:12px 14px}
+.entry .top{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.entry .who{font-weight:700;font-size:13px}
+.entry .dt{font-size:12px;color:var(--sub)}
+.entry .rd{margin-left:auto;font-size:11px;color:var(--sub)}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+.grid img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;background:#eee;display:block}
+.note{font-size:13px;margin:8px 0 0;white-space:pre-wrap;color:#333}
+.fab{position:fixed;right:16px;bottom:calc(env(safe-area-inset-bottom) + 18px);width:58px;height:58px;border-radius:50%;background:linear-gradient(135deg,var(--pri),var(--pri2));color:#fff;border:none;font-size:30px;box-shadow:0 6px 18px #6d5efc66;z-index:30;display:flex;align-items:center;justify-content:center}
+.empty{text-align:center;color:var(--sub);padding:50px 20px;font-size:14px}
+.modal{position:fixed;inset:0;background:#0007;z-index:50;display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:#fff;width:100%;max-width:760px;border-radius:18px 18px 0 0;max-height:92vh;overflow:auto;padding:16px 16px calc(env(safe-area-inset-bottom) + 16px)}
+.sheet h2{margin:2px 0 14px;font-size:17px}
+.fld{margin-bottom:12px}
+.fld label{display:block;font-size:12px;font-weight:700;color:var(--sub);margin-bottom:5px}
+.fld input,.fld textarea,.fld select{width:100%;padding:11px 12px;border:1.5px solid var(--line);border-radius:10px;background:#fff}
+.btn{width:100%;padding:13px;border:none;border-radius:12px;background:var(--pri);color:#fff;font-weight:800;font-size:15px}
+.btn.sec{background:#eef0f8;color:#444}
+.btn:disabled{opacity:.5}
+.row{display:flex;gap:8px}
+.thumbadd{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:6px}
+.thumbadd .t{position:relative;aspect-ratio:1}
+.thumbadd .t img{width:100%;height:100%;object-fit:cover;border-radius:8px}
+.thumbadd .t .x{position:absolute;top:-6px;right:-6px;background:#ef4444;color:#fff;border:2px solid #fff;border-radius:50%;width:22px;height:22px;font-size:13px;line-height:1;display:flex;align-items:center;justify-content:center}
+.pick{border:2px dashed #c7c9e0;border-radius:10px;aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:28px;color:var(--pri)}
+.viewer{position:fixed;inset:0;background:#000;z-index:60;display:flex;flex-direction:column}
+.viewer .vh{display:flex;align-items:center;gap:10px;padding:calc(env(safe-area-inset-top) + 10px) 14px 10px;color:#fff}
+.viewer .vh button{background:none;border:none;color:#fff;font-size:15px;font-weight:700}
+.viewer .vimg{flex:1;display:flex;align-items:center;justify-content:center;overflow:auto}
+.viewer .vimg img{max-width:100%;max-height:100%;object-fit:contain}
+.swatches{display:flex;gap:8px;flex-wrap:wrap}
+.swatches .s{width:34px;height:34px;border-radius:9px;border:3px solid transparent}
+.swatches .s.on{border-color:#111}
+.login{min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:20px}
+.login .box{background:#fff;border-radius:18px;padding:26px 22px;width:100%;max-width:340px;box-shadow:0 8px 30px #0001;text-align:center}
+.login .logo{font-size:40px}
+.toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:#111;color:#fff;padding:10px 16px;border-radius:20px;font-size:13px;z-index:80;opacity:0;transition:opacity .2s}
+.toast.on{opacity:.95}
+.prog{height:5px;background:var(--pri);width:0;transition:width .2s;border-radius:3px}
+.spin{display:inline-block;width:16px;height:16px;border:2.5px solid #fff6;border-top-color:#fff;border-radius:50%;animation:sp 0.7s linear infinite;vertical-align:-3px}
+@keyframes sp{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="toast" class="toast"></div>
+<script>
+const APP_BUILD='2026-10-01-01';
+const RTDB='https://knmtilingptyltd-12520-default-rtdb.firebaseio.com';
+// ⚠️ Firebase Storage 켠 뒤 버킷 이름으로 교체 (콘솔 Storage 상단에 표시됨)
+const STORAGE_BUCKET='knmtilingptyltd-12520.firebasestorage.app';
+const DEFAULT_CATS=['방수','베딩','타일','그라우트','실리콘'];
+const COLORS=['#6d5efc','#ef4444','#f59e0b','#10b981','#0891b2','#8b5cf6','#ec4899','#64748b'];
+
+// ── Firebase RTDB REST ──
+async function rtGet(p){const r=await fetch(`${RTDB}/${p}.json`);return r.ok?r.json():null;}
+async function rtPost(p,v){const r=await fetch(`${RTDB}/${p}.json`,{method:'POST',body:JSON.stringify(v)});return r.json();}
+async function rtPut(p,v){const r=await fetch(`${RTDB}/${p}.json`,{method:'PUT',body:JSON.stringify(v)});return r.json();}
+async function rtPatch(p,v){const r=await fetch(`${RTDB}/${p}.json`,{method:'PATCH',body:JSON.stringify(v)});return r.json();}
+
+// ── Firebase Storage REST (열린 규칙 기준) ──
+async function stUpload(path,blob){
+  const url=`https://firebasestorage.googleapis.com/v0/b/${STORAGE_BUCKET}/o?uploadType=media&name=${encodeURIComponent(path)}`;
+  const r=await fetch(url,{method:'POST',headers:{'Content-Type':blob.type||'image/jpeg'},body:blob});
+  if(!r.ok)throw new Error('업로드 실패 '+r.status);
+  const j=await r.json();const tok=(j.downloadTokens||'').split(',')[0];
+  return `https://firebasestorage.googleapis.com/v0/b/${STORAGE_BUCKET}/o/${encodeURIComponent(path)}?alt=media${tok?'&token='+tok:''}`;
+}
+
+// ── 이미지 압축 (열람용) ──
+function compress(file,maxDim=1600,q=0.72){
+  return new Promise((res)=>{
+    const img=new Image();const u=URL.createObjectURL(file);
+    img.onload=()=>{URL.revokeObjectURL(u);let w=img.naturalWidth,h=img.naturalHeight;
+      if(Math.max(w,h)>maxDim){const s=maxDim/Math.max(w,h);w=Math.round(w*s);h=Math.round(h*s);}
+      const c=document.createElement('canvas');c.width=w;c.height=h;
+      c.getContext('2d').drawImage(img,0,0,w,h);
+      c.toBlob(b=>res(b||file),'image/jpeg',q);};
+    img.onerror=()=>res(file);img.src=u;});
+}
+
+// ── State ──
+let S={user:null,projects:[],pid:null,cat:null,entries:{}};
+const $=(s,el=document)=>el.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmtDate=d=>{const x=new Date(d);const D=String(x.getDate()).padStart(2,'0'),M=String(x.getMonth()+1).padStart(2,'0');return `${D}/${M}/${x.getFullYear()} ${String(x.getHours()).padStart(2,'0')}:${String(x.getMinutes()).padStart(2,'0')}`;};
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),2200);}
+
+// ── Auth ──
+async function tryLogin(id,pw){
+  const users=await rtGet('users');const arr=Array.isArray(users)?users:Object.values(users||{});
+  const u=arr.find(x=>x&&x.id===id.trim());
+  if(!u)return{err:'아이디가 없어요'};
+  if((u.pw||'')!==pw)return{err:'비밀번호가 틀렸어요'};
+  return{user:{id:u.id,name:u.name||u.id}};
+}
+function saveSession(u){try{localStorage.setItem('photoapp_session',JSON.stringify(u));}catch(e){}}
+function loadSession(){try{return JSON.parse(localStorage.getItem('photoapp_session')||'null');}catch(e){return null;}}
+
+function renderLogin(){
+  document.getElementById('app').innerHTML=`
+  <div class="login"><div class="box">
+    <div class="logo">📸</div>
+    <h2 style="margin:6px 0 2px">K&M 현장사진</h2>
+    <p style="color:var(--sub);font-size:13px;margin:0 0 18px">직원 계정으로 로그인</p>
+    <div class="fld"><input id="lg-id" placeholder="아이디" autocapitalize="none" autocomplete="username"/></div>
+    <div class="fld"><input id="lg-pw" type="password" placeholder="비밀번호" autocomplete="current-password"/></div>
+    <div id="lg-err" style="color:var(--red);font-size:13px;min-height:18px;margin-bottom:8px"></div>
+    <button class="btn" id="lg-btn">로그인</button>
+  </div></div>`;
+  const go=async()=>{
+    const id=$('#lg-id').value,pw=$('#lg-pw').value;
+    if(!id||!pw){$('#lg-err').textContent='아이디·비밀번호를 입력하세요';return;}
+    $('#lg-btn').innerHTML='<span class="spin"></span>';
+    const r=await tryLogin(id,pw);
+    if(r.err){$('#lg-err').textContent=r.err;$('#lg-btn').textContent='로그인';return;}
+    S.user=r.user;saveSession(r.user);openProjects();
+  };
+  $('#lg-btn').onclick=go;
+  $('#lg-pw').onkeydown=e=>{if(e.key==='Enter')go();};
+}
+
+// ── Projects ──
+async function openProjects(){
+  S.pid=null;S.cat=null;
+  document.getElementById('app').innerHTML=`
+   <div class="hdr"><h1>현장 목록</h1>
+     <button class="icn" id="h-out" title="로그아웃">⎋</button></div>
+   <div class="wrap" id="plist"><div class="empty">불러오는 중…</div></div>
+   <button class="fab" id="addproj">＋</button>`;
+  $('#h-out').onclick=()=>{localStorage.removeItem('photoapp_session');S.user=null;renderLogin();};
+  $('#addproj').onclick=projectForm;
+  const data=await rtGet('photoApp/projects')||{};
+  S.projects=Object.entries(data).map(([id,v])=>({id,...v})).filter(p=>!p.archived)
+    .sort((a,b)=>(b.updatedAt||b.createdAt||0)-(a.updatedAt||a.createdAt||0));
+  const el=$('#plist');
+  if(!S.projects.length){el.innerHTML=`<div class="empty">아직 현장이 없어요.<br>오른쪽 아래 ＋ 로 현장을 추가하세요.</div>`;return;}
+  el.innerHTML=S.projects.map(p=>`
+    <div class="card"><div class="proj" data-id="${p.id}">
+      <div class="swatch" style="background:${p.color||'#6d5efc'}">${esc((p.name||'?').trim()[0]||'·')}</div>
+      <div style="min-width:0"><div class="nm">${esc(p.name)}</div>
+        ${p.address?`<div class="meta">${esc(p.address)}</div>`:''}</div>
+    </div></div>`).join('');
+  el.querySelectorAll('.proj').forEach(d=>d.onclick=()=>openProject(d.dataset.id));
+}
+
+function projectForm(){
+  let color=COLORS[Math.floor(Math.random()*COLORS.length)];
+  const m=document.createElement('div');m.className='modal';
+  m.innerHTML=`<div class="sheet">
+    <h2>현장 추가</h2>
+    <div class="fld"><label>현장 이름</label><input id="p-nm" placeholder="예: [Qlinc] unit 94"/></div>
+    <div class="fld"><label>주소 (선택)</label><input id="p-ad" placeholder="예: 10 Baillie St"/></div>
+    <div class="fld"><label>색상</label><div class="swatches" id="p-cl">
+      ${COLORS.map(c=>`<div class="s ${c===color?'on':''}" data-c="${c}" style="background:${c}"></div>`).join('')}</div></div>
+    <div class="row" style="margin-top:6px">
+      <button class="btn sec" id="p-cancel">취소</button>
+      <button class="btn" id="p-save">추가</button></div>
+  </div>`;
+  document.body.appendChild(m);
+  m.onclick=e=>{if(e.target===m)m.remove();};
+  m.querySelectorAll('#p-cl .s').forEach(s=>s.onclick=()=>{color=s.dataset.c;m.querySelectorAll('#p-cl .s').forEach(x=>x.classList.toggle('on',x===s));});
+  $('#p-cancel',m).onclick=()=>m.remove();
+  $('#p-save',m).onclick=async()=>{
+    const nm=$('#p-nm',m).value.trim();if(!nm){toast('현장 이름을 입력하세요');return;}
+    $('#p-save',m).innerHTML='<span class="spin"></span>';
+    await rtPost('photoApp/projects',{name:nm,address:$('#p-ad',m).value.trim(),color,categories:DEFAULT_CATS.slice(),createdAt:Date.now(),updatedAt:Date.now(),archived:false});
+    m.remove();openProjects();
+  };
+}
+
+// ── Project detail (categories + entries) ──
+async function openProject(pid){
+  S.pid=pid;const p=S.projects.find(x=>x.id===pid)||await rtGet('photoApp/projects/'+pid);
+  S.curProj=p;const cats=(p.categories&&p.categories.length?p.categories:DEFAULT_CATS);
+  S.cat=cats[0];
+  document.getElementById('app').innerHTML=`
+   <div class="hdr">
+     <button class="icn" id="h-back">‹</button>
+     <h1>${esc(p.name)}</h1>
+     <button class="icn" id="h-addcat" title="작업종류 추가">＋</button></div>
+   <div class="tabs" id="cats"></div>
+   <div class="wrap" id="entries"></div>
+   <button class="fab" id="addentry">＋</button>`;
+  $('#h-back').onclick=openProjects;
+  $('#h-addcat').onclick=()=>addCategory(pid);
+  $('#addentry').onclick=()=>entryForm(pid,S.cat);
+  renderCats();
+  loadEntries(pid);
+}
+function renderCats(){
+  const p=S.curProj;const cats=(p.categories&&p.categories.length?p.categories:DEFAULT_CATS);
+  $('#cats').innerHTML=cats.map(c=>`<div class="tab ${c===S.cat?'on':''}" data-c="${c}">${esc(c)}</div>`).join('');
+  $('#cats').querySelectorAll('.tab').forEach(t=>t.onclick=()=>{S.cat=t.dataset.c;renderCats();renderEntries();});
+}
+async function addCategory(pid){
+  const nm=prompt('추가할 작업종류 이름');if(!nm||!nm.trim())return;
+  const p=S.curProj;const cats=(p.categories&&p.categories.length?p.categories:DEFAULT_CATS).slice();
+  if(cats.includes(nm.trim())){toast('이미 있어요');return;}
+  cats.push(nm.trim());p.categories=cats;
+  await rtPatch('photoApp/projects/'+pid,{categories:cats});
+  S.cat=nm.trim();renderCats();renderEntries();
+}
+async function loadEntries(pid){
+  $('#entries').innerHTML='<div class="empty">불러오는 중…</div>';
+  const data=await rtGet('photoApp/entries/'+pid)||{};
+  S.entries[pid]=Object.entries(data).map(([id,v])=>({id,...v}));
+  renderEntries();
+}
+function renderEntries(){
+  const list=(S.entries[S.pid]||[]).filter(e=>e.category===S.cat).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+  const el=$('#entries');
+  if(!list.length){el.innerHTML=`<div class="empty">${esc(S.cat)} — 아직 사진이 없어요.<br>＋ 로 오늘 작업 사진을 올리세요.</div>`;return;}
+  el.innerHTML=list.map(e=>{
+    const reads=e.reads?Object.keys(e.reads).length:0;
+    const ph=(e.photos||[]);
+    return `<div class="card"><div class="entry">
+      <div class="top"><span class="who">${esc(e.authorName||'')}</span>
+        <span class="dt">${fmtDate(e.date||e.createdAt)}</span>
+        <span class="rd">👁 ${reads}</span></div>
+      ${e.note?`<div class="note">${esc(e.note)}</div>`:''}
+      <div class="grid" style="margin-top:8px">
+        ${ph.map((p,i)=>`<img loading="lazy" src="${p.url}" data-e="${e.id}" data-i="${i}"/>`).join('')}
+      </div></div></div>`;}).join('');
+  el.querySelectorAll('.grid img').forEach(im=>im.onclick=()=>openViewer(im.dataset.e,+im.dataset.i));
+}
+
+// ── Add entry (upload) ──
+function entryForm(pid,cat){
+  let picks=[];// {file, thumbUrl}
+  const m=document.createElement('div');m.className='modal';
+  m.innerHTML=`<div class="sheet">
+    <h2>${esc(cat)} · 사진 올리기</h2>
+    <div class="fld"><label>날짜</label><input id="e-date" type="date"/></div>
+    <div class="fld"><label>메모 (선택)</label><textarea id="e-note" rows="2" placeholder="예: 1차 방수 완료"></textarea></div>
+    <div class="fld"><label>사진</label>
+      <input id="e-file" type="file" accept="image/*" multiple capture="environment" style="display:none"/>
+      <div class="thumbadd" id="e-thumbs"><div class="pick" id="e-pick">＋</div></div></div>
+    <div class="prog" id="e-prog"></div>
+    <div id="e-status" style="font-size:12px;color:var(--sub);min-height:16px;margin:6px 0"></div>
+    <div class="row">
+      <button class="btn sec" id="e-cancel">취소</button>
+      <button class="btn" id="e-save">올리기</button></div>
+  </div>`;
+  document.body.appendChild(m);
+  const today=new Date();$('#e-date',m).value=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+  m.onclick=e=>{if(e.target===m)m.remove();};
+  $('#e-cancel',m).onclick=()=>m.remove();
+  const fileInput=$('#e-file',m);
+  $('#e-pick',m).onclick=()=>fileInput.click();
+  fileInput.onchange=()=>{
+    [...fileInput.files].forEach(f=>picks.push({file:f,thumbUrl:URL.createObjectURL(f)}));
+    fileInput.value='';drawThumbs();
+  };
+  function drawThumbs(){
+    const box=$('#e-thumbs',m);
+    box.innerHTML=picks.map((p,i)=>`<div class="t"><img src="${p.thumbUrl}"/><div class="x" data-i="${i}">×</div></div>`).join('')
+      +`<div class="pick" id="e-pick">＋</div>`;
+    $('#e-pick',m).onclick=()=>fileInput.click();
+    box.querySelectorAll('.x').forEach(x=>x.onclick=()=>{picks.splice(+x.dataset.i,1);drawThumbs();});
+  }
+  $('#e-save',m).onclick=async()=>{
+    if(!picks.length){toast('사진을 선택하세요');return;}
+    const btn=$('#e-save',m);btn.disabled=true;btn.innerHTML='<span class="spin"></span>';
+    const entryId=(Date.now().toString(36)+Math.random().toString(36).slice(2,7));
+    const photos=[];
+    try{
+      for(let i=0;i<picks.length;i++){
+        $('#e-status',m).textContent=`업로드 중 ${i+1}/${picks.length}…`;
+        $('#e-prog',m).style.width=Math.round(i/picks.length*100)+'%';
+        const f=picks[i].file;
+        const base=`photos/${pid}/${cat}/${entryId}/${i}`;
+        const view=await compress(f);
+        const url=await stUpload(base+'_view.jpg',view);          // 열람용(압축)
+        const origUrl=await stUpload(base+'_orig'+extOf(f),f);     // 원본(증거)
+        photos.push({url,origUrl,name:f.name||('photo'+i)});
+      }
+      $('#e-prog',m).style.width='100%';
+      await rtPut(`photoApp/entries/${pid}/${entryId}`,{
+        category:cat,date:new Date($('#e-date',m).value+'T'+new Date().toTimeString().slice(0,8)).getTime(),
+        authorId:S.user.id,authorName:S.user.name,note:$('#e-note',m).value.trim(),
+        photos,reads:{[S.user.id]:Date.now()},createdAt:Date.now()});
+      await rtPatch('photoApp/projects/'+pid,{updatedAt:Date.now()});
+      m.remove();toast('올렸어요');loadEntries(pid);
+    }catch(err){
+      btn.disabled=false;btn.textContent='올리기';
+      $('#e-status',m).innerHTML=`<span style="color:var(--red)">실패: ${esc(err.message)}. Storage가 켜졌는지 확인해주세요.</span>`;
+    }
+  };
+}
+function extOf(f){const n=(f.name||'').toLowerCase();const m=n.match(/\.(jpe?g|png|heic|heif|webp)$/);return m?('.'+m[1]):'.jpg';}
+
+// ── Viewer ──
+async function openViewer(entryId,idx){
+  const e=(S.entries[S.pid]||[]).find(x=>x.id===entryId);if(!e)return;
+  const ph=e.photos||[];let i=idx;
+  // 읽음 기록
+  if(!e.reads||!e.reads[S.user.id]){await rtPatch(`photoApp/entries/${S.pid}/${entryId}/reads`,{[S.user.id]:Date.now()});e.reads=e.reads||{};e.reads[S.user.id]=Date.now();}
+  const v=document.createElement('div');v.className='viewer';
+  function draw(){v.innerHTML=`
+    <div class="vh"><button id="v-close">✕ 닫기</button>
+      <span style="flex:1;text-align:center;font-size:13px">${i+1} / ${ph.length}</span>
+      <button id="v-dl">원본 ⤓</button></div>
+    <div class="vimg"><img src="${ph[i].url}"/></div>
+    <div style="display:flex;justify-content:space-between;padding:10px 16px calc(env(safe-area-inset-bottom) + 12px)">
+      <button class="icn" id="v-prev" style="background:#fff2;color:#fff">‹</button>
+      <button class="icn" id="v-next" style="background:#fff2;color:#fff">›</button></div>`;
+    $('#v-close',v).onclick=()=>v.remove();
+    $('#v-prev',v).onclick=()=>{i=(i-1+ph.length)%ph.length;draw();};
+    $('#v-next',v).onclick=()=>{i=(i+1)%ph.length;draw();};
+    $('#v-dl',v).onclick=()=>{const a=document.createElement('a');a.href=ph[i].origUrl||ph[i].url;a.download=ph[i].name||'photo.jpg';a.target='_blank';document.body.appendChild(a);a.click();a.remove();};
+  }
+  draw();document.body.appendChild(v);
+}
+
+// ── boot ──
+(function(){
+  const s=loadSession();
+  if(s){S.user=s;openProjects();}else renderLogin();
+})();
+</script>
+</body>
+</html>
