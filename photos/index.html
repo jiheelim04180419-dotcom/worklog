@@ -155,9 +155,11 @@ input,textarea,select{font-family:inherit;font-size:16px}
 <div id="toast" class="toast"></div>
 <datalist id="builder-list"></datalist>
 <script>
-const APP_BUILD='2026-10-01-04';
+const APP_BUILD='2026-10-01-05';
 const RTDB='https://knmtilingptyltd-12520-default-rtdb.firebaseio.com';
-const STORAGE_BUCKET='knmtilingptyltd-12520.firebasestorage.app';
+// 사진 저장: Cloudflare R2 (Worker 경유, 전송 무료). 업로드키는 저사양 보호용(세팅 후 교체 가능).
+const WORKER='https://km-photos-api.kmtiling.workers.dev';
+const UPLOAD_KEY='c3621d2542c3e8db9ae086e4a5c8c83d';
 const DEFAULT_CATS=['방수','베딩','타일','그라우트','실리콘'];
 const COLORS=['#6d5efc','#ef4444','#f59e0b','#10b981','#0891b2','#8b5cf6','#ec4899','#334155'];
 
@@ -167,11 +169,10 @@ async function rtPut(p,v){const r=await fetch(`${RTDB}/${p}.json`,{method:'PUT',
 async function rtPatch(p,v){const r=await fetch(`${RTDB}/${p}.json`,{method:'PATCH',body:JSON.stringify(v)});return r.json();}
 
 async function stUpload(path,blob){
-  const url=`https://firebasestorage.googleapis.com/v0/b/${STORAGE_BUCKET}/o?uploadType=media&name=${encodeURIComponent(path)}`;
-  const r=await fetch(url,{method:'POST',headers:{'Content-Type':blob.type||'image/jpeg'},body:blob});
+  const r=await fetch(`${WORKER}/up?path=${encodeURIComponent(path)}`,
+    {method:'POST',headers:{'X-Up-Key':UPLOAD_KEY,'Content-Type':blob.type||'image/jpeg'},body:blob});
   if(!r.ok)throw new Error('업로드 실패 '+r.status);
-  const j=await r.json();const tok=(j.downloadTokens||'').split(',')[0];
-  return `https://firebasestorage.googleapis.com/v0/b/${STORAGE_BUCKET}/o/${encodeURIComponent(path)}?alt=media${tok?'&token='+tok:''}`;
+  const j=await r.json();return j.url;
 }
 function compress(file,maxDim=1600,q=0.72){
   return new Promise((res)=>{const img=new Image();const u=URL.createObjectURL(file);
