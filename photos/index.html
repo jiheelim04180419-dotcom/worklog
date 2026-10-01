@@ -155,7 +155,7 @@ input,textarea,select{font-family:inherit;font-size:16px}
 <div id="toast" class="toast"></div>
 <datalist id="builder-list"></datalist>
 <script>
-const APP_BUILD='2026-10-01-02';
+const APP_BUILD='2026-10-01-03';
 const RTDB='https://knmtilingptyltd-12520-default-rtdb.firebaseio.com';
 const STORAGE_BUCKET='knmtilingptyltd-12520.firebasestorage.app';
 const DEFAULT_CATS=['방수','베딩','타일','그라우트','실리콘'];
@@ -345,6 +345,15 @@ async function loadEntries(pid){
   const data=await rtGet('photoApp/entries/'+pid)||{};
   S.entries[pid]=Object.entries(data).map(([id,v])=>({id,...v}));
   renderEntries();
+  // 사진수·커버·최근일 자동 보정 (옛 데이터/드리프트 교정)
+  const all=S.entries[pid];
+  const total=all.reduce((s,e)=>s+((e.photos||[]).length),0);
+  const latest=all.slice().sort((a,b)=>(b.createdAt||0)-(a.createdAt||0))[0];
+  const cur=S.curProj||{};const patch={};
+  if((cur.photoCount||0)!==total)patch.photoCount=total;
+  if(latest){const cov=(latest.photos||[])[0]&&latest.photos[0].url;if(cov&&cur.coverUrl!==cov)patch.coverUrl=cov;
+    const la=latest.date||latest.createdAt;if(la&&cur.lastActivity!==la)patch.lastActivity=la;}
+  if(Object.keys(patch).length){Object.assign(cur,patch);rtPatch('photoApp/projects/'+pid,patch);}
 }
 function renderEntries(){
   const list=(S.entries[S.pid]||[]).filter(e=>e.category===S.cat).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
