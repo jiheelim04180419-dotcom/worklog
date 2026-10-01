@@ -1,6 +1,6 @@
 {
-  "name": "K&M 현장사진",
-  "short_name": "현장사진",
+  "name": "SiteLog",
+  "short_name": "SiteLog",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

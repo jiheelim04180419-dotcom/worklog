@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ko">
+<html lang="en">
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover"/>
@@ -8,10 +8,10 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
-<meta name="apple-mobile-web-app-title" content="현장사진"/>
-<title>K&M 현장사진</title>
+<meta name="apple-mobile-web-app-title" content="SiteLog"/>
+<title>SiteLog</title>
 <style>
-/* ⚠️ 배포 시 코드 바뀌면 APP_BUILD 올릴 것 */
+/* ⚠️ Bump APP_BUILD on every code change */
 :root{
   --pri:#6d5efc;--pri2:#9b8cff;--pri-d:#5546e8;
   --bg:#f3f4fb;--card:#ffffff;--text:#15162b;--sub:#747890;--line:#eceef6;
@@ -53,12 +53,9 @@ input,textarea,select{font-family:inherit;font-size:16px}
 
 /* project card */
 .pcard{background:var(--card);border-radius:17px;box-shadow:var(--shadow);margin-bottom:11px;
-  display:flex;overflow:hidden;position:relative}
+  display:flex;overflow:hidden;position:relative;border-left:6px solid var(--pri)}
 .pcard:active{transform:scale(.992)}
-.pcard .cover{width:92px;flex-shrink:0;object-fit:cover;background:linear-gradient(135deg,#eef0fb,#e3e6f7)}
-.pcard .ph{width:92px;flex-shrink:0;display:flex;align-items:center;justify-content:center;
-  font-size:30px;font-weight:800;color:#fff}
-.pcard .body{flex:1;min-width:0;padding:13px 14px;display:flex;flex-direction:column;justify-content:center}
+.pcard .body{flex:1;min-width:0;padding:13px 15px;display:flex;flex-direction:column;justify-content:center}
 .pcard .bld{font-weight:800;font-size:15.5px;letter-spacing:-0.2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pcard .adr{font-size:12.5px;color:var(--sub);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pcard .foot{display:flex;align-items:center;gap:10px;margin-top:7px;font-size:11.5px;color:var(--sub)}
@@ -82,7 +79,10 @@ input,textarea,select{font-family:inherit;font-size:16px}
   color:#fff;font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .ecard .who{font-weight:700;font-size:13.5px}
 .ecard .dt{font-size:11.5px;color:var(--sub)}
-.ecard .rd{margin-left:auto;font-size:11px;color:var(--sub);background:#f3f4fb;padding:3px 9px;border-radius:11px;font-weight:700}
+.ecard .rd{font-size:11px;color:var(--sub);background:#f3f4fb;padding:3px 9px;border-radius:11px;font-weight:700}
+.ecard .emore{margin-left:auto;display:flex;align-items:center;gap:7px}
+.ecard .ebtn{width:30px;height:30px;border-radius:9px;background:#f3f4fb;color:var(--sub);font-size:16px;display:flex;align-items:center;justify-content:center}
+.ecard .ebtn:active{background:#e7e9f3}
 .ecard .note{font-size:13.5px;margin:0 0 9px;white-space:pre-wrap;color:#2c2e45;line-height:1.5}
 .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
 .grid .cell{position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;background:#eef0f7}
@@ -109,10 +109,11 @@ input,textarea,select{font-family:inherit;font-size:16px}
 .fld{margin-bottom:14px}
 .fld label{display:block;font-size:12.5px;font-weight:800;color:var(--sub);margin-bottom:6px}
 .fld input,.fld textarea,.fld select{width:100%;padding:12px 13px;border:1.5px solid var(--line);border-radius:12px;background:#fafbff;outline:none}
-.fld input:focus,.fld textarea:focus{border-color:var(--pri);background:#fff}
+.fld input:focus,.fld textarea:focus,.fld select:focus{border-color:var(--pri);background:#fff}
 .btn{width:100%;padding:14px;border-radius:14px;background:linear-gradient(135deg,#6d5efc,#9b8cff);color:#fff;font-weight:800;font-size:15px;box-shadow:0 4px 14px #6d5efc44}
 .btn:active{transform:scale(.98)}
 .btn.sec{background:#eef0f8;color:#3a3d55;box-shadow:none}
+.btn.danger{background:#fdeaea;color:var(--red);box-shadow:none}
 .btn:disabled{opacity:.55}
 .row{display:flex;gap:9px}
 .thumbadd{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:7px}
@@ -155,9 +156,9 @@ input,textarea,select{font-family:inherit;font-size:16px}
 <div id="toast" class="toast"></div>
 <datalist id="builder-list"></datalist>
 <script>
-const APP_BUILD='2026-10-01-05';
+const APP_BUILD='2026-10-02-02';
 const RTDB='https://knmtilingptyltd-12520-default-rtdb.firebaseio.com';
-// 사진 저장: Cloudflare R2 (Worker 경유, 전송 무료). 업로드키는 저사양 보호용(세팅 후 교체 가능).
+// Photos stored on Cloudflare R2 (via Worker, free egress). Upload key is light protection.
 const WORKER='https://km-photos-api.kmtiling.workers.dev';
 const UPLOAD_KEY='c3621d2542c3e8db9ae086e4a5c8c83d';
 const DEFAULT_CATS=['방수','베딩','타일','그라우트','실리콘'];
@@ -167,11 +168,12 @@ async function rtGet(p){const r=await fetch(`${RTDB}/${p}.json`);return r.ok?r.j
 async function rtPost(p,v){const r=await fetch(`${RTDB}/${p}.json`,{method:'POST',body:JSON.stringify(v)});return r.json();}
 async function rtPut(p,v){const r=await fetch(`${RTDB}/${p}.json`,{method:'PUT',body:JSON.stringify(v)});return r.json();}
 async function rtPatch(p,v){const r=await fetch(`${RTDB}/${p}.json`,{method:'PATCH',body:JSON.stringify(v)});return r.json();}
+async function rtDel(p){await fetch(`${RTDB}/${p}.json`,{method:'DELETE'});}
 
 async function stUpload(path,blob){
   const r=await fetch(`${WORKER}/up?path=${encodeURIComponent(path)}`,
     {method:'POST',headers:{'X-Up-Key':UPLOAD_KEY,'Content-Type':blob.type||'image/jpeg'},body:blob});
-  if(!r.ok)throw new Error('업로드 실패 '+r.status);
+  if(!r.ok)throw new Error('Upload failed '+r.status);
   const j=await r.json();return j.url;
 }
 function compress(file,maxDim=1600,q=0.72){
@@ -190,15 +192,15 @@ const pad2=n=>String(n).padStart(2,'0');
 const fmtDT=d=>{const x=new Date(d);return `${pad2(x.getDate())}/${pad2(x.getMonth()+1)}/${x.getFullYear()} ${pad2(x.getHours())}:${pad2(x.getMinutes())}`;};
 const fmtD=d=>{const x=new Date(d);return `${pad2(x.getDate())}/${pad2(x.getMonth()+1)}/${x.getFullYear()}`;};
 const dayKey=d=>{const x=new Date(d);return `${x.getFullYear()}-${pad2(x.getMonth()+1)}-${pad2(x.getDate())}`;};
-const title=p=>p.builder||p.name||'(이름없음)';
-const initial=p=>(title(p).trim()[0]||'·');
+const title=p=>p.builder||p.name||'(no name)';
+const plural=(n,w)=>`${n} ${w}${n===1?'':'s'}`;
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('on'),2200);}
 
 async function tryLogin(id,pw){
   const users=await rtGet('users');const arr=Array.isArray(users)?users:Object.values(users||{});
   const u=arr.find(x=>x&&x.id===id.trim());
-  if(!u)return{err:'아이디가 없어요'};
-  if((u.pw||'')!==pw)return{err:'비밀번호가 틀렸어요'};
+  if(!u)return{err:'User not found'};
+  if((u.pw||'')!==pw)return{err:'Wrong password'};
   return{user:{id:u.id,name:u.name||u.id}};
 }
 function saveSession(u){try{localStorage.setItem('photoapp_session',JSON.stringify(u));}catch(e){}}
@@ -208,23 +210,23 @@ function renderLogin(){
   document.getElementById('app').innerHTML=`
   <div class="login"><div class="box">
     <img class="logo" src="icon-192.png" alt=""/>
-    <h2 style="margin:4px 0 2px;font-size:20px;letter-spacing:-0.3px">K&M 현장사진</h2>
-    <p style="color:var(--sub);font-size:13px;margin:0 0 20px">직원 계정으로 로그인</p>
-    <div class="fld" style="text-align:left"><input id="lg-id" placeholder="아이디" autocapitalize="none" autocomplete="username"/></div>
-    <div class="fld" style="text-align:left"><input id="lg-pw" type="password" placeholder="비밀번호" autocomplete="current-password"/></div>
+    <h2 style="margin:4px 0 2px;font-size:20px;letter-spacing:-0.3px">SiteLog</h2>
+    <p style="color:var(--sub);font-size:13px;margin:0 0 20px">Sign in with your staff account</p>
+    <div class="fld" style="text-align:left"><input id="lg-id" placeholder="Username" autocapitalize="none" autocomplete="username"/></div>
+    <div class="fld" style="text-align:left"><input id="lg-pw" type="password" placeholder="Password" autocomplete="current-password"/></div>
     <div id="lg-err" style="color:var(--red);font-size:13px;min-height:18px;margin-bottom:6px"></div>
-    <button class="btn" id="lg-btn">로그인</button>
+    <button class="btn" id="lg-btn">Sign in</button>
   </div></div>`;
   const go=async()=>{const id=$('#lg-id').value,pw=$('#lg-pw').value;
-    if(!id||!pw){$('#lg-err').textContent='아이디·비밀번호를 입력하세요';return;}
+    if(!id||!pw){$('#lg-err').textContent='Enter username and password';return;}
     $('#lg-btn').innerHTML='<span class="spin"></span>';
     const r=await tryLogin(id,pw);
-    if(r.err){$('#lg-err').textContent=r.err;$('#lg-btn').textContent='로그인';return;}
+    if(r.err){$('#lg-err').textContent=r.err;$('#lg-btn').textContent='Sign in';return;}
     S.user=r.user;saveSession(r.user);openProjects();};
   $('#lg-btn').onclick=go;$('#lg-pw').onkeydown=e=>{if(e.key==='Enter')go();};
 }
 
-// builders (인보이스 빌더 재사용 + 현장에서 쓰인 빌더)
+// builders (reuse invoice builders + builders used on sites)
 async function loadBuilders(){
   let names=[];
   try{const b=await rtGet('invoiceBuilders');const arr=Array.isArray(b)?b:Object.values(b||{});
@@ -238,14 +240,14 @@ async function openProjects(){
   S.pid=null;S.cat=null;S.curProj=null;
   document.getElementById('app').innerHTML=`
    <div class="hdr">
-     <div class="r1"><div style="flex:1"><h1>현장 사진</h1><div class="sub" id="pcount">불러오는 중…</div></div>
-       <button class="icn" id="h-out" title="로그아웃">⎋</button></div>
-     <div class="search"><span class="s-ic">🔍</span><input id="q" placeholder="빌더·주소 검색" value="${esc(S.q)}"/></div>
+     <div class="r1"><div style="flex:1"><h1>SiteLog</h1><div class="sub" id="pcount">Loading…</div></div>
+       <button class="icn" id="h-out" title="Log out">⎋</button></div>
+     <div class="search"><span class="s-ic">🔍</span><input id="q" placeholder="Search builder or address" value="${esc(S.q)}"/></div>
    </div>
    <div class="filters" id="filters"></div>
    <div class="wrap" id="plist"><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>
    <button class="fab" id="addproj">＋</button>`;
-  $('#h-out').onclick=()=>{if(confirm('로그아웃할까요?')){localStorage.removeItem('photoapp_session');S.user=null;renderLogin();}};
+  $('#h-out').onclick=()=>{if(confirm('Log out?')){localStorage.removeItem('photoapp_session');S.user=null;renderLogin();}};
   $('#addproj').onclick=()=>projectForm();
   $('#q').oninput=e=>{S.q=e.target.value;renderProjectList();};
   const data=await rtGet('photoApp/projects')||{};
@@ -255,7 +257,7 @@ async function openProjects(){
 }
 function renderFilters(){
   const builders=[...new Set(S.projects.map(p=>p.builder).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
-  $('#filters').innerHTML=`<div class="chip ${!S.bfilter?'on':''}" data-b="">전체</div>`+
+  $('#filters').innerHTML=`<div class="chip ${!S.bfilter?'on':''}" data-b="">All</div>`+
     builders.map(b=>`<div class="chip ${S.bfilter===b?'on':''}" data-b="${esc(b)}">${esc(b)}</div>`).join('');
   $('#filters').querySelectorAll('.chip').forEach(c=>c.onclick=()=>{S.bfilter=c.dataset.b;renderFilters();renderProjectList();});
 }
@@ -266,15 +268,15 @@ function renderProjectList(){
   if(q)list=list.filter(p=>(`${title(p)} ${p.address||''}`).toLowerCase().includes(q));
   list.sort((a,b)=>(b.lastActivity||b.updatedAt||b.createdAt||0)-(a.lastActivity||a.updatedAt||a.createdAt||0));
   const el=$('#plist');
-  $('#pcount').textContent=`현장 ${S.projects.length}곳`;
-  if(!list.length){el.innerHTML=`<div class="empty"><div class="big">📁</div>${S.projects.length?'검색 결과가 없어요':'아직 현장이 없어요.<br>오른쪽 아래 ＋ 로 현장을 추가하세요.'}</div>`;return;}
+  $('#pcount').textContent=plural(S.projects.length,'site');
+  if(!list.length){el.innerHTML=`<div class="empty"><div class="big">📁</div>${S.projects.length?'No results':'No sites yet.<br>Tap ＋ to add one.'}</div>`;return;}
   el.innerHTML=list.map(p=>{
-    const cov=`<div class="ph" style="background:linear-gradient(135deg,${p.color||'#6d5efc'},${shade(p.color||'#6d5efc')})">${esc(initial(p))}</div>`;
     const cnt=p.photoCount||0;const last=p.lastActivity?('· '+fmtD(p.lastActivity)):'';
-    return `<div class="pcard" data-id="${p.id}">${cov}
+    const col=p.color||'#6d5efc';
+    return `<div class="pcard" data-id="${p.id}" style="border-left-color:${col}">
       <div class="body"><div class="bld">${esc(title(p))}</div>
         ${p.address?`<div class="adr">📍 ${esc(p.address)}</div>`:''}
-        <div class="foot"><span class="pill">사진 ${cnt}</span><span>${last}</span></div>
+        <div class="foot"><span class="pill">${plural(cnt,'photo')}</span><span>${last}</span></div>
       </div></div>`;}).join('');
   el.querySelectorAll('.pcard').forEach(d=>d.onclick=()=>openProject(d.dataset.id));
 }
@@ -284,30 +286,30 @@ function projectForm(edit){
   const p=edit||{};let color=p.color||COLORS[Math.floor(Math.random()*COLORS.length)];
   const m=document.createElement('div');m.className='modal';
   m.innerHTML=`<div class="sheet"><div class="grab"></div>
-    <h2>${edit?'현장 수정':'현장 추가'}</h2>
-    <div class="fld"><label>빌더 (목록에서 선택 또는 입력)</label>
-      <input id="p-bld" list="builder-list" placeholder="예: Qlinc" value="${esc(p.builder||'')}"/></div>
-    <div class="fld"><label>주소 / 유닛</label><input id="p-ad" placeholder="예: unit 94, 10 Baillie St" value="${esc(p.address||'')}"/></div>
-    <div class="fld"><label>색상</label><div class="swatches" id="p-cl">
+    <h2>${edit?'Edit site':'Add site'}</h2>
+    <div class="fld"><label>Builder (select or type)</label>
+      <input id="p-bld" list="builder-list" placeholder="e.g. Qlinc" value="${esc(p.builder||p.name||'')}"/></div>
+    <div class="fld"><label>Address / Unit</label><input id="p-ad" placeholder="e.g. Unit 94, 10 Baillie St" value="${esc(p.address||'')}"/></div>
+    <div class="fld"><label>Color</label><div class="swatches" id="p-cl">
       ${COLORS.map(c=>`<div class="s ${c===color?'on':''}" data-c="${c}" style="background:${c}"></div>`).join('')}</div></div>
     <div class="row" style="margin-top:4px">
-      <button class="btn sec" id="p-cancel">취소</button>
-      <button class="btn" id="p-save">${edit?'저장':'추가'}</button></div>
-    ${edit?`<button class="btn sec" id="p-arch" style="margin-top:9px;color:var(--red)">현장 보관(숨기기)</button>`:''}
+      <button class="btn sec" id="p-cancel">Cancel</button>
+      <button class="btn" id="p-save">${edit?'Save':'Add'}</button></div>
+    ${edit?`<button class="btn danger" id="p-arch" style="margin-top:9px">Archive site (hide)</button>`:''}
   </div>`;
   document.body.appendChild(m);
   m.onclick=e=>{if(e.target===m)m.remove();};
   m.querySelectorAll('#p-cl .s').forEach(s=>s.onclick=()=>{color=s.dataset.c;m.querySelectorAll('#p-cl .s').forEach(x=>x.classList.toggle('on',x===s));});
   $('#p-cancel',m).onclick=()=>m.remove();
   $('#p-save',m).onclick=async()=>{
-    const bld=$('#p-bld',m).value.trim();if(!bld){toast('빌더를 입력하세요');return;}
+    const bld=$('#p-bld',m).value.trim();if(!bld){toast('Enter a builder');return;}
     $('#p-save',m).innerHTML='<span class="spin"></span>';
     const payload={builder:bld,address:$('#p-ad',m).value.trim(),color,updatedAt:Date.now()};
     if(edit){await rtPatch('photoApp/projects/'+edit.id,payload);}
     else{payload.categories=DEFAULT_CATS.slice();payload.createdAt=Date.now();payload.archived=false;payload.photoCount=0;await rtPost('photoApp/projects',payload);}
     m.remove();if(edit&&S.pid===edit.id){S.curProj={...S.curProj,...payload};openProject(edit.id);}else openProjects();
   };
-  if(edit)$('#p-arch',m).onclick=async()=>{if(!confirm('이 현장을 목록에서 숨길까요? (사진은 보존됩니다)'))return;await rtPatch('photoApp/projects/'+edit.id,{archived:true});m.remove();openProjects();};
+  if(edit)$('#p-arch',m).onclick=async()=>{if(!confirm('Hide this site from the list? (Photos are kept)'))return;await rtPatch('photoApp/projects/'+edit.id,{archived:true});m.remove();openProjects();};
 }
 
 async function openProject(pid){
@@ -317,26 +319,29 @@ async function openProject(pid){
    <div class="hdr"><div class="r1">
      <button class="icn" id="h-back">‹</button>
      <div style="flex:1;min-width:0"><h1>${esc(title(p))}</h1>${p.address?`<div class="sub">📍 ${esc(p.address)}</div>`:''}</div>
-     <button class="icn" id="h-edit" title="현장 수정">✎</button></div></div>
+     <button class="icn" id="h-edit" title="Edit site">✎</button></div></div>
    <div class="tabs" id="cats"></div>
    <div class="wrap" id="entries"></div>
    <button class="fab" id="addentry">＋</button>`;
   $('#h-back').onclick=openProjects;
   $('#h-edit').onclick=()=>projectForm(S.curProj);
-  $('#addentry').onclick=()=>entryForm(pid,S.cat);
+  $('#addentry').onclick=()=>{S.cat==='__notes__'?noteForm(pid):entryForm(pid,S.cat);};
   renderCats();loadEntries(pid);
 }
 function renderCats(){
   const p=S.curProj;const cats=(p.categories&&p.categories.length?p.categories:DEFAULT_CATS);
+  const notesOn=S.cat==='__notes__';
   $('#cats').innerHTML=cats.map(c=>`<div class="tab ${c===S.cat?'on':''}" data-c="${esc(c)}">${esc(c)}</div>`).join('')
-    +`<div class="tab" id="catadd" style="color:var(--pri)">＋ 종류</div>`;
+    +`<div class="tab ${notesOn?'on':''}" data-c="__notes__" style="${notesOn?'':'color:var(--pri)'}">📝 Notes</div>`
+    +`<div class="tab" id="catadd" style="color:var(--pri)">＋ Category</div>`;
   $('#cats').querySelectorAll('.tab[data-c]').forEach(t=>t.onclick=()=>{S.cat=t.dataset.c;renderCats();renderEntries();});
   $('#catadd',$('#cats')).onclick=()=>addCategory(S.pid);
 }
+const CAT_LABEL=c=>c==='__notes__'?'📝 Notes':c;
 async function addCategory(pid){
-  const nm=prompt('추가할 작업종류 이름');if(!nm||!nm.trim())return;
+  const nm=prompt('New category name');if(!nm||!nm.trim())return;
   const p=S.curProj;const cats=(p.categories&&p.categories.length?p.categories:DEFAULT_CATS).slice();
-  if(cats.includes(nm.trim())){toast('이미 있어요');return;}
+  if(cats.includes(nm.trim())){toast('Already exists');return;}
   cats.push(nm.trim());p.categories=cats;await rtPatch('photoApp/projects/'+pid,{categories:cats});
   S.cat=nm.trim();renderCats();renderEntries();
 }
@@ -345,7 +350,7 @@ async function loadEntries(pid){
   const data=await rtGet('photoApp/entries/'+pid)||{};
   S.entries[pid]=Object.entries(data).map(([id,v])=>({id,...v}));
   renderEntries();
-  // 사진수·커버·최근일 자동 보정 (옛 데이터/드리프트 교정)
+  // auto-correct photoCount / cover / lastActivity (fix legacy drift)
   const all=S.entries[pid];
   const total=all.reduce((s,e)=>s+((e.photos||[]).length),0);
   const latest=all.slice().sort((a,b)=>(b.createdAt||0)-(a.createdAt||0))[0];
@@ -356,9 +361,13 @@ async function loadEntries(pid){
   if(Object.keys(patch).length){Object.assign(cur,patch);rtPatch('photoApp/projects/'+pid,patch);}
 }
 function renderEntries(){
+  const isNotes=S.cat==='__notes__';
   const list=(S.entries[S.pid]||[]).filter(e=>e.category===S.cat).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
   const el=$('#entries');
-  if(!list.length){el.innerHTML=`<div class="empty"><div class="big">📷</div><b>${esc(S.cat)}</b> — 아직 사진이 없어요.<br>＋ 로 오늘 작업 사진을 올리세요.</div>`;return;}
+  if(!list.length){
+    el.innerHTML=isNotes
+      ?`<div class="empty"><div class="big">📝</div>No notes yet.<br>Tap ＋ to add a note — tile pattern, grout colour, materials left on site, etc.</div>`
+      :`<div class="empty"><div class="big">📷</div><b>${esc(S.cat)}</b> — No photos yet.<br>Tap ＋ to upload today's photos.</div>`;return;}
   // group by day
   const groups={};list.forEach(e=>{const k=dayKey(e.date||e.createdAt);(groups[k]=groups[k]||[]).push(e);});
   const keys=Object.keys(groups).sort((a,b)=>b.localeCompare(a));
@@ -367,29 +376,33 @@ function renderEntries(){
     return `<div class="daygrp"><div class="dayhd">${fmtD(d)}</div>`+groups[k].map(e=>{
       const reads=e.reads?Object.keys(e.reads).length:0;const ph=(e.photos||[]);
       const show=ph.slice(0,9);
+      const who=(e.authorName||'').trim();
+      const ava=who?esc(who[0]):'👤';
+      const noteHtml=e.note?`<div class="note" style="${isNotes?'font-size:15px;color:#15162b':''}">${esc(e.note)}</div>`:'';
+      const gridHtml=ph.length?`<div class="grid">${show.map((p,i)=>`<div class="cell"><img loading="lazy" src="${p.url}" data-e="${e.id}" data-i="${i}"/>${(i===8&&ph.length>9)?`<div class="more" data-e="${e.id}" data-i="8">+${ph.length-9}</div>`:''}</div>`).join('')}</div>`:'';
       return `<div class="ecard">
-        <div class="top"><div class="ava">${esc((e.authorName||'?')[0])}</div>
-          <div><div class="who">${esc(e.authorName||'')}</div><div class="dt">${fmtDT(e.date||e.createdAt)}</div></div>
-          <span class="rd">👁 ${reads}</span></div>
-        ${e.note?`<div class="note">${esc(e.note)}</div>`:''}
-        <div class="grid">${show.map((p,i)=>`<div class="cell"><img loading="lazy" src="${p.url}" data-e="${e.id}" data-i="${i}"/>${(i===8&&ph.length>9)?`<div class="more" data-e="${e.id}" data-i="8">+${ph.length-9}</div>`:''}</div>`).join('')}</div>
+        <div class="top"><div class="ava">${ava}</div>
+          <div><div class="who">${esc(who||'—')}</div><div class="dt">${fmtDT(e.date||e.createdAt)}</div></div>
+          <span class="emore"><span class="rd">👁 ${reads}</span><button class="ebtn" data-edit="${e.id}" title="Edit">⋯</button></span></div>
+        ${noteHtml}${gridHtml}
       </div>`;}).join('')+`</div>`;}).join('');
   el.querySelectorAll('.grid img,.grid .more').forEach(im=>im.onclick=()=>openViewer(im.dataset.e,+im.dataset.i));
+  el.querySelectorAll('.ebtn[data-edit]').forEach(b=>b.onclick=()=>editEntry(b.dataset.edit));
 }
 
 function entryForm(pid,cat){
   let picks=[];
   const m=document.createElement('div');m.className='modal';
   m.innerHTML=`<div class="sheet"><div class="grab"></div>
-    <h2>${esc(cat)} · 사진 올리기</h2>
-    <div class="fld"><label>날짜</label><input id="e-date" type="date"/></div>
-    <div class="fld"><label>메모 (선택)</label><textarea id="e-note" rows="2" placeholder="예: 1차 방수 완료"></textarea></div>
-    <div class="fld"><label>사진</label>
+    <h2>${esc(cat)} · Upload photos</h2>
+    <div class="fld"><label>Date</label><input id="e-date" type="date"/></div>
+    <div class="fld"><label>Note (optional)</label><textarea id="e-note" rows="2" placeholder="e.g. First waterproof coat done"></textarea></div>
+    <div class="fld"><label>Photos</label>
       <input id="e-file" type="file" accept="image/*" multiple style="display:none"/>
       <div class="thumbadd" id="e-thumbs"><div class="pick" id="e-pick">＋</div></div></div>
     <div class="prog-wrap" id="e-progwrap" style="display:none"><div class="prog" id="e-prog"></div></div>
     <div id="e-status" style="font-size:12.5px;color:var(--sub);min-height:16px;margin:4px 0 8px"></div>
-    <div class="row"><button class="btn sec" id="e-cancel">취소</button><button class="btn" id="e-save">올리기</button></div>
+    <div class="row"><button class="btn sec" id="e-cancel">Cancel</button><button class="btn" id="e-save">Upload</button></div>
   </div>`;
   document.body.appendChild(m);
   const t=new Date();$('#e-date',m).value=`${t.getFullYear()}-${pad2(t.getMonth()+1)}-${pad2(t.getDate())}`;
@@ -402,13 +415,13 @@ function entryForm(pid,cat){
     $('#e-pick',m).onclick=()=>fi.click();
     box.querySelectorAll('.x').forEach(x=>x.onclick=()=>{picks.splice(+x.dataset.i,1);draw();});}
   $('#e-save',m).onclick=async()=>{
-    if(!picks.length){toast('사진을 선택하세요');return;}
+    if(!picks.length){toast('Select photos');return;}
     const btn=$('#e-save',m);btn.disabled=true;btn.innerHTML='<span class="spin"></span>';
     $('#e-progwrap',m).style.display='block';
     const eid=(Date.now().toString(36)+Math.random().toString(36).slice(2,7));const photos=[];
     try{
       for(let i=0;i<picks.length;i++){
-        $('#e-status',m).textContent=`업로드 중 ${i+1}/${picks.length}…`;
+        $('#e-status',m).textContent=`Uploading ${i+1}/${picks.length}…`;
         $('#e-prog',m).style.width=Math.round(i/picks.length*100)+'%';
         const f=picks[i].file;const base=`photos/${pid}/${cat}/${eid}/${i}`;
         const view=await compress(f);
@@ -422,12 +435,127 @@ function entryForm(pid,cat){
         note:$('#e-note',m).value.trim(),photos,reads:{[S.user.id]:Date.now()},createdAt:Date.now()});
       const cur=S.curProj||{};
       await rtPatch('photoApp/projects/'+pid,{updatedAt:Date.now(),lastActivity:dateMs,coverUrl:photos[0].url,photoCount:(cur.photoCount||0)+photos.length});
-      m.remove();toast('✅ 올렸어요');loadEntries(pid);
-    }catch(err){btn.disabled=false;btn.textContent='올리기';
-      $('#e-status',m).innerHTML=`<span style="color:var(--red)">실패: ${esc(err.message)}</span>`;}
+      m.remove();toast('✅ Uploaded');loadEntries(pid);
+    }catch(err){btn.disabled=false;btn.textContent='Upload';
+      $('#e-status',m).innerHTML=`<span style="color:var(--red)">Failed: ${esc(err.message)}</span>`;}
   };
 }
 function extOf(f){const n=(f.name||'').toLowerCase();const m=n.match(/\.(jpe?g|png|heic|heif|webp)$/);return m?('.'+m[1]):'.jpg';}
+
+// Site note: a text record (tile pattern, grout colour, materials left, etc). Photos optional.
+function noteForm(pid){
+  let picks=[];
+  const m=document.createElement('div');m.className='modal';
+  m.innerHTML=`<div class="sheet"><div class="grab"></div>
+    <h2>📝 Add note</h2>
+    <div class="fld"><label>Note</label><textarea id="n-note" rows="4" placeholder="e.g. Tile pattern: brick bond, 1/3 offset&#10;Grout colour confirmed: Dunlop Ash&#10;Materials left on site: 2 boxes 300x600, 1 bag grout"></textarea></div>
+    <div class="fld"><label>Date</label><input id="n-date" type="date"/></div>
+    <div class="fld"><label>Photos (optional)</label>
+      <input id="n-file" type="file" accept="image/*" multiple style="display:none"/>
+      <div class="thumbadd" id="n-thumbs"><div class="pick" id="n-pick">＋</div></div></div>
+    <div class="prog-wrap" id="n-progwrap" style="display:none"><div class="prog" id="n-prog"></div></div>
+    <div id="n-status" style="font-size:12.5px;color:var(--sub);min-height:16px;margin:4px 0 8px"></div>
+    <div class="row"><button class="btn sec" id="n-cancel">Cancel</button><button class="btn" id="n-save">Save note</button></div>
+  </div>`;
+  document.body.appendChild(m);
+  const t=new Date();$('#n-date',m).value=`${t.getFullYear()}-${pad2(t.getMonth()+1)}-${pad2(t.getDate())}`;
+  m.onclick=e=>{if(e.target===m)m.remove();};
+  $('#n-cancel',m).onclick=()=>m.remove();
+  const fi=$('#n-file',m);$('#n-pick',m).onclick=()=>fi.click();
+  fi.onchange=()=>{[...fi.files].forEach(f=>picks.push({file:f,u:URL.createObjectURL(f)}));fi.value='';draw();};
+  function draw(){const box=$('#n-thumbs',m);
+    box.innerHTML=picks.map((p,i)=>`<div class="t"><img src="${p.u}"/><div class="x" data-i="${i}">×</div></div>`).join('')+`<div class="pick" id="n-pick">＋</div>`;
+    $('#n-pick',m).onclick=()=>fi.click();
+    box.querySelectorAll('.x').forEach(x=>x.onclick=()=>{picks.splice(+x.dataset.i,1);draw();});}
+  $('#n-save',m).onclick=async()=>{
+    const content=$('#n-note',m).value.trim();
+    if(!content){toast('Write a note');return;}
+    const btn=$('#n-save',m);btn.disabled=true;btn.innerHTML='<span class="spin"></span>';
+    const eid=(Date.now().toString(36)+Math.random().toString(36).slice(2,7));const photos=[];
+    try{
+      if(picks.length){$('#n-progwrap',m).style.display='block';
+        for(let i=0;i<picks.length;i++){
+          $('#n-status',m).textContent=`Uploading ${i+1}/${picks.length}…`;
+          $('#n-prog',m).style.width=Math.round(i/picks.length*100)+'%';
+          const f=picks[i].file;const base=`photos/${pid}/__notes__/${eid}/${i}`;
+          const view=await compress(f);
+          const url=await stUpload(base+'_view.jpg',view);
+          const origUrl=await stUpload(base+'_orig'+extOf(f),f);
+          photos.push({url,origUrl,name:f.name||('photo'+i)});
+        }$('#n-prog',m).style.width='100%';}
+      const dateMs=new Date($('#n-date',m).value+'T'+new Date().toTimeString().slice(0,8)).getTime();
+      await rtPut(`photoApp/entries/${pid}/${eid}`,{category:'__notes__',date:dateMs,authorId:S.user.id,authorName:S.user.name,
+        note:content,photos,reads:{[S.user.id]:Date.now()},createdAt:Date.now()});
+      const cur=S.curProj||{};
+      await rtPatch('photoApp/projects/'+pid,{updatedAt:Date.now(),lastActivity:dateMs,photoCount:(cur.photoCount||0)+photos.length});
+      m.remove();toast('✅ Note saved');loadEntries(pid);
+    }catch(err){btn.disabled=false;btn.textContent='Save note';
+      $('#n-status',m).innerHTML=`<span style="color:var(--red)">Failed: ${esc(err.message)}</span>`;}
+  };
+}
+
+// Fix a post that was uploaded to the wrong place: change category/site/date/note, remove photos, or delete.
+function editEntry(entryId){
+  const pid=S.pid;const e=(S.entries[pid]||[]).find(x=>x.id===entryId);if(!e)return;
+  let photos=(e.photos||[]).slice();
+  const p=S.curProj;const cats=(p.categories&&p.categories.length?p.categories:DEFAULT_CATS);
+  const others=S.projects.slice().sort((a,b)=>title(a).localeCompare(title(b)));
+  const dIso=(()=>{const x=new Date(e.date||e.createdAt);return `${x.getFullYear()}-${pad2(x.getMonth()+1)}-${pad2(x.getDate())}`;})();
+  const m=document.createElement('div');m.className='modal';
+  m.innerHTML=`<div class="sheet"><div class="grab"></div>
+    <h2>Edit post</h2>
+    <div class="fld"><label>Category</label><select id="ed-cat">
+      ${cats.map(c=>`<option value="${esc(c)}" ${c===e.category?'selected':''}>${esc(c)}</option>`).join('')}
+      <option value="__notes__" ${e.category==='__notes__'?'selected':''}>📝 Notes</option>
+    </select></div>
+    <div class="fld"><label>Move to site</label><select id="ed-proj">
+      ${others.map(o=>`<option value="${o.id}" ${o.id===pid?'selected':''}>${esc(title(o))}${o.address?' · '+esc(o.address):''}</option>`).join('')}
+    </select></div>
+    <div class="fld"><label>Date</label><input id="ed-date" type="date" value="${dIso}"/></div>
+    <div class="fld"><label>Note</label><textarea id="ed-note" rows="2">${esc(e.note||'')}</textarea></div>
+    <div class="fld"><label>Photos (tap × to remove)</label><div class="thumbadd" id="ed-thumbs"></div></div>
+    <div class="row"><button class="btn sec" id="ed-cancel">Cancel</button><button class="btn" id="ed-save">Save changes</button></div>
+    <button class="btn danger" id="ed-del" style="margin-top:9px">Delete this post</button>
+  </div>`;
+  document.body.appendChild(m);
+  m.onclick=ev=>{if(ev.target===m)m.remove();};
+  function drawPh(){const box=$('#ed-thumbs',m);
+    if(!photos.length){const asNote=($('#ed-cat',m)||{}).value==='__notes__';
+      box.innerHTML=`<div style="color:var(--sub);font-size:12.5px;padding:6px 2px">${asNote?'No photos (note only).':'No photos left — saving will delete this post.'}</div>`;return;}
+    box.innerHTML=photos.map((p,i)=>`<div class="t"><img src="${p.url}"/><div class="x" data-i="${i}">×</div></div>`).join('');
+    box.querySelectorAll('.x').forEach(x=>x.onclick=()=>{if(!confirm('Remove this photo?'))return;photos.splice(+x.dataset.i,1);drawPh();});}
+  drawPh();
+  $('#ed-cat',m).onchange=drawPh;
+  $('#ed-cancel',m).onclick=()=>m.remove();
+  $('#ed-del',m).onclick=async()=>{
+    if(!confirm('Delete this post and its photos?'))return;
+    await rtDel(`photoApp/entries/${pid}/${entryId}`);
+    m.remove();toast('Deleted');loadEntries(pid);
+  };
+  $('#ed-save',m).onclick=async()=>{
+    const btn=$('#ed-save',m);btn.disabled=true;btn.innerHTML='<span class="spin"></span>';
+    const newCat=$('#ed-cat',m).value, newPid=$('#ed-proj',m).value, note=$('#ed-note',m).value.trim();
+    const dv=$('#ed-date',m).value;
+    const dateMs=dv?new Date(dv+'T'+new Date(e.date||e.createdAt).toTimeString().slice(0,8)).getTime():(e.date||e.createdAt);
+    if(!photos.length && newCat!=='__notes__'){ // all photos removed on a photo post -> delete
+      if(!(note)){await rtDel(`photoApp/entries/${pid}/${entryId}`);m.remove();toast('Deleted');loadEntries(pid);return;}}
+    const updated={...e,category:newCat,note,date:dateMs,photos};delete updated.id;
+    // if site changed, make sure target has the category
+    if(newPid!==pid){
+      const tgt=S.projects.find(x=>x.id===newPid);
+      const tcats=(tgt&&tgt.categories&&tgt.categories.length?tgt.categories.slice():DEFAULT_CATS.slice());
+      if(!tcats.includes(newCat)){tcats.push(newCat);await rtPatch('photoApp/projects/'+newPid,{categories:tcats});if(tgt)tgt.categories=tcats;}
+      await rtPut(`photoApp/entries/${newPid}/${entryId}`,updated);
+      await rtDel(`photoApp/entries/${pid}/${entryId}`);
+      // best-effort count bump on target (self-heals when opened)
+      if(tgt)rtPatch('photoApp/projects/'+newPid,{photoCount:(tgt.photoCount||0)+photos.length,updatedAt:Date.now(),lastActivity:dateMs});
+      m.remove();toast('Moved to '+title(S.projects.find(x=>x.id===newPid)||{}));loadEntries(pid);
+    }else{
+      await rtPatch(`photoApp/entries/${pid}/${entryId}`,{category:newCat,note,date:dateMs,photos});
+      m.remove();toast('✅ Saved');loadEntries(pid);
+    }
+  };
+}
 
 async function openViewer(entryId,idx){
   const e=(S.entries[S.pid]||[]).find(x=>x.id===entryId);if(!e)return;
@@ -435,9 +563,9 @@ async function openViewer(entryId,idx){
   if(!e.reads||!e.reads[S.user.id]){rtPatch(`photoApp/entries/${S.pid}/${entryId}/reads`,{[S.user.id]:Date.now()});e.reads=e.reads||{};e.reads[S.user.id]=Date.now();}
   const v=document.createElement('div');v.className='viewer';
   function draw(){v.innerHTML=`
-    <div class="vh"><button id="v-close">✕ 닫기</button>
+    <div class="vh"><button id="v-close">✕ Close</button>
       <span style="flex:1;text-align:center;font-size:13px;opacity:.9">${i+1} / ${ph.length}</span>
-      <button id="v-dl">원본 ⤓</button></div>
+      <button id="v-dl">Original ⤓</button></div>
     <div class="vimg"><img src="${ph[i].url}"/></div>
     <div class="vnav"><button id="v-prev">‹</button><button id="v-next">›</button></div>`;
     $('#v-close',v).onclick=()=>v.remove();
