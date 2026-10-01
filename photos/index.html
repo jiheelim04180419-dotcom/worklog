@@ -156,7 +156,7 @@ input,textarea,select{font-family:inherit;font-size:16px}
 <div id="toast" class="toast"></div>
 <datalist id="builder-list"></datalist>
 <script>
-const APP_BUILD='2026-10-02-02';
+const APP_BUILD='2026-10-02-03';
 const RTDB='https://knmtilingptyltd-12520-default-rtdb.firebaseio.com';
 // Photos stored on Cloudflare R2 (via Worker, free egress). Upload key is light protection.
 const WORKER='https://km-photos-api.kmtiling.workers.dev';
@@ -226,6 +226,21 @@ function renderLogin(){
   $('#lg-btn').onclick=go;$('#lg-pw').onkeydown=e=>{if(e.key==='Enter')go();};
 }
 
+function appMenu(){
+  const m=document.createElement('div');m.className='modal';
+  m.innerHTML=`<div class="sheet"><div class="grab"></div>
+    <h2>Menu</h2>
+    <div style="font-size:13px;color:var(--sub);margin:-8px 2px 14px">Signed in as <b style="color:var(--text)">${esc(S.user&&S.user.name||'')}</b></div>
+    <button class="btn danger" id="mn-out">Log out</button>
+    <button class="btn sec" id="mn-close" style="margin-top:9px">Close</button>
+    <div style="text-align:center;color:var(--sub);font-size:11px;margin-top:12px">SiteLog · ${APP_BUILD}</div>
+  </div>`;
+  document.body.appendChild(m);
+  m.onclick=e=>{if(e.target===m)m.remove();};
+  $('#mn-close',m).onclick=()=>m.remove();
+  $('#mn-out',m).onclick=()=>{if(confirm('Log out?')){localStorage.removeItem('photoapp_session');S.user=null;m.remove();renderLogin();}};
+}
+
 // builders (reuse invoice builders + builders used on sites)
 async function loadBuilders(){
   let names=[];
@@ -241,13 +256,13 @@ async function openProjects(){
   document.getElementById('app').innerHTML=`
    <div class="hdr">
      <div class="r1"><div style="flex:1"><h1>SiteLog</h1><div class="sub" id="pcount">Loading…</div></div>
-       <button class="icn" id="h-out" title="Log out">⎋</button></div>
+       <button class="icn" id="h-menu" title="Menu">⋯</button></div>
      <div class="search"><span class="s-ic">🔍</span><input id="q" placeholder="Search builder or address" value="${esc(S.q)}"/></div>
    </div>
    <div class="filters" id="filters"></div>
    <div class="wrap" id="plist"><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>
    <button class="fab" id="addproj">＋</button>`;
-  $('#h-out').onclick=()=>{if(confirm('Log out?')){localStorage.removeItem('photoapp_session');S.user=null;renderLogin();}};
+  $('#h-menu').onclick=()=>appMenu();
   $('#addproj').onclick=()=>projectForm();
   $('#q').oninput=e=>{S.q=e.target.value;renderProjectList();};
   const data=await rtGet('photoApp/projects')||{};
