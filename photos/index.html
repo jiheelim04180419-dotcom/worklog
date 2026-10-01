@@ -155,7 +155,7 @@ input,textarea,select{font-family:inherit;font-size:16px}
 <div id="toast" class="toast"></div>
 <datalist id="builder-list"></datalist>
 <script>
-const APP_BUILD='2026-10-01-03';
+const APP_BUILD='2026-10-01-04';
 const RTDB='https://knmtilingptyltd-12520-default-rtdb.firebaseio.com';
 const STORAGE_BUCKET='knmtilingptyltd-12520.firebasestorage.app';
 const DEFAULT_CATS=['방수','베딩','타일','그라우트','실리콘'];
@@ -268,8 +268,7 @@ function renderProjectList(){
   $('#pcount').textContent=`현장 ${S.projects.length}곳`;
   if(!list.length){el.innerHTML=`<div class="empty"><div class="big">📁</div>${S.projects.length?'검색 결과가 없어요':'아직 현장이 없어요.<br>오른쪽 아래 ＋ 로 현장을 추가하세요.'}</div>`;return;}
   el.innerHTML=list.map(p=>{
-    const cov=p.coverUrl?`<img class="cover" loading="lazy" src="${p.coverUrl}"/>`
-      :`<div class="ph" style="background:linear-gradient(135deg,${p.color||'#6d5efc'},${shade(p.color||'#6d5efc')})">${esc(initial(p))}</div>`;
+    const cov=`<div class="ph" style="background:linear-gradient(135deg,${p.color||'#6d5efc'},${shade(p.color||'#6d5efc')})">${esc(initial(p))}</div>`;
     const cnt=p.photoCount||0;const last=p.lastActivity?('· '+fmtD(p.lastActivity)):'';
     return `<div class="pcard" data-id="${p.id}">${cov}
       <div class="body"><div class="bld">${esc(title(p))}</div>
