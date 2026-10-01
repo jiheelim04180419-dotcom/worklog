@@ -171,7 +171,7 @@ input,textarea,select{font-family:inherit;font-size:16px}
 <div id="toast" class="toast"></div>
 <datalist id="builder-list"></datalist>
 <script>
-const APP_BUILD='2026-10-02-04';
+const APP_BUILD='2026-10-02-05';
 const RTDB='https://knmtilingptyltd-12520-default-rtdb.firebaseio.com';
 // Photos stored on Cloudflare R2 (via Worker, free egress). Upload key is light protection.
 const WORKER='https://km-photos-api.kmtiling.workers.dev';
@@ -211,12 +211,25 @@ const title=p=>p.builder||p.name||'(no name)';
 const plural=(n,w)=>`${n} ${w}${n===1?'':'s'}`;
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('on'),2200);}
 
+// A user is blocked by removing them from `users`, or setting active:false / disabled:true / left:true.
+const isActive=u=>!!u && !u.resignedDate && u.active!==false && u.disabled!==true && u.left!==true && u.resigned!==true;
 async function tryLogin(id,pw){
   const users=await rtGet('users');const arr=Array.isArray(users)?users:Object.values(users||{});
   const u=arr.find(x=>x&&x.id===id.trim());
   if(!u)return{err:'User not found'};
   if((u.pw||'')!==pw)return{err:'Wrong password'};
+  if(!isActive(u))return{err:'This account is disabled'};
   return{user:{id:u.id,name:u.name||u.id}};
+}
+// Re-check the signed-in user still exists & is active. Logs out immediately if not.
+async function validateSession(){
+  if(!S.user)return false;
+  try{
+    const users=await rtGet('users');const arr=Array.isArray(users)?users:Object.values(users||{});
+    const u=arr.find(x=>x&&x.id===S.user.id);
+    if(!u||!isActive(u)){localStorage.removeItem('photoapp_session');S.user=null;return false;}
+    return true;
+  }catch(e){return true;} // network error: don't lock out on a hiccup
 }
 function saveSession(u){try{localStorage.setItem('photoapp_session',JSON.stringify(u));}catch(e){}}
 function loadSession(){try{return JSON.parse(localStorage.getItem('photoapp_session')||'null');}catch(e){return null;}}
@@ -280,6 +293,7 @@ async function openProjects(){
   $('#h-menu').onclick=()=>appMenu();
   $('#addproj').onclick=()=>projectForm();
   $('#q').oninput=e=>{S.q=e.target.value;renderProjectList();};
+  if(!(await validateSession())){renderLogin();setTimeout(()=>toast('Your access has been removed'),300);return;}
   const data=await rtGet('photoApp/projects')||{};
   S.projects=Object.entries(data).map(([id,v])=>({id,...v})).filter(p=>!p.archived);
   await loadBuilders();
@@ -358,8 +372,14 @@ async function openProject(pid){
   $('#addentry').onclick=()=>entryForm(pid,S.cat==='__all__'?null:S.cat);
   renderCatbar();loadEntries(pid);
 }
+// Always show the standard work categories, plus any extra ones this project has (e.g. 이전자료).
+function catsOf(p){
+  const base=DEFAULT_CATS.slice();
+  ((p&&p.categories)||[]).forEach(c=>{if(c&&c!=='__notes__'&&!base.includes(c))base.push(c);});
+  return base;
+}
 function renderCatbar(){
-  const p=S.curProj;const cats=(p.categories&&p.categories.length?p.categories:DEFAULT_CATS);
+  const p=S.curProj;const cats=catsOf(p);
   $('#catbar').innerHTML=`<select class="catsel" id="catsel">
       <option value="__all__" ${S.cat==='__all__'?'selected':''}>All photos</option>
       ${cats.map(c=>`<option value="${esc(c)}" ${c===S.cat?'selected':''}>${esc(c)}</option>`).join('')}
@@ -434,7 +454,7 @@ function renderEntries(){
 
 function entryForm(pid,cat){
   let picks=[];
-  const p=S.curProj||{};const cats=(p.categories&&p.categories.length?p.categories:DEFAULT_CATS);
+  const p=S.curProj||{};const cats=catsOf(p);
   const defCat=(cat&&cat!=='__all__'&&cat!=='__notes__')?cat:cats[0];
   const m=document.createElement('div');m.className='modal';
   m.innerHTML=`<div class="sheet"><div class="grab"></div>
@@ -545,7 +565,7 @@ function noteForm(pid){
 function editEntry(entryId){
   const pid=S.pid;const e=(S.entries[pid]||[]).find(x=>x.id===entryId);if(!e)return;
   let photos=(e.photos||[]).slice();
-  const p=S.curProj;const cats=(p.categories&&p.categories.length?p.categories:DEFAULT_CATS);
+  const p=S.curProj;const cats=catsOf(p);
   const others=S.projects.slice().sort((a,b)=>title(a).localeCompare(title(b)));
   const dIso=(()=>{const x=new Date(e.date||e.createdAt);return `${x.getFullYear()}-${pad2(x.getMonth()+1)}-${pad2(x.getDate())}`;})();
   const m=document.createElement('div');m.className='modal';
@@ -622,7 +642,7 @@ async function openViewer(entryId,idx){
   draw();document.body.appendChild(v);
 }
 
-(function(){const s=loadSession();if(s){S.user=s;openProjects();}else renderLogin();})();
+(async function(){const s=loadSession();if(s){S.user=s;if(await validateSession())openProjects();else{renderLogin();setTimeout(()=>toast('Your access has been removed'),300);}}else renderLogin();})();
 </script>
 </body>
 </html>
