@@ -69,6 +69,21 @@ input,textarea,select{font-family:inherit;font-size:16px}
   font-weight:700;font-size:13.5px;box-shadow:var(--shadow)}
 .tab.on{background:linear-gradient(135deg,#6d5efc,#9b8cff);color:#fff;box-shadow:0 4px 14px #6d5efc55}
 
+/* category bar (dropdown) */
+.catbar{display:flex;align-items:center;gap:8px;padding:12px 16px 2px;position:sticky;z-index:10;
+  top:calc(env(safe-area-inset-top) + 62px);background:linear-gradient(var(--bg),var(--bg) 72%,transparent)}
+.catsel{flex:1;min-width:0;appearance:none;-webkit-appearance:none;background:#fff;border:none;border-radius:13px;
+  box-shadow:var(--shadow);padding:11px 38px 11px 15px;font-size:14px;font-weight:700;color:var(--text);
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23747890' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 14px center}
+.catbar .mini{background:#fff;color:var(--pri);box-shadow:var(--shadow);border-radius:12px;padding:11px 13px;font-weight:800;font-size:13px;white-space:nowrap}
+/* section heads */
+.sec-head{display:flex;align-items:center;margin:6px 4px 10px}
+.sec-head .t{font-size:13px;font-weight:800;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;flex:1}
+.sec-head .miniadd{background:#eef0fb;color:var(--pri);border-radius:10px;padding:6px 11px;font-weight:800;font-size:12px}
+.notes-empty{color:var(--sub);font-size:13px;background:#fff;border-radius:14px;box-shadow:var(--shadow);padding:16px 15px;margin-bottom:12px;line-height:1.5}
+.sec-div{height:1px;background:var(--line);margin:18px 2px 14px}
+
 /* entry */
 .daygrp{margin-bottom:4px}
 .dayhd{font-size:12.5px;font-weight:800;color:var(--sub);margin:14px 6px 8px;display:flex;align-items:center;gap:7px}
@@ -156,7 +171,7 @@ input,textarea,select{font-family:inherit;font-size:16px}
 <div id="toast" class="toast"></div>
 <datalist id="builder-list"></datalist>
 <script>
-const APP_BUILD='2026-10-02-03';
+const APP_BUILD='2026-10-02-04';
 const RTDB='https://knmtilingptyltd-12520-default-rtdb.firebaseio.com';
 // Photos stored on Cloudflare R2 (via Worker, free egress). Upload key is light protection.
 const WORKER='https://km-photos-api.kmtiling.workers.dev';
@@ -329,36 +344,36 @@ function projectForm(edit){
 
 async function openProject(pid){
   S.pid=pid;const p=S.projects.find(x=>x.id===pid)||await rtGet('photoApp/projects/'+pid);p.id=pid;
-  S.curProj=p;const cats=(p.categories&&p.categories.length?p.categories:DEFAULT_CATS);S.cat=cats[0];
+  S.curProj=p;S.cat='__all__';
   document.getElementById('app').innerHTML=`
    <div class="hdr"><div class="r1">
      <button class="icn" id="h-back">‹</button>
      <div style="flex:1;min-width:0"><h1>${esc(title(p))}</h1>${p.address?`<div class="sub">📍 ${esc(p.address)}</div>`:''}</div>
      <button class="icn" id="h-edit" title="Edit site">✎</button></div></div>
-   <div class="tabs" id="cats"></div>
+   <div class="catbar" id="catbar"></div>
    <div class="wrap" id="entries"></div>
    <button class="fab" id="addentry">＋</button>`;
   $('#h-back').onclick=openProjects;
   $('#h-edit').onclick=()=>projectForm(S.curProj);
-  $('#addentry').onclick=()=>{S.cat==='__notes__'?noteForm(pid):entryForm(pid,S.cat);};
-  renderCats();loadEntries(pid);
+  $('#addentry').onclick=()=>entryForm(pid,S.cat==='__all__'?null:S.cat);
+  renderCatbar();loadEntries(pid);
 }
-function renderCats(){
+function renderCatbar(){
   const p=S.curProj;const cats=(p.categories&&p.categories.length?p.categories:DEFAULT_CATS);
-  const notesOn=S.cat==='__notes__';
-  $('#cats').innerHTML=cats.map(c=>`<div class="tab ${c===S.cat?'on':''}" data-c="${esc(c)}">${esc(c)}</div>`).join('')
-    +`<div class="tab ${notesOn?'on':''}" data-c="__notes__" style="${notesOn?'':'color:var(--pri)'}">📝 Notes</div>`
-    +`<div class="tab" id="catadd" style="color:var(--pri)">＋ Category</div>`;
-  $('#cats').querySelectorAll('.tab[data-c]').forEach(t=>t.onclick=()=>{S.cat=t.dataset.c;renderCats();renderEntries();});
-  $('#catadd',$('#cats')).onclick=()=>addCategory(S.pid);
+  $('#catbar').innerHTML=`<select class="catsel" id="catsel">
+      <option value="__all__" ${S.cat==='__all__'?'selected':''}>All photos</option>
+      ${cats.map(c=>`<option value="${esc(c)}" ${c===S.cat?'selected':''}>${esc(c)}</option>`).join('')}
+    </select>
+    <button class="mini" id="cat-add">＋ Category</button>`;
+  $('#catsel').onchange=e=>{S.cat=e.target.value;renderEntries();};
+  $('#cat-add').onclick=()=>addCategory(S.pid);
 }
-const CAT_LABEL=c=>c==='__notes__'?'📝 Notes':c;
 async function addCategory(pid){
   const nm=prompt('New category name');if(!nm||!nm.trim())return;
   const p=S.curProj;const cats=(p.categories&&p.categories.length?p.categories:DEFAULT_CATS).slice();
   if(cats.includes(nm.trim())){toast('Already exists');return;}
   cats.push(nm.trim());p.categories=cats;await rtPatch('photoApp/projects/'+pid,{categories:cats});
-  S.cat=nm.trim();renderCats();renderEntries();
+  S.cat=nm.trim();renderCatbar();renderEntries();
 }
 async function loadEntries(pid){
   $('#entries').innerHTML='<div class="skel"></div><div class="skel"></div>';
@@ -375,41 +390,57 @@ async function loadEntries(pid){
     const la=latest.date||latest.createdAt;if(la&&cur.lastActivity!==la)patch.lastActivity=la;}
   if(Object.keys(patch).length){Object.assign(cur,patch);rtPatch('photoApp/projects/'+pid,patch);}
 }
+function entryCardHtml(e){
+  const isNote=e.category==='__notes__';
+  const reads=e.reads?Object.keys(e.reads).length:0;const ph=(e.photos||[]);
+  const show=ph.slice(0,9);
+  const who=(e.authorName||'').trim();
+  const ava=who?esc(who[0]):'👤';
+  const dstr=e.noTime?fmtD(e.date||e.createdAt):fmtDT(e.date||e.createdAt);
+  const noteHtml=e.note?`<div class="note" style="${isNote?'font-size:15px;color:#15162b':''}">${esc(e.note)}</div>`:'';
+  const gridHtml=ph.length?`<div class="grid">${show.map((p,i)=>`<div class="cell"><img loading="lazy" src="${p.url}" data-e="${e.id}" data-i="${i}"/>${(i===8&&ph.length>9)?`<div class="more" data-e="${e.id}" data-i="8">+${ph.length-9}</div>`:''}</div>`).join('')}</div>`:'';
+  return `<div class="ecard">
+    <div class="top"><div class="ava">${ava}</div>
+      <div><div class="who">${esc(who||'—')}</div><div class="dt">${dstr}</div></div>
+      <span class="emore"><span class="rd">👁 ${reads}</span><button class="ebtn" data-edit="${e.id}" title="Edit">⋯</button></span></div>
+    ${noteHtml}${gridHtml}
+  </div>`;
+}
 function renderEntries(){
-  const isNotes=S.cat==='__notes__';
-  const list=(S.entries[S.pid]||[]).filter(e=>e.category===S.cat).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
   const el=$('#entries');
-  if(!list.length){
-    el.innerHTML=isNotes
-      ?`<div class="empty"><div class="big">📝</div>No notes yet.<br>Tap ＋ to add a note — tile pattern, grout colour, materials left on site, etc.</div>`
-      :`<div class="empty"><div class="big">📷</div><b>${esc(S.cat)}</b> — No photos yet.<br>Tap ＋ to upload today's photos.</div>`;return;}
-  // group by day
-  const groups={};list.forEach(e=>{const k=dayKey(e.date||e.createdAt);(groups[k]=groups[k]||[]).push(e);});
-  const keys=Object.keys(groups).sort((a,b)=>b.localeCompare(a));
-  el.innerHTML=keys.map(k=>{
-    const d=groups[k][0].date||groups[k][0].createdAt;
-    return `<div class="daygrp"><div class="dayhd">${fmtD(d)}</div>`+groups[k].map(e=>{
-      const reads=e.reads?Object.keys(e.reads).length:0;const ph=(e.photos||[]);
-      const show=ph.slice(0,9);
-      const who=(e.authorName||'').trim();
-      const ava=who?esc(who[0]):'👤';
-      const noteHtml=e.note?`<div class="note" style="${isNotes?'font-size:15px;color:#15162b':''}">${esc(e.note)}</div>`:'';
-      const gridHtml=ph.length?`<div class="grid">${show.map((p,i)=>`<div class="cell"><img loading="lazy" src="${p.url}" data-e="${e.id}" data-i="${i}"/>${(i===8&&ph.length>9)?`<div class="more" data-e="${e.id}" data-i="8">+${ph.length-9}</div>`:''}</div>`).join('')}</div>`:'';
-      return `<div class="ecard">
-        <div class="top"><div class="ava">${ava}</div>
-          <div><div class="who">${esc(who||'—')}</div><div class="dt">${fmtDT(e.date||e.createdAt)}</div></div>
-          <span class="emore"><span class="rd">👁 ${reads}</span><button class="ebtn" data-edit="${e.id}" title="Edit">⋯</button></span></div>
-        ${noteHtml}${gridHtml}
-      </div>`;}).join('')+`</div>`;}).join('');
+  const all=(S.entries[S.pid]||[]);
+  const notes=all.filter(e=>e.category==='__notes__').sort((a,b)=>(b.date||b.createdAt||0)-(a.date||a.createdAt||0));
+  const cat=S.cat||'__all__';
+  const phots=all.filter(e=>e.category!=='__notes__'&&(cat==='__all__'||e.category===cat)).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+  // Notes section — always pinned at top
+  let html=`<div class="sec-head"><span class="t">📝 Notes</span><button class="miniadd" id="note-add">＋ Add note</button></div>`;
+  html+=notes.length?notes.map(e=>entryCardHtml(e)).join('')
+    :`<div class="notes-empty">No notes yet — add tile pattern, grout colour, materials left on site, etc.</div>`;
+  html+=`<div class="sec-div"></div>`;
+  // Photos section
+  html+=`<div class="sec-head"><span class="t">${cat==='__all__'?'All photos':esc(cat)}</span></div>`;
+  if(!phots.length){html+=`<div class="empty"><div class="big">📷</div>No photos ${cat==='__all__'?'yet':('in '+esc(cat))}.<br>Tap ＋ to upload.</div>`;}
+  else{
+    const groups={};phots.forEach(e=>{const k=dayKey(e.date||e.createdAt);(groups[k]=groups[k]||[]).push(e);});
+    const keys=Object.keys(groups).sort((a,b)=>b.localeCompare(a));
+    html+=keys.map(k=>{const d=groups[k][0].date||groups[k][0].createdAt;
+      return `<div class="daygrp"><div class="dayhd">${fmtD(d)}</div>`+groups[k].map(e=>entryCardHtml(e)).join('')+`</div>`;}).join('');
+  }
+  el.innerHTML=html;
+  $('#note-add').onclick=()=>noteForm(S.pid);
   el.querySelectorAll('.grid img,.grid .more').forEach(im=>im.onclick=()=>openViewer(im.dataset.e,+im.dataset.i));
   el.querySelectorAll('.ebtn[data-edit]').forEach(b=>b.onclick=()=>editEntry(b.dataset.edit));
 }
 
 function entryForm(pid,cat){
   let picks=[];
+  const p=S.curProj||{};const cats=(p.categories&&p.categories.length?p.categories:DEFAULT_CATS);
+  const defCat=(cat&&cat!=='__all__'&&cat!=='__notes__')?cat:cats[0];
   const m=document.createElement('div');m.className='modal';
   m.innerHTML=`<div class="sheet"><div class="grab"></div>
-    <h2>${esc(cat)} · Upload photos</h2>
+    <h2>Upload photos</h2>
+    <div class="fld"><label>Category</label><select id="e-cat">
+      ${cats.map(c=>`<option value="${esc(c)}" ${c===defCat?'selected':''}>${esc(c)}</option>`).join('')}</select></div>
     <div class="fld"><label>Date</label><input id="e-date" type="date"/></div>
     <div class="fld"><label>Note (optional)</label><textarea id="e-note" rows="2" placeholder="e.g. First waterproof coat done"></textarea></div>
     <div class="fld"><label>Photos</label>
@@ -431,6 +462,7 @@ function entryForm(pid,cat){
     box.querySelectorAll('.x').forEach(x=>x.onclick=()=>{picks.splice(+x.dataset.i,1);draw();});}
   $('#e-save',m).onclick=async()=>{
     if(!picks.length){toast('Select photos');return;}
+    const cat=$('#e-cat',m).value;
     const btn=$('#e-save',m);btn.disabled=true;btn.innerHTML='<span class="spin"></span>';
     $('#e-progwrap',m).style.display='block';
     const eid=(Date.now().toString(36)+Math.random().toString(36).slice(2,7));const photos=[];
