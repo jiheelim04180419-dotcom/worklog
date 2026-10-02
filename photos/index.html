@@ -191,12 +191,12 @@ input,textarea,select{font-family:inherit;font-size:16px}
 <div id="toast" class="toast"></div>
 <datalist id="builder-list"></datalist>
 <script>
-const APP_BUILD='2026-10-02-13';
+const APP_BUILD='2026-10-02-14';
 const RTDB='https://knmtilingptyltd-12520-default-rtdb.firebaseio.com';
 // Photos stored on Cloudflare R2 (via Worker, free egress). Upload key is light protection.
 const WORKER='https://km-photos-api.kmtiling.workers.dev';
 const UPLOAD_KEY='c3621d2542c3e8db9ae086e4a5c8c83d';
-const DEFAULT_CATS=['방수','베딩','타일','그라우트&실리콘','실러'];
+const DEFAULT_CATS=['방수','베딩','타일','그라우트&실리콘','실러','패칭'];
 const isAdmin=()=>!!(S.user&&(S.user.role==='admin'||S.user.id==='admin'));
 const canEditEntry=e=>!!(S.user&&(isAdmin()||(e&&e.authorId&&e.authorId===S.user.id)));
 const COLORS=['#6d5efc','#ef4444','#f59e0b','#10b981','#0891b2','#8b5cf6','#ec4899','#334155'];
