@@ -182,6 +182,8 @@ input,textarea,select{font-family:inherit;font-size:16px}
 .cmt .cgrid img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;cursor:pointer}
 .cmt .cdel{font-size:11px;color:var(--sub);cursor:pointer;margin-left:6px}
 .replybtn{margin-top:8px;background:#f3f2fb;color:#5b4bd6;border-radius:18px;padding:5px 13px;font-size:12.5px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px}
+.catrow{display:flex;flex-wrap:wrap;gap:5px;margin:7px 0 1px}
+.ccat{background:#eef1f6;color:#5a6072;border-radius:7px;padding:2px 8px;font-size:11px;font-weight:600}
 </style>
 </head>
 <body>
@@ -189,7 +191,7 @@ input,textarea,select{font-family:inherit;font-size:16px}
 <div id="toast" class="toast"></div>
 <datalist id="builder-list"></datalist>
 <script>
-const APP_BUILD='2026-10-02-11';
+const APP_BUILD='2026-10-02-12';
 const RTDB='https://knmtilingptyltd-12520-default-rtdb.firebaseio.com';
 // Photos stored on Cloudflare R2 (via Worker, free egress). Upload key is light protection.
 const WORKER='https://km-photos-api.kmtiling.workers.dev';
@@ -407,6 +409,21 @@ function catsOf(p){
   ((p&&p.categories)||[]).forEach(c=>{if(c&&c!=='__notes__'&&!base.includes(c))base.push(c);});
   return base;
 }
+// An entry can belong to several categories (e.g. 그라우트 + 실리콘 photographed together).
+function catsList(e){
+  if(e.cats&&e.cats.length)return e.cats;
+  return (e.category&&e.category!=='__notes__')?[e.category]:[];
+}
+function inCat(e,cat){ if(e.category==='__notes__')return false; if(cat==='__all__')return true; return catsList(e).includes(cat); }
+// Multi-select category chips (reuses .tagpick/.opt styles).
+function catChipHtml(id,cats,selected){
+  return `<div class="tagpick" id="${id}">`+cats.map(c=>`<span class="opt ${selected.includes(c)?'on':''}" data-c="${esc(c)}">${esc(c)}</span>`).join('')+`</div>`;
+}
+function wireCatChips(id,m){
+  const box=$('#'+id,m);if(!box)return ()=>[];
+  box.querySelectorAll('.opt').forEach(o=>o.onclick=()=>o.classList.toggle('on'));
+  return ()=>[...box.querySelectorAll('.opt.on')].map(o=>o.dataset.c);
+}
 function renderCatbar(){
   const p=S.curProj;const cats=catsOf(p);
   $('#catbar').innerHTML=`<select class="catsel" id="catsel">
@@ -449,6 +466,7 @@ function entryCardHtml(e){
   const noteHtml=e.note?`<div class="note" style="${isNote?'font-size:15px;color:#15162b':''}">${esc(e.note)}</div>`:'';
   const gridHtml=ph.length?`<div class="grid">${show.map((p,i)=>`<div class="cell"><img loading="lazy" src="${p.url}" data-key="${e.id}:m:${i}"/>${(i===8&&ph.length>9)?`<div class="more" data-key="${e.id}:m:8">+${ph.length-9}</div>`:''}</div>`).join('')}</div>`:'';
   const tagsHtml=tagsLineHtml(e.tags);
+  const catHtml=(!isNote&&catsList(e).length)?`<div class="catrow">${catsList(e).map(c=>`<span class="ccat">${esc(c)}</span>`).join('')}</div>`:'';
   // comments (replies)
   const cs=e.comments?Object.entries(e.comments).sort((a,b)=>(a[1].date||0)-(b[1].date||0)):[];
   const cmtHtml=cs.length?`<div class="cmts">${cs.map(([cid,c])=>{
@@ -463,7 +481,7 @@ function entryCardHtml(e){
     <div class="top"><div class="ava">${ava}</div>
       <div><div class="who">${esc(who||'—')}</div><div class="dt">${dstr}</div></div>
       <span class="emore"><span class="rd">👁 ${reads}</span><button class="ebtn" data-edit="${e.id}" title="Edit">⋯</button></span></div>
-    ${noteHtml}${gridHtml}${tagsHtml}${cmtHtml}
+    ${noteHtml}${gridHtml}${catHtml}${tagsHtml}${cmtHtml}
     <span class="replybtn" data-reply="${e.id}">💬 Reply</span>
   </div>`;
 }
@@ -472,7 +490,7 @@ function renderEntries(){
   const all=(S.entries[S.pid]||[]);
   const notes=all.filter(e=>e.category==='__notes__').sort((a,b)=>(b.date||b.createdAt||0)-(a.date||a.createdAt||0));
   const cat=S.cat||'__all__';
-  const phots=all.filter(e=>e.category!=='__notes__'&&(cat==='__all__'||e.category===cat)).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+  const phots=all.filter(e=>inCat(e,cat)).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
   // Notes section — always pinned at top
   let html=`<div class="sec-head"><span class="t">📝 Notes</span><button class="miniadd" id="note-add">＋ Add note</button></div>`;
   html+=notes.length?notes.map(e=>entryCardHtml(e)).join('')
@@ -505,8 +523,7 @@ function entryForm(pid,cat){
   const m=document.createElement('div');m.className='modal';
   m.innerHTML=`<div class="sheet"><div class="grab"></div>
     <h2>Upload photos</h2>
-    <div class="fld"><label>Category</label><select id="e-cat">
-      ${cats.map(c=>`<option value="${esc(c)}" ${c===defCat?'selected':''}>${esc(c)}</option>`).join('')}</select></div>
+    <div class="fld"><label>Category (select one or more)</label>${catChipHtml('e-cats',cats,[defCat])}</div>
     <div class="fld"><label>Date</label><input id="e-date" type="date"/></div>
     <div class="fld"><label>Note (optional)</label><textarea id="e-note" rows="2" placeholder="e.g. First waterproof coat done"></textarea></div>
     ${tagPickerHtml('e-tag',[])}
@@ -518,7 +535,7 @@ function entryForm(pid,cat){
     <div class="row"><button class="btn sec" id="e-cancel">Cancel</button><button class="btn" id="e-save">Upload</button></div>
   </div>`;
   document.body.appendChild(m);
-  const getTags=wireTagPicker('e-tag',[],m);
+  const getTags=wireTagPicker('e-tag',[],m);const getCats=wireCatChips('e-cats',m);
   const t=new Date();$('#e-date',m).value=`${t.getFullYear()}-${pad2(t.getMonth()+1)}-${pad2(t.getDate())}`;
   m.onclick=e=>{if(e.target===m)m.remove();};
   $('#e-cancel',m).onclick=()=>m.remove();
@@ -530,7 +547,8 @@ function entryForm(pid,cat){
     box.querySelectorAll('.x').forEach(x=>x.onclick=()=>{picks.splice(+x.dataset.i,1);draw();});}
   $('#e-save',m).onclick=async()=>{
     if(!picks.length){toast('Select photos');return;}
-    const cat=$('#e-cat',m).value;
+    const selCats=getCats();if(!selCats.length){toast('Pick at least one category');return;}
+    const cat=selCats[0];
     const btn=$('#e-save',m);btn.disabled=true;btn.innerHTML='<span class="spin"></span>';
     $('#e-progwrap',m).style.display='block';
     const eid=(Date.now().toString(36)+Math.random().toString(36).slice(2,7));const photos=[];
@@ -546,7 +564,7 @@ function entryForm(pid,cat){
       }
       $('#e-prog',m).style.width='100%';
       const dateMs=new Date($('#e-date',m).value+'T'+new Date().toTimeString().slice(0,8)).getTime();
-      await rtPut(`photoApp/entries/${pid}/${eid}`,{category:cat,date:dateMs,authorId:S.user.id,authorName:S.user.name,
+      await rtPut(`photoApp/entries/${pid}/${eid}`,{category:cat,cats:selCats,date:dateMs,authorId:S.user.id,authorName:S.user.name,
         note:$('#e-note',m).value.trim(),tags:getTags(),photos,reads:{[S.user.id]:Date.now()},createdAt:Date.now()});
       const cur=S.curProj||{};
       await rtPatch('photoApp/projects/'+pid,{updatedAt:Date.now(),lastActivity:dateMs,coverUrl:photos[0].url,photoCount:(cur.photoCount||0)+photos.length});
@@ -623,10 +641,11 @@ function editEntry(entryId){
   const m=document.createElement('div');m.className='modal';
   m.innerHTML=`<div class="sheet"><div class="grab"></div>
     <h2>Edit post</h2>
-    <div class="fld"><label>Category</label><select id="ed-cat">
-      ${cats.map(c=>`<option value="${esc(c)}" ${c===e.category?'selected':''}>${esc(c)}</option>`).join('')}
-      <option value="__notes__" ${e.category==='__notes__'?'selected':''}>📝 Notes</option>
-    </select></div>
+    <div class="fld"><label>Category (select one or more)</label>
+      <label style="display:flex;align-items:center;gap:7px;font-size:13.5px;color:#333;margin:2px 0 7px;cursor:pointer">
+        <input type="checkbox" id="ed-isnote" ${e.category==='__notes__'?'checked':''}/> 📝 This is a note (text record)</label>
+      ${catChipHtml('ed-cats',cats, e.category==='__notes__'?[]:(catsList(e).length?catsList(e):[e.category]))}
+    </div>
     <div class="fld"><label>Move to site</label><select id="ed-proj">
       ${others.map(o=>`<option value="${o.id}" ${o.id===pid?'selected':''}>${esc(title(o))}${o.address?' · '+esc(o.address):''}</option>`).join('')}
     </select></div>
@@ -638,15 +657,16 @@ function editEntry(entryId){
     <button class="btn danger" id="ed-del" style="margin-top:9px">Delete this post</button>
   </div>`;
   document.body.appendChild(m);
-  const getTags=wireTagPicker('ed-tag',e.tags||[],m);
+  const getTags=wireTagPicker('ed-tag',e.tags||[],m);const getCats=wireCatChips('ed-cats',m);
   m.onclick=ev=>{if(ev.target===m)m.remove();};
+  function syncNote(){const asNote=$('#ed-isnote',m).checked;const cb=$('#ed-cats',m);if(cb){cb.style.opacity=asNote?.4:1;cb.style.pointerEvents=asNote?'none':'auto';}}
   function drawPh(){const box=$('#ed-thumbs',m);
-    if(!photos.length){const asNote=($('#ed-cat',m)||{}).value==='__notes__';
+    if(!photos.length){const asNote=$('#ed-isnote',m).checked;
       box.innerHTML=`<div style="color:var(--sub);font-size:12.5px;padding:6px 2px">${asNote?'No photos (note only).':'No photos left — saving will delete this post.'}</div>`;return;}
     box.innerHTML=photos.map((p,i)=>`<div class="t"><img src="${p.url}"/><div class="x" data-i="${i}">×</div></div>`).join('');
     box.querySelectorAll('.x').forEach(x=>x.onclick=()=>{if(!confirm('Remove this photo?'))return;photos.splice(+x.dataset.i,1);drawPh();});}
-  drawPh();
-  $('#ed-cat',m).onchange=drawPh;
+  drawPh();syncNote();
+  $('#ed-isnote',m).onchange=()=>{syncNote();drawPh();};
   $('#ed-cancel',m).onclick=()=>m.remove();
   $('#ed-del',m).onclick=async()=>{
     if(!confirm('Delete this post and its photos?'))return;
@@ -654,13 +674,20 @@ function editEntry(entryId){
     m.remove();toast('Deleted');loadEntries(pid);
   };
   $('#ed-save',m).onclick=async()=>{
-    const btn=$('#ed-save',m);btn.disabled=true;btn.innerHTML='<span class="spin"></span>';
-    const newCat=$('#ed-cat',m).value, newPid=$('#ed-proj',m).value, note=$('#ed-note',m).value.trim();
+    const btn=$('#ed-save',m);
+    const isNote=$('#ed-isnote',m).checked;
+    const selCats=getCats();
+    if(!isNote && !selCats.length){toast('Pick at least one category');return;}
+    btn.disabled=true;btn.innerHTML='<span class="spin"></span>';
+    const newCat=isNote?'__notes__':selCats[0];
+    const newCats=isNote?null:selCats;
+    const newPid=$('#ed-proj',m).value, note=$('#ed-note',m).value.trim();
     const dv=$('#ed-date',m).value;
     const dateMs=dv?new Date(dv+'T'+new Date(e.date||e.createdAt).toTimeString().slice(0,8)).getTime():(e.date||e.createdAt);
     if(!photos.length && newCat!=='__notes__'){ // all photos removed on a photo post -> delete
       if(!(note)){await rtDel(`photoApp/entries/${pid}/${entryId}`);m.remove();toast('Deleted');loadEntries(pid);return;}}
-    const updated={...e,category:newCat,note,tags:getTags(),date:dateMs,photos};delete updated.id;
+    const updated={...e,category:newCat,cats:newCats,note,tags:getTags(),date:dateMs,photos};delete updated.id;
+    if(newCats===null)delete updated.cats;
     // if site changed, make sure target has the category
     if(newPid!==pid){
       const tgt=S.projects.find(x=>x.id===newPid);
@@ -672,7 +699,7 @@ function editEntry(entryId){
       if(tgt)rtPatch('photoApp/projects/'+newPid,{photoCount:(tgt.photoCount||0)+photos.length,updatedAt:Date.now(),lastActivity:dateMs});
       m.remove();toast('Moved to '+title(S.projects.find(x=>x.id===newPid)||{}));loadEntries(pid);
     }else{
-      await rtPatch(`photoApp/entries/${pid}/${entryId}`,{category:newCat,note,tags:getTags(),date:dateMs,photos});
+      await rtPatch(`photoApp/entries/${pid}/${entryId}`,{category:newCat,cats:newCats,note,tags:getTags(),date:dateMs,photos});
       m.remove();toast('✅ Saved');loadEntries(pid);
     }
   };
@@ -771,7 +798,7 @@ function commentForm(entryId){
 // Flat list of every photo in the current view (same filter/order as the grid), incl. comment photos.
 function currentPhotoList(){
   const all=(S.entries[S.pid]||[]);const cat=S.cat||'__all__';
-  const phots=all.filter(e=>e.category!=='__notes__'&&(cat==='__all__'||e.category===cat)).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+  const phots=all.filter(e=>inCat(e,cat)).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
   const groups={};phots.forEach(e=>{const k=dayKey(e.date||e.createdAt);(groups[k]=groups[k]||[]).push(e);});
   const keys=Object.keys(groups).sort((a,b)=>b.localeCompare(a));
   const list=[];keys.forEach(k=>groups[k].forEach(e=>photosOfEntry(e).forEach(it=>list.push(it))));
