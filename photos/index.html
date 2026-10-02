@@ -164,6 +164,24 @@ input,textarea,select{font-family:inherit;font-size:16px}
 @keyframes sp{to{transform:rotate(360deg)}}
 .skel{background:linear-gradient(90deg,#eef0f7,#f6f7fc,#eef0f7);background-size:200% 100%;animation:sh 1.2s infinite;border-radius:16px;height:92px;margin-bottom:11px}
 @keyframes sh{to{background-position:-200% 0}}
+/* name tags + comments */
+.taglist{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 2px}
+.tagchip{background:#efecff;color:#5b4bd6;border-radius:20px;padding:3px 10px;font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:5px}
+.tagchip .x{cursor:pointer;opacity:.6;font-weight:700}
+.tagpick{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.tagpick .opt{border:1px solid #d9d9ea;background:#fff;color:#444;border-radius:20px;padding:4px 11px;font-size:12.5px;cursor:pointer;user-select:none}
+.tagpick .opt.on{background:#6d5efc;border-color:#6d5efc;color:#fff;font-weight:600}
+.cmts{margin-top:8px;border-top:1px dashed #e7e7f0;padding-top:8px}
+.cmt{display:flex;gap:8px;margin-top:9px}
+.cmt .cava{width:26px;height:26px;border-radius:50%;background:#e8e6f6;color:#5b4bd6;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+.cmt .cbody{flex:1;min-width:0}
+.cmt .cwho{font-size:12.5px;font-weight:700;color:#2b2b40}
+.cmt .cdt{font-size:11px;color:var(--sub);margin-left:5px;font-weight:400}
+.cmt .cnote{font-size:13.5px;color:#30304a;margin-top:1px;white-space:pre-wrap}
+.cmt .cgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:5px}
+.cmt .cgrid img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;cursor:pointer}
+.cmt .cdel{font-size:11px;color:var(--sub);cursor:pointer;margin-left:6px}
+.replybtn{margin-top:8px;background:#f3f2fb;color:#5b4bd6;border-radius:18px;padding:5px 13px;font-size:12.5px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px}
 </style>
 </head>
 <body>
@@ -171,7 +189,7 @@ input,textarea,select{font-family:inherit;font-size:16px}
 <div id="toast" class="toast"></div>
 <datalist id="builder-list"></datalist>
 <script>
-const APP_BUILD='2026-10-02-10';
+const APP_BUILD='2026-10-02-11';
 const RTDB='https://knmtilingptyltd-12520-default-rtdb.firebaseio.com';
 // Photos stored on Cloudflare R2 (via Worker, free egress). Upload key is light protection.
 const WORKER='https://km-photos-api.kmtiling.workers.dev';
@@ -200,7 +218,7 @@ function compress(file,maxDim=1600,q=0.72){
     img.onerror=()=>res(file);img.src=u;});
 }
 
-let S={user:null,projects:[],builders:[],pid:null,cat:null,curProj:null,entries:{},q:'',bfilter:'',seen:{}};
+let S={user:null,projects:[],builders:[],pid:null,cat:null,curProj:null,entries:{},q:'',bfilter:'',seen:{},staff:[]};
 const $=(s,el=document)=>el.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const pad2=n=>String(n).padStart(2,'0');
@@ -299,6 +317,9 @@ async function openProjects(){
   // Load this user's "seen" map for NEW badges. First run sets a baseline so existing sites don't all show NEW.
   S.seen=await rtGet('photoApp/seen/'+S.user.id)||{};
   if(!S.seen._baseline){S.seen._baseline=Date.now();rtPatch('photoApp/seen/'+S.user.id,{_baseline:S.seen._baseline});}
+  // Staff names for the "worked with" tag picker (current staff; past names can be typed in).
+  try{const us=await rtGet('users');const arr=Array.isArray(us)?us:Object.values(us||{});
+    S.staff=arr.filter(u=>u&&u.name&&u.id!=='admin'&&u.name!=='관리자').map(u=>u.name);}catch(e){S.staff=[];}
   await loadBuilders();
   renderFilters();renderProjectList();
 }
@@ -410,7 +431,7 @@ async function loadEntries(pid){
   renderEntries();
   // auto-correct photoCount / cover / lastActivity (fix legacy drift)
   const all=S.entries[pid];
-  const total=all.reduce((s,e)=>s+((e.photos||[]).length),0);
+  const total=all.reduce((s,e)=>s+((e.photos||[]).length)+commentPhotoCount(e),0);
   const latest=all.slice().sort((a,b)=>(b.createdAt||0)-(a.createdAt||0))[0];
   const cur=S.curProj||{};const patch={};
   if((cur.photoCount||0)!==total)patch.photoCount=total;
@@ -426,12 +447,24 @@ function entryCardHtml(e){
   const ava=who?esc(who[0]):'👤';
   const dstr=e.noTime?fmtD(e.date||e.createdAt):fmtDT(e.date||e.createdAt);
   const noteHtml=e.note?`<div class="note" style="${isNote?'font-size:15px;color:#15162b':''}">${esc(e.note)}</div>`:'';
-  const gridHtml=ph.length?`<div class="grid">${show.map((p,i)=>`<div class="cell"><img loading="lazy" src="${p.url}" data-e="${e.id}" data-i="${i}"/>${(i===8&&ph.length>9)?`<div class="more" data-e="${e.id}" data-i="8">+${ph.length-9}</div>`:''}</div>`).join('')}</div>`:'';
+  const gridHtml=ph.length?`<div class="grid">${show.map((p,i)=>`<div class="cell"><img loading="lazy" src="${p.url}" data-key="${e.id}:m:${i}"/>${(i===8&&ph.length>9)?`<div class="more" data-key="${e.id}:m:8">+${ph.length-9}</div>`:''}</div>`).join('')}</div>`:'';
+  const tagsHtml=tagsLineHtml(e.tags);
+  // comments (replies)
+  const cs=e.comments?Object.entries(e.comments).sort((a,b)=>(a[1].date||0)-(b[1].date||0)):[];
+  const cmtHtml=cs.length?`<div class="cmts">${cs.map(([cid,c])=>{
+    const cw=(c.authorName||'').trim();const cph=(c.photos||[]);
+    const cgrid=cph.length?`<div class="cgrid">${cph.map((p,i)=>`<img loading="lazy" src="${p.url}" data-key="${e.id}:c:${cid}:${i}"/>`).join('')}</div>`:'';
+    const canDel=S.user&&(c.authorId===S.user.id||S.user.role==='admin');
+    return `<div class="cmt"><div class="cava">${cw?esc(cw[0]):'👤'}</div><div class="cbody">
+      <div><span class="cwho">${esc(cw||'—')}</span><span class="cdt">${fmtDT(c.date)}</span>${canDel?`<span class="cdel" data-delc="${e.id}:${cid}">삭제</span>`:''}</div>
+      ${c.note?`<div class="cnote">${esc(c.note)}</div>`:''}${cgrid}
+    </div></div>`;}).join('')}</div>`:'';
   return `<div class="ecard">
     <div class="top"><div class="ava">${ava}</div>
       <div><div class="who">${esc(who||'—')}</div><div class="dt">${dstr}</div></div>
       <span class="emore"><span class="rd">👁 ${reads}</span><button class="ebtn" data-edit="${e.id}" title="Edit">⋯</button></span></div>
-    ${noteHtml}${gridHtml}
+    ${noteHtml}${gridHtml}${tagsHtml}${cmtHtml}
+    <span class="replybtn" data-reply="${e.id}">💬 Reply</span>
   </div>`;
 }
 function renderEntries(){
@@ -456,8 +489,13 @@ function renderEntries(){
   }
   el.innerHTML=html;
   $('#note-add').onclick=()=>noteForm(S.pid);
-  el.querySelectorAll('.grid img,.grid .more').forEach(im=>im.onclick=()=>openViewer(im.dataset.e,+im.dataset.i));
+  el.querySelectorAll('[data-key]').forEach(im=>im.onclick=()=>openViewer(im.dataset.key));
   el.querySelectorAll('.ebtn[data-edit]').forEach(b=>b.onclick=()=>editEntry(b.dataset.edit));
+  el.querySelectorAll('.replybtn[data-reply]').forEach(b=>b.onclick=()=>commentForm(b.dataset.reply));
+  el.querySelectorAll('.cdel[data-delc]').forEach(b=>b.onclick=async()=>{
+    if(!confirm('이 댓글을 삭제할까요?'))return;
+    const [eid,cid]=b.dataset.delc.split(':');
+    await rtDel(`photoApp/entries/${S.pid}/${eid}/comments/${cid}`);toast('삭제됨');loadEntries(S.pid);});
 }
 
 function entryForm(pid,cat){
@@ -471,6 +509,7 @@ function entryForm(pid,cat){
       ${cats.map(c=>`<option value="${esc(c)}" ${c===defCat?'selected':''}>${esc(c)}</option>`).join('')}</select></div>
     <div class="fld"><label>Date</label><input id="e-date" type="date"/></div>
     <div class="fld"><label>Note (optional)</label><textarea id="e-note" rows="2" placeholder="e.g. First waterproof coat done"></textarea></div>
+    ${tagPickerHtml('e-tag',[])}
     <div class="fld"><label>Photos</label>
       <input id="e-file" type="file" accept="image/*" multiple style="display:none"/>
       <div class="thumbadd" id="e-thumbs"><div class="pick" id="e-pick">＋</div></div></div>
@@ -479,6 +518,7 @@ function entryForm(pid,cat){
     <div class="row"><button class="btn sec" id="e-cancel">Cancel</button><button class="btn" id="e-save">Upload</button></div>
   </div>`;
   document.body.appendChild(m);
+  const getTags=wireTagPicker('e-tag',[],m);
   const t=new Date();$('#e-date',m).value=`${t.getFullYear()}-${pad2(t.getMonth()+1)}-${pad2(t.getDate())}`;
   m.onclick=e=>{if(e.target===m)m.remove();};
   $('#e-cancel',m).onclick=()=>m.remove();
@@ -507,7 +547,7 @@ function entryForm(pid,cat){
       $('#e-prog',m).style.width='100%';
       const dateMs=new Date($('#e-date',m).value+'T'+new Date().toTimeString().slice(0,8)).getTime();
       await rtPut(`photoApp/entries/${pid}/${eid}`,{category:cat,date:dateMs,authorId:S.user.id,authorName:S.user.name,
-        note:$('#e-note',m).value.trim(),photos,reads:{[S.user.id]:Date.now()},createdAt:Date.now()});
+        note:$('#e-note',m).value.trim(),tags:getTags(),photos,reads:{[S.user.id]:Date.now()},createdAt:Date.now()});
       const cur=S.curProj||{};
       await rtPatch('photoApp/projects/'+pid,{updatedAt:Date.now(),lastActivity:dateMs,coverUrl:photos[0].url,photoCount:(cur.photoCount||0)+photos.length});
       const ts=Math.max(dateMs,Date.now());S.seen[pid]=ts;rtPatch('photoApp/seen/'+S.user.id,{[pid]:ts});
@@ -526,6 +566,7 @@ function noteForm(pid){
     <h2>📝 Add note</h2>
     <div class="fld"><label>Note</label><textarea id="n-note" rows="4" placeholder="e.g. Tile pattern: brick bond, 1/3 offset&#10;Grout colour confirmed: Dunlop Ash&#10;Materials left on site: 2 boxes 300x600, 1 bag grout"></textarea></div>
     <div class="fld"><label>Date</label><input id="n-date" type="date"/></div>
+    ${tagPickerHtml('n-tag',[])}
     <div class="fld"><label>Photos (optional)</label>
       <input id="n-file" type="file" accept="image/*" multiple style="display:none"/>
       <div class="thumbadd" id="n-thumbs"><div class="pick" id="n-pick">＋</div></div></div>
@@ -534,6 +575,7 @@ function noteForm(pid){
     <div class="row"><button class="btn sec" id="n-cancel">Cancel</button><button class="btn" id="n-save">Save note</button></div>
   </div>`;
   document.body.appendChild(m);
+  const getTags=wireTagPicker('n-tag',[],m);
   const t=new Date();$('#n-date',m).value=`${t.getFullYear()}-${pad2(t.getMonth()+1)}-${pad2(t.getDate())}`;
   m.onclick=e=>{if(e.target===m)m.remove();};
   $('#n-cancel',m).onclick=()=>m.remove();
@@ -561,7 +603,7 @@ function noteForm(pid){
         }$('#n-prog',m).style.width='100%';}
       const dateMs=new Date($('#n-date',m).value+'T'+new Date().toTimeString().slice(0,8)).getTime();
       await rtPut(`photoApp/entries/${pid}/${eid}`,{category:'__notes__',date:dateMs,authorId:S.user.id,authorName:S.user.name,
-        note:content,photos,reads:{[S.user.id]:Date.now()},createdAt:Date.now()});
+        note:content,tags:getTags(),photos,reads:{[S.user.id]:Date.now()},createdAt:Date.now()});
       const cur=S.curProj||{};
       await rtPatch('photoApp/projects/'+pid,{updatedAt:Date.now(),lastActivity:dateMs,photoCount:(cur.photoCount||0)+photos.length});
       const ts=Math.max(dateMs,Date.now());S.seen[pid]=ts;rtPatch('photoApp/seen/'+S.user.id,{[pid]:ts});
@@ -590,11 +632,13 @@ function editEntry(entryId){
     </select></div>
     <div class="fld"><label>Date</label><input id="ed-date" type="date" value="${dIso}"/></div>
     <div class="fld"><label>Note</label><textarea id="ed-note" rows="2">${esc(e.note||'')}</textarea></div>
+    ${tagPickerHtml('ed-tag',e.tags||[])}
     <div class="fld"><label>Photos (tap × to remove)</label><div class="thumbadd" id="ed-thumbs"></div></div>
     <div class="row"><button class="btn sec" id="ed-cancel">Cancel</button><button class="btn" id="ed-save">Save changes</button></div>
     <button class="btn danger" id="ed-del" style="margin-top:9px">Delete this post</button>
   </div>`;
   document.body.appendChild(m);
+  const getTags=wireTagPicker('ed-tag',e.tags||[],m);
   m.onclick=ev=>{if(ev.target===m)m.remove();};
   function drawPh(){const box=$('#ed-thumbs',m);
     if(!photos.length){const asNote=($('#ed-cat',m)||{}).value==='__notes__';
@@ -616,7 +660,7 @@ function editEntry(entryId){
     const dateMs=dv?new Date(dv+'T'+new Date(e.date||e.createdAt).toTimeString().slice(0,8)).getTime():(e.date||e.createdAt);
     if(!photos.length && newCat!=='__notes__'){ // all photos removed on a photo post -> delete
       if(!(note)){await rtDel(`photoApp/entries/${pid}/${entryId}`);m.remove();toast('Deleted');loadEntries(pid);return;}}
-    const updated={...e,category:newCat,note,date:dateMs,photos};delete updated.id;
+    const updated={...e,category:newCat,note,tags:getTags(),date:dateMs,photos};delete updated.id;
     // if site changed, make sure target has the category
     if(newPid!==pid){
       const tgt=S.projects.find(x=>x.id===newPid);
@@ -628,7 +672,7 @@ function editEntry(entryId){
       if(tgt)rtPatch('photoApp/projects/'+newPid,{photoCount:(tgt.photoCount||0)+photos.length,updatedAt:Date.now(),lastActivity:dateMs});
       m.remove();toast('Moved to '+title(S.projects.find(x=>x.id===newPid)||{}));loadEntries(pid);
     }else{
-      await rtPatch(`photoApp/entries/${pid}/${entryId}`,{category:newCat,note,date:dateMs,photos});
+      await rtPatch(`photoApp/entries/${pid}/${entryId}`,{category:newCat,note,tags:getTags(),date:dateMs,photos});
       m.remove();toast('✅ Saved');loadEntries(pid);
     }
   };
@@ -638,26 +682,112 @@ function markRead(e){
   if(!e||!S.user)return;
   if(!e.reads||!e.reads[S.user.id]){rtPatch(`photoApp/entries/${S.pid}/${e.id}/reads`,{[S.user.id]:Date.now()});e.reads=e.reads||{};e.reads[S.user.id]=Date.now();}
 }
-// Flat list of every photo in the current view (same filter/order as the grid), across all posts.
+// All photos of an entry — its own, then each comment's — with a stable key for the viewer.
+function photosOfEntry(e){
+  const out=(e.photos||[]).map((p,i)=>({e,p,author:(e.authorName||'').trim(),dt:(e.date||e.createdAt),noTime:e.noTime,key:e.id+':m:'+i}));
+  const cs=e.comments?Object.entries(e.comments).sort((a,b)=>(a[1].date||0)-(b[1].date||0)):[];
+  cs.forEach(([cid,c])=>(c.photos||[]).forEach((p,i)=>out.push({e,p,author:(c.authorName||'').trim(),dt:(c.date||e.date||e.createdAt),noTime:false,key:e.id+':c:'+cid+':'+i})));
+  return out;
+}
+function commentPhotoCount(e){let n=0;if(e.comments)Object.values(e.comments).forEach(c=>n+=(c.photos||[]).length);return n;}
+// Tag picker: staff as toggle chips + free text for past employees. Returns {html, get()} after wiring via wireTagPicker.
+function tagPickerHtml(id,selected){
+  const sel=(selected||[]).slice();
+  const staff=S.staff.filter(n=>!sel.includes(n));
+  return `<div class="fld"><label>Worked with (optional)</label>
+    <div class="taglist" id="${id}-list"></div>
+    <div class="tagpick" id="${id}-pick">${staff.map(n=>`<span class="opt" data-n="${esc(n)}">${esc(n)}</span>`).join('')}
+      <span class="opt" data-add="1">＋ Other</span></div></div>`;
+}
+function wireTagPicker(id,selected,m){
+  let sel=(selected||[]).slice();
+  function draw(){
+    const L=$('#'+id+'-list',m);
+    L.innerHTML=sel.map(n=>`<span class="tagchip">${esc(n)}<span class="x" data-rm="${esc(n)}">×</span></span>`).join('');
+    L.querySelectorAll('.x').forEach(x=>x.onclick=()=>{sel=sel.filter(v=>v!==x.dataset.rm);draw();drawPick();});
+  }
+  function drawPick(){
+    const P=$('#'+id+'-pick',m);
+    const staff=S.staff.filter(n=>!sel.includes(n));
+    P.innerHTML=staff.map(n=>`<span class="opt" data-n="${esc(n)}">${esc(n)}</span>`).join('')+`<span class="opt" data-add="1">＋ Other</span>`;
+    P.querySelectorAll('.opt[data-n]').forEach(o=>o.onclick=()=>{sel.push(o.dataset.n);draw();drawPick();});
+    P.querySelector('.opt[data-add]').onclick=()=>{const nm=prompt('Name (past employee etc.)');if(nm&&nm.trim()&&!sel.includes(nm.trim())){sel.push(nm.trim());draw();drawPick();}};
+  }
+  draw();drawPick();
+  return ()=>sel.slice();
+}
+function tagsLineHtml(tags){
+  if(!tags||!tags.length)return '';
+  return `<div class="taglist">👥&nbsp;${tags.map(t=>`<span class="tagchip">${esc(t)}</span>`).join('')}</div>`;
+}
+// Reply with photos and/or text to an existing post. The comment has its own author.
+function commentForm(entryId){
+  const pid=S.pid;const e=(S.entries[pid]||[]).find(x=>x.id===entryId);if(!e)return;
+  let picks=[];
+  const m=document.createElement('div');m.className='modal';
+  m.innerHTML=`<div class="sheet"><div class="grab"></div>
+    <h2>💬 Reply</h2>
+    <div class="fld"><label>Comment (optional if adding photos)</label><textarea id="c-note" rows="2" placeholder="e.g. Photos of the finished area"></textarea></div>
+    <div class="fld"><label>Photos (optional)</label>
+      <input id="c-file" type="file" accept="image/*" multiple style="display:none"/>
+      <div class="thumbadd" id="c-thumbs"><div class="pick" id="c-pick">＋</div></div></div>
+    <div class="prog-wrap" id="c-progwrap" style="display:none"><div class="prog" id="c-prog"></div></div>
+    <div id="c-status" style="font-size:12.5px;color:var(--sub);min-height:16px;margin:4px 0 8px"></div>
+    <div class="row"><button class="btn sec" id="c-cancel">Cancel</button><button class="btn" id="c-save">Reply</button></div>
+  </div>`;
+  document.body.appendChild(m);
+  m.onclick=ev=>{if(ev.target===m)m.remove();};
+  $('#c-cancel',m).onclick=()=>m.remove();
+  const fi=$('#c-file',m);$('#c-pick',m).onclick=()=>fi.click();
+  fi.onchange=()=>{[...fi.files].forEach(f=>picks.push({file:f,u:URL.createObjectURL(f)}));fi.value='';draw();};
+  function draw(){const box=$('#c-thumbs',m);
+    box.innerHTML=picks.map((p,i)=>`<div class="t"><img src="${p.u}"/><div class="x" data-i="${i}">×</div></div>`).join('')+`<div class="pick" id="c-pick">＋</div>`;
+    $('#c-pick',m).onclick=()=>fi.click();
+    box.querySelectorAll('.x').forEach(x=>x.onclick=()=>{picks.splice(+x.dataset.i,1);draw();});}
+  $('#c-save',m).onclick=async()=>{
+    const note=$('#c-note',m).value.trim();
+    if(!note&&!picks.length){toast('Write a comment or add photos');return;}
+    const btn=$('#c-save',m);btn.disabled=true;btn.innerHTML='<span class="spin"></span>';
+    const cid=(Date.now().toString(36)+Math.random().toString(36).slice(2,6));const photos=[];
+    try{
+      if(picks.length){$('#c-progwrap',m).style.display='block';
+        for(let i=0;i<picks.length;i++){
+          $('#c-status',m).textContent=`Uploading ${i+1}/${picks.length}…`;
+          $('#c-prog',m).style.width=Math.round(i/picks.length*100)+'%';
+          const f=picks[i].file;const base=`photos/${pid}/_comments/${entryId}/${cid}/${i}`;
+          const view=await compress(f);const url=await stUpload(base+'_view.jpg',view);
+          const origUrl=await stUpload(base+'_orig'+extOf(f),f);
+          photos.push({url,origUrl,name:f.name||('photo'+i)});
+        }$('#c-prog',m).style.width='100%';}
+      const now=Date.now();
+      await rtPut(`photoApp/entries/${pid}/${entryId}/comments/${cid}`,{authorId:S.user.id,authorName:S.user.name,note,photos,date:now});
+      if(photos.length){const cur=S.curProj||{};await rtPatch('photoApp/projects/'+pid,{updatedAt:now,lastActivity:now,photoCount:(cur.photoCount||0)+photos.length});
+        S.seen[pid]=now;rtPatch('photoApp/seen/'+S.user.id,{[pid]:now});}
+      m.remove();toast('✅ Reply added');loadEntries(pid);
+    }catch(err){btn.disabled=false;btn.textContent='Reply';
+      $('#c-status',m).innerHTML=`<span style="color:var(--red)">Failed: ${esc(err.message)}</span>`;}
+  };
+}
+// Flat list of every photo in the current view (same filter/order as the grid), incl. comment photos.
 function currentPhotoList(){
   const all=(S.entries[S.pid]||[]);const cat=S.cat||'__all__';
   const phots=all.filter(e=>e.category!=='__notes__'&&(cat==='__all__'||e.category===cat)).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
   const groups={};phots.forEach(e=>{const k=dayKey(e.date||e.createdAt);(groups[k]=groups[k]||[]).push(e);});
   const keys=Object.keys(groups).sort((a,b)=>b.localeCompare(a));
-  const list=[];keys.forEach(k=>groups[k].forEach(e=>(e.photos||[]).forEach((p,pi)=>list.push({e,p,pi}))));
+  const list=[];keys.forEach(k=>groups[k].forEach(e=>photosOfEntry(e).forEach(it=>list.push(it))));
   return list;
 }
-// Enlarged viewer — swipe left/right through ALL site photos (or a note's own photos).
-function openViewer(entryId,pidx){
+// Enlarged viewer — swipe left/right through ALL site photos (or a note's own photos). Opens at the given photo key.
+function openViewer(key){
+  const [entryId]=String(key).split(':');
   const ent=(S.entries[S.pid]||[]).find(x=>x.id===entryId);if(!ent)return;
-  let list,i=0;
-  if(ent.category==='__notes__'){list=(ent.photos||[]).map(p=>({e:ent,p}));i=pidx;}
-  else{list=currentPhotoList();i=list.findIndex(it=>it.e.id===entryId&&it.pi===pidx);if(i<0)i=0;}
+  let list=(ent.category==='__notes__')?photosOfEntry(ent):currentPhotoList();
+  let i=list.findIndex(it=>it.key===key);if(i<0)i=0;
   if(!list.length)return;
   const v=document.createElement('div');v.className='viewer';
   function draw(){
-    const it=list[i],p=it.p,e=it.e;const who=(e.authorName||'').trim();
-    const dstr=e.noTime?fmtD(e.date||e.createdAt):fmtDT(e.date||e.createdAt);
+    const it=list[i],p=it.p,e=it.e;const who=it.author||'';
+    const dstr=it.noTime?fmtD(it.dt):fmtDT(it.dt);
     v.innerHTML=`
     <div class="vh"><button id="v-close">✕ Close</button>
       <span style="flex:1;text-align:center;font-size:12px;opacity:.9">${i+1} / ${list.length}${who?' · '+esc(who):''} · ${dstr}</span>
@@ -674,9 +804,9 @@ function openViewer(entryId,pidx){
   v.addEventListener('touchstart',ev=>{const t=ev.touches[0];sx=t.clientX;sy=t.clientY;},{passive:true});
   v.addEventListener('touchend',ev=>{if(sx==null)return;const t=ev.changedTouches[0];const dx=t.clientX-sx,dy=t.clientY-sy;
     if(Math.abs(dx)>45&&Math.abs(dx)>Math.abs(dy)*1.3)go(dx<0?1:-1);sx=sy=null;});
-  const key=ev=>{if(ev.key==='ArrowLeft')go(-1);else if(ev.key==='ArrowRight')go(1);else if(ev.key==='Escape')v.remove();};
-  document.addEventListener('keydown',key);
-  const origRemove=v.remove.bind(v);v.remove=()=>{document.removeEventListener('keydown',key);origRemove();};
+  const onKey=ev=>{if(ev.key==='ArrowLeft')go(-1);else if(ev.key==='ArrowRight')go(1);else if(ev.key==='Escape')v.remove();};
+  document.addEventListener('keydown',onKey);
+  const origRemove=v.remove.bind(v);v.remove=()=>{document.removeEventListener('keydown',onKey);origRemove();};
   document.body.appendChild(v);
 }
 
