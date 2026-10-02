@@ -171,7 +171,7 @@ input,textarea,select{font-family:inherit;font-size:16px}
 <div id="toast" class="toast"></div>
 <datalist id="builder-list"></datalist>
 <script>
-const APP_BUILD='2026-10-02-09';
+const APP_BUILD='2026-10-02-10';
 const RTDB='https://knmtilingptyltd-12520-default-rtdb.firebaseio.com';
 // Photos stored on Cloudflare R2 (via Worker, free egress). Upload key is light protection.
 const WORKER='https://km-photos-api.kmtiling.workers.dev';
@@ -200,7 +200,7 @@ function compress(file,maxDim=1600,q=0.72){
     img.onerror=()=>res(file);img.src=u;});
 }
 
-let S={user:null,projects:[],builders:[],pid:null,cat:null,curProj:null,entries:{},q:'',bfilter:''};
+let S={user:null,projects:[],builders:[],pid:null,cat:null,curProj:null,entries:{},q:'',bfilter:'',seen:{}};
 const $=(s,el=document)=>el.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const pad2=n=>String(n).padStart(2,'0');
@@ -296,6 +296,9 @@ async function openProjects(){
   if(!(await validateSession())){renderLogin();setTimeout(()=>toast('Your access has been removed'),300);return;}
   const data=await rtGet('photoApp/projects')||{};
   S.projects=Object.entries(data).map(([id,v])=>({id,...v})).filter(p=>!p.archived);
+  // Load this user's "seen" map for NEW badges. First run sets a baseline so existing sites don't all show NEW.
+  S.seen=await rtGet('photoApp/seen/'+S.user.id)||{};
+  if(!S.seen._baseline){S.seen._baseline=Date.now();rtPatch('photoApp/seen/'+S.user.id,{_baseline:S.seen._baseline});}
   await loadBuilders();
   renderFilters();renderProjectList();
 }
@@ -305,6 +308,8 @@ function renderFilters(){
     builders.map(b=>`<div class="chip ${S.bfilter===b?'on':''}" data-b="${esc(b)}">${esc(b)}</div>`).join('');
   $('#filters').querySelectorAll('.chip').forEach(c=>c.onclick=()=>{S.bfilter=c.dataset.b;renderFilters();renderProjectList();});
 }
+// A site shows NEW if its last upload is newer than what this user has seen (and newer than their first-run baseline).
+function isNew(p){const base=S.seen._baseline||0;const seen=Math.max(S.seen[p.id]||0,base);return (p.lastActivity||0)>seen+1000;}
 function renderProjectList(){
   const q=S.q.trim().toLowerCase();
   let list=S.projects.slice();
@@ -312,13 +317,14 @@ function renderProjectList(){
   if(q)list=list.filter(p=>(`${title(p)} ${p.address||''}`).toLowerCase().includes(q));
   list.sort((a,b)=>(b.lastActivity||b.updatedAt||b.createdAt||0)-(a.lastActivity||a.updatedAt||a.createdAt||0));
   const el=$('#plist');
-  $('#pcount').textContent=plural(S.projects.length,'site');
+  const newCount=S.projects.filter(isNew).length;
+  $('#pcount').innerHTML=plural(S.projects.length,'site')+(newCount?` · <span style="color:#fff;background:var(--red);border-radius:10px;padding:1px 8px;font-weight:700;font-size:11px">${newCount} new</span>`:'');
   if(!list.length){el.innerHTML=`<div class="empty"><div class="big">📁</div>${S.projects.length?'No results':'No sites yet.<br>Tap ＋ to add one.'}</div>`;return;}
   el.innerHTML=list.map(p=>{
     const cnt=p.photoCount||0;const last=p.lastActivity?('· '+fmtD(p.lastActivity)):'';
-    const col=p.color||'#6d5efc';
+    const col=p.color||'#6d5efc';const nw=isNew(p);
     return `<div class="pcard" data-id="${p.id}" style="border-left-color:${col}">
-      <div class="body"><div class="bld">${esc(title(p))}</div>
+      <div class="body"><div class="bld">${esc(title(p))}${nw?' <span style="display:inline-block;vertical-align:middle;color:#fff;background:var(--red);border-radius:9px;padding:1px 7px;font-size:10.5px;font-weight:800;letter-spacing:.3px;margin-left:4px">NEW</span>':''}</div>
         ${p.address?`<div class="adr">📍 ${esc(p.address)}</div>`:''}
         <div class="foot"><span class="pill">${plural(cnt,'photo')}</span><span>${last}</span></div>
       </div></div>`;}).join('');
@@ -359,6 +365,8 @@ function projectForm(edit){
 async function openProject(pid){
   S.pid=pid;const p=S.projects.find(x=>x.id===pid)||await rtGet('photoApp/projects/'+pid);p.id=pid;
   S.curProj=p;S.cat='__all__';
+  // Mark this site as seen up to its latest activity, clearing its NEW badge for this user.
+  const seenTs=Math.max(p.lastActivity||0,Date.now());S.seen[pid]=seenTs;rtPatch('photoApp/seen/'+S.user.id,{[pid]:seenTs});
   document.getElementById('app').innerHTML=`
    <div class="hdr"><div class="r1">
      <button class="icn" id="h-back">‹</button>
@@ -502,6 +510,7 @@ function entryForm(pid,cat){
         note:$('#e-note',m).value.trim(),photos,reads:{[S.user.id]:Date.now()},createdAt:Date.now()});
       const cur=S.curProj||{};
       await rtPatch('photoApp/projects/'+pid,{updatedAt:Date.now(),lastActivity:dateMs,coverUrl:photos[0].url,photoCount:(cur.photoCount||0)+photos.length});
+      const ts=Math.max(dateMs,Date.now());S.seen[pid]=ts;rtPatch('photoApp/seen/'+S.user.id,{[pid]:ts});
       m.remove();toast('✅ Uploaded');loadEntries(pid);
     }catch(err){btn.disabled=false;btn.textContent='Upload';
       $('#e-status',m).innerHTML=`<span style="color:var(--red)">Failed: ${esc(err.message)}</span>`;}
@@ -555,6 +564,7 @@ function noteForm(pid){
         note:content,photos,reads:{[S.user.id]:Date.now()},createdAt:Date.now()});
       const cur=S.curProj||{};
       await rtPatch('photoApp/projects/'+pid,{updatedAt:Date.now(),lastActivity:dateMs,photoCount:(cur.photoCount||0)+photos.length});
+      const ts=Math.max(dateMs,Date.now());S.seen[pid]=ts;rtPatch('photoApp/seen/'+S.user.id,{[pid]:ts});
       m.remove();toast('✅ Note saved');loadEntries(pid);
     }catch(err){btn.disabled=false;btn.textContent='Save note';
       $('#n-status',m).innerHTML=`<span style="color:var(--red)">Failed: ${esc(err.message)}</span>`;}
@@ -671,6 +681,8 @@ function openViewer(entryId,pidx){
 }
 
 (async function(){const s=loadSession();if(s){S.user=s;if(await validateSession())openProjects();else{renderLogin();setTimeout(()=>toast('Your access has been removed'),300);}}else renderLogin();})();
+// Refresh the site list (and NEW badges) when the app is reopened/brought to front while on the home screen.
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&S.user&&S.pid===null&&document.getElementById('plist'))openProjects();});
 </script>
 </body>
 </html>
