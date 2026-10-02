@@ -191,12 +191,14 @@ input,textarea,select{font-family:inherit;font-size:16px}
 <div id="toast" class="toast"></div>
 <datalist id="builder-list"></datalist>
 <script>
-const APP_BUILD='2026-10-02-12';
+const APP_BUILD='2026-10-02-13';
 const RTDB='https://knmtilingptyltd-12520-default-rtdb.firebaseio.com';
 // Photos stored on Cloudflare R2 (via Worker, free egress). Upload key is light protection.
 const WORKER='https://km-photos-api.kmtiling.workers.dev';
 const UPLOAD_KEY='c3621d2542c3e8db9ae086e4a5c8c83d';
-const DEFAULT_CATS=['방수','베딩','타일','그라우트','실리콘'];
+const DEFAULT_CATS=['방수','베딩','타일','그라우트&실리콘','실러'];
+const isAdmin=()=>!!(S.user&&(S.user.role==='admin'||S.user.id==='admin'));
+const canEditEntry=e=>!!(S.user&&(isAdmin()||(e&&e.authorId&&e.authorId===S.user.id)));
 const COLORS=['#6d5efc','#ef4444','#f59e0b','#10b981','#0891b2','#8b5cf6','#ec4899','#334155'];
 
 async function rtGet(p){const r=await fetch(`${RTDB}/${p}.json`);return r.ok?r.json():null;}
@@ -409,19 +411,26 @@ function catsOf(p){
   ((p&&p.categories)||[]).forEach(c=>{if(c&&c!=='__notes__'&&!base.includes(c))base.push(c);});
   return base;
 }
-// An entry can belong to several categories (e.g. 그라우트 + 실리콘 photographed together).
 function catsList(e){
   if(e.cats&&e.cats.length)return e.cats;
   return (e.category&&e.category!=='__notes__')?[e.category]:[];
 }
-function inCat(e,cat){ if(e.category==='__notes__')return false; if(cat==='__all__')return true; return catsList(e).includes(cat); }
-// Multi-select category chips (reuses .tagpick/.opt styles).
+// Old 그라우트/실리콘 entries fold into the merged 그라우트&실리콘 filter.
+function inCat(e,cat){
+  if(e.category==='__notes__')return false;
+  if(cat==='__all__')return true;
+  const cl=catsList(e);
+  if(cl.includes(cat))return true;
+  if(cat==='그라우트&실리콘'&&(cl.includes('그라우트')||cl.includes('실리콘')))return true;
+  return false;
+}
+// Single-select category chips (reuses .tagpick/.opt styles).
 function catChipHtml(id,cats,selected){
   return `<div class="tagpick" id="${id}">`+cats.map(c=>`<span class="opt ${selected.includes(c)?'on':''}" data-c="${esc(c)}">${esc(c)}</span>`).join('')+`</div>`;
 }
 function wireCatChips(id,m){
   const box=$('#'+id,m);if(!box)return ()=>[];
-  box.querySelectorAll('.opt').forEach(o=>o.onclick=()=>o.classList.toggle('on'));
+  box.querySelectorAll('.opt').forEach(o=>o.onclick=()=>{box.querySelectorAll('.opt').forEach(x=>x.classList.remove('on'));o.classList.add('on');});
   return ()=>[...box.querySelectorAll('.opt.on')].map(o=>o.dataset.c);
 }
 function renderCatbar(){
@@ -472,7 +481,7 @@ function entryCardHtml(e){
   const cmtHtml=cs.length?`<div class="cmts">${cs.map(([cid,c])=>{
     const cw=(c.authorName||'').trim();const cph=(c.photos||[]);
     const cgrid=cph.length?`<div class="cgrid">${cph.map((p,i)=>`<img loading="lazy" src="${p.url}" data-key="${e.id}:c:${cid}:${i}"/>`).join('')}</div>`:'';
-    const canDel=S.user&&(c.authorId===S.user.id||S.user.role==='admin');
+    const canDel=S.user&&(c.authorId===S.user.id||isAdmin());
     return `<div class="cmt"><div class="cava">${cw?esc(cw[0]):'👤'}</div><div class="cbody">
       <div><span class="cwho">${esc(cw||'—')}</span><span class="cdt">${fmtDT(c.date)}</span>${canDel?`<span class="cdel" data-delc="${e.id}:${cid}">삭제</span>`:''}</div>
       ${c.note?`<div class="cnote">${esc(c.note)}</div>`:''}${cgrid}
@@ -480,7 +489,7 @@ function entryCardHtml(e){
   return `<div class="ecard">
     <div class="top"><div class="ava">${ava}</div>
       <div><div class="who">${esc(who||'—')}</div><div class="dt">${dstr}</div></div>
-      <span class="emore"><span class="rd">👁 ${reads}</span><button class="ebtn" data-edit="${e.id}" title="Edit">⋯</button></span></div>
+      <span class="emore"><span class="rd">👁 ${reads}</span>${canEditEntry(e)?`<button class="ebtn" data-edit="${e.id}" title="Edit">⋯</button>`:''}</span></div>
     ${noteHtml}${gridHtml}${catHtml}${tagsHtml}${cmtHtml}
     <span class="replybtn" data-reply="${e.id}">💬 Reply</span>
   </div>`;
@@ -523,7 +532,7 @@ function entryForm(pid,cat){
   const m=document.createElement('div');m.className='modal';
   m.innerHTML=`<div class="sheet"><div class="grab"></div>
     <h2>Upload photos</h2>
-    <div class="fld"><label>Category (select one or more)</label>${catChipHtml('e-cats',cats,[defCat])}</div>
+    <div class="fld"><label>Category</label>${catChipHtml('e-cats',cats,[defCat])}</div>
     <div class="fld"><label>Date</label><input id="e-date" type="date"/></div>
     <div class="fld"><label>Note (optional)</label><textarea id="e-note" rows="2" placeholder="e.g. First waterproof coat done"></textarea></div>
     ${tagPickerHtml('e-tag',[])}
@@ -547,7 +556,7 @@ function entryForm(pid,cat){
     box.querySelectorAll('.x').forEach(x=>x.onclick=()=>{picks.splice(+x.dataset.i,1);draw();});}
   $('#e-save',m).onclick=async()=>{
     if(!picks.length){toast('Select photos');return;}
-    const selCats=getCats();if(!selCats.length){toast('Pick at least one category');return;}
+    const selCats=getCats();if(!selCats.length){toast('Pick a category');return;}
     const cat=selCats[0];
     const btn=$('#e-save',m);btn.disabled=true;btn.innerHTML='<span class="spin"></span>';
     $('#e-progwrap',m).style.display='block';
@@ -634,6 +643,7 @@ function noteForm(pid){
 // Fix a post that was uploaded to the wrong place: change category/site/date/note, remove photos, or delete.
 function editEntry(entryId){
   const pid=S.pid;const e=(S.entries[pid]||[]).find(x=>x.id===entryId);if(!e)return;
+  if(!canEditEntry(e)){toast('본인 또는 관리자만 수정할 수 있어요');return;}
   let photos=(e.photos||[]).slice();
   const p=S.curProj;const cats=catsOf(p);
   const others=S.projects.slice().sort((a,b)=>title(a).localeCompare(title(b)));
@@ -641,7 +651,7 @@ function editEntry(entryId){
   const m=document.createElement('div');m.className='modal';
   m.innerHTML=`<div class="sheet"><div class="grab"></div>
     <h2>Edit post</h2>
-    <div class="fld"><label>Category (select one or more)</label>
+    <div class="fld"><label>Category</label>
       <label style="display:flex;align-items:center;gap:7px;font-size:13.5px;color:#333;margin:2px 0 7px;cursor:pointer">
         <input type="checkbox" id="ed-isnote" ${e.category==='__notes__'?'checked':''}/> 📝 This is a note (text record)</label>
       ${catChipHtml('ed-cats',cats, e.category==='__notes__'?[]:(catsList(e).length?catsList(e):[e.category]))}
@@ -677,7 +687,7 @@ function editEntry(entryId){
     const btn=$('#ed-save',m);
     const isNote=$('#ed-isnote',m).checked;
     const selCats=getCats();
-    if(!isNote && !selCats.length){toast('Pick at least one category');return;}
+    if(!isNote && !selCats.length){toast('Pick a category');return;}
     btn.disabled=true;btn.innerHTML='<span class="spin"></span>';
     const newCat=isNote?'__notes__':selCats[0];
     const newCats=isNote?null:selCats;
