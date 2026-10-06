@@ -82,6 +82,7 @@ input,textarea,select{font-family:inherit;font-size:16px}
 .sec-head .t{font-size:13px;font-weight:800;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;flex:1}
 .sec-head .miniadd{background:#eef0fb;color:var(--pri);border-radius:10px;padding:6px 11px;font-weight:800;font-size:12px}
 .notes-empty{color:var(--sub);font-size:13px;background:#fff;border-radius:14px;box-shadow:var(--shadow);padding:16px 15px;margin-bottom:12px;line-height:1.5}
+.notemore{text-align:center;color:var(--pri);font-size:12.5px;font-weight:700;padding:8px;margin-bottom:10px;cursor:pointer;background:#f3f2fb;border-radius:12px}
 .sec-div{height:1px;background:var(--line);margin:18px 2px 14px}
 
 /* entry */
@@ -191,7 +192,7 @@ input,textarea,select{font-family:inherit;font-size:16px}
 <div id="toast" class="toast"></div>
 <datalist id="builder-list"></datalist>
 <script>
-const APP_BUILD='2026-10-04-15';
+const APP_BUILD='2026-10-07-16';
 const RTDB='https://knmtilingptyltd-12520-default-rtdb.firebaseio.com';
 // Photos stored on Cloudflare R2 (via Worker, free egress). Upload key is light protection.
 const WORKER='https://km-photos-api.kmtiling.workers.dev';
@@ -222,7 +223,7 @@ function compress(file,maxDim=1600,q=0.72){
     img.onerror=()=>res(file);img.src=u;});
 }
 
-let S={user:null,projects:[],builders:[],pid:null,cat:null,curProj:null,entries:{},q:'',bfilter:'',seen:{},staff:[]};
+let S={user:null,projects:[],builders:[],pid:null,cat:null,curProj:null,entries:{},q:'',bfilter:'',seen:{},staff:[],notesOpen:false};
 const $=(s,el=document)=>el.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const pad2=n=>String(n).padStart(2,'0');
@@ -500,10 +501,17 @@ function renderEntries(){
   const notes=all.filter(e=>e.category==='__notes__').sort((a,b)=>(b.date||b.createdAt||0)-(a.date||a.createdAt||0));
   const cat=S.cat||'__all__';
   const phots=all.filter(e=>inCat(e,cat)).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
-  // Notes section — always pinned at top
-  let html=`<div class="sec-head"><span class="t">📝 Notes</span><button class="miniadd" id="note-add">＋ Add note</button></div>`;
-  html+=notes.length?notes.map(e=>entryCardHtml(e)).join('')
-    :`<div class="notes-empty">No notes yet — add tile pattern, grout colour, materials left on site, etc.</div>`;
+  // Pinned section — most recent shown, the rest collapsed
+  let html=`<div class="sec-head"><span class="t">📌 Pinned</span><button class="miniadd" id="note-add">＋ Add</button></div>`;
+  if(notes.length){
+    html+=entryCardHtml(notes[0]);
+    if(notes.length>1){
+      html+=S.notesOpen?notes.slice(1).map(e=>entryCardHtml(e)).join('')+`<div class="notemore" id="note-toggle">▲ 접기</div>`
+                       :`<div class="notemore" id="note-toggle">▼ ${notes.length-1}개 더 보기</div>`;
+    }
+  }else{
+    html+=`<div class="notes-empty">고정된 메모가 없습니다 — 그라우트 컬러 컨펌, 현장 남은 자재 등 중요한 내용만 여기에 고정하세요.</div>`;
+  }
   html+=`<div class="sec-div"></div>`;
   // Photos section
   html+=`<div class="sec-head"><span class="t">${cat==='__all__'?'All photos':esc(cat)}</span></div>`;
@@ -516,6 +524,7 @@ function renderEntries(){
   }
   el.innerHTML=html;
   $('#note-add').onclick=()=>noteForm(S.pid);
+  {const tgl=$('#note-toggle');if(tgl)tgl.onclick=()=>{S.notesOpen=!S.notesOpen;renderEntries();};}
   el.querySelectorAll('[data-key]').forEach(im=>im.onclick=()=>openViewer(im.dataset.key));
   el.querySelectorAll('.ebtn[data-edit]').forEach(b=>b.onclick=()=>editEntry(b.dataset.edit));
   el.querySelectorAll('.replybtn[data-reply]').forEach(b=>b.onclick=()=>commentForm(b.dataset.reply));
@@ -593,7 +602,7 @@ function noteForm(pid){
   let picks=[];
   const m=document.createElement('div');m.className='modal';
   m.innerHTML=`<div class="sheet"><div class="grab"></div>
-    <h2>📝 Add note</h2>
+    <h2>📌 Add pinned note</h2>
     <div class="fld"><label>Note</label><textarea id="n-note" rows="4" placeholder="e.g. Tile pattern: brick bond, 1/3 offset&#10;Grout colour confirmed: Dunlop Ash&#10;Materials left on site: 2 boxes 300x600, 1 bag grout"></textarea></div>
     <div class="fld"><label>Date</label><input id="n-date" type="date"/></div>
     ${tagPickerHtml('n-tag',[])}
@@ -656,7 +665,7 @@ function editEntry(entryId){
     <h2>Edit post</h2>
     <div class="fld"><label>Category</label>
       <label style="display:flex;align-items:center;gap:7px;font-size:13.5px;color:#333;margin:2px 0 7px;cursor:pointer">
-        <input type="checkbox" id="ed-isnote" ${e.category==='__notes__'?'checked':''}/> 📝 This is a note (text record)</label>
+        <input type="checkbox" id="ed-isnote" ${e.category==='__notes__'?'checked':''}/> 📌 Pin this (keep in Pinned, 중요 메모)</label>
       ${catChipHtml('ed-cats',cats, e.category==='__notes__'?[]:(catsList(e).length?catsList(e):[e.category]))}
     </div>
     <div class="fld"><label>Move to site</label><select id="ed-proj">
