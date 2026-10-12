@@ -18,7 +18,7 @@
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
 // ℹ️ reload 는 코드만 갱신 — Firebase 주소(wm_fb_url)·로그인 세션(wm_session)은 localStorage 라 유지됨(재로그인 불필요).
-const APP_BUILD = '2026-10-12-10';
+const APP_BUILD = '2026-10-12-11';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출. ?_=타임스탬프 + no-store 로 캐시 우회.
 function _fetchLatestBuild(){
   return fetch(location.pathname + '?_=' + Date.now(), { cache: 'no-store', headers: { 'Range': 'bytes=0-3000' } })
@@ -411,10 +411,16 @@ function localDateStr(d) {
 }
 
 // ─── 🔐 정산완료 잠금 헬퍼 ─────────────────────────────────────
+// DST(서머타임) 안전 격주 인덱스: 로컬 자정끼리 ms 차이로 나누면 서머타임 1시간 때문에
+//   구간 경계일이 이전 구간으로 밀림. 날짜(연·월·일)만 뽑아 UTC 기준으로 계산해 해결.
+function _fnDiff(dateLike){
+  const d = (dateLike instanceof Date) ? dateLike : new Date(String(dateLike)+"T00:00:00");
+  return Math.floor((Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()) - Date.UTC(2026,3,13)) / (14*24*60*60*1000));
+}
 function getPeriodStartForDate(dateStr) {
   const BASE = new Date("2026-04-13T00:00:00");
   const d = new Date(dateStr + "T00:00:00");
-  const diff = Math.floor((d - BASE) / (14*24*60*60*1000));
+  const diff = _fnDiff(d);
   const ps = new Date(BASE);
   ps.setDate(ps.getDate() + diff * 14);
   return localDateStr(ps);
@@ -477,7 +483,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
   const [periodStart, setPeriodStart] = useState(() => {
     const BASE = new Date("2026-04-13T00:00:00");
     const now = new Date();
-    const diff = Math.floor((now - BASE) / (14*24*60*60*1000));
+    const diff = _fnDiff(now);
     const curStart = new Date(BASE); curStart.setDate(curStart.getDate() + diff * 14);
     // 현재 구간 시작 후 3일 이내면 이전 구간 기본 표시
     const daysSinceStart = Math.floor((now - curStart) / (24*60*60*1000));
@@ -535,8 +541,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
   const getPeriodDeposits = (userId, ps) => {
     const lv = leaves[userId] || {};
     const BASE = new Date("2026-04-13T00:00:00");
-    const psDate = new Date(ps+"T00:00:00");
-    const idx = Math.floor((psDate-BASE)/(14*24*60*60*1000));
+    const idx = _fnDiff(ps);
     const peDate = new Date(BASE); peDate.setDate(peDate.getDate()+(idx+1)*14-1);
     const pe = peDate.getFullYear()+"-"+String(peDate.getMonth()+1).padStart(2,"0")+"-"+String(peDate.getDate()).padStart(2,"0");
     return (lv.keepDeposits||[]).filter(d=>d.date>=ps&&d.date<=pe).reduce((s,d)=>s+(parseFloat(d.amount)||0),0);
@@ -769,7 +774,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
   // 현재 급여 구간
   const getWP = (offset=0) => {
     const BASE = new Date("2026-04-13T00:00:00");
-    const cur = Math.floor((Date.now()-BASE)/(14*24*60*60*1000));
+    const cur = _fnDiff(new Date());
     const s = new Date(BASE); s.setDate(s.getDate()+(cur+offset)*14);
     const e = new Date(s); e.setDate(e.getDate()+13);
     return {start:s.getFullYear()+"-"+String(s.getMonth()+1).padStart(2,"0")+"-"+String(s.getDate()).padStart(2,"0"), end:e.getFullYear()+"-"+String(e.getMonth()+1).padStart(2,"0")+"-"+String(e.getDate()).padStart(2,"0")};
@@ -878,7 +883,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
           <button onClick={prevPeriod} style={{ background:"#F3F4F6",border:"none",borderRadius:8,padding:"6px 14px",cursor:"pointer",fontSize:18,color:"#555",fontFamily:"inherit" }}>‹</button>
           <div style={{ textAlign:"center",cursor:"pointer" }} onClick={()=>{
             const BASE=new Date("2026-04-13T00:00:00");
-            const diff=Math.floor((Date.now()-BASE)/(14*24*60*60*1000));
+            const diff=_fnDiff(new Date());
             const d=new Date(BASE); d.setDate(d.getDate()+diff*14);
             setPeriodStart(localDateStr(d));
           }}>
@@ -886,7 +891,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
             <p style={{ margin:"2px 0 0",fontSize:11,color:C.sub }}>
               {(() => {
                 const BASE=new Date("2026-04-13T00:00:00");
-                const diff=Math.floor((Date.now()-BASE)/(14*24*60*60*1000));
+                const diff=_fnDiff(new Date());
                 const curS=new Date(BASE); curS.setDate(curS.getDate()+diff*14);
                 return localDateStr(curS)===periodStart ? "✅ 현재 구간" : "현재 구간 보기";
               })()}
@@ -2488,7 +2493,7 @@ function getAESTDate() {
 function calcMgmtPeriod(dateStr) {
   const BASE = new Date('2026-04-13T00:00:00');
   const target = new Date(dateStr + 'T00:00:00');
-  const diff = Math.floor((target - BASE) / (14*24*60*60*1000));
+  const diff = _fnDiff(target);
   const ps = new Date(BASE); ps.setDate(ps.getDate() + diff*14);
   const pe = new Date(ps); pe.setDate(pe.getDate() + 13);
   // ⚠️ toISOString() 은 UTC 변환이라 호주 기준 하루 밀려나옴 — 로컬 포매터 사용.
@@ -3287,7 +3292,7 @@ function FYGrossSummary({ userId, lv, logs, users, isAdmin, getDailyRate, fA }) 
   const FORT_BASE = new Date("2026-04-13T00:00:00");
   const periodStartOf = (dateStr) => {
     const d = new Date(dateStr + "T00:00:00");
-    const idx = Math.floor((d - FORT_BASE) / (14*24*60*60*1000));
+    const idx = _fnDiff(d);
     const ps = new Date(FORT_BASE); ps.setDate(ps.getDate() + idx * 14);
     return `${ps.getFullYear()}-${String(ps.getMonth()+1).padStart(2,"0")}-${String(ps.getDate()).padStart(2,"0")}`;
   };
@@ -3399,7 +3404,7 @@ function computeTaxShortfall(user, lv, logs) {
   const FORT_BASE = new Date("2026-04-13T00:00:00");
   const periodStartOf = (s) => {
     const d = new Date(s + "T00:00:00");
-    const idx = Math.floor((d - FORT_BASE) / (14*24*60*60*1000));
+    const idx = _fnDiff(d);
     const ps = new Date(FORT_BASE); ps.setDate(ps.getDate() + idx*14);
     return `${ps.getFullYear()}-${String(ps.getMonth()+1).padStart(2,"0")}-${String(ps.getDate()).padStart(2,"0")}`;
   };
@@ -3972,8 +3977,8 @@ function HomeTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist, on
     if (!onJumpToLog) return;
     const BASE = new Date("2026-04-13T00:00:00");
     const dDate = new Date(date + "T00:00:00");
-    const absIdx = Math.floor((dDate - BASE) / (14*24*60*60*1000));
-    const curIdx = Math.floor((Date.now() - BASE) / (14*24*60*60*1000));
+    const absIdx = _fnDiff(dDate);
+    const curIdx = _fnDiff(new Date());
     onJumpToLog(date, userId, absIdx - curIdx);
   };
   const fA = (n) => new Intl.NumberFormat("en-AU",{style:"currency",currency:"AUD",minimumFractionDigits:2}).format(n||0);
@@ -4156,8 +4161,8 @@ function HomeTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist, on
                 return (
                   <span key={d} onClick={()=>{
                       const BASE=new Date("2026-04-13T00:00:00");
-                      const absIdx=Math.floor((new Date(d+"T00:00:00")-BASE)/(14*24*60*60*1000));
-                      const curIdx=Math.floor((Date.now()-BASE)/(14*24*60*60*1000));
+                      const absIdx=_fnDiff(d);
+                      const curIdx=_fnDiff(new Date());
                       onJumpToLog&&onJumpToLog(d,user.id,absIdx-curIdx);
                     }}
                     style={{ fontSize:11,fontWeight:600,background:"#FEE2E2",color:"#DC2626",borderRadius:6,padding:"2px 8px",cursor:"pointer",textDecoration:"underline" }}>
@@ -4281,8 +4286,8 @@ function HomeTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist, on
                           if(!onJumpToLog) return;
                           const BASE=new Date("2026-04-13T00:00:00");
                           const dDate=new Date(d+"T00:00:00");
-                          const absIdx=Math.floor((dDate-BASE)/(14*24*60*60*1000));
-                          const curIdx=Math.floor((Date.now()-BASE)/(14*24*60*60*1000));
+                          const absIdx=_fnDiff(dDate);
+                          const curIdx=_fnDiff(new Date());
                           onJumpToLog(d, emp.id, absIdx-curIdx);
                         }}
                         style={{ fontSize:11,fontWeight:600,background:"#FEE2E2",color:"#DC2626",borderRadius:6,padding:"2px 8px",cursor:"pointer",textDecoration:"underline" }}>
@@ -4621,7 +4626,7 @@ function LogTab({user,users,logs,leaves,isAdmin,isSuperAdmin,isViewAdmin,persist
   const[filterUser,setFilterUser]=useState(jumpInfo?jumpInfo.userId:(isAdmin?"all":user.id));
   const getWagePeriod=(offset=0)=>{
     const BASE=new Date("2026-04-13T00:00:00");
-    const cur=Math.floor((Date.now()-BASE)/(14*24*60*60*1000));
+    const cur=_fnDiff(new Date());
     const s=new Date(BASE); s.setDate(s.getDate()+(cur+offset)*14);
     const e=new Date(s); e.setDate(e.getDate()+13);
     const fmt=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
