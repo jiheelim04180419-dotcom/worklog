@@ -196,7 +196,7 @@ input,textarea,select{font-family:inherit;font-size:16px}
 <div id="toast" class="toast"></div>
 <datalist id="builder-list"></datalist>
 <script>
-const APP_BUILD='2026-10-16-04';
+const APP_BUILD='2026-10-16-05';
 const RTDB='https://knmtilingptyltd-12520-default-rtdb.firebaseio.com';
 // Photos stored on Cloudflare R2 (via Worker, free egress). Upload key is light protection.
 const WORKER='https://km-photos-api.kmtiling.workers.dev';
@@ -887,8 +887,23 @@ function openViewer(key){
 }
 
 (async function(){const s=loadSession();if(s){S.user=s;if(await validateSession())openProjects();else{renderLogin();setTimeout(()=>toast('Your access has been removed'),300);}}else renderLogin();})();
+// Auto-update: compare the running build against ver.txt on the server; if newer, reload with a cache-busting ?v=.
+// ⚠️ 배포 때 APP_BUILD 와 photos/ver.txt 를 같은 값으로 올릴 것.
+async function checkUpdate(){
+  try{
+    const r=await fetch('ver.txt?cb='+Date.now(),{cache:'no-store'});
+    if(!r.ok)return;
+    const v=(await r.text()).trim();
+    if(v && v!==APP_BUILD){
+      // guard against reload loops if a deploy left ver.txt and APP_BUILD out of sync
+      const cur=new URL(location.href).searchParams.get('v');
+      if(cur!==v){const u=new URL(location.href);u.searchParams.set('v',v);location.replace(u.toString());}
+    }
+  }catch(e){}
+}
+checkUpdate();
 // Refresh the site list (and NEW badges) when the app is reopened/brought to front while on the home screen.
-document.addEventListener('visibilitychange',()=>{if(!document.hidden&&S.user&&S.pid===null&&document.getElementById('plist'))openProjects();});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){if(S.pid===null)checkUpdate();if(S.user&&S.pid===null&&document.getElementById('plist'))openProjects();}});
 
 // Android/Galaxy back button: close the open sheet/viewer or step back to the site list instead of exiting the app.
 function backGuard(){try{history.pushState({sl:1},'');}catch(e){}}
