@@ -77,6 +77,20 @@ input,textarea,select{font-family:inherit;font-size:16px}
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23747890' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
   background-repeat:no-repeat;background-position:right 14px center}
 .catbar .mini{background:#fff;color:var(--pri);box-shadow:var(--shadow);border-radius:12px;padding:11px 13px;font-weight:800;font-size:13px;white-space:nowrap}
+.catbar .catback{background:#fff;width:40px;height:40px;border-radius:12px;box-shadow:var(--shadow);font-size:20px;color:var(--text);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.catbar .cattitle{font-weight:800;font-size:16px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* folder grid */
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.folder{background:var(--card);border-radius:16px;box-shadow:var(--shadow);overflow:hidden;cursor:pointer}
+.folder:active{transform:scale(.98)}
+.folder .cov{height:94px;background-size:cover;background-position:center;position:relative;display:flex;align-items:flex-end;padding:8px}
+.folder .cnt{position:absolute;top:7px;right:8px;background:#0007;color:#fff;font-size:11px;font-weight:800;padding:3px 8px;border-radius:20px}
+.folder .ic{font-size:26px;filter:drop-shadow(0 1px 3px #0006)}
+.folder .fb{padding:10px 12px 12px}
+.folder .fn{font-weight:800;font-size:14.5px;letter-spacing:-.2px}
+.folder .fm{font-size:11.5px;color:var(--sub);margin-top:3px}
+.allbtn{width:100%;background:#fff;border:1.5px dashed #c9cbe0;color:var(--sub);font-weight:800;font-size:13.5px;border-radius:14px;padding:13px;box-shadow:var(--shadow);margin-bottom:10px}
+.addcat{width:100%;background:#efeefe;color:var(--pri);font-weight:800;font-size:13.5px;border-radius:14px;padding:12px;border:none}
 /* section heads */
 .sec-head{display:flex;align-items:center;margin:6px 4px 10px}
 .sec-head .t{font-size:13px;font-weight:800;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;flex:1}
@@ -196,12 +210,14 @@ input,textarea,select{font-family:inherit;font-size:16px}
 <div id="toast" class="toast"></div>
 <datalist id="builder-list"></datalist>
 <script>
-const APP_BUILD='2026-10-16-02';
+const APP_BUILD='2026-10-16-03';
 const RTDB='https://knmtilingptyltd-12520-default-rtdb.firebaseio.com';
 // Photos stored on Cloudflare R2 (via Worker, free egress). Upload key is light protection.
 const WORKER='https://km-photos-api.kmtiling.workers.dev';
 const UPLOAD_KEY='c3621d2542c3e8db9ae086e4a5c8c83d';
 const DEFAULT_CATS=['방수','베딩','타일','그라우트&실리콘','실러','패칭'];
+const CAT_ICON={'타일':['🧱','linear-gradient(135deg,#b08968,#7f5539)'],'방수':['💧','linear-gradient(135deg,#4cc9f0,#4361ee)'],'그라우트&실리콘':['🪣','linear-gradient(135deg,#adb5bd,#495057)'],'실러':['✨','linear-gradient(135deg,#ffd166,#f3a712)'],'베딩':['🟫','linear-gradient(135deg,#c8a15a,#8a6d3b)'],'패칭':['🩹','linear-gradient(135deg,#e8a0bf,#b5179e)']};
+const CAT_DEF=['🗂','linear-gradient(135deg,#9b8cff,#6d5efc)'];
 const isAdmin=()=>!!(S.user&&(S.user.role==='admin'||S.user.id==='admin'));
 const canEditEntry=e=>!!(S.user&&(isAdmin()||(e&&e.authorId&&e.authorId===S.user.id)));
 const COLORS=['#6d5efc','#ef4444','#f59e0b','#10b981','#0891b2','#8b5cf6','#ec4899','#334155'];
@@ -394,7 +410,7 @@ function projectForm(edit){
 
 async function openProject(pid){
   S.pid=pid;const p=S.projects.find(x=>x.id===pid)||await rtGet('photoApp/projects/'+pid);p.id=pid;
-  S.curProj=p;S.cat='__all__';
+  S.curProj=p;S.cat='__folders__';
   // Mark this site as seen up to its latest activity, clearing its NEW badge for this user.
   const seenTs=Math.max(p.lastActivity||0,Date.now());S.seen[pid]=seenTs;rtPatch('photoApp/seen/'+S.user.id,{[pid]:seenTs});
   document.getElementById('app').innerHTML=`
@@ -407,7 +423,7 @@ async function openProject(pid){
    <button class="fab" id="addentry">＋</button>`;
   $('#h-back').onclick=openProjects;
   $('#h-edit').onclick=()=>projectForm(S.curProj);
-  $('#addentry').onclick=()=>entryForm(pid,S.cat==='__all__'?null:S.cat);
+  $('#addentry').onclick=()=>entryForm(pid,(S.cat==='__all__'||S.cat==='__folders__')?null:S.cat);
   renderCatbar();loadEntries(pid);
 }
 // Always show the standard work categories, plus any extra ones this project has (e.g. 이전자료).
@@ -439,14 +455,13 @@ function wireCatChips(id,m){
   return ()=>[...box.querySelectorAll('.opt.on')].map(o=>o.dataset.c);
 }
 function renderCatbar(){
-  const p=S.curProj;const cats=catsOf(p);
-  $('#catbar').innerHTML=`<select class="catsel" id="catsel">
-      <option value="__all__" ${S.cat==='__all__'?'selected':''}>All photos</option>
-      ${cats.map(c=>`<option value="${esc(c)}" ${c===S.cat?'selected':''}>${esc(c)}</option>`).join('')}
-    </select>
-    <button class="mini" id="cat-add">＋ Category</button>`;
-  $('#catsel').onchange=e=>{S.cat=e.target.value;renderEntries();};
-  $('#cat-add').onclick=()=>addCategory(S.pid);
+  const bar=$('#catbar');
+  if(S.cat==='__folders__'){bar.innerHTML='';bar.style.display='none';return;}
+  bar.style.display='';
+  const label=S.cat==='__all__'?'전체 사진':S.cat;
+  bar.innerHTML=`<button class="catback" id="cat-back">‹</button>
+    <div class="cattitle">${esc(label)}</div>`;
+  $('#cat-back').onclick=()=>{S.cat='__folders__';renderCatbar();renderEntries();window.scrollTo(0,0);};
 }
 async function addCategory(pid){
   const nm=prompt('New category name');if(!nm||!nm.trim())return;
@@ -499,12 +514,27 @@ function entryCardHtml(e){
     <span class="replybtn" data-reply="${e.id}">💬 Reply</span>
   </div>`;
 }
+// Per-category photo count + cover (most recent matching entry's first photo), for the folder grid.
+function folderStats(){
+  const all=(S.entries[S.pid]||[]).filter(e=>e.category!=='__notes__');
+  const cats=catsOf(S.curProj);
+  const stat={};cats.forEach(c=>stat[c]={count:0,cover:null,last:-1});
+  let allCount=0,allCover=null,allLast=-1;
+  all.forEach(e=>{
+    const ph=photosOfEntry(e);if(!ph.length)return;
+    const dt=e.date||e.createdAt||0;
+    allCount+=ph.length;if(dt>=allLast){allLast=dt;allCover=ph[0].p.url;}
+    cats.forEach(c=>{if(inCat(e,c)){const s=stat[c];s.count+=ph.length;if(dt>=s.last){s.last=dt;s.cover=ph[0].p.url;}}});
+  });
+  return {stat,cats,allCount,allCover,allLast};
+}
 function renderEntries(){
   const el=$('#entries');
   const all=(S.entries[S.pid]||[]);
   const notes=all.filter(e=>e.category==='__notes__').sort((a,b)=>(b.date||b.createdAt||0)-(a.date||a.createdAt||0));
   const cat=S.cat||'__all__';
-  const phots=all.filter(e=>inCat(e,cat)).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+  const isFolders=(cat==='__folders__');
+  const phots=isFolders?[]:all.filter(e=>inCat(e,cat)).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
   // Pinned section — most recent shown, the rest collapsed
   let html=`<div class="sec-head"><span class="t">📌 Pinned</span><button class="miniadd" id="note-add">＋ Add</button></div>`;
   if(notes.length){
@@ -517,16 +547,37 @@ function renderEntries(){
     html+=`<div class="notes-empty">고정된 메모가 없습니다 — 그라우트 컬러 컨펌, 현장 남은 자재 등 중요한 내용만 여기에 고정하세요.</div>`;
   }
   html+=`<div class="sec-div"></div>`;
-  // Photos section
-  html+=`<div class="sec-head"><span class="t">${cat==='__all__'?'All photos':esc(cat)}</span></div>`;
-  if(!phots.length){html+=`<div class="empty"><div class="big">📷</div>No photos ${cat==='__all__'?'yet':('in '+esc(cat))}.<br>Tap ＋ to upload.</div>`;}
-  else{
-    const groups={};phots.forEach(e=>{const k=dayKey(e.date||e.createdAt);(groups[k]=groups[k]||[]).push(e);});
-    const keys=Object.keys(groups).sort((a,b)=>b.localeCompare(a));
-    html+=keys.map(k=>{const d=groups[k][0].date||groups[k][0].createdAt;
-      return `<div class="daygrp"><div class="dayhd">${fmtD(d)}</div>`+groups[k].map(e=>entryCardHtml(e)).join('')+`</div>`;}).join('');
+  if(isFolders){
+    // Folder grid landing
+    const {stat,cats,allCount}=folderStats();
+    html+=`<div class="sec-head"><span class="t">카테고리</span></div>`;
+    html+=`<div class="fgrid">`+cats.map(c=>{
+      const s=stat[c];const ic=CAT_ICON[c]||CAT_DEF;
+      const cov=s.cover?`background-image:url('${s.cover}')`:`background:${ic[1]}`;
+      const dt=s.last>0?fmtD(s.last):'';
+      return `<div class="folder" data-cat="${esc(c)}"><div class="cov" style="${cov}">
+        <span class="cnt">📷 ${s.count}</span>${s.cover?'':`<span class="ic">${ic[0]}</span>`}</div>
+        <div class="fb"><div class="fn">${esc(c)}</div><div class="fm">사진 ${s.count}${dt?' · '+dt:''}</div></div></div>`;
+    }).join('')+`</div>`;
+    html+=`<button class="allbtn" id="all-photos">🗂 전체 사진 보기 (${allCount})</button>`;
+    html+=`<button class="addcat" id="cat-addbig">＋ 카테고리 추가</button>`;
+  }else{
+    // Photos feed for a single category / all
+    html+=`<div class="sec-head"><span class="t">${cat==='__all__'?'전체 사진':esc(cat)}</span></div>`;
+    if(!phots.length){html+=`<div class="empty"><div class="big">📷</div>No photos ${cat==='__all__'?'yet':('in '+esc(cat))}.<br>Tap ＋ to upload.</div>`;}
+    else{
+      const groups={};phots.forEach(e=>{const k=dayKey(e.date||e.createdAt);(groups[k]=groups[k]||[]).push(e);});
+      const keys=Object.keys(groups).sort((a,b)=>b.localeCompare(a));
+      html+=keys.map(k=>{const d=groups[k][0].date||groups[k][0].createdAt;
+        return `<div class="daygrp"><div class="dayhd">${fmtD(d)}</div>`+groups[k].map(e=>entryCardHtml(e)).join('')+`</div>`;}).join('');
+    }
   }
   el.innerHTML=html;
+  if(isFolders){
+    el.querySelectorAll('.folder[data-cat]').forEach(f=>f.onclick=()=>{S.cat=f.dataset.cat;renderCatbar();renderEntries();window.scrollTo(0,0);});
+    const ab=$('#all-photos');if(ab)ab.onclick=()=>{S.cat='__all__';renderCatbar();renderEntries();window.scrollTo(0,0);};
+    const ac=$('#cat-addbig');if(ac)ac.onclick=()=>addCategory(S.pid);
+  }
   $('#note-add').onclick=()=>noteForm(S.pid);
   {const tgl=$('#note-toggle');if(tgl)tgl.onclick=()=>{S.notesOpen=!S.notesOpen;renderEntries();};}
   el.querySelectorAll('[data-key]').forEach(im=>im.onclick=()=>openViewer(im.dataset.key));
