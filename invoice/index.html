@@ -19,7 +19,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-10-19-03';
+const APP_BUILD = '2026-10-19-04';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -10615,6 +10615,7 @@ async function ordDelete(id){
 }
 // ── 단가 추이 + 데이터오류 플래그 ──
 function ordNorm(s){ return (s||'').toLowerCase().replace(/\s+/g,' ').trim().slice(0,34); }
+function ordDMY(iso){ const p=String(iso||'').split('-'); return p.length===3?(p[2]+'/'+p[1]+'/'+p[0].slice(2)):(iso||''); } // YYYY-MM-DD → DD/MM/YY (호주식)
 function ordPriceSeries(){
   const map={};
   orders.forEach(o=>{ if(o.unitPrice==null||!o.desc) return; const k=(o.code||'').trim()||ordNorm(o.desc);
@@ -10645,10 +10646,10 @@ function ordPriceViewHtml(){
     const pct = lc ? lc.pct : 0;
     const chgCol = lc ? (pct<-1?'#059669':pct>1?'#DC2626':'var(--text-4)') : 'var(--text-4)';
     const pctBox = lc
-      ? `<div style="font-size:13px;font-weight:800;color:${chgCol}">${pct>=0?'+':''}${pct.toFixed(1)}%</div><div style="font-size:9px;color:var(--text-4);font-weight:600">${(lc.fromDate||'').slice(2,10).replace(/-/g,'/')} 대비</div>`
+      ? `<div style="font-size:13px;font-weight:800;color:${chgCol}">${pct>=0?'+':''}${pct.toFixed(1)}%</div><div style="font-size:9px;color:var(--text-4);font-weight:600">${ordDMY(lc.fromDate)} 대비</div>`
       : `<div style="font-size:12px;font-weight:700;color:var(--text-4)">변동없음</div>`;
     const pills = s.arr.map((x,idx)=>{
-      const dd=(x.date||'').slice(2,10).replace(/-/g,'/');
+      const dd=ordDMY(x.date);
       const isLast = idx===s.arr.length-1;
       const isFrom = lc && (x.date===lc.fromDate) && Math.abs(Number(x.unitPrice)-lc.from)<0.005 && idx===s.arr.map(y=>y.date).lastIndexOf(lc.fromDate);
       const bg = isLast?'#EEF2FF':(isFrom?'#FEF3C7':'rgba(127,127,140,0.08)');
@@ -10661,7 +10662,7 @@ function ordPriceViewHtml(){
         <div style="font-size:12.5px;font-weight:800;color:var(--text-1)">${esc(s.desc)} ${s.suspect?'<span style="background:#FEE2E2;color:#B91C1C;font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px;white-space:nowrap">⚠ 단위/입력 확인</span>':''}</div>
         <div style="text-align:right;white-space:nowrap">${pctBox}</div>
       </div>
-      <div style="font-size:11px;color:var(--text-3);margin-bottom:7px">${lc?`마지막 변동 <b style="color:var(--text-1)">${(lc.fromDate||'').slice(0,10)}</b> $${lc.from.toFixed(2)} → 최근 <b style="color:var(--text-1)">$${s.last.toFixed(2)}</b>`:`최근 <b style="color:var(--text-1)">$${s.last.toFixed(2)}</b> (변동없음)`} &nbsp;·&nbsp; ${s.n}회 &nbsp;·&nbsp; 최저 $${s.min.toFixed(2)} / 최고 $${s.max.toFixed(2)}</div>
+      <div style="font-size:11px;color:var(--text-3);margin-bottom:7px">${lc?`마지막 변동 <b style="color:var(--text-1)">${ordDMY(lc.fromDate)}</b> $${lc.from.toFixed(2)} → 최근 <b style="color:var(--text-1)">$${s.last.toFixed(2)}</b>`:`최근 <b style="color:var(--text-1)">$${s.last.toFixed(2)}</b> (변동없음)`} &nbsp;·&nbsp; ${s.n}회 &nbsp;·&nbsp; 최저 $${s.min.toFixed(2)} / 최고 $${s.max.toFixed(2)}</div>
       <div style="line-height:1.6">${pills}</div>
     </div>`;
   };
