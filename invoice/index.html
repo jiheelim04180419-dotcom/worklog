@@ -19,7 +19,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-10-19-01';
+const APP_BUILD = '2026-10-19-02';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -10481,7 +10481,7 @@ function renderOrders(){
       ${chip('총 오더', totalOrders)}${chip('총 라인', totalLines)}${chip('미배송', undeliv, undeliv?'#D97706':'var(--text-1)')}${chip('미결제', unpaid, unpaid?'#DC2626':'var(--text-1)')}${chip(thisYear+' 오더', yearOrders,'#6366F1')}
     </div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
-      <input id="ord-search" placeholder="🔍 품목·코드·오더번호·빌더…" value="${esc(ordSearch)}" oninput="ordSearch=this.value;clearTimeout(window._ordT);window._ordT=setTimeout(renderOrders,250)" style="flex:1;min-width:150px;padding:7px 10px;font-size:12px;border:1px solid var(--border-2);border-radius:8px;background:var(--card-bg);color:var(--text-1)"/>
+      <input id="ord-search" placeholder="🔍 품목·코드·오더번호·서플라이어…" value="${esc(ordSearch)}" oninput="ordSearch=this.value;clearTimeout(window._ordT);window._ordT=setTimeout(renderOrders,250)" style="flex:1;min-width:150px;padding:7px 10px;font-size:12px;border:1px solid var(--border-2);border-radius:8px;background:var(--card-bg);color:var(--text-1)"/>
       <select onchange="ordFilterSup=this.value;renderOrders()" style="padding:7px 8px;font-size:12px;border:1px solid var(--border-2);border-radius:8px;background:var(--card-bg);color:var(--text-1)"><option value="">서플라이어 전체</option>${sups.map(s=>`<option ${s===ordFilterSup?'selected':''}>${esc(s)}</option>`).join('')}</select>
       <select onchange="ordFilterCat=this.value;renderOrders()" style="padding:7px 8px;font-size:12px;border:1px solid var(--border-2);border-radius:8px;background:var(--card-bg);color:var(--text-1)"><option value="">카테고리 전체</option>${ORD_CATS.map(c=>`<option ${c===ordFilterCat?'selected':''}>${c}</option>`).join('')}</select>
       <select onchange="ordFilterStatus=this.value;renderOrders()" style="padding:7px 8px;font-size:12px;border:1px solid var(--border-2);border-radius:8px;background:var(--card-bg);color:var(--text-1)"><option value="">상태 전체</option><option value="undelivered" ${ordFilterStatus==='undelivered'?'selected':''}>미배송</option><option value="unpaid" ${ordFilterStatus==='unpaid'?'selected':''}>미결제</option><option value="backorder" ${ordFilterStatus==='backorder'?'selected':''}>백오더</option></select>
@@ -10612,13 +10612,20 @@ function ordPriceViewHtml(){
   const suspects = series.filter(s=>s.suspect);
   const row = (s)=>{
     const chg = s.first>0?((s.last-s.first)/s.first*100):0;
-    const spark = s.arr.map(x=>`${(x.date||'').slice(2,7)}:$${Number(x.unitPrice).toFixed(2)}`).join('  ');
-    return `<div style="background:var(--card-bg);border:1px solid ${s.suspect?'#FCA5A5':'var(--border-2)'};border-radius:9px;padding:9px 11px;margin-bottom:7px">
-      <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline">
-        <div style="font-size:12px;font-weight:700;color:var(--text-1)">${esc(s.desc)} ${s.suspect?'<span style="background:#FEE2E2;color:#B91C1C;font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px">⚠ 단위/입력 확인</span>':''}</div>
-        <div style="font-size:11px;font-weight:700;color:${chg<-1?'#059669':chg>1?'#DC2626':'var(--text-4)'};white-space:nowrap">${chg>=0?'+':''}${chg.toFixed(0)}%</div>
+    const chgCol = chg<-1?'#059669':chg>1?'#DC2626':'var(--text-4)';
+    const pills = s.arr.map((x,idx)=>{
+      const dd=(x.date||'').slice(2,10).replace(/-/g,'/');
+      const isLast = idx===s.arr.length-1;
+      return `<span style="display:inline-flex;align-items:center;gap:5px;background:${isLast?'#EEF2FF':'rgba(127,127,140,0.08)'};border:1px solid ${isLast?'#C7D2FE':'var(--border-3)'};border-radius:6px;padding:3px 8px;margin:0 5px 5px 0;font-size:11px">
+        <span style="color:var(--text-4);font-weight:600">${dd}</span><span style="font-weight:800;color:${isLast?'#4338CA':'var(--text-1)'}">$${Number(x.unitPrice).toFixed(2)}</span></span>`;
+    }).join('');
+    return `<div style="background:var(--card-bg);border:1px solid ${s.suspect?'#FCA5A5':'var(--border-2)'};border-radius:10px;padding:11px 13px;margin-bottom:9px">
+      <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:6px">
+        <div style="font-size:12.5px;font-weight:800;color:var(--text-1)">${esc(s.desc)} ${s.suspect?'<span style="background:#FEE2E2;color:#B91C1C;font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px;white-space:nowrap">⚠ 단위/입력 확인</span>':''}</div>
+        <div style="text-align:right;white-space:nowrap"><div style="font-size:13px;font-weight:800;color:${chgCol}">${chg>=0?'+':''}${chg.toFixed(0)}%</div><div style="font-size:9px;color:var(--text-4);font-weight:600">처음→최근</div></div>
       </div>
-      <div style="font-size:10.5px;color:var(--text-3);margin-top:4px;font-family:monospace;word-break:break-all">${esc(spark)}</div>
+      <div style="font-size:11px;color:var(--text-3);margin-bottom:7px">처음 <b style="color:var(--text-1)">$${s.first.toFixed(2)}</b> → 최근 <b style="color:var(--text-1)">$${s.last.toFixed(2)}</b> &nbsp;·&nbsp; ${s.n}회 주문 &nbsp;·&nbsp; 최저 $${s.min.toFixed(2)} / 최고 $${s.max.toFixed(2)}</div>
+      <div style="line-height:1.6">${pills}</div>
     </div>`;
   };
   return `<div style="padding:14px 16px">
@@ -10628,7 +10635,7 @@ function ordPriceViewHtml(){
       <button class="btn-secondary" style="padding:7px 12px;font-size:12px" onclick="ordView='list';renderOrders()">← 목록</button>
     </div>
     <div style="background:#FEF3C7;border:1px solid #FDE68A;border-radius:9px;padding:10px 12px;margin-bottom:12px;font-size:11.5px;color:#92400E;line-height:1.6">
-      💡 Astro CI는 <b>모든 품목 개당(EA) 청구</b>(박스 주문도 개당). 아래 <b>⚠ 플래그</b>는 최고가/최저가 2배↑로 <b>단위 혼동·입력오류 의심</b> 품목이에요. 마진(20%)은 본사판매가 상한에 걸려 소모품은 실효 ~6%.
+      💡 품목별로 주문할 때마다의 <b>개당 단가(EA)</b>를 날짜순으로 나열했어요(박스 주문도 개당 청구). 오른쪽 <b>%</b>는 <b>맨 처음 주문가 대비 최근 주문가</b> 변화예요 (<span style="color:#059669;font-weight:700">초록=내림</span>, <span style="color:#DC2626;font-weight:700">빨강=오름</span>). <b>⚠ 플래그</b>는 최고가/최저가가 2배↑ 벌어져 <b>단위 혼동·입력오류 의심</b>되는 품목.
     </div>
     ${suspects.length?`<div style="font-size:12px;font-weight:800;color:#B91C1C;margin:4px 0 8px">⚠ 확인 필요 ${suspects.length}건</div>${suspects.map(row).join('')}`:''}
     <div style="font-size:12px;font-weight:800;color:var(--text-3);margin:14px 0 8px">반복구매 품목 단가 (${series.length}개)</div>
