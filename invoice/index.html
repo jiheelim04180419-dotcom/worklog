@@ -19,7 +19,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-10-19-05';
+const APP_BUILD = '2026-10-19-06';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -10426,6 +10426,8 @@ async function ordLoad(force){
 }
 function ordSuppliers(){ return [...new Set(orders.map(o=>(o.supplier||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b)); }
 function ordIsCancelled(o){ return (o.delivered||'').trim().toLowerCase()==='cancelled'; }
+// 배송완료 판정: 취소 아니고 배송일(또는 수령내용 텍스트)이 있으면 배송된 것 (픽업 포함)
+function ordDelivered(o){ if(ordIsCancelled(o)) return false; return !!((o.deliverDate||'').trim() || (o.delivered||'').trim()); }
 // 오더번호 규칙: "{순번}. {DDMMYY}" (순번=오더지 일련번호, 날짜=오더일) — 앱이 자동생성
 function ordParseNo(orderNo){ const m=(orderNo||'').match(/^\s*(\d+)\s*\./); return m?parseInt(m[1],10):null; }
 function ordNextOrderNum(){ return orders.reduce((mx,o)=>{ const n=ordParseNo(o.orderNo); return (n!=null&&n>mx)?n:mx; },0)+1; }
@@ -10438,7 +10440,7 @@ function ordGroups(){
   const filtered = orders.filter(o=>{
     if(ordFilterSup && (o.supplier||'')!==ordFilterSup) return false;
     if(ordFilterCat && (o.category||'')!==ordFilterCat) return false;
-    if(ordFilterStatus==='undelivered' && ((o.delivered||'').trim())) return false;
+    if(ordFilterStatus==='undelivered' && (ordDelivered(o) || ordIsCancelled(o))) return false;
     if(ordFilterStatus==='unpaid' && ((o.paid||'').trim() || ordIsCancelled(o))) return false;
     if(ordFilterStatus==='backorder' && !(o.backordered||'').trim()) return false;
     if(ordFilterStatus==='cancelled' && !ordIsCancelled(o)) return false;
@@ -10455,8 +10457,8 @@ function ordGroups(){
     const sups = [...new Set(lines.map(l=>(l.supplier||'').trim()).filter(Boolean))];
     const live = lines.filter(l=>!ordIsCancelled(l)); // 취소 제외한 유효 라인
     const allCancelled = lines.length>0 && live.length===0;
-    const allDeliv = live.length>0 && live.every(l=>(l.delivered||'').trim());
-    const anyDeliv = live.some(l=>(l.delivered||'').trim());
+    const allDeliv = live.length>0 && live.every(ordDelivered);
+    const anyDeliv = live.some(ordDelivered);
     const allPaid = live.length>0 && live.every(l=>(l.paid||'').trim());
     const anyPaid = live.some(l=>(l.paid||'').trim());
     const hasCancelled = lines.some(ordIsCancelled);
@@ -10472,7 +10474,7 @@ function renderOrders(){
   const groups = ordGroups();
   const totalLines = orders.length;
   const totalOrders = new Set(orders.map(o=>o.orderNo).filter(Boolean)).size;
-  const undeliv = orders.filter(o=>!(o.delivered||'').trim()).length;
+  const undeliv = orders.filter(o=>!ordIsCancelled(o) && !ordDelivered(o)).length;
   const unpaid = orders.filter(o=>!(o.paid||'').trim() && !ordIsCancelled(o)).length;
   const thisYear = new Date().getFullYear();
   const yearOrders = new Set(orders.filter(o=>(o.date||'').startsWith(thisYear)).map(o=>o.orderNo)).size;
@@ -10521,7 +10523,7 @@ function ordGroupHtml(g){
         <td style="padding:4px 6px;color:var(--text-4)">${esc(l.shade||'')}</td>
         <td style="padding:4px 6px">${esc(l.qty||'')}</td>
         <td style="padding:4px 6px;text-align:right">${l.unitPrice!=null?'$'+Number(l.unitPrice).toFixed(2):'<span style="color:var(--text-4)">-</span>'}</td>
-        <td style="padding:4px 6px">${ordIsCancelled(l)?'<span style="color:#9CA3AF;font-weight:600">✕ 취소</span>':((l.delivered||'').trim()?`<span style="color:#059669">${esc(l.delivered)}</span>${l.deliverDate?`<div style="font-size:10px;color:var(--text-4)">${ordAuDate(l.deliverDate)}</div>`:''}`:'<span style="color:#DC2626">미배송</span>')}</td>
+        <td style="padding:4px 6px">${ordIsCancelled(l)?'<span style="color:#9CA3AF;font-weight:600">✕ 취소</span>':(ordDelivered(l)?`<span style="color:#059669">${l.deliverDate?ordAuDate(l.deliverDate):''}${(l.delivered||'').trim()?(l.deliverDate?' · ':'')+esc(l.delivered):''}</span>`:'<span style="color:#DC2626">미배송</span>')}</td>
         <td style="padding:4px 6px">${ordIsCancelled(l)?'<span style="color:var(--text-4)">-</span>':((l.paid||'').trim()?`<span style="color:#2563EB">${ordAuDate(l.paid)}</span>`:'<span style="color:var(--text-4)">-</span>')}</td>
         <td style="padding:4px 6px;text-align:right;white-space:nowrap">${isInvoiceEditor()?`<button onclick="ordOpenForm('${l.id}')" style="background:none;border:none;cursor:pointer;font-size:13px" title="수정">✏️</button>`:''}</td>
       </tr>`).join('')}
