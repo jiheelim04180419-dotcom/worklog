@@ -19,7 +19,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-10-19-06';
+const APP_BUILD = '2026-10-19-07';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -1522,7 +1522,7 @@ let vehicles = []; // {id, rego, name, notes, archived, renewals:[{id, type, pro
 // 📦 발주(Astro orders): {id, seq, date, category, orderNo, supplier, code, desc, shade, qty, delivered, deliverDate, unitPrice, paid, paid2, builder, note, backordered}
 let orders = [], ordersLoaded = false;
 let ordFilterSup = '', ordFilterCat = '', ordFilterStatus = '', ordSearch = '', ordView = 'list', ordEditId = null, ordAddingOrderNo = null, ordExpanded = {};
-let ordPriceSearch = '', ordPriceOnlySuspect = false;
+let ordPriceSearch = '', ordPriceOnlySuspect = false, ordPriceSort = 'suspect';
 const VEHICLE_RENEWAL_TYPES = [
   {key:'rego',      label:'Rego (등록)',     emoji:'🚗'},
   {key:'ctp',       label:'CTP (3rd party)', emoji:'🛡️'},
@@ -10671,6 +10671,15 @@ function ordPriceViewHtml(){
   };
   const q = ordPriceSearch.toLowerCase().trim();
   const filt = series.filter(s => (!q || (s.desc||'').toLowerCase().includes(q)) && (!ordPriceOnlySuspect || s.suspect));
+  const SORTERS = {
+    suspect:(a,b)=>(b.suspect-a.suspect)||(b.n-a.n),
+    recent:(a,b)=>(b.lastDate||'').localeCompare(a.lastDate||''),
+    count:(a,b)=>(b.n-a.n)||(b.lastDate||'').localeCompare(a.lastDate||''),
+    name:(a,b)=>(a.desc||'').localeCompare(b.desc||''),
+    change:(a,b)=>Math.abs(b.lastChg?b.lastChg.pct:0)-Math.abs(a.lastChg?a.lastChg.pct:0),
+  };
+  const SORTLBL = {suspect:'기본(오류 먼저)',recent:'최근 거래순',count:'구매 횟수순',name:'이름순',change:'변동 큰순'};
+  const sorted = filt.slice().sort(SORTERS[ordPriceSort]||SORTERS.suspect);
   const fSus = filt.filter(s=>s.suspect), fNorm = filt.filter(s=>!s.suspect);
   return `<div style="padding:14px 16px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
@@ -10680,14 +10689,17 @@ function ordPriceViewHtml(){
     </div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
       <input id="ordp-search" placeholder="🔍 품목명 검색 (예: silicone, FG8, grouter)" value="${esc(ordPriceSearch)}" oninput="ordPriceSearch=this.value;clearTimeout(window._ordpT);window._ordpT=setTimeout(()=>{renderOrders();const e=document.getElementById('ordp-search');if(e){e.focus();e.setSelectionRange(e.value.length,e.value.length);}},250)" style="flex:1;min-width:170px;padding:8px 11px;font-size:13px;border:1px solid var(--border-2);border-radius:8px;background:var(--card-bg);color:var(--text-1)"/>
+      <select onchange="ordPriceSort=this.value;renderOrders()" style="padding:8px 8px;font-size:12px;border:1px solid var(--border-2);border-radius:8px;background:var(--card-bg);color:var(--text-1)">${Object.keys(SORTLBL).map(k=>`<option value="${k}" ${ordPriceSort===k?'selected':''}>${SORTLBL[k]}</option>`).join('')}</select>
       <button onclick="ordPriceOnlySuspect=!ordPriceOnlySuspect;renderOrders()" style="padding:8px 12px;font-size:12px;font-weight:700;border-radius:8px;border:1px solid ${ordPriceOnlySuspect?'#FCA5A5':'var(--border-2)'};background:${ordPriceOnlySuspect?'#FEE2E2':'var(--card-bg)'};color:${ordPriceOnlySuspect?'#B91C1C':'var(--text-3)'};cursor:pointer;white-space:nowrap">⚠ 오류만 ${ordPriceOnlySuspect?'ON':'OFF'}</button>
     </div>
     <div style="background:#FEF3C7;border:1px solid #FDE68A;border-radius:9px;padding:10px 12px;margin-bottom:12px;font-size:11.5px;color:#92400E;line-height:1.6">
       💡 품목별 <b>개당 단가(EA)</b>를 날짜순 나열(박스 주문도 개당 청구). 오른쪽 <b>%</b>는 <b>가격이 마지막으로 달랐던 시점(노란 칸) 대비 최근가</b> (<span style="color:#059669;font-weight:700">초록=내림</span>, <span style="color:#DC2626;font-weight:700">빨강=오름</span>). <b>⚠ 플래그</b>=최고/최저 2배↑ 단위·입력오류 의심.
     </div>
-    ${(q||ordPriceOnlySuspect)?`<div style="font-size:11px;color:var(--text-4);margin-bottom:8px">검색결과 ${filt.length}개${q?` · "${esc(ordPriceSearch)}"`:''}</div>`:''}
-    ${fSus.length?`<div style="font-size:12px;font-weight:800;color:#B91C1C;margin:4px 0 8px">⚠ 확인 필요 ${fSus.length}건</div>${fSus.map(row).join('')}`:''}
-    ${fNorm.length?`<div style="font-size:12px;font-weight:800;color:var(--text-3);margin:14px 0 8px">반복구매 품목 단가 (${fNorm.length}개)</div>${fNorm.map(row).join('')}`:(filt.length===0?`<div style="text-align:center;padding:30px;color:var(--text-4);font-size:13px">검색 결과가 없어요.</div>`:'')}
+    ${(q||ordPriceOnlySuspect||ordPriceSort!=='suspect')?`<div style="font-size:11px;color:var(--text-4);margin-bottom:8px">${filt.length}개${q?` · "${esc(ordPriceSearch)}"`:''} · 정렬: ${SORTLBL[ordPriceSort]}</div>`:''}
+    ${ordPriceSort==='suspect'
+      ? `${fSus.length?`<div style="font-size:12px;font-weight:800;color:#B91C1C;margin:4px 0 8px">⚠ 확인 필요 ${fSus.length}건</div>${fSus.map(row).join('')}`:''}${fNorm.length?`<div style="font-size:12px;font-weight:800;color:var(--text-3);margin:14px 0 8px">반복구매 품목 단가 (${fNorm.length}개)</div>${fNorm.map(row).join('')}`:''}`
+      : sorted.map(row).join('')}
+    ${filt.length===0?`<div style="text-align:center;padding:30px;color:var(--text-4);font-size:13px">검색 결과가 없어요.</div>`:''}
   </div>`;
 }
 function ordPriceWire(){}
