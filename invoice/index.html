@@ -19,7 +19,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-10-12-01';
+const APP_BUILD = '2026-10-19-01';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -832,6 +832,7 @@ body.invoice-readonly::before {
         <button onclick="showTab('builders');closeNavOverflow()">🏗️ 빌더</button>
         <button onclick="showTab('calendar');closeNavOverflow()" id="hd-calendar-btn" style="display:none">📅 달력</button>
         <button onclick="showTab('vehicles');closeNavOverflow()" id="hd-vehicles-btn" style="display:none">🚗 차량 관리</button>
+        <button onclick="showTab('orders');closeNavOverflow()" id="hd-orders-btn" style="display:none">📦 발주 (Astro)</button>
         <button onclick="showTab('letters');closeNavOverflow()">📝 레터</button>
         <div style="height:1px;background:rgba(0,0,0,0.06);margin:4px 0"></div>
         <button onclick="toggleTheme();closeNavOverflow()" id="theme-btn" title="테마 (D)">🌙 테마</button>
@@ -851,6 +852,7 @@ body.invoice-readonly::before {
   <div id="tab-partners" style="display:none"></div>
   <div id="tab-expenses" style="display:none"></div>
   <div id="tab-vehicles" style="display:none"></div>
+  <div id="tab-orders" style="display:none"></div>
   <div id="tab-letters" style="display:none"></div>
 </div>
 <div class="bbar">
@@ -1517,6 +1519,9 @@ let expenseVendors = []; // {id, name, order, archived}
 let monthlyPayments = []; // {id, vendorId, month:"YYYY-MM", paid, paidDate, amount, notes, status}
 let personalCardEntries = []; // {id, paidDate, name, amount, purpose, reimbursementDate, notes}
 let vehicles = []; // {id, rego, name, notes, archived, renewals:[{id, type, provider, expiry, lastPaid, cost, notes}]}
+// 📦 발주(Astro orders): {id, seq, date, category, orderNo, supplier, code, desc, shade, qty, delivered, deliverDate, unitPrice, paid, paid2, builder, note, backordered}
+let orders = [], ordersLoaded = false;
+let ordFilterSup = '', ordFilterCat = '', ordFilterStatus = '', ordSearch = '', ordView = 'list', ordEditId = null, ordAddingOrderNo = null, ordExpanded = {};
 const VEHICLE_RENEWAL_TYPES = [
   {key:'rego',      label:'Rego (등록)',     emoji:'🚗'},
   {key:'ctp',       label:'CTP (3rd party)', emoji:'🛡️'},
@@ -2050,6 +2055,8 @@ function updateAuthHeader() {
     if (expenses) expenses.style.display = '';
     const vehiclesBtn = document.getElementById('hd-vehicles-btn');
     if (vehiclesBtn) vehiclesBtn.style.display = '';
+    const ordersBtn = document.getElementById('hd-orders-btn');
+    if (ordersBtn) ordersBtn.style.display = '';
     // 권한 관리 / 달력 / 일괄 입금 등록: 최상위 관리자(admin/superadmin) 만
     if (userRole === 'admin' || userRole === 'superadmin') {
       const perm = document.getElementById('hd-perm-btn');
@@ -2156,7 +2163,7 @@ function filterByBuilder(name) {
 }
 
 function showTab(t) {
-  ['invoices','builders','stats','calendar','partners','expenses','vehicles','letters'].forEach(id => {
+  ['invoices','builders','stats','calendar','partners','expenses','vehicles','orders','letters'].forEach(id => {
     const el = document.getElementById('tab-'+id); if (el) el.style.display = id===t?'block':'none';
   });
   document.querySelectorAll('.nav button').forEach(b => {
@@ -2171,6 +2178,7 @@ function showTab(t) {
   if (t==='partners') renderPartners();
   if (t==='expenses') renderExpenses();
   if (t==='vehicles') renderVehicles();
+  if (t==='orders') renderOrders();
   if (t==='letters') renderLetters();
 }
 
@@ -10405,6 +10413,229 @@ function _vhStatus(daysLeft) {
   if (daysLeft <= 90)    return { color:'#92400E', bg:'#FFFBEB', label:`${daysLeft}일`, icon:'🟡' };
   return                       { color:'#065F46', bg:'#D1FAE5', label:`${daysLeft}일`, icon:'✅' };
 }
+
+// ═══════════════════════ 📦 발주 (Astro Orders) ═══════════════════════
+const ORD_CATS = ['Tiles','Materials','Bathware'];
+async function ordLoad(force){
+  if(ordersLoaded && !force) return;
+  const raw = await fbGet('astroOrders');
+  orders = raw ? Object.entries(raw).map(([id,v])=>({...v,id})) : [];
+  orders.sort((a,b)=>(b.date||'').localeCompare(a.date||'') || (b.seq||0)-(a.seq||0));
+  ordersLoaded = true;
+}
+function ordSuppliers(){ return [...new Set(orders.map(o=>(o.supplier||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b)); }
+function ordAuDate(s){ return s ? isoToAu(s) : ''; }
+function ordNextSeq(){ return orders.reduce((m,o)=>Math.max(m, o.seq||0), 0) + 1; }
+// 주문번호별 묶음
+function ordGroups(){
+  const filtered = orders.filter(o=>{
+    if(ordFilterSup && (o.supplier||'')!==ordFilterSup) return false;
+    if(ordFilterCat && (o.category||'')!==ordFilterCat) return false;
+    if(ordFilterStatus==='undelivered' && (o.delivered||'').trim()) return false;
+    if(ordFilterStatus==='unpaid' && (o.paid||'').trim()) return false;
+    if(ordFilterStatus==='backorder' && !(o.backordered||'').trim()) return false;
+    if(ordSearch){ const q=ordSearch.toLowerCase();
+      if(!((o.desc||'')+(o.code||'')+(o.orderNo||'')+(o.supplier||'')+(o.note||'')+(o.builder||'')).toLowerCase().includes(q)) return false; }
+    return true;
+  });
+  const map = {};
+  filtered.forEach(o=>{ const k=o.orderNo||'(번호없음)'; (map[k]=map[k]||[]).push(o); });
+  // 그룹 배열: 날짜 내림차순
+  return Object.entries(map).map(([no,lines])=>{
+    lines.sort((a,b)=>(a.seq||0)-(b.seq||0));
+    const date = lines[0].date||'';
+    const sups = [...new Set(lines.map(l=>(l.supplier||'').trim()).filter(Boolean))];
+    const allDeliv = lines.every(l=>(l.delivered||'').trim());
+    const anyDeliv = lines.some(l=>(l.delivered||'').trim());
+    const allPaid = lines.every(l=>(l.paid||'').trim());
+    const anyPaid = lines.some(l=>(l.paid||'').trim());
+    return {no, lines, date, sups, allDeliv, anyDeliv, allPaid, anyPaid};
+  }).sort((a,b)=>(b.date||'').localeCompare(a.date||'') || (b.no).localeCompare(a.no));
+}
+function renderOrders(){
+  const el = document.getElementById('tab-orders');
+  if(!el) return;
+  if(!ordersLoaded){ el.innerHTML = '<div class="empty" style="padding:40px;text-align:center;color:var(--text-4)"><div style="font-size:30px;margin-bottom:8px">⏳</div>발주 데이터 로딩 중…</div>'; ordLoad().then(()=>renderOrders()); return; }
+  if(ordView==='price'){ el.innerHTML = ordPriceViewHtml(); ordPriceWire(); return; }
+
+  const groups = ordGroups();
+  const totalLines = orders.length;
+  const totalOrders = new Set(orders.map(o=>o.orderNo).filter(Boolean)).size;
+  const undeliv = orders.filter(o=>!(o.delivered||'').trim()).length;
+  const unpaid = orders.filter(o=>!(o.paid||'').trim()).length;
+  const thisYear = new Date().getFullYear();
+  const yearOrders = new Set(orders.filter(o=>(o.date||'').startsWith(thisYear)).map(o=>o.orderNo)).size;
+  const sups = ordSuppliers();
+  const chip = (lbl,val,col)=>`<div style="background:var(--card-bg);border:1px solid var(--border-2);border-radius:9px;padding:8px 12px;min-width:84px"><div style="font-size:10px;color:var(--text-4);font-weight:700">${lbl}</div><div style="font-size:17px;font-weight:800;color:${col||'var(--text-1)'}">${val}</div></div>`;
+
+  let h = `<div style="padding:14px 16px">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+      <div><h2 style="margin:0;font-size:18px;font-weight:800;color:var(--text-1)">📦 발주 (Astro)</h2>
+      <p style="margin:2px 0 0;font-size:11px;color:var(--text-4)">오더 장부 · 단가 추이 · PO/레미턴스는 Claude가 생성·발송</p></div>
+      <div style="display:flex;gap:6px">
+        <button class="btn-secondary" style="padding:7px 11px;font-size:12px" onclick="ordView='${ordView==='price'?'list':'price'}';renderOrders()">📈 단가추이</button>
+        <button class="btn-primary" style="padding:7px 12px;font-size:12px" onclick="ordOpenForm('new')">＋ 발주 추가</button>
+      </div>
+    </div>
+    <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px">
+      ${chip('총 오더', totalOrders)}${chip('총 라인', totalLines)}${chip('미배송', undeliv, undeliv?'#D97706':'var(--text-1)')}${chip('미결제', unpaid, unpaid?'#DC2626':'var(--text-1)')}${chip(thisYear+' 오더', yearOrders,'#6366F1')}
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+      <input id="ord-search" placeholder="🔍 품목·코드·오더번호·빌더…" value="${esc(ordSearch)}" oninput="ordSearch=this.value;clearTimeout(window._ordT);window._ordT=setTimeout(renderOrders,250)" style="flex:1;min-width:150px;padding:7px 10px;font-size:12px;border:1px solid var(--border-2);border-radius:8px;background:var(--card-bg);color:var(--text-1)"/>
+      <select onchange="ordFilterSup=this.value;renderOrders()" style="padding:7px 8px;font-size:12px;border:1px solid var(--border-2);border-radius:8px;background:var(--card-bg);color:var(--text-1)"><option value="">서플라이어 전체</option>${sups.map(s=>`<option ${s===ordFilterSup?'selected':''}>${esc(s)}</option>`).join('')}</select>
+      <select onchange="ordFilterCat=this.value;renderOrders()" style="padding:7px 8px;font-size:12px;border:1px solid var(--border-2);border-radius:8px;background:var(--card-bg);color:var(--text-1)"><option value="">카테고리 전체</option>${ORD_CATS.map(c=>`<option ${c===ordFilterCat?'selected':''}>${c}</option>`).join('')}</select>
+      <select onchange="ordFilterStatus=this.value;renderOrders()" style="padding:7px 8px;font-size:12px;border:1px solid var(--border-2);border-radius:8px;background:var(--card-bg);color:var(--text-1)"><option value="">상태 전체</option><option value="undelivered" ${ordFilterStatus==='undelivered'?'selected':''}>미배송</option><option value="unpaid" ${ordFilterStatus==='unpaid'?'selected':''}>미결제</option><option value="backorder" ${ordFilterStatus==='backorder'?'selected':''}>백오더</option></select>
+    </div>
+    ${ordEditId ? ordFormHtml() : ''}
+    <div style="font-size:11px;color:var(--text-4);margin-bottom:8px">${groups.length}개 오더 · ${groups.reduce((s,g)=>s+g.lines.length,0)}개 라인</div>
+    ${groups.length===0 ? `<div style="text-align:center;padding:36px;color:var(--text-4);font-size:13px;background:var(--card-bg);border-radius:10px;border:1px dashed var(--border-2)">조건에 맞는 발주가 없어요.</div>` : groups.map(ordGroupHtml).join('')}
+  </div>`;
+  el.innerHTML = h;
+}
+function ordBadge(txt,bg,col){ return `<span style="background:${bg};color:${col};font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px">${txt}</span>`; }
+function ordGroupHtml(g){
+  const open = !!ordExpanded[g.no];
+  const delivB = g.allDeliv ? ordBadge('✓ 배송완료','#D1FAE5','#065F46') : g.anyDeliv ? ordBadge('부분배송','#FEF3C7','#92400E') : ordBadge('미배송','#FEE2E2','#B91C1C');
+  const paidB = g.allPaid ? ordBadge('✓ 결제완료','#DBEAFE','#1E40AF') : g.anyPaid ? ordBadge('부분결제','#FEF3C7','#92400E') : ordBadge('미결제','#F3F4F6','#6B7280');
+  let lines = '';
+  if(open){
+    lines = `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11.5px;margin-top:8px">
+      <thead><tr style="color:var(--text-4);text-align:left;border-bottom:1px solid var(--border-3)">
+        <th style="padding:4px 6px">서플라이어</th><th style="padding:4px 6px">코드</th><th style="padding:4px 6px">설명</th><th style="padding:4px 6px">쉐이드</th><th style="padding:4px 6px">수량</th><th style="padding:4px 6px;text-align:right">단가</th><th style="padding:4px 6px">배송</th><th style="padding:4px 6px">결제</th><th style="padding:4px 6px"></th></tr></thead><tbody>
+      ${g.lines.map(l=>`<tr style="border-bottom:1px solid var(--border-3)">
+        <td style="padding:4px 6px;font-weight:600">${esc(l.supplier||'')}</td>
+        <td style="padding:4px 6px;color:var(--text-4)">${esc(l.code||'')}</td>
+        <td style="padding:4px 6px">${esc(l.desc||'')}${l.note?`<div style="font-size:10px;color:var(--text-4);font-style:italic">📝 ${esc(l.note)}</div>`:''}</td>
+        <td style="padding:4px 6px;color:var(--text-4)">${esc(l.shade||'')}</td>
+        <td style="padding:4px 6px">${esc(l.qty||'')}</td>
+        <td style="padding:4px 6px;text-align:right">${l.unitPrice!=null?'$'+Number(l.unitPrice).toFixed(2):'<span style="color:var(--text-4)">-</span>'}</td>
+        <td style="padding:4px 6px">${(l.delivered||'').trim()?`<span style="color:#059669">${esc(l.delivered)}</span>${l.deliverDate?`<div style="font-size:10px;color:var(--text-4)">${ordAuDate(l.deliverDate)}</div>`:''}`:'<span style="color:#DC2626">미배송</span>'}</td>
+        <td style="padding:4px 6px">${(l.paid||'').trim()?`<span style="color:#2563EB">${ordAuDate(l.paid)}</span>`:'<span style="color:var(--text-4)">-</span>'}</td>
+        <td style="padding:4px 6px;text-align:right;white-space:nowrap">${isInvoiceEditor()?`<button onclick="ordOpenForm('${l.id}')" style="background:none;border:none;cursor:pointer;font-size:13px" title="수정">✏️</button>`:''}</td>
+      </tr>`).join('')}
+      </tbody></table></div>
+      ${isInvoiceEditor()?`<button class="btn-secondary" style="margin-top:8px;padding:5px 10px;font-size:11px" onclick="ordOpenForm('new','${encodeURIComponent(g.no)}')">＋ 이 오더에 라인 추가</button>`:''}`;
+  }
+  return `<div style="background:var(--card-bg);border:1px solid var(--border-2);border-radius:11px;padding:11px 13px;margin-bottom:9px">
+    <div style="display:flex;align-items:center;gap:9px;cursor:pointer" onclick="ordExpanded['${esc(g.no)}']=${!open};renderOrders()">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:800;color:var(--text-1)">${esc(g.no)} <span style="font-weight:500;color:var(--text-4);font-size:11px">· ${ordAuDate(g.date)}</span></div>
+        <div style="font-size:11px;color:var(--text-3);margin-top:2px">${g.lines.length}개 품목${g.sups.length?' · '+g.sups.map(esc).join(', '):''}</div>
+      </div>
+      <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end">${delivB}${paidB}<span style="color:var(--text-4);font-size:13px">${open?'▲':'▼'}</span></div>
+    </div>
+    ${lines}
+  </div>`;
+}
+function ordFormHtml(){
+  const isNew = ordEditId==='new';
+  const o = isNew ? {orderNo: ordAddingOrderNo?decodeURIComponent(ordAddingOrderNo):'', date:new Date().toISOString().slice(0,10), category:'Materials'} : (orders.find(x=>x.id===ordEditId)||{});
+  const f = (k)=>esc(o[k]!=null?String(o[k]):'');
+  const inp = (k,ph,extra='')=>`<input id="ordf-${k}" value="${f(k)}" placeholder="${ph}" ${extra} style="width:100%;padding:6px 8px;font-size:12px;border:1px solid var(--border-2);border-radius:7px;background:var(--card-bg);color:var(--text-1);box-sizing:border-box"/>`;
+  const sups = ordSuppliers();
+  return `<div style="background:var(--card-bg);border:2px solid #6366F1;border-radius:11px;padding:13px;margin-bottom:12px">
+    <div style="font-size:13px;font-weight:800;color:#6366F1;margin-bottom:9px">${isNew?'＋ 발주 라인 추가':'✏️ 발주 라인 수정'}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div><label style="font-size:10px;color:var(--text-4);font-weight:700">오더번호</label>${inp('orderNo','예: 373. 161026')}</div>
+      <div><label style="font-size:10px;color:var(--text-4);font-weight:700">오더일</label>${inp('date','','type="date"')}</div>
+      <div><label style="font-size:10px;color:var(--text-4);font-weight:700">카테고리</label><select id="ordf-category" style="width:100%;padding:6px 8px;font-size:12px;border:1px solid var(--border-2);border-radius:7px;background:var(--card-bg);color:var(--text-1)">${ORD_CATS.map(c=>`<option ${o.category===c?'selected':''}>${c}</option>`).join('')}</select></div>
+      <div><label style="font-size:10px;color:var(--text-4);font-weight:700">서플라이어</label>${inp('supplier','예: Ardex','list="ordf-suplist"')}<datalist id="ordf-suplist">${sups.map(s=>`<option value="${esc(s)}">`).join('')}</datalist></div>
+      <div><label style="font-size:10px;color:var(--text-4);font-weight:700">코드</label>${inp('code','제품코드')}</div>
+      <div><label style="font-size:10px;color:var(--text-4);font-weight:700">쉐이드</label>${inp('shade','')}</div>
+      <div style="grid-column:1/3"><label style="font-size:10px;color:var(--text-4);font-weight:700">설명</label>${inp('desc','품목 설명')}</div>
+      <div><label style="font-size:10px;color:var(--text-4);font-weight:700">수량</label>${inp('qty','예: 3box / 150ea')}</div>
+      <div><label style="font-size:10px;color:var(--text-4);font-weight:700">단가(개당, exGST)</label>${inp('unitPrice','','type="number" step="0.01"')}</div>
+      <div><label style="font-size:10px;color:var(--text-4);font-weight:700">배송(수령내용)</label>${inp('delivered','예: 3 boxes')}</div>
+      <div><label style="font-size:10px;color:var(--text-4);font-weight:700">배송일</label>${inp('deliverDate','','type="date"')}</div>
+      <div><label style="font-size:10px;color:var(--text-4);font-weight:700">결제일</label>${inp('paid','','type="date"')}</div>
+      <div><label style="font-size:10px;color:var(--text-4);font-weight:700">빌더</label>${inp('builder','')}</div>
+      <div style="grid-column:1/3"><label style="font-size:10px;color:var(--text-4);font-weight:700">메모/주소</label>${inp('note','')}</div>
+      <div><label style="font-size:10px;color:var(--text-4);font-weight:700">백오더</label>${inp('backordered','')}</div>
+    </div>
+    <div style="display:flex;gap:7px;margin-top:11px;justify-content:flex-end">
+      ${!isNew?`<button class="btn-secondary" style="padding:6px 11px;font-size:12px;color:#DC2626;border-color:#FCA5A5" onclick="ordDelete('${ordEditId}')">🗑 삭제</button>`:''}
+      <button class="btn-secondary" style="padding:6px 12px;font-size:12px" onclick="ordEditId=null;ordAddingOrderNo=null;renderOrders()">취소</button>
+      <button class="btn-primary" style="padding:6px 14px;font-size:12px" onclick="ordSave()">저장</button>
+    </div>
+  </div>`;
+}
+function ordOpenForm(id, orderNo){ if(!isInvoiceEditor()) return _guardWrite(); ordEditId=id; ordAddingOrderNo=orderNo||null; renderOrders(); setTimeout(()=>{const e=document.getElementById('ordf-desc');if(e)e.focus();},50); }
+async function ordSave(){
+  if(!isInvoiceEditor()) return _guardWrite();
+  const g = (k)=>{ const e=document.getElementById('ordf-'+k); return e?e.value.trim():''; };
+  const up = g('unitPrice');
+  const rec = { orderNo:g('orderNo'), date:g('date'), category:g('category'), supplier:g('supplier'), code:g('code'),
+    desc:g('desc'), shade:g('shade'), qty:g('qty'), delivered:g('delivered'), deliverDate:g('deliverDate'),
+    unitPrice: up===''?null:(parseFloat(up)||null), paid:g('paid'), paid2:'', builder:g('builder'), note:g('note'), backordered:g('backordered') };
+  if(!rec.desc && !rec.code){ alert('품목 설명이나 코드를 입력하세요.'); return; }
+  if(ordEditId==='new'){
+    const id='o'+Date.now(); rec.seq=ordNextSeq();
+    await fbSet('astroOrders/'+id, rec);
+    orders.push({...rec,id});
+  } else {
+    const cur = orders.find(x=>x.id===ordEditId)||{};
+    rec.seq = cur.seq||ordNextSeq();
+    await fbSet('astroOrders/'+ordEditId, rec);
+    Object.assign(cur, rec);
+  }
+  orders.sort((a,b)=>(b.date||'').localeCompare(a.date||'') || (b.seq||0)-(a.seq||0));
+  ordEditId=null; ordAddingOrderNo=null; renderOrders();
+}
+async function ordDelete(id){
+  if(!isInvoiceEditor()) return _guardWrite();
+  if(!confirm('이 발주 라인을 삭제할까요?')) return;
+  await fbSet('astroOrders/'+id, null);
+  orders = orders.filter(o=>o.id!==id);
+  ordEditId=null; renderOrders();
+}
+// ── 단가 추이 + 데이터오류 플래그 ──
+function ordNorm(s){ return (s||'').toLowerCase().replace(/\s+/g,' ').trim().slice(0,34); }
+function ordPriceSeries(){
+  const map={};
+  orders.forEach(o=>{ if(o.unitPrice==null||!o.desc) return; const k=(o.code||'').trim()||ordNorm(o.desc);
+    (map[k]=map[k]||[]).push(o); });
+  const out=[];
+  Object.entries(map).forEach(([k,arr])=>{
+    if(arr.length<2) return;
+    arr.sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+    const ups=arr.map(x=>Number(x.unitPrice));
+    const min=Math.min(...ups), max=Math.max(...ups);
+    // 데이터오류 의심: 최대/최소 비율 2배↑
+    const suspect = min>0 && (max/min)>=2;
+    out.push({key:k, desc:arr[arr.length-1].desc, n:arr.length, min, max, suspect, arr, last:ups[ups.length-1], first:ups[0]});
+  });
+  out.sort((a,b)=>(b.suspect-a.suspect) || (b.n-a.n));
+  return out;
+}
+function ordPriceViewHtml(){
+  const series = ordPriceSeries();
+  const suspects = series.filter(s=>s.suspect);
+  const row = (s)=>{
+    const chg = s.first>0?((s.last-s.first)/s.first*100):0;
+    const spark = s.arr.map(x=>`${(x.date||'').slice(2,7)}:$${Number(x.unitPrice).toFixed(2)}`).join('  ');
+    return `<div style="background:var(--card-bg);border:1px solid ${s.suspect?'#FCA5A5':'var(--border-2)'};border-radius:9px;padding:9px 11px;margin-bottom:7px">
+      <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline">
+        <div style="font-size:12px;font-weight:700;color:var(--text-1)">${esc(s.desc)} ${s.suspect?'<span style="background:#FEE2E2;color:#B91C1C;font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px">⚠ 단위/입력 확인</span>':''}</div>
+        <div style="font-size:11px;font-weight:700;color:${chg<-1?'#059669':chg>1?'#DC2626':'var(--text-4)'};white-space:nowrap">${chg>=0?'+':''}${chg.toFixed(0)}%</div>
+      </div>
+      <div style="font-size:10.5px;color:var(--text-3);margin-top:4px;font-family:monospace;word-break:break-all">${esc(spark)}</div>
+    </div>`;
+  };
+  return `<div style="padding:14px 16px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div><h2 style="margin:0;font-size:18px;font-weight:800;color:var(--text-1)">📈 단가 추이</h2>
+      <p style="margin:2px 0 0;font-size:11px;color:var(--text-4)">품목별 개당 단가 변화 · 단위/입력오류 플래그</p></div>
+      <button class="btn-secondary" style="padding:7px 12px;font-size:12px" onclick="ordView='list';renderOrders()">← 목록</button>
+    </div>
+    <div style="background:#FEF3C7;border:1px solid #FDE68A;border-radius:9px;padding:10px 12px;margin-bottom:12px;font-size:11.5px;color:#92400E;line-height:1.6">
+      💡 Astro CI는 <b>모든 품목 개당(EA) 청구</b>(박스 주문도 개당). 아래 <b>⚠ 플래그</b>는 최고가/최저가 2배↑로 <b>단위 혼동·입력오류 의심</b> 품목이에요. 마진(20%)은 본사판매가 상한에 걸려 소모품은 실효 ~6%.
+    </div>
+    ${suspects.length?`<div style="font-size:12px;font-weight:800;color:#B91C1C;margin:4px 0 8px">⚠ 확인 필요 ${suspects.length}건</div>${suspects.map(row).join('')}`:''}
+    <div style="font-size:12px;font-weight:800;color:var(--text-3);margin:14px 0 8px">반복구매 품목 단가 (${series.length}개)</div>
+    ${series.filter(s=>!s.suspect).map(row).join('')}
+  </div>`;
+}
+function ordPriceWire(){}
 
 function renderVehicles() {
   const active   = vehicles.filter(v => !v.archived);
