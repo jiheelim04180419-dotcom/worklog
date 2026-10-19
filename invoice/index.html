@@ -19,7 +19,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-10-19-08';
+const APP_BUILD = '2026-10-19-09';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -1523,6 +1523,7 @@ let vehicles = []; // {id, rego, name, notes, archived, renewals:[{id, type, pro
 let orders = [], ordersLoaded = false;
 let ordFilterSup = '', ordFilterCat = '', ordFilterStatus = '', ordSearch = '', ordView = 'list', ordEditId = null, ordAddingOrderNo = null, ordExpanded = {};
 let ordPriceSearch = '', ordPriceOnlySuspect = false, ordPriceSort = 'suspect';
+let remitSel = {}, remitInvNo = {}, remitPayDate = '';
 const VEHICLE_RENEWAL_TYPES = [
   {key:'rego',      label:'Rego (등록)',     emoji:'🚗'},
   {key:'ctp',       label:'CTP (3rd party)', emoji:'🛡️'},
@@ -10464,7 +10465,10 @@ function ordGroups(){
     const hasCancelled = lines.some(ordIsCancelled);
     const totLine = lines.find(l=>l.invTotal!=null);
     const invTotal = totLine ? Number(totLine.invTotal) : null;
-    return {no, lines, date, sups, allDeliv, anyDeliv, allPaid, anyPaid, allCancelled, hasCancelled, invTotal};
+    const ciDate = totLine && totLine.ciDate ? totLine.ciDate : '';
+    const invNoLine = lines.find(l=>l.invNo);
+    const invNo = invNoLine ? invNoLine.invNo : '';
+    return {no, lines, date, sups, allDeliv, anyDeliv, allPaid, anyPaid, allCancelled, hasCancelled, invTotal, ciDate, invNo, totLineId:(totLine?totLine.id:null)};
   }).sort((a,b)=>(b.date||'').localeCompare(a.date||'') || (b.no).localeCompare(a.no));
 }
 function renderOrders(){
@@ -10472,6 +10476,7 @@ function renderOrders(){
   if(!el) return;
   if(!ordersLoaded){ el.innerHTML = '<div class="empty" style="padding:40px;text-align:center;color:var(--text-4)"><div style="font-size:30px;margin-bottom:8px">⏳</div>발주 데이터 로딩 중…</div>'; ordLoad().then(()=>renderOrders()); return; }
   if(ordView==='price'){ el.innerHTML = ordPriceViewHtml(); ordPriceWire(); return; }
+  if(ordView==='remit'){ el.innerHTML = ordRemitViewHtml(); ordRemitWire(); return; }
 
   const groups = ordGroups();
   const totalLines = orders.length;
@@ -10489,6 +10494,7 @@ function renderOrders(){
       <p style="margin:2px 0 0;font-size:11px;color:var(--text-4)">오더 장부 · 단가 추이 · PO/레미턴스는 Claude가 생성·발송</p></div>
       <div style="display:flex;gap:6px">
         <button class="btn-secondary" style="padding:7px 11px;font-size:12px" onclick="ordView='${ordView==='price'?'list':'price'}';renderOrders()">📈 단가추이</button>
+        <button class="btn-secondary" style="padding:7px 11px;font-size:12px" onclick="ordView='remit';renderOrders()">🧾 레미턴스</button>
         <button class="btn-primary" style="padding:7px 12px;font-size:12px" onclick="ordOpenForm('new')">＋ 발주 추가</button>
       </div>
     </div>
@@ -10617,6 +10623,92 @@ async function ordDelete(id){
   await fbSet('astroOrders/'+id, null);
   orders = orders.filter(o=>o.id!==id);
   ordEditId=null; renderOrders();
+}
+// ── 레미턴스 빌더 (결제통지서) ──
+// ORANGE 인보이스번호 기본값: 저장된 invNo 있으면 그대로, 없으면 CI날짜(없으면 오더일) DDMMYY + "ORANGE"
+function ordRemitDefaultInvNo(g){
+  if(g.invNo) return g.invNo;
+  const base = g.ciDate || g.date || '';
+  const p = String(base).split('-');
+  return p.length===3 ? (p[2]+p[1]+p[0].slice(2)+'ORANGE') : '';
+}
+function ordRemitCands(){
+  // 총액(invTotal) 있는 오더만 레미턴스 대상. 전부취소 제외. 오래된순(결제 묶기 자연스럽게)
+  return ordGroups().filter(g=>g.invTotal!=null && !g.allCancelled)
+    .sort((a,b)=>(a.date||'').localeCompare(b.date||'') || a.no.localeCompare(b.no));
+}
+function ordRemitViewHtml(){
+  if(!remitPayDate) remitPayDate = new Date().toISOString().slice(0,10);
+  const cands = ordRemitCands();
+  const sel = cands.filter(g=>remitSel[g.no]);
+  const total = sel.reduce((s,g)=>s+(g.invTotal||0),0);
+  const money = v=>'$'+Number(v||0).toLocaleString('en-AU',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const row = g=>{
+    const on = !!remitSel[g.no];
+    const paidB = g.allPaid ? '<span style="background:#DBEAFE;color:#1E40AF;font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px">결제완료</span>'
+                            : (g.anyPaid ? '<span style="background:#FEF3C7;color:#92400E;font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px">부분결제</span>' : '');
+    const invNoVal = remitInvNo[g.no]!=null ? remitInvNo[g.no] : ordRemitDefaultInvNo(g);
+    return `<div style="border:1px solid ${on?'#6366F1':'var(--border-2)'};background:${on?'rgba(99,102,241,0.06)':'var(--card-bg)'};border-radius:9px;padding:9px 11px;margin-bottom:7px">
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+        <input type="checkbox" ${on?'checked':''} onchange="remitSel['${esc(g.no)}']=this.checked;renderOrders()" style="width:17px;height:17px;flex-shrink:0"/>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12.5px;font-weight:800;color:var(--text-1)">${esc(g.no)} <span style="font-weight:500;color:var(--text-4);font-size:10.5px">· ${ordAuDate(g.date)}</span> ${paidB}</div>
+          <div style="font-size:10.5px;color:var(--text-3);margin-top:1px">${g.sups.map(esc).join(', ')}</div>
+        </div>
+        <div style="font-size:13px;font-weight:800;color:#059669;white-space:nowrap">${money(g.invTotal)}</div>
+      </label>
+      ${on?`<div style="display:flex;align-items:center;gap:7px;margin-top:8px;padding-top:8px;border-top:1px dashed var(--border-3)">
+        <label style="font-size:10px;color:var(--text-4);font-weight:700;white-space:nowrap">Invoice No.</label>
+        <input value="${esc(invNoVal)}" oninput="remitInvNo['${esc(g.no)}']=this.value" placeholder="예: 161026ORANGE" style="flex:1;min-width:90px;padding:4px 7px;font-size:11.5px;border:1px solid var(--border-2);border-radius:6px;background:var(--card-bg);color:var(--text-1)"/>
+        <span style="font-size:10px;color:var(--text-4);white-space:nowrap">CI날짜 ${g.ciDate?ordAuDate(g.ciDate):'<i>미정</i>'}</span>
+      </div>`:''}
+    </div>`;
+  };
+  return `<div style="padding:14px 16px">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+      <div><h2 style="margin:0;font-size:18px;font-weight:800;color:var(--text-1)">🧾 레미턴스 빌더</h2>
+      <p style="margin:2px 0 0;font-size:11px;color:var(--text-4)">결제할 오더 선택 → 합산 → Claude가 레미턴스 생성·발송</p></div>
+      <button class="btn-secondary" style="padding:7px 12px;font-size:12px" onclick="ordView='list';renderOrders()">← 목록</button>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;background:var(--card-bg);border:1px solid var(--border-2);border-radius:10px;padding:10px 12px">
+      <label style="font-size:11px;color:var(--text-4);font-weight:700">결제일</label>
+      <input type="date" value="${esc(remitPayDate)}" onchange="remitPayDate=this.value;renderOrders()" style="padding:6px 9px;font-size:12px;border:1px solid var(--border-2);border-radius:7px;background:var(--card-bg);color:var(--text-1)"/>
+      <div style="flex:1"></div>
+      <div style="text-align:right"><div style="font-size:10px;color:var(--text-4);font-weight:700">선택 ${sel.length}건 합계 (Payment Amount)</div>
+      <div style="font-size:19px;font-weight:800;color:#059669">${money(total)}</div></div>
+    </div>
+    ${cands.length===0 ? `<div style="text-align:center;padding:36px;color:var(--text-4);font-size:13px;background:var(--card-bg);border-radius:10px;border:1px dashed var(--border-2)">총액이 입력된 오더가 아직 없어요.<br><span style="font-size:11px">오더 상세의 💰총액(invTotal)이 채워지면 여기 나타납니다.</span></div>`
+      : `<div style="font-size:11px;color:var(--text-4);margin-bottom:8px">총액 있는 오더 ${cands.length}건 · 결제할 오더를 체크하세요</div>${cands.map(row).join('')}`}
+    ${sel.length ? `<button class="btn-primary" style="width:100%;margin-top:10px;padding:12px;font-size:14px;font-weight:800" onclick="ordRemitRequest()">🧾 레미턴스 생성 요청 (${sel.length}건 · ${money(total)})</button>
+      <p style="font-size:10.5px;color:var(--text-4);text-align:center;margin-top:7px">요청하면 선택 오더가 결제완료(${ordDMY(remitPayDate)})로 표시되고, Claude가 엑셀 생성 후 Astro로 발송합니다.</p>`:''}
+  </div>`;
+}
+function ordRemitWire(){ /* 입력 바인딩은 인라인 핸들러로 처리 */ }
+async function ordRemitRequest(){
+  if(!isInvoiceEditor()) return _guardWrite();
+  const sel = ordRemitCands().filter(g=>remitSel[g.no]);
+  if(!sel.length){ alert('레미턴스에 넣을 오더를 선택하세요.'); return; }
+  if(!remitPayDate){ alert('결제일을 입력하세요.'); return; }
+  const orderList = sel.map(g=>{
+    const invNo = ((remitInvNo[g.no]!=null?remitInvNo[g.no]:ordRemitDefaultInvNo(g))||'').trim();
+    return { orderNo:g.no, invNo, invDate:(g.ciDate||g.date||''), invTotal:Number(g.invTotal),
+             amountPaid:Number(g.invTotal), stillOwing:0 };
+  });
+  const total = orderList.reduce((s,o)=>s+o.invTotal,0);
+  const money = v=>'$'+Number(v).toLocaleString('en-AU',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const lines = orderList.map(o=>`• ${o.orderNo} (${o.invNo||'번호미정'}) — ${money(o.invTotal)}`).join('\n');
+  if(!confirm(`레미턴스 생성 요청\n\n결제일: ${ordDMY(remitPayDate)}\n오더 ${sel.length}건:\n${lines}\n\nPayment Amount: ${money(total)}\n\n선택 오더를 '결제완료(${ordDMY(remitPayDate)})'로 표시하고, Claude가 생성·발송하도록 요청합니다. 진행할까요?`)) return;
+  for(const g of sel){
+    const invNo = ((remitInvNo[g.no]!=null?remitInvNo[g.no]:ordRemitDefaultInvNo(g))||'').trim();
+    if(g.totLineId && invNo){ await fbSet('astroOrders/'+g.totLineId+'/invNo', invNo); const tl=orders.find(o=>o.id===g.totLineId); if(tl) tl.invNo=invNo; }
+    for(const l of g.lines){ if(ordIsCancelled(l)) continue; if(!(l.paid||'').trim()){ await fbSet('astroOrders/'+l.id+'/paid', remitPayDate); l.paid=remitPayDate; } }
+  }
+  const draft = { payDate:remitPayDate, total, orders:orderList, status:'requested',
+                  by:(sessionStorage.getItem('invoice_user_name')||''), at:new Date().toISOString() };
+  await fbPush('remittanceDrafts', draft);
+  remitSel={}; remitInvNo={};
+  alert('✅ 레미턴스 요청이 저장됐어요.\n\n이제 Claude에게 "레미턴스 보내줘" 라고 하시면,\n이 내용으로 엑셀을 생성해 Astro에 발송합니다.\n\n(선택한 오더는 결제완료로 표시됐어요.)');
+  renderOrders();
 }
 // ── 단가 추이 + 데이터오류 플래그 ──
 function ordNorm(s){ return (s||'').toLowerCase().replace(/\s+/g,' ').trim().slice(0,34); }
