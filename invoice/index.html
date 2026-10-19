@@ -19,7 +19,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-10-19-07';
+const APP_BUILD = '2026-10-19-08';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -10462,7 +10462,9 @@ function ordGroups(){
     const allPaid = live.length>0 && live.every(l=>(l.paid||'').trim());
     const anyPaid = live.some(l=>(l.paid||'').trim());
     const hasCancelled = lines.some(ordIsCancelled);
-    return {no, lines, date, sups, allDeliv, anyDeliv, allPaid, anyPaid, allCancelled, hasCancelled};
+    const totLine = lines.find(l=>l.invTotal!=null);
+    const invTotal = totLine ? Number(totLine.invTotal) : null;
+    return {no, lines, date, sups, allDeliv, anyDeliv, allPaid, anyPaid, allCancelled, hasCancelled, invTotal};
   }).sort((a,b)=>(b.date||'').localeCompare(a.date||'') || (b.no).localeCompare(a.no));
 }
 function renderOrders(){
@@ -10534,7 +10536,7 @@ function ordGroupHtml(g){
     <div style="display:flex;align-items:center;gap:9px;cursor:pointer" onclick="ordExpanded['${esc(g.no)}']=${!open};renderOrders()">
       <div style="flex:1;min-width:0">
         <div style="font-size:13px;font-weight:800;color:var(--text-1)">${esc(g.no)} <span style="font-weight:500;color:var(--text-4);font-size:11px">· ${ordAuDate(g.date)}</span></div>
-        <div style="font-size:11px;color:var(--text-3);margin-top:2px">${g.lines.length}개 품목${g.sups.length?' · '+g.sups.map(esc).join(', '):''}</div>
+        <div style="font-size:11px;color:var(--text-3);margin-top:2px">${g.lines.length}개 품목${g.sups.length?' · '+g.sups.map(esc).join(', '):''}${g.invTotal!=null?` · <b style="color:#059669">💰 $${g.invTotal.toLocaleString('en-AU',{minimumFractionDigits:2,maximumFractionDigits:2})}</b> <span style="color:var(--text-4)">(GST포함)</span>`:''}</div>
       </div>
       <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end">${cancB}${delivB}${paidB}<span style="color:var(--text-4);font-size:13px">${open?'▲':'▼'}</span></div>
     </div>
