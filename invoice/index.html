@@ -2619,14 +2619,14 @@ function setupInvTab() {
 
 // ── 완료됐는데 인보이스 안 낸 현장 알림 (info@ 캘린더 ↔ 인보이스 대조, Claude가 주기적 갱신) ──
 let _uninvoicedCache = null;
-let _uninvoicedOpen = true;
+let _uninvoicedOpen = false;
 async function renderUninvoicedAlert() {
   const el = document.getElementById('uninvoiced-alert');
   if (!el) return;
   if (_uninvoicedCache === null) _uninvoicedCache = (await fbGet('uninvoicedJobs')) || {};
   const items = Object.entries(_uninvoicedCache).map(([id,v]) => ({id, ...v})).filter(v => v && !v.resolved);
   if (!items.length) { el.innerHTML = ''; return; }
-  items.sort((a,b) => (a.kind===b.kind ? (b.completed||'').localeCompare(a.completed||'') : (a.kind==='none'?-1:1)));
+  items.sort((a,b) => (a.completed||'9999').localeCompare(b.completed||'9999')); // 끝난 날짜 오래된 순
   const checkedAt = items[0].checkedAt ? isoToAu((items[0].checkedAt||'').slice(0,10)) : '';
   const row = v => {
     const col = v.kind==='none' ? '#DC2626' : '#D97706';
