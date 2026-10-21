@@ -6,7 +6,7 @@
 <link rel="manifest" href="/worklog/invoice/manifest.json"/>
 <link rel="apple-touch-icon" href="/worklog/invoice/icon.png"/>
 <link rel="icon" type="image/png" href="/worklog/invoice/icon.png"/>
-<meta name="theme-color" content="#1E1B4B"/>
+<meta name="theme-color" content="#1C2430"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="Invoice"/>
@@ -19,7 +19,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-10-21-15';
+const APP_BUILD = '2026-10-21-16';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -76,7 +76,7 @@ else _setBuildLabels();
 html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 :root {
   --bg: #F0F4FF;
-  --bg-grad: linear-gradient(180deg, #F0F4FF 0%, #E0E7FF 100%);
+  --bg-grad: linear-gradient(180deg, #F0F4FF 0%, #D3E6E1 100%);
   --card-bg: #fff;
   --card-bg-alt: #F9FAFB;
   --text: #111827;
@@ -85,16 +85,16 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
   --text-4: #9CA3AF;
   --border: #E5E8F5;
   --border-2: #E5E7EB;
-  --header-bg: #1E1B4B;
+  --header-bg: #1C2430;
   --header-text: #fff;
-  --accent: #4F46E5;
-  --accent-light: #818CF8;
-  --shadow: rgba(79,70,229,0.08);
-  --shadow-strong: rgba(79,70,229,0.18);
+  --accent: #1F6F6B;
+  --accent-light: #5FB8B0;
+  --shadow: rgba(31,111,107,0.08);
+  --shadow-strong: rgba(31,111,107,0.18);
 }
 body[data-theme="dark"] {
   --bg: #0F172A;
-  --bg-grad: linear-gradient(180deg, #0F172A 0%, #1E1B4B 100%);
+  --bg-grad: linear-gradient(180deg, #0F172A 0%, #1C2430 100%);
   --card-bg: #1E293B;
   --card-bg-alt: #0F172A;
   --text: #F1F5F9;
@@ -105,8 +105,8 @@ body[data-theme="dark"] {
   --border-2: #1E293B;
   --header-bg: #020617;
   --header-text: #F1F5F9;
-  --accent: #818CF8;
-  --accent-light: #A5B4FC;
+  --accent: #5FB8B0;
+  --accent-light: #5FB8B0;
   --shadow: rgba(0,0,0,0.4);
   --shadow-strong: rgba(0,0,0,0.6);
 }
@@ -141,9 +141,9 @@ body{background:var(--bg);color:var(--text);min-height:100vh;transition:backgrou
 .input:focus{border-color:var(--accent)}
 .select{width:100%;padding:10px 13px;border:1.5px solid var(--border);border-radius:9px;font-size:14px;font-family:inherit;background:var(--card-bg);color:var(--text)}
 .label{display:block;font-size:10px;font-weight:700;color:var(--text-3);margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px}
-.btn-primary{background:#4F46E5;color:#fff;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;box-shadow:0 2px 8px rgba(79,70,229,0.25)}
+.btn-primary{background:#1F6F6B;color:#fff;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;box-shadow:0 2px 8px rgba(31,111,107,0.25)}
 .btn-secondary{background:#F3F4F6;color:#374151;border:1px solid #E5E7EB;border-radius:10px;padding:11px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit}
-.btn-gold{background:#7C3AED;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
+.btn-gold{background:#2A8C86;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
 .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:200;align-items:flex-end;justify-content:center;backdrop-filter:blur(2px)}
 .modal.open{display:flex}
 .row2{display:flex;gap:10px}
@@ -162,7 +162,7 @@ body{background:var(--bg);color:var(--text);min-height:100vh;transition:backgrou
 .pill-SUSPEND{background:#FEE2E2;color:#B91C1C}
 .pill-PAID,.pill-DEPOSIT{background:#ECFDF5;color:#059669}
 .pill-FINISH{background:#D1FAE5;color:#065F46}
-.pill-RETENTION{background:#EEF2FF;color:#4338CA}
+.pill-RETENTION{background:#E3EFEC;color:#185A57}
 .pill-CREDIT{background:#F1F5F9;color:#475569}
 .pill-NO_PAYMENT{background:#F1F5F9;color:#475569}
 .pill-DRAFT{background:#F3F4F6;color:#374151;border:1px dashed #9CA3AF}
@@ -191,7 +191,7 @@ body[data-active-tab="calendar"] .content { padding-bottom: 20px }
 .icard.CREDIT{border-left-color:#D97706;background:#FFFBEB}
 .icard.SUSPEND{border-left-color:#94A3B8;background:#F8FAFC}
 .icard.ONGOING{border-left-color:#F59E0B;background:#FFFBEB}
-.icard.RETENTION{border-left-color:#6366F1;background:#EEF2FF}
+.icard.RETENTION{border-left-color:#1F6F6B;background:#E3EFEC}
 .icard.FINISH{border-left-color:#10B981;background:#F0FDF4}
 .icard.NO_PAYMENT{border-left-color:#94A3B8;background:#F8FAFC}
 /* Aging tiers (only for INVOICE / OVERDUE status)
@@ -246,7 +246,7 @@ body[data-theme="dark"] .icard.age-6 { background: var(--card-bg) }
 .bar-wrap{height:6px;background:#F3F4F6;border-radius:3px;overflow:hidden;margin:4px 0}
 .bar-fill{height:100%;border-radius:3px}
 .btn-build{background:transparent;color:var(--text-3);transition:all .15s}
-.btn-build.active{background:#fff;color:#4F46E5;box-shadow:0 1px 3px rgba(0,0,0,0.1)}
+.btn-build.active{background:#fff;color:#1F6F6B;box-shadow:0 1px 3px rgba(0,0,0,0.1)}
 body[data-theme="dark"] .btn-build.active{background:var(--accent);color:#fff}
 
 /* ─────────────────────────────────────────────────────────────────────────
@@ -716,7 +716,7 @@ body.invoice-readonly::before {
    DESKTOP (≥768px): wider container, nicer styling, centered modals
    ───────────────────────────────────────────────────────────────────────── */
 @media (min-width: 768px) {
-  body { background: linear-gradient(180deg, #F0F4FF 0%, #E0E7FF 100%); min-height: 100vh; }
+  body { background: linear-gradient(180deg, #F0F4FF 0%, #D3E6E1 100%); min-height: 100vh; }
   
   /* Header: more breathing room, bigger logo */
   .header { padding: 16px 32px; }
@@ -738,7 +738,7 @@ body.invoice-readonly::before {
   .filter-bar { gap: 8px; padding-bottom: 10px; margin-bottom: 14px; flex-wrap: wrap; overflow-x: visible; }
   .fbtn { padding: 8px 16px; font-size: 13px; }
   .fbtn:hover { background: #F3F4F6; }
-  .fbtn.active:hover { background: #4338CA; }
+  .fbtn.active:hover { background: #185A57; }
   
   /* Summary bar: card style */
   #inv-summary { 
@@ -746,14 +746,14 @@ body.invoice-readonly::before {
     border-radius: 12px !important; 
     background: #fff !important; 
     border: 1px solid #E5E8F5;
-    box-shadow: 0 1px 4px rgba(79,70,229,0.05);
+    box-shadow: 0 1px 4px rgba(31,111,107,0.05);
     font-size: 13px !important;
     margin-bottom: 14px !important;
   }
   
   /* Invoice cards: hover effect, more polish */
   .icard { transition: transform 0.12s ease, box-shadow 0.12s ease; }
-  .icard:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(79,70,229,0.14); }
+  .icard:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(31,111,107,0.14); }
   .icard-body { padding: 14px 18px !important; }
   
   /* Modal: centered dialog instead of bottom sheet */
@@ -770,7 +770,7 @@ body.invoice-readonly::before {
     padding: 14px 20px;
     gap: 14px;
     justify-content: center;
-    box-shadow: 0 -4px 20px rgba(79,70,229,0.18);
+    box-shadow: 0 -4px 20px rgba(31,111,107,0.18);
   }
   .bbar .bstat {
     flex: 1;
@@ -862,7 +862,7 @@ body[data-active-tab="invoices"] .content,body:not([data-active-tab]) .content{p
 .spill.OVERDUE,.spill.SUSPEND{background:var(--km-red-soft);color:var(--km-red);border-color:transparent}
 .spill.ONGOING,.spill.BOOKING{background:var(--km-amber-soft);color:var(--km-warn);border-color:transparent}
 .spill.PAID,.spill.FINISH,.spill.DEPOSIT{background:var(--km-green-soft);color:var(--km-green);border-color:transparent}
-.spill.RETENTION{background:#EEF2FF;color:#4338CA;border-color:transparent}
+.spill.RETENTION{background:#E3EFEC;color:#185A57;border-color:transparent}
 .spill.DRAFT{border-style:dashed}
 .irow-actions{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
 .irow-actions button{border:1px solid var(--border);background:var(--card-bg);color:var(--text);border-radius:8px;padding:7px 12px;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer}
@@ -939,7 +939,7 @@ body[data-active-tab="invoices"] .content,body:not([data-active-tab]) .content{p
   <div id="tab-letters" style="display:none"></div>
 </div>
 <div class="bbar">
-  <div class="bstat"><div class="bstat-l">미수금</div><div class="bstat-v" id="bs-out" style="color:#818CF8">$0</div></div>
+  <div class="bstat"><div class="bstat-l">미수금</div><div class="bstat-v" id="bs-out" style="color:#5FB8B0">$0</div></div>
   <div class="bstat"><div class="bstat-l">연체</div><div class="bstat-v" id="bs-ov" style="color:#f87171">$0</div></div>
   <div class="bstat"><div class="bstat-l">이번달 입금</div><div class="bstat-v" id="bs-mo" style="color:#34d399">$0</div></div>
 </div>
@@ -971,7 +971,7 @@ body[data-active-tab="invoices"] .content,body:not([data-active-tab]) .content{p
     <label class="label">빌더명 *</label>
     <input class="input" id="f-b" list="bdl" placeholder="빌더명 (개인 고객은 'PRIVATE')" oninput="onBChange()"/>
     <datalist id="bdl"></datalist>
-    <div id="f-b-email" style="display:none;font-size:11px;margin-top:4px;padding:5px 8px;background:#EEF2FF;border:1px solid #C7D2FE;border-radius:6px;color:#4338CA;word-break:break-all"></div>
+    <div id="f-b-email" style="display:none;font-size:11px;margin-top:4px;padding:5px 8px;background:#E3EFEC;border:1px solid #BFDCD6;border-radius:6px;color:#185A57;word-break:break-all"></div>
   </div>
   
   <!-- Private customer panel - shown only when builder = PRIVATE -->
@@ -1003,15 +1003,15 @@ body[data-active-tab="invoices"] .content,body:not([data-active-tab]) .content{p
   <div id="prev-inv-row" class="mb" style="display:none;background:#FEF3C7;border:1px solid #FDE68A;border-radius:8px;padding:10px 12px">
     <div id="prev-inv-hint" style="font-size:12px;color:#92400E;margin-bottom:6px;line-height:1.5"></div>
     <button id="prev-inv-btn" type="button" onclick="loadPrevInvoice()" style="background:#92400E;color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">📋 이전 인보이스 라인 가져오기</button>
-    <button id="prev-inv-switch" type="button" onclick="setType('PROGRESS')" style="display:none;background:#7C3AED;color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;margin-left:6px">🔄 진행률(%)로 전환</button>
+    <button id="prev-inv-switch" type="button" onclick="setType('PROGRESS')" style="display:none;background:#2A8C86;color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;margin-left:6px">🔄 진행률(%)로 전환</button>
   </div>
   <div id="f-proj-row" class="mb" style="display:none">
     <label class="label">프로젝트명 (Project)</label>
     <div style="display:flex;gap:6px;align-items:center">
       <input class="input" id="f-proj" style="flex:1" placeholder="프로젝트명 · 주소 · 인보이스번호 어느 거든 OK" oninput="checkPrevProgressInvoice()"/>
-      <button id="f-proj-load-btn" type="button" onclick="loadPrevProgress()" style="display:none;background:#7C3AED;color:white;border:none;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap" title="같은 빌더/프로젝트의 가장 최근 PROGRESS 인보이스에서 라인 + 누적%를 가져옵니다">📋 이전에서 이어오기</button>
+      <button id="f-proj-load-btn" type="button" onclick="loadPrevProgress()" style="display:none;background:#2A8C86;color:white;border:none;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap" title="같은 빌더/프로젝트의 가장 최근 PROGRESS 인보이스에서 라인 + 누적%를 가져옵니다">📋 이전에서 이어오기</button>
     </div>
-    <div id="f-proj-hint" style="font-size:11px;color:#7C3AED;margin-top:4px;display:none"></div>
+    <div id="f-proj-hint" style="font-size:11px;color:#2A8C86;margin-top:4px;display:none"></div>
   </div>
   <!-- Hidden start date — not used anymore, kept for backwards compat -->
   <input type="hidden" id="f-sd" value=""/>
@@ -1036,7 +1036,7 @@ body[data-active-tab="invoices"] .content,body:not([data-active-tab]) .content{p
       <!-- Row 1: Room + Placement -->
       <div style="display:flex;gap:6px;margin-bottom:6px">
         <input class="input" id="pick-room" list="room-list" style="flex:1.2;font-size:12px;padding:7px" placeholder="🚪 방 (직접 입력도 OK)" onfocus="onRoomFocus(this)" oninput="onRoomInput(this)" onblur="onRoomBlur(this)"/>
-        <button type="button" onclick="openRoomManager()" title="방 이름 관리" style="background:#EDE9FE;border:1px solid #C4B5FD;color:#5B21B6;border-radius:6px;padding:0 8px;font-size:14px;cursor:pointer">⚙️</button>
+        <button type="button" onclick="openRoomManager()" title="방 이름 관리" style="background:#E3EFEC;border:1px solid #C4B5FD;color:#5B21B6;border-radius:6px;padding:0 8px;font-size:14px;cursor:pointer">⚙️</button>
         <select class="select" id="pick-placement" style="flex:0.8;font-size:12px;padding:7px">
           <option value="">— 위치 —</option>
           <option value="Floor">📐 Floor</option>
@@ -1049,8 +1049,8 @@ body[data-active-tab="invoices"] .content,body:not([data-active-tab]) .content{p
         <option value="">— 카테고리에서 항목 선택 —</option>
       </select>
       <!-- Component selector (auto-shown when multi-component item picked, e.g. "Nib wall / Niche / Window Tiling / ea") -->
-      <div id="pick-components" style="display:none;background:#EEF2FF;border:1px solid #C7D2FE;border-radius:6px;padding:6px 8px;margin-bottom:6px">
-        <div style="font-size:10px;color:#4F46E5;font-weight:700;margin-bottom:4px">✏️ 포함할 항목 선택 (체크된 것만 인보이스에 표시):</div>
+      <div id="pick-components" style="display:none;background:#E3EFEC;border:1px solid #BFDCD6;border-radius:6px;padding:6px 8px;margin-bottom:6px">
+        <div style="font-size:10px;color:#1F6F6B;font-weight:700;margin-bottom:4px">✏️ 포함할 항목 선택 (체크된 것만 인보이스에 표시):</div>
         <div id="pick-components-list" style="display:flex;gap:12px;flex-wrap:wrap"></div>
       </div>
       <!-- Tile size/pattern selector (auto-shown for Floor/Wall/Splashback/Screeding&Floor Tiling base items) -->
@@ -1335,7 +1335,7 @@ body[data-active-tab="invoices"] .content,body:not([data-active-tab]) .content{p
     <div id="payments-summary" style="font-size:12px;font-weight:700;padding:6px 0;color:#065F46"></div>
   </div>
   <div class="mb"><label class="label">메모</label><textarea class="input" id="f-no" style="height:60px;resize:none" placeholder="메모"></textarea></div>
-  <div class="row2" style="gap:6px;flex-wrap:wrap"><button class="btn-secondary" style="flex:1;min-width:60px" onclick="closeIM()">취소</button><button class="btn-secondary" style="flex:1;min-width:80px;background:#E0F2FE;color:#075985;border:1px solid #BAE6FD;font-weight:700" onclick="previewInv()" title="인쇄될 모습 미리보기">👁️ 미리보기</button><button class="btn-secondary" style="flex:1.3;min-width:90px;background:#FEF3C7;color:#92400E;border:1px solid #FDE68A;font-weight:700" onclick="saveInv(true)" title="발행 안 하고 임시 저장">📝 임시저장</button><button class="btn-primary" style="flex:1.3;min-width:80px" onclick="saveInv(false)">💾 발행</button><button class="btn-primary" style="flex:1.7;min-width:120px;background:#7C3AED" onclick="saveInv(false, true)" title="발행 후 바로 이메일 모달 열기">📧 발행+이메일</button></div>
+  <div class="row2" style="gap:6px;flex-wrap:wrap"><button class="btn-secondary" style="flex:1;min-width:60px" onclick="closeIM()">취소</button><button class="btn-secondary" style="flex:1;min-width:80px;background:#E0F2FE;color:#075985;border:1px solid #BAE6FD;font-weight:700" onclick="previewInv()" title="인쇄될 모습 미리보기">👁️ 미리보기</button><button class="btn-secondary" style="flex:1.3;min-width:90px;background:#FEF3C7;color:#92400E;border:1px solid #FDE68A;font-weight:700" onclick="saveInv(true)" title="발행 안 하고 임시 저장">📝 임시저장</button><button class="btn-primary" style="flex:1.3;min-width:80px" onclick="saveInv(false)">💾 발행</button><button class="btn-primary" style="flex:1.7;min-width:120px;background:#2A8C86" onclick="saveInv(false, true)" title="발행 후 바로 이메일 모달 열기">📧 발행+이메일</button></div>
 </div>
 </div>
 
@@ -1406,7 +1406,7 @@ body[data-active-tab="invoices"] .content,body:not([data-active-tab]) .content{p
 <div class="modal" id="s-modal">
 <div class="mbox">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
-    <h3 style="font-size:16px;font-weight:800;color:#111827">⚙️ 회사 설정</h3>
+    <h3 style="font-size:16px;font-weight:800;color:#111827">회사 설정</h3>
     <button onclick="closeSet()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#9CA3AF">×</button>
   </div>
   <div style="font-size:11px;color:#6B7280;margin-bottom:12px">두 회사 정보를 등록하면 인보이스 작성 시 번호가 자동 채워져요.</div>
@@ -1426,10 +1426,10 @@ body[data-active-tab="invoices"] .content,body:not([data-active-tab]) .content{p
 <div class="modal" id="print-modal">
 <div class="mbox" style="max-width:900px;background:#fff;color:#111827">
   <div class="no-print" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;border-bottom:1px solid #E5E7EB;padding-bottom:12px">
-    <h3 style="font-size:16px;font-weight:800">📄 인쇄용 인보이스 <span class="app-build-label" style="font-size:10px;font-weight:600;color:#9CA3AF;margin-left:4px" title="현재 앱 빌드 버전 (최신과 다르면 🔄 로 갱신)"></span></h3>
+    <h3 style="font-size:16px;font-weight:800">인쇄용 인보이스 <span class="app-build-label" style="font-size:10px;font-weight:600;color:#9CA3AF;margin-left:4px" title="현재 앱 빌드 버전 (최신과 다르면 🔄 로 갱신)"></span></h3>
     <div style="display:flex;gap:8px;align-items:center">
       <button onclick="_forceUpdate()" title="최신 버전 강제로 받기 (캐시 무시하고 새로고침)" style="background:#F3F4F6;color:#374151;border:1px solid #E5E7EB;border-radius:8px;padding:7px 11px;font-size:14px;cursor:pointer">🔄</button>
-      <button class="btn-primary" style="background:#4F46E5" onclick="downloadInvoicePDF(this)" title="URL·날짜·페이지번호 없는 깨끗한 PDF 파일로 저장 (모바일은 공유시트로 저장/첨부)">📄 PDF 저장</button>
+      <button class="btn-primary" style="background:#1F6F6B" onclick="downloadInvoicePDF(this)" title="URL·날짜·페이지번호 없는 깨끗한 PDF 파일로 저장 (모바일은 공유시트로 저장/첨부)">📄 PDF 저장</button>
       <button id="pkg-pdf-btn" class="btn-primary" style="display:none;background:#0891B2" onclick="downloadPackagePDF(this)" title="인보이스 + Subcontractor Statement + Work Comp 를 한 PDF로 병합 다운로드">📦 패키지 PDF</button>
       <button class="btn-primary" style="background:#10B981" onclick="doPrint()">🖨️ 인쇄</button>
       <button onclick="closePrint()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#9CA3AF">×</button>
@@ -1449,10 +1449,10 @@ body[data-active-tab="invoices"] .content,body:not([data-active-tab]) .content{p
 <div class="modal" id="bulkpay-modal">
 <div class="mbox" style="max-width:680px;background:#fff;color:#111827">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;border-bottom:1px solid #E5E7EB;padding-bottom:12px">
-    <h3 style="font-size:16px;font-weight:800">💰 일괄 입금 등록</h3>
+    <h3 style="font-size:16px;font-weight:800">일괄 입금 등록</h3>
     <button onclick="closeBulkPay()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#9CA3AF">×</button>
   </div>
-  <div style="background:#EFF6FF;border:1px solid #C7D2FE;border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:#3730A3;line-height:1.5">
+  <div style="background:#EFF6FF;border:1px solid #BFDCD6;border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:#134845;line-height:1.5">
     💡 빌더 이름·인보이스 번호·주소로 검색하면서 골라봐. 검색을 바꿔도 <strong>이전 선택은 유지</strong>됩니다.<br>
     ☑️ 체크 = 전액 입금 · 옆 칸에 금액 입력 = 부분 입금 · 둘 다 비우면 건너뜀.
   </div>
@@ -1492,7 +1492,7 @@ body[data-active-tab="invoices"] .content,body:not([data-active-tab]) .content{p
 <div class="modal" id="perm-modal">
 <div class="mbox" style="max-width:520px;background:#fff;color:#111827">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;border-bottom:1px solid #E5E7EB;padding-bottom:12px">
-    <h3 style="font-size:16px;font-weight:800">🔐 인보이스 앱 권한 관리</h3>
+    <h3 style="font-size:16px;font-weight:800">인보이스 앱 권한 관리</h3>
     <button onclick="closePermModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#9CA3AF">×</button>
   </div>
   <div style="background:#FEF3C7;border:1px solid #FDE68A;border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:#92400E;line-height:1.5">
@@ -1507,7 +1507,7 @@ body[data-active-tab="invoices"] .content,body:not([data-active-tab]) .content{p
 <div class="modal" id="email-save-modal">
 <div class="mbox" style="max-width:420px;background:#fff;color:#111827">
   <div style="margin-bottom:14px">
-    <h3 style="font-size:15px;font-weight:800;margin-bottom:8px">📧 새 이메일을 발견했어요</h3>
+    <h3 style="font-size:15px;font-weight:800;margin-bottom:8px">새 이메일을 발견했어요</h3>
     <p style="font-size:12px;color:#6B7280;line-height:1.5" id="esm-msg"></p>
   </div>
   <p style="font-size:13px;color:#374151;margin-bottom:12px" id="esm-question"></p>
@@ -1523,7 +1523,7 @@ body[data-active-tab="invoices"] .content,body:not([data-active-tab]) .content{p
 <div class="modal" id="email-modal">
 <div class="mbox" style="max-width:560px;background:#fff;color:#111827">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;border-bottom:1px solid #E5E7EB;padding-bottom:12px">
-    <h3 style="font-size:16px;font-weight:800">📧 이메일 보내기</h3>
+    <h3 style="font-size:16px;font-weight:800">이메일 보내기</h3>
     <button onclick="closeEmailModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#9CA3AF">×</button>
   </div>
   <div class="mb"><label class="label">받는 사람 (콤마로 여러 명 가능)</label><input class="input" id="em-to" placeholder="recipient@example.com"></div>
@@ -2033,7 +2033,7 @@ function _showLockScreen(innerHtml) {
   if (!overlay) {
     overlay = document.createElement('div');
     overlay.id = 'invoice-lock-overlay';
-    overlay.style.cssText = 'position:fixed;inset:0;background:linear-gradient(180deg,#0F172A 0%,#1E1B4B 100%);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif';
+    overlay.style.cssText = 'position:fixed;inset:0;background:linear-gradient(180deg,#0F172A 0%,#1C2430 100%);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif';
     document.body.appendChild(overlay);
   }
   overlay.innerHTML = `<div style="background:#fff;border-radius:18px;padding:28px 26px;max-width:380px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.4)">${innerHtml}</div>`;
@@ -2126,12 +2126,12 @@ async function initInvoiceAuth() {
       }
       _showLockScreen(`
         <div style="text-align:center;margin-bottom:14px"><div style="font-size:38px">🔒</div></div>
-        <h2 style="margin:0 0 4px;font-size:18px;font-weight:800;text-align:center;color:#1E1B4B">K&amp;M 인보이스</h2>
+        <h2 style="margin:0 0 4px;font-size:18px;font-weight:800;text-align:center;color:#1C2430">K&amp;M 인보이스</h2>
         <p style="margin:0 0 18px;font-size:13px;color:#6B7280;text-align:center">
           <strong>${esc(user.name || user.id)}</strong> 님 PIN 4자리
         </p>
-        <div style="margin-bottom:14px"><input id="lk-pin" type="password" inputmode="numeric" maxlength="4" placeholder="• • • •" autocomplete="off" style="width:100%;padding:14px;border:2px solid #C7D2FE;border-radius:9px;font-size:22px;font-family:inherit;box-sizing:border-box;text-align:center;letter-spacing:14px"/></div>
-        <button id="lk-submit" style="width:100%;background:#4F46E5;color:#fff;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">진입</button>
+        <div style="margin-bottom:14px"><input id="lk-pin" type="password" inputmode="numeric" maxlength="4" placeholder="• • • •" autocomplete="off" style="width:100%;padding:14px;border:2px solid #BFDCD6;border-radius:9px;font-size:22px;font-family:inherit;box-sizing:border-box;text-align:center;letter-spacing:14px"/></div>
+        <button id="lk-submit" style="width:100%;background:#1F6F6B;color:#fff;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">진입</button>
         <button id="lk-other" style="width:100%;background:none;color:#6B7280;border:none;padding:8px;font-size:12px;cursor:pointer;font-family:inherit;margin-top:6px">다른 계정으로 로그인</button>
         <p id="lk-err" style="color:#EF4444;font-size:12px;margin:6px 0 0;text-align:center;min-height:16px"></p>
       `);
@@ -2171,14 +2171,14 @@ async function initInvoiceAuth() {
     const showFullLogin = (defaultId) => {
       _showLockScreen(`
         <div style="text-align:center;margin-bottom:14px"><div style="font-size:38px">🔐</div></div>
-        <h2 style="margin:0 0 6px;font-size:18px;font-weight:800;text-align:center;color:#1E1B4B">로그인</h2>
+        <h2 style="margin:0 0 6px;font-size:18px;font-weight:800;text-align:center;color:#1C2430">로그인</h2>
         <p style="margin:0 0 18px;font-size:12px;color:#6B7280;text-align:center;line-height:1.6">
           <strong>WorkLog 계정</strong>으로 로그인해주세요.<br>
           관리자가 권한을 부여한 사용자만 접근 가능합니다.
         </p>
         <div style="margin-bottom:10px"><input id="lk-id" placeholder="WorkLog 아이디" value="${esc(defaultId)}" autocapitalize="none" style="width:100%;padding:11px 13px;border:1.5px solid #E5E7EB;border-radius:9px;font-size:14px;font-family:inherit;box-sizing:border-box"/></div>
         <div style="margin-bottom:14px"><input id="lk-pw" type="password" placeholder="WorkLog 비밀번호" style="width:100%;padding:11px 13px;border:1.5px solid #E5E7EB;border-radius:9px;font-size:14px;font-family:inherit;box-sizing:border-box"/></div>
-        <button id="lk-next" style="width:100%;background:#4F46E5;color:#fff;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">다음 →</button>
+        <button id="lk-next" style="width:100%;background:#1F6F6B;color:#fff;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">다음 →</button>
         <p id="lk-err" style="color:#EF4444;font-size:12px;margin:10px 0 0;text-align:center;min-height:16px"></p>
       `);
       document.getElementById('lk-next').onclick = async () => {
@@ -2221,14 +2221,14 @@ async function initInvoiceAuth() {
     const showPinRegister = (user, invUserData) => {
       _showLockScreen(`
         <div style="text-align:center;margin-bottom:14px"><div style="font-size:38px">🔑</div></div>
-        <h2 style="margin:0 0 6px;font-size:18px;font-weight:800;text-align:center;color:#1E1B4B">PIN 등록</h2>
+        <h2 style="margin:0 0 6px;font-size:18px;font-weight:800;text-align:center;color:#1C2430">PIN 등록</h2>
         <p style="margin:0 0 18px;font-size:12px;color:#6B7280;text-align:center;line-height:1.6">
           ✅ <strong>${esc(user.name || user.id)}</strong> 님 인증 완료.<br>
           앞으로 빠르게 진입할 <strong>PIN 4자리</strong>를 등록해주세요.
         </p>
-        <div style="margin-bottom:10px"><input id="lk-pin" type="password" inputmode="numeric" maxlength="4" placeholder="새 PIN (숫자 4자리)" style="width:100%;padding:13px;border:1.5px solid #C7D2FE;border-radius:9px;font-size:20px;font-family:inherit;box-sizing:border-box;text-align:center;letter-spacing:10px" autocomplete="new-password"/></div>
-        <div style="margin-bottom:14px"><input id="lk-pin2" type="password" inputmode="numeric" maxlength="4" placeholder="PIN 다시 입력" style="width:100%;padding:13px;border:1.5px solid #C7D2FE;border-radius:9px;font-size:20px;font-family:inherit;box-sizing:border-box;text-align:center;letter-spacing:10px" autocomplete="new-password"/></div>
-        <button id="lk-submit" style="width:100%;background:#4F46E5;color:#fff;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">🔐 등록하고 진입</button>
+        <div style="margin-bottom:10px"><input id="lk-pin" type="password" inputmode="numeric" maxlength="4" placeholder="새 PIN (숫자 4자리)" style="width:100%;padding:13px;border:1.5px solid #BFDCD6;border-radius:9px;font-size:20px;font-family:inherit;box-sizing:border-box;text-align:center;letter-spacing:10px" autocomplete="new-password"/></div>
+        <div style="margin-bottom:14px"><input id="lk-pin2" type="password" inputmode="numeric" maxlength="4" placeholder="PIN 다시 입력" style="width:100%;padding:13px;border:1.5px solid #BFDCD6;border-radius:9px;font-size:20px;font-family:inherit;box-sizing:border-box;text-align:center;letter-spacing:10px" autocomplete="new-password"/></div>
+        <button id="lk-submit" style="width:100%;background:#1F6F6B;color:#fff;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">🔐 등록하고 진입</button>
         <p id="lk-err" style="color:#EF4444;font-size:12px;margin:10px 0 0;text-align:center;min-height:16px"></p>
       `);
       document.getElementById('lk-submit').onclick = async () => {
@@ -2377,7 +2377,7 @@ async function renderPermList() {
     const canInvoice = isAutoAdmin || invData.canInvoice === true;
     const hasPin = !!invData.pinHash;
     const roleLabel = u.role === 'admin' ? '관리자' : u.role === 'superadmin' ? '슈퍼관리자' : u.role === 'viewadmin' ? '뷰관리자' : '직원';
-    const roleColor = isAutoAdmin ? '#7C3AED' : (u.role === 'viewadmin' ? '#0369A1' : '#6B7280');
+    const roleColor = isAutoAdmin ? '#2A8C86' : (u.role === 'viewadmin' ? '#0369A1' : '#6B7280');
     html += `
       <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid #F3F4F6;gap:10px">
         <div style="flex:1;min-width:0">
@@ -2386,7 +2386,7 @@ async function renderPermList() {
         </div>
         <div style="flex-shrink:0">
           ${isAutoAdmin
-            ? '<span style="font-size:11px;color:#7C3AED;font-weight:600">자동 허용</span>'
+            ? '<span style="font-size:11px;color:#2A8C86;font-weight:600">자동 허용</span>'
             : `<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:#374151">
                 <input type="checkbox" ${canInvoice ? 'checked' : ''} onchange="togglePerm('${esc(u.id)}', this.checked)" style="width:18px;height:18px;cursor:pointer"/>
                 ${canInvoice ? '<span style="color:#10B981;font-weight:600">허용</span>' : '<span style="color:#9CA3AF">차단</span>'}
@@ -2628,7 +2628,7 @@ function renderLetters(){
   const typeOpts = Object.keys(LETTER_TEMPLATES).map(k=>`<option value="${k}" ${k===letterType?'selected':''}>${esc(LETTER_TEMPLATES[k].label)}</option>`).join('');
   document.getElementById('tab-letters').innerHTML = `
     <div style="max-width:1120px;margin:0 auto;padding:8px">
-      <h2 style="font-size:18px;font-weight:800;margin:6px 0 14px">📝 회사 레터</h2>
+      <h2 style="font-size:18px;font-weight:800;margin:6px 0 14px">회사 레터</h2>
       <div style="display:flex;gap:22px;flex-wrap:wrap;align-items:flex-start">
         <div style="flex:1;min-width:300px">
           <div class="mb"><label class="label">레터 종류</label><select class="select" id="letter-type" onchange="onLetterTypeChange(this.value)">${typeOpts}</select></div>
@@ -3229,7 +3229,7 @@ function renderInv() {
         <span class="m">${inv.invoiceNum?esc(inv.invoiceNum)+' · ':''}${fD(inv.invoiceDate)} · ${esc(inv.address||'—')}</span>
         <span class="spill ${ss}">${esc(pillTxt)}</span>
         ${sub?`<span class="proj">${sub}</span>`:''}
-        ${isRetention?(()=>{const rr=rem>0?rem:amt;return `<span class="m" style="grid-column:1/-1;color:#4338CA">보류 ${fA(rr)} (${fAex(rr)} ex)</span>`;})():''}
+        ${isRetention?(()=>{const rr=rem>0?rem:amt;return `<span class="m" style="grid-column:1/-1;color:#185A57">보류 ${fA(rr)} (${fAex(rr)} ex)</span>`;})():''}
         <div class="note-preview${notePrev?'':' empty'}" id="np-${inv.id}" onclick="event.stopPropagation();startMemoEdit('${inv.id}')" title="눌러서 메모 수정">${esc(notePrev)}</div>
       </div>
       <div id="d-${inv.id}" style="display:none;padding:0 13px 12px" data-built="0"></div>
@@ -3309,9 +3309,9 @@ function buildDetailHTML(inv) {
       </div>
     </div>
     ${pays.length?`<div style="font-size:11px;color:#6B7280;font-weight:600;margin-bottom:4px">입금 내역</div>${pays.map(p=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0;color:#555">✓ ${fD(p.date)}<span style="font-weight:600">${fA(p.amount)}</span></div>`).join('')}`:''}
-    ${inv.projectName?`<div style="font-size:12px;color:#7C3AED;margin-top:8px">📁 ${esc(inv.projectName)}</div>`:''}
+    ${inv.projectName?`<div style="font-size:12px;color:#2A8C86;margin-top:8px">📁 ${esc(inv.projectName)}</div>`:''}
     ${inv.startDate?`<div style="font-size:11px;color:#9CA3AF;margin-top:4px">🚀 Start: ${fD(inv.startDate)}${inv.dueDate?`  ⏰ Due: ${fD(inv.dueDate)}`:''}</div>`:''}
-    ${inv.poNumber?`<div style="font-size:12px;color:#7C3AED;margin-top:4px">PO #${esc(inv.poNumber)}</div>`:''}
+    ${inv.poNumber?`<div style="font-size:12px;color:#2A8C86;margin-top:4px">PO #${esc(inv.poNumber)}</div>`:''}
     ${inv.note && (inv.note.length > 40 || inv.note.includes('\n'))?`<div style="font-size:12px;color:var(--text-2);margin-top:8px;white-space:pre-wrap">${esc(inv.note)}</div>`:''}
     ${inv.lineItems && Object.keys(inv.lineItems).length ? (() => {
       const items = Array.isArray(inv.lineItems) ? inv.lineItems : Object.values(inv.lineItems);
@@ -3343,7 +3343,7 @@ function buildDetailHTML(inv) {
         } else {
           const curRoom = it.room || '';
           if (curRoom && curRoom !== prevRoom) {
-            h += `<div style="font-size:11px;font-weight:700;color:#4F46E5;margin-top:6px;margin-bottom:2px;padding-left:4px;border-left:2px solid #4F46E5">🚪 ${esc(curRoom)}</div>`;
+            h += `<div style="font-size:11px;font-weight:700;color:#1F6F6B;margin-top:6px;margin-bottom:2px;padding-left:4px;border-left:2px solid #1F6F6B">🚪 ${esc(curRoom)}</div>`;
           }
           prevRoom = curRoom;
         }
@@ -3366,7 +3366,7 @@ function buildDetailHTML(inv) {
     <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
       ${inv.status === 'DRAFT' ? `<button class="btn-primary" style="flex:1;min-width:90px;padding:8px;font-size:12px" onclick="publishDraft('${inv.id}', false)" title="기존 날짜 그대로 발행">🚀 발행</button>
       <button class="btn-primary" style="flex:1.3;min-width:120px;padding:8px;font-size:12px;background:#F59E0B" onclick="publishDraft('${inv.id}', true)" title="오늘 날짜로 변경 후 발행 (만기일도 오늘+14일로 재계산)">📅 오늘날짜로 발행</button>
-      <button class="btn-primary" style="flex:1.3;min-width:130px;padding:8px;font-size:12px;background:#7C3AED" onclick="publishDraft('${inv.id}', true, true)" title="오늘 날짜로 발행 + 이메일 모달 열기">📧 발행+이메일</button>` : ''}
+      <button class="btn-primary" style="flex:1.3;min-width:130px;padding:8px;font-size:12px;background:#2A8C86" onclick="publishDraft('${inv.id}', true, true)" title="오늘 날짜로 발행 + 이메일 모달 열기">📧 발행+이메일</button>` : ''}
       ${inv.status === 'INVOICE' ? `<button style="flex:1;min-width:100px;padding:8px;font-size:11px;background:#FEF3C7;color:#92400E;border:1px solid #FDE68A;border-radius:9px;cursor:pointer" onclick="revertToDraft('${inv.id}')" title="실수로 발행했을 때 DRAFT로 복구">↩️ Draft로 되돌리기</button>` : ''}
       ${inv.status && inv.status !== 'DRAFT' ? `<button class="btn-primary" style="flex:1;min-width:100px;padding:8px;font-size:12px;background:var(--km-teal);box-shadow:none" onclick="composeEmailById('${inv.id}')" title="이메일 발송/재발송">📧 이메일</button>` : ''}
       <button class="btn-primary" style="flex:1;min-width:90px;padding:8px;font-size:12px;background:var(--header-bg);box-shadow:none" onclick="printInvoice('${inv.id}')" title="인쇄용 인보이스 생성">🖨️ 인쇄 / PDF</button>
@@ -4760,7 +4760,7 @@ function onPickItemChange() {
     if (parsed.inParen) {
       // Radio — 첫 번째 선택지를 기본 체크
       listEl.innerHTML = parsed.components.map((c, i) =>
-        `<label style="display:flex;align-items:center;gap:4px;font-size:12px;color:#4F46E5;cursor:pointer;font-weight:600">
+        `<label style="display:flex;align-items:center;gap:4px;font-size:12px;color:#1F6F6B;cursor:pointer;font-weight:600">
           <input type="radio" name="pick-comp-radio" class="pick-comp-cb" data-comp="${esc(c)}" ${i===0?'checked':''}/>${esc(c)}
         </label>`
       ).join('');
@@ -4769,7 +4769,7 @@ function onPickItemChange() {
       if (hintEl) hintEl.textContent = `✏️ ${parsed.prefix} (...) 안에서 선택:`;
     } else {
       listEl.innerHTML = parsed.components.map((c, i) =>
-        `<label style="display:flex;align-items:center;gap:4px;font-size:12px;color:#4F46E5;cursor:pointer;font-weight:600">
+        `<label style="display:flex;align-items:center;gap:4px;font-size:12px;color:#1F6F6B;cursor:pointer;font-weight:600">
           <input type="checkbox" class="pick-comp-cb" data-comp="${esc(c)}"/>${esc(c)}
         </label>`
       ).join('');
@@ -4822,7 +4822,7 @@ function openRoomManager() {
   modal.innerHTML = `
     <div style="background:white;border-radius:12px;padding:20px;max-width:480px;width:100%;max-height:85vh;overflow-y:auto">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-        <h3 style="margin:0;font-size:16px;font-weight:700;color:#5B21B6">🚪 방 이름 관리</h3>
+        <h3 style="margin:0;font-size:16px;font-weight:700;color:#5B21B6">방 이름 관리</h3>
         <button onclick="closeRoomManager()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#6B7280">×</button>
       </div>
       
@@ -4834,7 +4834,7 @@ function openRoomManager() {
         <label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:4px">➕ 새 방 이름 추가</label>
         <div style="display:flex;gap:6px">
           <input id="new-room-input" type="text" class="input" style="flex:1;font-size:13px;padding:8px" placeholder="예: Powder Room, Mudroom, Walk-in Robe..." onkeydown="if(event.key==='Enter')addCustomRoom()"/>
-          <button onclick="addCustomRoom()" style="background:#7C3AED;color:white;border:none;border-radius:6px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer">추가</button>
+          <button onclick="addCustomRoom()" style="background:#2A8C86;color:white;border:none;border-radius:6px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer">추가</button>
         </div>
       </div>
       
@@ -4872,7 +4872,7 @@ function renderRoomManagerList() {
   const customs = customRooms
     .filter(r => !DEFAULT_ROOMS.includes(r))
     .map(r =>
-      `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:#EDE9FE;border:1px solid #C4B5FD;border-radius:6px;margin-bottom:4px">
+      `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:#E3EFEC;border:1px solid #C4B5FD;border-radius:6px;margin-bottom:4px">
         <span style="font-size:13px;color:#5B21B6;font-weight:600">${esc(r)}</span>
         <button onclick="removeCustomRoom('${esc(r).replace(/'/g, "\\'")}')" style="background:#FCA5A5;color:white;border:none;border-radius:4px;padding:3px 8px;font-size:11px;cursor:pointer">삭제</button>
       </div>`
@@ -5770,11 +5770,11 @@ function renderLineItems() {
   let h = '';
   // PROGRESS mode: show bulk-set button at top
   if (curType === 'PROGRESS' && lineItems.length > 0) {
-    h += `<div style="background:#EDE9FE;border:1px solid #C4B5FD;border-radius:6px;padding:8px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+    h += `<div style="background:#E3EFEC;border:1px solid #C4B5FD;border-radius:6px;padding:8px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
       <div style="font-size:12px;color:#5B21B6;font-weight:700">📊 진행률 인보이스 모드</div>
       <div style="display:flex;gap:5px;flex-wrap:wrap">
-        <button type="button" onclick="setAllProgressThisPct()" style="background:#7C3AED;color:white;border:none;border-radius:6px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer" title="모든 항목을 같은 이번 청구%로">📦 이번 N%만 청구</button>
-        <button type="button" onclick="setAllProgressCumPct()" style="background:#fff;color:#7C3AED;border:1px solid #7C3AED;border-radius:6px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer" title="모든 항목의 누적%를 같은 값으로">📊 누적% 일괄</button>
+        <button type="button" onclick="setAllProgressThisPct()" style="background:#2A8C86;color:white;border:none;border-radius:6px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer" title="모든 항목을 같은 이번 청구%로">📦 이번 N%만 청구</button>
+        <button type="button" onclick="setAllProgressCumPct()" style="background:#fff;color:#2A8C86;border:1px solid #2A8C86;border-radius:6px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer" title="모든 항목의 누적%를 같은 값으로">📊 누적% 일괄</button>
       </div>
     </div>`;
   }
@@ -5790,14 +5790,14 @@ function renderLineItems() {
 
       // Section separator (룸 상위 그룹)
       if (!li.isMaterials && li.section && li.section !== prevSection) {
-        h += `<div style="font-size:12px;font-weight:700;color:#5B21B6;margin-top:10px;margin-bottom:4px;padding:6px 10px;background:#EDE9FE;border-radius:5px;border-left:4px solid #7C3AED">🏢 ${esc(li.section)}</div>`;
+        h += `<div style="font-size:12px;font-weight:700;color:#5B21B6;margin-top:10px;margin-bottom:4px;padding:6px 10px;background:#E3EFEC;border-radius:5px;border-left:4px solid #2A8C86">🏢 ${esc(li.section)}</div>`;
         prevRoom = null;  // 새 section이면 룸도 다시 표시
       }
       if (!li.isMaterials) prevSection = li.section || null;
 
       // Room separator (visual only, not interactive)
       if (!li.isMaterials && li.room && li.room !== prevRoom) {
-        h += `<div style="font-size:11px;font-weight:700;color:#4F46E5;margin-top:8px;margin-bottom:4px;padding:4px 8px;background:#EEF2FF;border-radius:4px;border-left:3px solid #4F46E5">🚪 ${esc(li.room)}</div>`;
+        h += `<div style="font-size:11px;font-weight:700;color:#1F6F6B;margin-top:8px;margin-bottom:4px;padding:4px 8px;background:#E3EFEC;border-radius:4px;border-left:3px solid #1F6F6B">🚪 ${esc(li.room)}</div>`;
       }
       if (!li.isMaterials) prevRoom = li.room;
       
@@ -5874,18 +5874,18 @@ function renderLineItems() {
           </div>
           ${isProgInvMat ? `
           <div style="display:flex;gap:4px;align-items:center;font-size:10px;flex-wrap:wrap;padding-left:75px;margin-bottom:5px">
-            <span id="pi-prev-badge-${i}" style="color:#7C3AED;font-weight:700;background:#EDE9FE;padding:2px 6px;border-radius:4px;${matPrevPct>0?'':'display:none'}">이전: ${matPrevPct}%</span>
-            <span style="color:#7C3AED;font-weight:700">📜 이전%:</span>
-            <input id="pi-prev-${i}" type="number" step="0.01" class="input" style="width:60px;font-size:11px;padding:4px 6px;color:#7C3AED;border-color:#C4B5FD" value="${li.prevPct ?? 0}" placeholder="이전%" oninput="updateProgressPrevPct(${i}, this.value)"/>
-            <span style="color:#4F46E5;font-weight:700;margin-left:6px">💰 이번%:</span>
-            <input id="pi-this-${i}" type="number" step="0.01" class="input" style="width:60px;font-size:11px;padding:4px 6px;font-weight:700;color:#4F46E5;border-color:#C7D2FE" value="${li.thisPct ?? ''}" placeholder="이번%" oninput="updateProgressThisPct(${i}, this.value)"/>
+            <span id="pi-prev-badge-${i}" style="color:#2A8C86;font-weight:700;background:#E3EFEC;padding:2px 6px;border-radius:4px;${matPrevPct>0?'':'display:none'}">이전: ${matPrevPct}%</span>
+            <span style="color:#2A8C86;font-weight:700">📜 이전%:</span>
+            <input id="pi-prev-${i}" type="number" step="0.01" class="input" style="width:60px;font-size:11px;padding:4px 6px;color:#2A8C86;border-color:#C4B5FD" value="${li.prevPct ?? 0}" placeholder="이전%" oninput="updateProgressPrevPct(${i}, this.value)"/>
+            <span style="color:#1F6F6B;font-weight:700;margin-left:6px">💰 이번%:</span>
+            <input id="pi-this-${i}" type="number" step="0.01" class="input" style="width:60px;font-size:11px;padding:4px 6px;font-weight:700;color:#1F6F6B;border-color:#BFDCD6" value="${li.thisPct ?? ''}" placeholder="이번%" oninput="updateProgressThisPct(${i}, this.value)"/>
             <span style="color:#059669;font-weight:700;margin-left:6px" title="이번에 청구할 금액(ex GST). 입력하면 %가 자동 계산됩니다.">💵 이번$:</span>
             <input id="pi-amt-${i}" type="number" step="0.01" class="input" style="width:85px;font-size:11px;padding:4px 6px;font-weight:700;color:#059669;border-color:#A7F3D0" value="${matChargedEx > 0 ? matChargedEx : ''}" placeholder="이번 금액" oninput="updateProgressThisAmount(${i}, this.value)" title="이번에 청구할 금액(ex GST) — 입력하면 %가 자동으로 채워집니다"/>
             <span style="color:#92400E;font-weight:700;margin-left:6px">= 누적%:</span>
             <input id="pi-cum-${i}" type="number" step="0.01" class="input" style="width:65px;font-size:11px;padding:4px 6px" value="${li.cumulativePct ?? ''}" placeholder="누적%" oninput="updateProgressCumPct(${i}, this.value)"/>
-            <span id="pi-past-${i}" style="font-size:10px;color:#7C3AED;font-weight:600;margin-left:6px;${matPrevPct>0?'':'display:none'}">지난: ${fA(round2(matTotalAmt * matPrevPct / 100))}</span>
+            <span id="pi-past-${i}" style="font-size:10px;color:#2A8C86;font-weight:600;margin-left:6px;${matPrevPct>0?'':'display:none'}">지난: ${fA(round2(matTotalAmt * matPrevPct / 100))}</span>
           </div>
-          <div id="pi-summary-${i}" style="font-size:10px;color:#4F46E5;padding-left:75px;font-weight:600;margin-bottom:5px">→ 이번 청구: ${fA(matChargedEx)} ex (= ${fmtPctDisp(matThisPct)}% × ${fA(matTotalAmt)})${matCumPct > 0 ? ` · 누적 ${fmtPctDisp(matCumPct)}% Completed` : ''}</div>
+          <div id="pi-summary-${i}" style="font-size:10px;color:#1F6F6B;padding-left:75px;font-weight:600;margin-bottom:5px">→ 이번 청구: ${fA(matChargedEx)} ex (= ${fmtPctDisp(matThisPct)}% × ${fA(matTotalAmt)})${matCumPct > 0 ? ` · 누적 ${fmtPctDisp(matCumPct)}% Completed` : ''}</div>
           ` : ''}
           ${breakdownHTML}
         </div>`;
@@ -5935,7 +5935,7 @@ function renderLineItems() {
                 ${(li.origQty != null && li.origUnitPrice != null && li.origQty > 0)
                   ? `<span style="color:#6B7280;font-size:9.5px;font-style:italic;background:#F3F4F6;padding:2px 6px;border-radius:4px" title="원본 입력값 (변경 불가)">원본: ${li.origQty} × $${parseFloat(li.origUnitPrice).toFixed(2)}</span>`
                   : ''}
-                <span id="pi-prev-badge-${i}" style="color:#7C3AED;font-weight:700;background:#EDE9FE;padding:2px 6px;border-radius:4px;${prevPct>0?'':'display:none'}">이전: ${prevPct}%</span>
+                <span id="pi-prev-badge-${i}" style="color:#2A8C86;font-weight:700;background:#E3EFEC;padding:2px 6px;border-radius:4px;${prevPct>0?'':'display:none'}">이전: ${prevPct}%</span>
                 <label style="display:flex;align-items:center;gap:2px;cursor:pointer;color:var(--text-3);margin-left:6px">
                   <input type="checkbox" ${li.noTax?'checked':''} onchange="lineItems[${i}].noTax=this.checked;renderLineItems()" style="margin:0"/>NoTax
                 </label>
@@ -5944,19 +5944,19 @@ function renderLineItems() {
                 </label>
               </div>
               <div style="display:flex;gap:4px;align-items:center;font-size:10px;flex-wrap:wrap">
-                <span style="color:#7C3AED;min-width:60px;font-weight:700" title="이전 인보이스(외부 포함)에서 이미 청구한 누적 %. 앱 첫 청구라면 직접 입력하세요.">📜 이전%:</span>
-                <input id="pi-prev-${i}" type="number" step="0.01" class="input" style="width:65px;font-size:11px;padding:4px 6px;color:#7C3AED;border-color:#C4B5FD" value="${li.prevPct ?? 0}" placeholder="이전%" oninput="updateProgressPrevPct(${i}, this.value)" title="이전 인보이스 누적%. 앱 첫 입력이라도 외부에서 청구한 게 있으면 여기에 직접 입력."/>
-                <span style="color:#4F46E5;min-width:60px;font-weight:700;margin-left:6px">💰 이번%:</span>
-                <input id="pi-this-${i}" type="number" step="0.01" class="input" style="width:65px;font-size:11px;padding:4px 6px;font-weight:700;color:#4F46E5;border-color:#C7D2FE" value="${li.thisPct ?? ''}" placeholder="이번%" oninput="updateProgressThisPct(${i}, this.value)" title="이번에 청구할 %"/>
+                <span style="color:#2A8C86;min-width:60px;font-weight:700" title="이전 인보이스(외부 포함)에서 이미 청구한 누적 %. 앱 첫 청구라면 직접 입력하세요.">📜 이전%:</span>
+                <input id="pi-prev-${i}" type="number" step="0.01" class="input" style="width:65px;font-size:11px;padding:4px 6px;color:#2A8C86;border-color:#C4B5FD" value="${li.prevPct ?? 0}" placeholder="이전%" oninput="updateProgressPrevPct(${i}, this.value)" title="이전 인보이스 누적%. 앱 첫 입력이라도 외부에서 청구한 게 있으면 여기에 직접 입력."/>
+                <span style="color:#1F6F6B;min-width:60px;font-weight:700;margin-left:6px">💰 이번%:</span>
+                <input id="pi-this-${i}" type="number" step="0.01" class="input" style="width:65px;font-size:11px;padding:4px 6px;font-weight:700;color:#1F6F6B;border-color:#BFDCD6" value="${li.thisPct ?? ''}" placeholder="이번%" oninput="updateProgressThisPct(${i}, this.value)" title="이번에 청구할 %"/>
                 <span style="color:#059669;min-width:60px;font-weight:700;margin-left:6px" title="이번에 청구할 금액(ex GST). 입력하면 %가 자동 계산됩니다.">💵 이번$:</span>
                 <input id="pi-amt-${i}" type="number" step="0.01" class="input" style="width:85px;font-size:11px;padding:4px 6px;font-weight:700;color:#059669;border-color:#A7F3D0" value="${computedEx > 0 ? computedEx : ''}" placeholder="이번 금액" oninput="updateProgressThisAmount(${i}, this.value)" title="이번에 청구할 금액(ex GST) — 입력하면 %가 자동으로 채워집니다"/>
                 <span style="color:var(--text-4);margin-left:6px;font-weight:700">= 새 누적%:</span>
                 <input id="pi-cum-${i}" type="number" step="0.01" class="input" style="width:70px;font-size:11px;padding:4px 6px" value="${li.cumulativePct ?? ''}" placeholder="누적%" oninput="updateProgressCumPct(${i}, this.value)"/>
               </div>
               <div style="font-size:9px;color:var(--text-4);font-style:italic;margin-top:2px">↑ 이전% + 이번% = 새 누적%. 셋 중 하나 바꾸면 나머지 자동 계산.</div>
-              <div id="pi-summary-${i}" style="font-size:10px;color:#4F46E5;margin-top:3px;font-weight:600">→ 이번 청구: ${fA(computedEx)} ex (= ${fmtPctDisp(thisPct)}% × ${fA(totalAmt)})${cumPct > 0 ? ` · 누적 ${fmtPctDisp(cumPct)}% Completed` : ''}</div>
+              <div id="pi-summary-${i}" style="font-size:10px;color:#1F6F6B;margin-top:3px;font-weight:600">→ 이번 청구: ${fA(computedEx)} ex (= ${fmtPctDisp(thisPct)}% × ${fA(totalAmt)})${cumPct > 0 ? ` · 누적 ${fmtPctDisp(cumPct)}% Completed` : ''}</div>
             </div>
-            <span id="line-total-${i}" style="min-width:90px;text-align:right;font-weight:700;font-size:11px;color:var(--text)">${fA(computedEx)}<div style="font-size:9px;color:var(--text-4);font-weight:400">${li.noTax?'(no tax)':'ex GST'}</div><div style="font-size:9px;color:var(--text-4);font-weight:400;margin-top:2px">원래: ${fA(totalAmt)}</div><div id="pi-past-${i}" style="font-size:9px;color:#7C3AED;font-weight:600;${prevPct>0?'':'display:none'}">지난: ${fA(round2(totalAmt * prevPct / 100))}</div></span>
+            <span id="line-total-${i}" style="min-width:90px;text-align:right;font-weight:700;font-size:11px;color:var(--text)">${fA(computedEx)}<div style="font-size:9px;color:var(--text-4);font-weight:400">${li.noTax?'(no tax)':'ex GST'}</div><div style="font-size:9px;color:var(--text-4);font-weight:400;margin-top:2px">원래: ${fA(totalAmt)}</div><div id="pi-past-${i}" style="font-size:9px;color:#2A8C86;font-weight:600;${prevPct>0?'':'display:none'}">지난: ${fA(round2(totalAmt * prevPct / 100))}</div></span>
             <div style="display:flex;flex-direction:column;gap:1px">
               <button style="background:none;border:none;color:var(--text-3);font-size:11px;cursor:${i===0?'not-allowed':'pointer'};line-height:1;padding:1px 3px;opacity:${i===0?'0.3':'1'}" onclick="moveLineItem(${i}, -1)" aria-label="위로" title="위로">▲</button>
               <button style="background:none;border:none;color:var(--text-3);font-size:11px;cursor:${i===lineItems.length-1?'not-allowed':'pointer'};line-height:1;padding:1px 3px;opacity:${i===lineItems.length-1?'0.3':'1'}" onclick="moveLineItem(${i}, 1)" aria-label="아래로" title="아래로">▼</button>
@@ -6009,7 +6009,7 @@ function updLineTotal(i) {
       const prevPct = parseFloat(li.prevPct) || 0;
       html += `<div style="font-size:9px;color:var(--text-4);font-weight:400;margin-top:2px">원래: ${fA(totalAmt)}</div>`;
       if (prevPct > 0) {
-        html += `<div style="font-size:9px;color:#7C3AED;font-weight:600">지난: ${fA(round2(totalAmt * prevPct / 100))}</div>`;
+        html += `<div style="font-size:9px;color:#2A8C86;font-weight:600">지난: ${fA(round2(totalAmt * prevPct / 100))}</div>`;
       }
     }
     el.innerHTML = html;
@@ -6060,7 +6060,7 @@ function updLineItemsTotal() {
       h += `<div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:11px"><span style="color:#92400E;font-style:italic">⚠️ 디스카운트 ${discPct}% 입력됐지만 💸할인 체크된 라인이 없음</span></div>`;
     }
     h += `<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:var(--text-3)">GST (10%)</span><span style="font-weight:700">$${gst.toFixed(2)}</span></div>
-    <div style="display:flex;justify-content:space-between;border-top:1px solid var(--border-2);padding-top:6px;margin-top:4px"><span style="font-weight:800;color:var(--text)">TOTAL (inc GST)</span><span style="font-weight:800;color:#4F46E5;font-size:15px">$${total.toFixed(2)}</span></div>`;
+    <div style="display:flex;justify-content:space-between;border-top:1px solid var(--border-2);padding-top:6px;margin-top:4px"><span style="font-weight:800;color:var(--text)">TOTAL (inc GST)</span><span style="font-weight:800;color:#1F6F6B;font-size:15px">$${total.toFixed(2)}</span></div>`;
     
     // PROGRESS-only quotation verification summary
     if (curType === 'PROGRESS') {
@@ -6082,23 +6082,23 @@ function updLineItemsTotal() {
       const cumPctOverall = quoteTotalEx > 0 ? round2(cumTotal / quoteTotalEx * 100) : 0;
       
       h += `
-        <div style="margin-top:14px;padding-top:10px;border-top:2px solid #C7D2FE;background:#EEF2FF;border-radius:6px;padding:10px;font-size:11px">
-          <div style="font-weight:800;color:#3730A3;margin-bottom:6px;font-size:11.5px">📋 쿼테이션 검증</div>
+        <div style="margin-top:14px;padding-top:10px;border-top:2px solid #BFDCD6;background:#E3EFEC;border-radius:6px;padding:10px;font-size:11px">
+          <div style="font-weight:800;color:#134845;margin-bottom:6px;font-size:11.5px">📋 쿼테이션 검증</div>
           <div style="display:flex;justify-content:space-between;margin-bottom:3px">
-            <span style="color:#4F46E5">전체 쿼트 금액</span>
-            <span style="font-weight:700;color:#1E1B4B">$${quoteTotalEx.toFixed(2)}</span>
+            <span style="color:#1F6F6B">전체 쿼트 금액</span>
+            <span style="font-weight:700;color:#1C2430">$${quoteTotalEx.toFixed(2)}</span>
           </div>
           ${prevBilledEx > 0 ? `<div style="display:flex;justify-content:space-between;margin-bottom:3px">
-            <span style="color:#7C3AED">지난 인보이스 청구</span>
+            <span style="color:#2A8C86">지난 인보이스 청구</span>
             <span style="font-weight:600">$${prevBilledEx.toFixed(2)}</span>
           </div>` : ''}
           <div style="display:flex;justify-content:space-between;margin-bottom:3px">
-            <span style="color:#4F46E5;font-weight:700">이번 인보이스 청구</span>
-            <span style="font-weight:700;color:#4F46E5">$${thisBilledEx.toFixed(2)}</span>
+            <span style="color:#1F6F6B;font-weight:700">이번 인보이스 청구</span>
+            <span style="font-weight:700;color:#1F6F6B">$${thisBilledEx.toFixed(2)}</span>
           </div>
-          <div style="display:flex;justify-content:space-between;padding-top:5px;margin-top:5px;border-top:1px solid #C7D2FE">
+          <div style="display:flex;justify-content:space-between;padding-top:5px;margin-top:5px;border-top:1px solid #BFDCD6">
             <span style="font-weight:700">누적 청구 합계 (${cumPctOverall}%)</span>
-            <span style="font-weight:800;color:#3730A3">$${cumTotal.toFixed(2)}</span>
+            <span style="font-weight:800;color:#134845">$${cumTotal.toFixed(2)}</span>
           </div>
           <div style="display:flex;justify-content:space-between;margin-top:3px">
             <span style="font-weight:700;color:${remaining > 0.01 ? '#DC2626' : '#059669'}">남은 청구 가능액</span>
@@ -6363,7 +6363,7 @@ function startMemoEdit(id) {
   const cur = (inv.note || '').replace(/\n/g, ' ').trim();
   el.innerHTML = `<span style="display:inline-flex;gap:4px;align-items:center;width:100%">
     <input id="np-input-${id}" type="text" value="${esc(cur)}" placeholder="메모 입력 후 Enter (취소: Esc)"
-      style="flex:1;font-size:11px;padding:3px 6px;border:1px solid #C7D2FE;border-radius:4px;font-family:inherit;background:#fff;color:#111827;min-width:0"/>
+      style="flex:1;font-size:11px;padding:3px 6px;border:1px solid #BFDCD6;border-radius:4px;font-family:inherit;background:#fff;color:#111827;min-width:0"/>
   </span>`;
   const inp = document.getElementById('np-input-' + id);
   inp.focus();
@@ -6468,7 +6468,7 @@ function _renderAllBulkPay() {
       const sumRem = items.filter(x => x.builderName === lastBuilder).reduce((s,x)=>s+remaining(x),0);
       const bEsc   = esc(lastBuilder||'').replace(/"/g,'&quot;');
       h += `<tr class="bp-group-row" data-builder="${bEsc}" data-search="${esc((lastBuilder||'').toLowerCase()).replace(/"/g,'&quot;')}" style="background:#EFF6FF">
-        <td colspan="4" style="padding:7px 10px;font-weight:800;color:#3730A3;font-size:12px">
+        <td colspan="4" style="padding:7px 10px;font-weight:800;color:#134845;font-size:12px">
           <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
             <input type="checkbox" class="bp-group-cb" data-builder="${bEsc}" onchange="onBulkPayGroupCheck(this)"/>
             🏗️ ${esc(lastBuilder)}
@@ -6478,8 +6478,8 @@ function _renderAllBulkPay() {
       </tr>`;
     }
     const rem = remaining(i);
-    const projName = i.projectName ? `<span style="font-size:10px;color:#7C3AED">🏷 ${esc(i.projectName.slice(0,30))}</span>` : '';
-    const stPill = i.status === 'RETENTION' ? '<span style="background:#EEF2FF;color:#3730A3;font-size:9px;padding:1px 5px;border-radius:3px;margin-left:4px">RET</span>'
+    const projName = i.projectName ? `<span style="font-size:10px;color:#2A8C86">🏷 ${esc(i.projectName.slice(0,30))}</span>` : '';
+    const stPill = i.status === 'RETENTION' ? '<span style="background:#E3EFEC;color:#134845;font-size:9px;padding:1px 5px;border-radius:3px;margin-left:4px">RET</span>'
                  : i.status === 'ONGOING'   ? '<span style="background:#FEF3C7;color:#B45309;font-size:9px;padding:1px 5px;border-radius:3px;margin-left:4px">ON</span>'
                  : '';
     // 검색 토큰: 빌더명·인보이스번호·주소·프로젝트명 (소문자)
@@ -7519,7 +7519,7 @@ p{margin-bottom:10pt;font-size:10pt}
 .checkbox.chk::after{content:"✓"}
 .toolbar{position:sticky;top:0;background:#fff;border-bottom:1px solid #ccc;padding:8pt 16mm;margin:-18mm -16mm 14pt;display:flex;gap:8pt;justify-content:space-between;z-index:10}
 .toolbar button{padding:6pt 14pt;border:none;border-radius:6pt;cursor:pointer;font-size:10pt;font-weight:700;font-family:inherit}
-.tb-print{background:#1E1B4B;color:#fff}
+.tb-print{background:#1C2430;color:#fff}
 .tb-close{background:#F3F4F6;color:#333;border:1px solid #ccc}
 @media print{.toolbar{display:none}body{padding:14mm 16mm}@page{margin:0;size:A4}}
 </style></head><body>
@@ -8542,7 +8542,7 @@ function renderBuilderTerms() {
         ${avgPay?`<div style="font-size:11px;color:#6B7280">⏱️ 실제 평균 ${avgPay.avg}일</div>`:''}
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;font-size:12px">
-        <span style="background:#EEF2FF;color:#3730A3;border-radius:6px;padding:2px 7px">📤 청구 ${b.claimDay?esc(CLAIM_DAYS[b.claimDay]||b.claimDay):'미정'}</span>
+        <span style="background:#E3EFEC;color:#134845;border-radius:6px;padding:2px 7px">📤 청구 ${b.claimDay?esc(CLAIM_DAYS[b.claimDay]||b.claimDay):'미정'}</span>
         <span style="background:${b.payTerm?'#ECFDF5':'#F3F4F6'};color:${b.payTerm?'#065F46':'#6B7280'};border-radius:6px;padding:2px 7px">💰 입금 ${b.payTerm?esc(PAY_TERMS[b.payTerm]||b.payTerm):'미정'}</span>
       </div>
       ${b.contractNote?`<div style="font-size:11px;color:#6B7280;margin-top:5px;line-height:1.45">${esc(b.contractNote)}</div>`:''}
@@ -8585,8 +8585,8 @@ function renderBuilders() {
         <div style="min-width:0;flex:1">
           <div style="font-size:14px;font-weight:700;color:#111827;margin-bottom:2px">${esc(b.name)}<span class="bill-badge bill-${b.billingType||'PER_JOB'}">${billLabel}</span>${co?` <span class="co-badge ${co.id==='co2'?'co2':''}">${esc(co.prefix.replace('-',''))}</span>`:''}</div>
           ${b.contactPerson?`<div style="font-size:12px;color:#6B7280">👤 ${esc(b.contactPerson)}</div>`:''}
-          ${emailToShow?`<div style="font-size:11px;color:#9CA3AF;margin-top:2px;word-break:break-all">📧 <span onclick="event.stopPropagation();copyEmail('${esc(emailToShow)}', this)" style="color:#4F46E5;cursor:pointer;text-decoration:underline" title="클릭하면 복사됨">${esc(emailToShow)}</span></div>`:''}
-          ${b.contact?`<div style="font-size:11px;color:#9CA3AF">📞 <a href="tel:${esc(b.contact.replace(/\s/g,''))}" onclick="event.stopPropagation()" style="color:#4F46E5;text-decoration:none">${esc(b.contact)}</a></div>`:''}
+          ${emailToShow?`<div style="font-size:11px;color:#9CA3AF;margin-top:2px;word-break:break-all">📧 <span onclick="event.stopPropagation();copyEmail('${esc(emailToShow)}', this)" style="color:#1F6F6B;cursor:pointer;text-decoration:underline" title="클릭하면 복사됨">${esc(emailToShow)}</span></div>`:''}
+          ${b.contact?`<div style="font-size:11px;color:#9CA3AF">📞 <a href="tel:${esc(b.contact.replace(/\s/g,''))}" onclick="event.stopPropagation()" style="color:#1F6F6B;text-decoration:none">${esc(b.contact)}</a></div>`:''}
           ${avgPay ? `<div style="font-size:11px;color:${avgColor};margin-top:3px;font-weight:600" title="PAID 상태 ${avgPay.n}건의 청구일→마지막 입금일 평균">⏱️ 평균 ${avgPay.avg}일 후 입금 <span style="color:#9CA3AF;font-weight:400">(${avgPay.n}건)</span></div>` : ''}
         </div>
         <div style="text-align:right;flex-shrink:0">
@@ -9350,7 +9350,7 @@ function _renderPartnersSync() {
 
     el.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:8px;flex-wrap:wrap">
-        <h2 style="margin:0;font-size:18px;font-weight:800;color:var(--text)">🤝 운영자 정산 (Kyle / Max)</h2>
+        <h2 style="margin:0;font-size:18px;font-weight:800;color:var(--text)">운영자 정산 (Kyle / Max)</h2>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
           <button class="btn-secondary" style="padding:8px 12px;font-size:12px" onclick="openPartnerModal(null,'spend')" title="개인 결제 추가">+ 개인결제</button>
           <button class="btn-secondary" style="padding:8px 12px;font-size:12px;background:#FEF3C7;color:#92400E;border-color:#FDE68A" onclick="openPartnerModal(null,'cash')" title="캐시 인출 추가">+ 캐시 인출</button>
@@ -9361,12 +9361,12 @@ function _renderPartnersSync() {
       <div style="background:var(--card-bg);border-radius:12px;padding:14px;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,0.05)">
         <!-- 개인사용 행 -->
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-          <span style="font-size:11px;font-weight:700;color:#4338CA">📊 개인사용</span>
+          <span style="font-size:11px;font-weight:700;color:#185A57">📊 개인사용</span>
           <span style="font-size:9px;color:var(--text-4)">기간별 차액</span>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:12px">
-          <div style="background:#EEF2FF;border-radius:10px;padding:10px 6px;text-align:center;min-width:0">
-            <div style="font-size:9px;color:#4338CA;font-weight:700;letter-spacing:0.3px">KYLE 사용</div>
+          <div style="background:#E3EFEC;border-radius:10px;padding:10px 6px;text-align:center;min-width:0">
+            <div style="font-size:9px;color:#185A57;font-weight:700;letter-spacing:0.3px">KYLE 사용</div>
             <div style="font-size:14px;font-weight:800;color:#1E3A8A;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${fA(spentKyle)}</div>
             <div style="font-size:9px;color:#6B7280;margin-top:1px">${allSpends.filter(e=>e.person==='kyle').length}건</div>
           </div>
@@ -9430,13 +9430,13 @@ function _renderPartnersSync() {
         <!-- 종류 토글 행: 개인사용 ↔ 캐시 인출 -->
         <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
           <span style="font-size:11px;font-weight:700;color:var(--text-3);min-width:36px">종류</span>
-          <button onclick="_partnerSection='spend';renderPartners()" style="flex:1;min-width:120px;background:${_partnerSection==='spend'?'#4338CA':'#fff'};color:${_partnerSection==='spend'?'#fff':'#4338CA'};border:1px solid #4338CA;padding:6px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">📊 개인사용 (${allSpends.length})</button>
+          <button onclick="_partnerSection='spend';renderPartners()" style="flex:1;min-width:120px;background:${_partnerSection==='spend'?'#185A57':'#fff'};color:${_partnerSection==='spend'?'#fff':'#185A57'};border:1px solid #185A57;padding:6px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">📊 개인사용 (${allSpends.length})</button>
           <button onclick="_partnerSection='cash';renderPartners()" style="flex:1;min-width:120px;background:${_partnerSection==='cash'?'#92400E':'#fff'};color:${_partnerSection==='cash'?'#fff':'#92400E'};border:1px solid #92400E;padding:6px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">💵 캐시 인출 (${allCashes.length})</button>
         </div>
         <!-- 사람 필터 행 -->
         <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
           <span style="font-size:11px;font-weight:700;color:var(--text-3);min-width:36px">사람</span>
-          <button onclick="_partnerFilter='all';renderPartners()" style="flex:1;min-width:60px;background:${_partnerFilter==='all'?'#4F46E5':'#fff'};color:${_partnerFilter==='all'?'#fff':'#4F46E5'};border:1px solid #4F46E5;padding:6px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">전체</button>
+          <button onclick="_partnerFilter='all';renderPartners()" style="flex:1;min-width:60px;background:${_partnerFilter==='all'?'#1F6F6B':'#fff'};color:${_partnerFilter==='all'?'#fff':'#1F6F6B'};border:1px solid #1F6F6B;padding:6px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">전체</button>
           <button onclick="_partnerFilter='kyle';renderPartners()" style="flex:1;min-width:60px;background:${_partnerFilter==='kyle'?'#1E3A8A':'#fff'};color:${_partnerFilter==='kyle'?'#fff':'#1E3A8A'};border:1px solid #1E3A8A;padding:6px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">🟦 Kyle</button>
           <button onclick="_partnerFilter='max';renderPartners()" style="flex:1;min-width:60px;background:${_partnerFilter==='max'?'#7C2D12':'#fff'};color:${_partnerFilter==='max'?'#fff':'#7C2D12'};border:1px solid #7C2D12;padding:6px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">🟧 Max</button>
         </div>
@@ -9444,8 +9444,8 @@ function _renderPartnersSync() {
         ${_partnerSection==='spend' ? `
         <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
           <span style="font-size:11px;font-weight:700;color:var(--text-3);min-width:36px">뷰</span>
-          <button onclick="_partnerView='period';renderPartners()" style="flex:1;min-width:100px;background:${_partnerView==='period'?'#4F46E5':'#fff'};color:${_partnerView==='period'?'#fff':'#4F46E5'};border:1px solid #4F46E5;padding:6px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">📊 기간별</button>
-          <button onclick="_partnerView='raw';renderPartners()" style="flex:1;min-width:100px;background:${_partnerView==='raw'?'#4F46E5':'#fff'};color:${_partnerView==='raw'?'#fff':'#4F46E5'};border:1px solid #4F46E5;padding:6px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">📋 전체 목록</button>
+          <button onclick="_partnerView='period';renderPartners()" style="flex:1;min-width:100px;background:${_partnerView==='period'?'#1F6F6B':'#fff'};color:${_partnerView==='period'?'#fff':'#1F6F6B'};border:1px solid #1F6F6B;padding:6px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">📊 기간별</button>
+          <button onclick="_partnerView='raw';renderPartners()" style="flex:1;min-width:100px;background:${_partnerView==='raw'?'#1F6F6B':'#fff'};color:${_partnerView==='raw'?'#fff':'#1F6F6B'};border:1px solid #1F6F6B;padding:6px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">📋 전체 목록</button>
         </div>` : ''}
       </div>
 
@@ -9690,7 +9690,7 @@ function openPartnerModal(id, type) {
       <div class="mb">
         <label class="label">사람</label>
         <div style="display:flex;gap:8px">
-          <label style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:10px;border:2px solid #C7D2FE;border-radius:8px;cursor:pointer;background:${initialPerson==='kyle'?'#EEF2FF':'#fff'}">
+          <label style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:10px;border:2px solid #BFDCD6;border-radius:8px;cursor:pointer;background:${initialPerson==='kyle'?'#E3EFEC':'#fff'}">
             <input type="radio" name="pn-person" value="kyle" ${initialPerson==='kyle'?'checked':''} style="margin:0"/>
             <span style="font-weight:700;color:#1E3A8A">🟦 Kyle</span>
           </label>
@@ -9715,7 +9715,7 @@ function openPartnerModal(id, type) {
         ${isSpend ? `
         <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:5px">
           ${['점심','버닝스','휴무','세븐','아침','맥날','간식','물','주유','세차'].map(w => `
-            <button type="button" onclick="_appendPartnerNote('${w}')" style="background:#EEF2FF;color:#4338CA;border:1px solid #C7D2FE;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">+ ${w}</button>
+            <button type="button" onclick="_appendPartnerNote('${w}')" style="background:#E3EFEC;color:#185A57;border:1px solid #BFDCD6;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">+ ${w}</button>
           `).join('')}
         </div>` : ''}
         <textarea class="input" id="pn-note" style="height:60px;resize:none" placeholder="예: 점심 맥날, Bunnings 영수증 등">${e?esc((e.note||'').replace(/개인\s*/g,'').trim()):''}</textarea>
@@ -9838,14 +9838,14 @@ function openMonthlyReport(yyyymm) {
 <style>
 *{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif}
 body{padding:24px 32px;color:#1F2937;font-size:12px;background:#fff}
-h1{font-size:24px;font-weight:800;color:#1E1B4B;margin-bottom:4px}
+h1{font-size:24px;font-weight:800;color:#1C2430;margin-bottom:4px}
 .sub{font-size:13px;color:#6B7280;margin-bottom:24px}
 .summary{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px}
 .scard{border:1px solid #E5E7EB;border-radius:10px;padding:14px}
 .scard .lbl{font-size:10px;color:#6B7280;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;margin-bottom:6px}
 .scard .val{font-size:18px;font-weight:800}
 .scard .sub2{font-size:10px;color:#9CA3AF;margin-top:4px}
-h2{font-size:14px;font-weight:800;color:#1E1B4B;margin:24px 0 10px;border-bottom:2px solid #E5E7EB;padding-bottom:6px}
+h2{font-size:14px;font-weight:800;color:#1C2430;margin:24px 0 10px;border-bottom:2px solid #E5E7EB;padding-bottom:6px}
 table{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:18px}
 th{background:#F3F4F6;text-align:left;padding:8px 10px;font-weight:700;color:#374151;font-size:11px}
 td{padding:7px 10px;border-bottom:1px solid #F1F5F9}
@@ -9855,7 +9855,7 @@ tfoot td{border-top:2px solid #E5E7EB;font-weight:800;padding-top:10px}
 .foot{margin-top:30px;padding-top:16px;border-top:1px solid #E5E7EB;font-size:10px;color:#9CA3AF;text-align:center}
 .toolbar{position:sticky;top:0;background:#fff;border-bottom:1px solid #E5E7EB;padding:10px 32px;margin:-24px -32px 20px;display:flex;justify-content:space-between;align-items:center;gap:8px;z-index:10}
 .toolbar button{padding:8px 16px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:700;font-family:inherit}
-.tb-print{background:#4F46E5;color:#fff}
+.tb-print{background:#1F6F6B;color:#fff}
 .tb-close{background:#F3F4F6;color:#374151;border:1px solid #E5E7EB}
 @media print{body{padding:14mm 16mm}.toolbar{display:none}@page{margin:0}}
 </style></head><body>
@@ -9873,7 +9873,7 @@ tfoot td{border-top:2px solid #E5E7EB;font-weight:800;padding-top:10px}
   <div class="scard"><div class="lbl">GST (예상)</div><div class="val" style="color:#1E40AF">${fA(issuedTotal - issuedTotalEx)}</div><div class="sub2">청구액 1/11</div></div>
 </div>
 
-<h2>📋 발행 인보이스 (${issued.length}건)</h2>
+<h2>발행 인보이스 (${issued.length}건)</h2>
 ${issued.length ? `<table>
   <thead><tr><th style="width:90px">번호</th><th>빌더</th><th>주소</th><th style="width:80px">날짜</th><th style="width:90px" class="num">금액 inc</th><th style="width:90px" class="num">입금</th></tr></thead>
   <tbody>
@@ -9889,7 +9889,7 @@ ${issued.length ? `<table>
   <tfoot><tr><td colspan="4">합계</td><td class="num">${fA(issuedTotal)}</td><td class="num">${fA(issued.reduce((s,i)=>s+totalPaid(i),0))}</td></tr></tfoot>
 </table>` : `<p style="padding:12px;color:#9CA3AF;font-style:italic">발행된 인보이스가 없습니다.</p>`}
 
-<h2>💰 입금 내역 (${monthPays.length}건)</h2>
+<h2>입금 내역 (${monthPays.length}건)</h2>
 ${monthPays.length ? `<table>
   <thead><tr><th style="width:80px">날짜</th><th style="width:90px">인보이스</th><th>빌더</th><th style="width:100px" class="num">금액</th></tr></thead>
   <tbody>
@@ -9903,7 +9903,7 @@ ${monthPays.length ? `<table>
   <tfoot><tr><td colspan="3">합계</td><td class="num" style="color:#059669">${fA(paidTotal)}</td></tr></tfoot>
 </table>` : `<p style="padding:12px;color:#9CA3AF;font-style:italic">입금이 없습니다.</p>`}
 
-<h2>🏗️ 빌더별 요약</h2>
+<h2>빌더별 요약</h2>
 ${sortedBuilders.length ? `<table>
   <thead><tr><th>빌더</th><th style="width:60px;text-align:center">건수</th><th style="width:110px" class="num">청구액</th><th style="width:110px" class="num">입금액</th></tr></thead>
   <tbody>
@@ -9986,12 +9986,12 @@ function renderStats() {
   // Top 8 builders by total
   const topBuilders = Object.entries(bs).sort((a,b)=>b[1].total-a[1].total).slice(0, 8);
   const totalAll = topBuilders.reduce((s,[_,v])=>s+v.total,0);
-  const COLORS = ['#4F46E5','#7C3AED','#EC4899','#F59E0B','#10B981','#06B6D4','#8B5CF6','#F43F5E'];
+  const COLORS = ['#1F6F6B','#2A8C86','#EC4899','#F59E0B','#10B981','#06B6D4','#2A8C86','#F43F5E'];
 
   // 월별 리포트 버튼 (default = 이번달)
   const _curMo = today.slice(0,7);
   let h = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:8px;flex-wrap:wrap">
-    <h2 style="margin:0;font-size:18px;font-weight:800;color:var(--text)">📊 통계</h2>
+    <h2 style="margin:0;font-size:18px;font-weight:800;color:var(--text)">통계</h2>
     <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
       <input type="month" id="stat-report-month" value="${_curMo}" class="input" style="width:140px;padding:7px 10px;font-size:13px"/>
       <button class="btn-secondary" style="padding:7px 12px;font-size:12px" onclick="openMonthlyReport(document.getElementById('stat-report-month').value)">📄 월별 리포트</button>
@@ -9999,9 +9999,9 @@ function renderStats() {
   </div>
   <div class="stat-grid" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr))">
     ${[
-      ['💰 미수금', out, '#818CF8', 'INVOICE',    ''],
+      ['💰 미수금', out, '#5FB8B0', 'INVOICE',    ''],
       ['🔴 연체',   ov,  '#f87171', 'OVERDUE',    ''],
-      ['🔒 보류금', ret, '#6366F1', 'RETENTION',  ''],
+      ['🔒 보류금', ret, '#1F6F6B', 'RETENTION',  ''],
       ['✅ 총입금', pd,  '#34d399', 'PAID',       ''],
       ['💵 이번달 입금', mo,  '#fbbf24', 'ALL',        today.slice(0,7)],
     ].map(([l,v,c,filter,search])=>`
@@ -10022,8 +10022,8 @@ function renderStats() {
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:8px;flex-wrap:wrap">
       <div style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:1px">💰 입금 매출 ${chartView==='quarter'?'(최근 8분기)':'(최근 12개월)'}</div>
       <div style="display:flex;gap:4px">
-        <button onclick="statChartView='month';renderStats()" style="background:${chartView==='month'?'#4F46E5':'#fff'};color:${chartView==='month'?'#fff':'#4F46E5'};border:1px solid #4F46E5;padding:4px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">월별</button>
-        <button onclick="statChartView='quarter';renderStats()" style="background:${chartView==='quarter'?'#4F46E5':'#fff'};color:${chartView==='quarter'?'#fff':'#4F46E5'};border:1px solid #4F46E5;padding:4px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">분기별</button>
+        <button onclick="statChartView='month';renderStats()" style="background:${chartView==='month'?'#1F6F6B':'#fff'};color:${chartView==='month'?'#fff':'#1F6F6B'};border:1px solid #1F6F6B;padding:4px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">월별</button>
+        <button onclick="statChartView='quarter';renderStats()" style="background:${chartView==='quarter'?'#1F6F6B':'#fff'};color:${chartView==='quarter'?'#fff':'#1F6F6B'};border:1px solid #1F6F6B;padding:4px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">분기별</button>
       </div>
     </div>
     <div style="display:grid;grid-template-columns:repeat(${sortedM.length}, minmax(0,1fr));gap:6px;height:160px;padding-bottom:24px;border-bottom:1px solid var(--border-2);position:relative">
@@ -10040,7 +10040,7 @@ function renderStats() {
           : 'position:absolute;bottom:-18px;left:50%;font-size:9px;color:var(--text-4);transform:translateX(-50%) rotate(-35deg);transform-origin:50% 0;white-space:nowrap';
         return `<div style="min-width:0;overflow:visible;display:flex;flex-direction:column;align-items:center;height:100%;justify-content:flex-end;position:relative" title="${m}: ${fA(v)}">
           <div style="font-size:9px;color:var(--text-4);margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%">${v >= 10000 ? '$'+(v/1000).toFixed(0)+'k' : ''}</div>
-          <div style="width:100%;background:${isThisPeriod?'#F59E0B':'linear-gradient(180deg,#818CF8 0%,#4F46E5 100%)'};border-radius:4px 4px 0 0;height:${pct}%;min-height:2px;transition:height 0.3s"></div>
+          <div style="width:100%;background:${isThisPeriod?'#F59E0B':'linear-gradient(180deg,#5FB8B0 0%,#1F6F6B 100%)'};border-radius:4px 4px 0 0;height:${pct}%;min-height:2px;transition:height 0.3s"></div>
           <div style="${labelStyle}">${label}</div>
         </div>`;
       }).join('')}
@@ -10297,7 +10297,7 @@ function renderMonthlyExpenses() {
       ${_expSubTabBar()}
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:14px">
         <div>
-          <h2 style="margin:0;font-size:18px;font-weight:800;color:var(--text-1)">💳 정기 지출 (월 단위)</h2>
+          <h2 style="margin:0;font-size:18px;font-weight:800;color:var(--text-1)">정기 지출 (월 단위)</h2>
           <p style="margin:2px 0 0;font-size:11px;color:var(--text-4)">자재상·임대 등 매월 결제 항목 추적</p>
         </div>
         <button class="btn-primary" style="padding:7px 12px;font-size:12px" onclick="expAddVendor()">＋ 거래처 추가</button>
@@ -10339,8 +10339,8 @@ function renderMonthlyExpenses() {
           <tbody>
             ${monthsRev.map(m => `
               <tr>
-                <td style="position:sticky;left:0;background:var(--card-bg);padding:6px 10px;border-bottom:1px solid var(--border-3);font-weight:700;color:${m===thisMonth?'#6366F1':'var(--text-2)'};z-index:1">
-                  ${_expMonthLabel(m)}${m===thisMonth?' <span style="font-size:9px;background:#6366F1;color:#fff;padding:1px 5px;border-radius:3px;margin-left:3px">현재</span>':''}
+                <td style="position:sticky;left:0;background:var(--card-bg);padding:6px 10px;border-bottom:1px solid var(--border-3);font-weight:700;color:${m===thisMonth?'#1F6F6B':'var(--text-2)'};z-index:1">
+                  ${_expMonthLabel(m)}${m===thisMonth?' <span style="font-size:9px;background:#1F6F6B;color:#fff;padding:1px 5px;border-radius:3px;margin-left:3px">현재</span>':''}
                 </td>
                 ${vendors.map(v => {
                   const cellKey = v.id + ':' + m;
@@ -10441,7 +10441,7 @@ function renderMonthlyExpenses() {
 function _expSubTabBar() {
   const tabBtn = (key, label) => {
     const on = _expSubTab === key;
-    return `<button onclick="expSwitchSubTab('${key}')" style="background:${on?'#4F46E5':'transparent'};color:${on?'#fff':'#4F46E5'};border:1.5px solid #4F46E5;padding:7px 16px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;flex:1;min-width:140px">${label}</button>`;
+    return `<button onclick="expSwitchSubTab('${key}')" style="background:${on?'#1F6F6B':'transparent'};color:${on?'#fff':'#1F6F6B'};border:1.5px solid #1F6F6B;padding:7px 16px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;flex:1;min-width:140px">${label}</button>`;
   };
   return `<div style="display:flex;gap:6px;margin-bottom:14px">
     ${tabBtn('monthly','📅 정기 지출 (월결제)')}
@@ -10504,27 +10504,27 @@ function renderPersonalCard() {
 
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:14px">
         <div>
-          <h2 style="margin:0;font-size:18px;font-weight:800;color:var(--text-1)">💳 개인카드 환급 (BAS)</h2>
+          <h2 style="margin:0;font-size:18px;font-weight:800;color:var(--text-1)">개인카드 환급 (BAS)</h2>
           <p style="margin:2px 0 0;font-size:11px;color:var(--text-4)">직원 개인카드 사용 → 회사 환급. 호주 FY 분기별 CSV 내보내기</p>
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
-          <button class="btn-secondary" style="padding:7px 10px;font-size:12px;background:${_pcShowSettings?'#EEF2FF':'#fff'};color:#4F46E5;border-color:#C7D2FE" onclick="pcToggleSettings()" title="필터·정렬 설정">⚙️ 설정${(_pcNameFilter!=='all'||_pcSortBy!=='paid'||_pcSortDir!=='desc')?' •':''}</button>
+          <button class="btn-secondary" style="padding:7px 10px;font-size:12px;background:${_pcShowSettings?'#E3EFEC':'#fff'};color:#1F6F6B;border-color:#BFDCD6" onclick="pcToggleSettings()" title="필터·정렬 설정">⚙️ 설정${(_pcNameFilter!=='all'||_pcSortBy!=='paid'||_pcSortDir!=='desc')?' •':''}</button>
           <button class="btn-primary" style="padding:7px 12px;font-size:12px" onclick="pcOpenForm()">＋ 새 항목</button>
           ${filtered.length > 0 ? `<button class="btn-secondary" style="padding:7px 12px;font-size:12px;background:#ECFDF5;color:#065F46;border-color:#A7F3D0" onclick="pcExportCSV()">📥 CSV 내보내기</button>` : ''}
         </div>
       </div>
 
       <!-- 분기 필터 -->
-      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px;padding:10px 12px;background:#EEF2FF;border:1px solid #C7D2FE;border-radius:10px">
-        <span style="font-size:11px;font-weight:700;color:#4338CA">FY 분기 필터:</span>
-        <button onclick="_pcQuarterFilter='all';renderExpenses()" style="background:${_pcQuarterFilter==='all'?'#4F46E5':'#fff'};color:${_pcQuarterFilter==='all'?'#fff':'#4F46E5'};border:1px solid #4F46E5;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">전체</button>
-        ${quartersSorted.map(q => `<button onclick="_pcQuarterFilter='${q}';renderExpenses()" style="background:${_pcQuarterFilter===q?'#4F46E5':'#fff'};color:${_pcQuarterFilter===q?'#fff':'#4F46E5'};border:1px solid #4F46E5;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">${q}</button>`).join('')}
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px;padding:10px 12px;background:#E3EFEC;border:1px solid #BFDCD6;border-radius:10px">
+        <span style="font-size:11px;font-weight:700;color:#185A57">FY 분기 필터:</span>
+        <button onclick="_pcQuarterFilter='all';renderExpenses()" style="background:${_pcQuarterFilter==='all'?'#1F6F6B':'#fff'};color:${_pcQuarterFilter==='all'?'#fff':'#1F6F6B'};border:1px solid #1F6F6B;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">전체</button>
+        ${quartersSorted.map(q => `<button onclick="_pcQuarterFilter='${q}';renderExpenses()" style="background:${_pcQuarterFilter===q?'#1F6F6B':'#fff'};color:${_pcQuarterFilter===q?'#fff':'#1F6F6B'};border:1px solid #1F6F6B;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">${q}</button>`).join('')}
         ${quartersSorted.length === 0 ? `<span style="font-size:11px;color:var(--text-4)">아직 항목이 없어요</span>` : ''}
       </div>
 
       ${_pcShowSettings ? _pcSettingsHtml(knownNames) : ''}
 
-      ${(_pcNameFilter!=='all') ? `<div style="font-size:11px;color:var(--text-3);margin-bottom:10px">🔎 <strong>${esc(_pcNameFilter)}</strong> 항목만 표시 중 · <button onclick="_pcNameFilter='all';renderExpenses()" style="background:none;border:none;color:#4F46E5;cursor:pointer;font-size:11px;text-decoration:underline;padding:0">전체 보기</button></div>` : ''}
+      ${(_pcNameFilter!=='all') ? `<div style="font-size:11px;color:var(--text-3);margin-bottom:10px">🔎 <strong>${esc(_pcNameFilter)}</strong> 항목만 표시 중 · <button onclick="_pcNameFilter='all';renderExpenses()" style="background:none;border:none;color:#1F6F6B;cursor:pointer;font-size:11px;text-decoration:underline;padding:0">전체 보기</button></div>` : ''}
 
       ${(_pcEditId === 'new' || _pcEditId) ? _pcFormHtml(knownNames) : ''}
 
@@ -10575,9 +10575,9 @@ function renderPersonalCard() {
                 <td style="padding:7px 10px;text-align:right;color:#D97706">${fmtMoney(gst)}</td>
                 <td style="padding:7px 10px;color:var(--text-2)"><span style="background:#F3F4F6;padding:2px 8px;border-radius:4px;font-size:11px">${esc(e.purpose||'')}</span></td>
                 <td style="padding:7px 10px;color:var(--text-2)">${isoToAu(e.reimbursementDate||'')}</td>
-                <td style="padding:7px 10px"><span style="background:#EEF2FF;color:#4338CA;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700">${q}</span></td>
+                <td style="padding:7px 10px"><span style="background:#E3EFEC;color:#185A57;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700">${q}</span></td>
                 <td style="padding:7px 10px;text-align:right;white-space:nowrap">
-                  <button onclick="pcEdit('${e.id}')" style="background:none;border:none;cursor:pointer;color:#4F46E5;font-size:13px;margin-right:4px" title="수정">✎</button>
+                  <button onclick="pcEdit('${e.id}')" style="background:none;border:none;cursor:pointer;color:#1F6F6B;font-size:13px;margin-right:4px" title="수정">✎</button>
                   <button onclick="pcDelete('${e.id}')" style="background:none;border:none;cursor:pointer;color:#DC2626;font-size:13px" title="삭제">✕</button>
                 </td>
               </tr>`;
@@ -10601,8 +10601,8 @@ function _pcFormHtml(knownNames) {
   const f = _pcForm || {};
   const datalistId = 'pc-names-list';
   return `
-    <div style="background:#fff;border:2px solid #4F46E5;border-radius:12px;padding:14px 16px;margin-bottom:14px">
-      <h3 style="margin:0 0 10px;font-size:14px;font-weight:800;color:#4338CA">${editing?'✎ 항목 수정':'＋ 새 환급 항목'}</h3>
+    <div style="background:#fff;border:2px solid #1F6F6B;border-radius:12px;padding:14px 16px;margin-bottom:14px">
+      <h3 style="margin:0 0 10px;font-size:14px;font-weight:800;color:#185A57">${editing?'✎ 항목 수정':'＋ 새 환급 항목'}</h3>
       <datalist id="${datalistId}">
         ${knownNames.map(n => `<option value="${esc(n)}"/>`).join('')}
       </datalist>
@@ -10635,7 +10635,7 @@ function _pcFormHtml(knownNames) {
       </div>
       <div style="display:flex;gap:6px;margin-top:10px;justify-content:flex-end">
         <button onclick="pcCancelForm()" style="background:#F3F4F6;color:#374151;border:none;padding:7px 14px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">취소</button>
-        <button onclick="pcSaveForm()" style="background:#4F46E5;color:#fff;border:none;padding:7px 16px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">💾 저장</button>
+        <button onclick="pcSaveForm()" style="background:#1F6F6B;color:#fff;border:none;padding:7px 16px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">💾 저장</button>
       </div>
     </div>
   `;
@@ -10688,16 +10688,16 @@ function _pcSettingsHtml(knownNames) {
   const sortBtn = (key, label) => {
     const on = _pcSortBy === key;
     const arrow = on ? (_pcSortDir === 'desc' ? ' ↓' : ' ↑') : '';
-    return `<button onclick="pcSetSort('${key}')" style="background:${on?'#4F46E5':'#fff'};color:${on?'#fff':'#4F46E5'};border:1px solid #4F46E5;padding:5px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">${label}${arrow}</button>`;
+    return `<button onclick="pcSetSort('${key}')" style="background:${on?'#1F6F6B':'#fff'};color:${on?'#fff':'#1F6F6B'};border:1px solid #1F6F6B;padding:5px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">${label}${arrow}</button>`;
   };
   const nameBtn = (val, label) => {
     const on = _pcNameFilter === val;
     return `<button onclick="_pcNameFilter='${val.replace(/'/g,"\\'")}';renderExpenses()" style="background:${on?'#0F766E':'#fff'};color:${on?'#fff':'#0F766E'};border:1px solid #0F766E;padding:4px 11px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">${esc(label)}</button>`;
   };
   return `
-    <div style="background:#fff;border:1.5px solid #C7D2FE;border-radius:12px;padding:14px 16px;margin-bottom:14px;box-shadow:0 1px 3px rgba(79,70,229,0.08)">
+    <div style="background:#fff;border:1.5px solid #BFDCD6;border-radius:12px;padding:14px 16px;margin-bottom:14px;box-shadow:0 1px 3px rgba(31,111,107,0.08)">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-        <h3 style="margin:0;font-size:13px;font-weight:800;color:#4338CA">⚙️ 보기 설정</h3>
+        <h3 style="margin:0;font-size:13px;font-weight:800;color:#185A57">보기 설정</h3>
         <button onclick="pcResetFilters()" style="background:none;border:none;color:#9CA3AF;cursor:pointer;font-size:11px;text-decoration:underline;font-family:inherit">초기화</button>
       </div>
 
@@ -10925,7 +10925,7 @@ function renderOrders(){
 
   let h = `<div style="padding:14px 16px">
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px">
-      <div><h2 style="margin:0;font-size:18px;font-weight:800;color:var(--text-1)">📦 발주 (Astro)</h2>
+      <div><h2 style="margin:0;font-size:18px;font-weight:800;color:var(--text-1)">발주 (Astro)</h2>
       <p style="margin:2px 0 0;font-size:11px;color:var(--text-4)">오더 장부 · 단가 추이 · PO/레미턴스는 Claude가 생성·발송</p></div>
       <div style="display:flex;gap:6px">
         <button class="btn-secondary" style="padding:7px 11px;font-size:12px" onclick="ordView='${ordView==='price'?'list':'price'}';renderOrders()">📈 단가추이</button>
@@ -10934,7 +10934,7 @@ function renderOrders(){
       </div>
     </div>
     <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px">
-      ${chip('총 오더', totalOrders)}${chip('총 라인', totalLines)}${chip('미배송', undeliv, undeliv?'#D97706':'var(--text-1)')}${chip('미결제', unpaid, unpaid?'#DC2626':'var(--text-1)')}${held?chip('보류', held, '#7C3AED'):''}${chip(thisYear+' 오더', yearOrders,'#6366F1')}
+      ${chip('총 오더', totalOrders)}${chip('총 라인', totalLines)}${chip('미배송', undeliv, undeliv?'#D97706':'var(--text-1)')}${chip('미결제', unpaid, unpaid?'#DC2626':'var(--text-1)')}${held?chip('보류', held, '#2A8C86'):''}${chip(thisYear+' 오더', yearOrders,'#1F6F6B')}
     </div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
       <input id="ord-search" placeholder="🔍 품목·코드·오더번호·서플라이어…" value="${esc(ordSearch)}" oninput="ordSearch=this.value;clearTimeout(window._ordT);window._ordT=setTimeout(renderOrders,250)" style="flex:1;min-width:150px;padding:7px 10px;font-size:12px;border:1px solid var(--border-2);border-radius:8px;background:var(--card-bg);color:var(--text-1)"/>
@@ -10952,7 +10952,7 @@ function ordBadge(txt,bg,col){ return `<span style="background:${bg};color:${col
 function ordGroupHtml(g){
   const open = !!ordExpanded[g.no];
   const delivB = g.allCancelled ? '' : (g.allDeliv ? ordBadge('✓ 배송완료','#D1FAE5','#065F46') : g.anyDeliv ? ordBadge('부분배송','#FEF3C7','#92400E') : ordBadge('미배송','#FEE2E2','#B91C1C'));
-  const paidB = g.allCancelled ? '' : (g.allPaid ? ordBadge('✓ 결제완료','#DBEAFE','#1E40AF') : g.allHeld ? ordBadge('⏸ 보류','#EDE9FE','#6D28D9') : g.anyPaid ? ordBadge('부분결제','#FEF3C7','#92400E') : ordBadge('미결제','#F3F4F6','#6B7280'));
+  const paidB = g.allCancelled ? '' : (g.allPaid ? ordBadge('✓ 결제완료','#DBEAFE','#1E40AF') : g.allHeld ? ordBadge('⏸ 보류','#E3EFEC','#185A57') : g.anyPaid ? ordBadge('부분결제','#FEF3C7','#92400E') : ordBadge('미결제','#F3F4F6','#6B7280'));
   const cancB = g.hasCancelled ? ordBadge(g.allCancelled?'✕ 취소됨':'일부취소','#F3F4F6','#9CA3AF') : '';
   let lines = '';
   if(open){
@@ -10967,7 +10967,7 @@ function ordGroupHtml(g){
         <td style="padding:4px 6px">${esc(l.qty||'')}</td>
         <td style="padding:4px 6px;text-align:right">${l.unitPrice!=null?'$'+Number(l.unitPrice).toFixed(2):'<span style="color:var(--text-4)">-</span>'}</td>
         <td style="padding:4px 6px">${ordIsCancelled(l)?'<span style="color:#9CA3AF;font-weight:600">✕ 취소</span>':(ordDelivered(l)?`<span style="color:#059669">${l.deliverDate?ordAuDate(l.deliverDate):''}${(l.delivered||'').trim()?(l.deliverDate?' · ':'')+esc(l.delivered):''}</span>`:'<span style="color:#DC2626">미배송</span>')}</td>
-        <td style="padding:4px 6px">${ordIsCancelled(l)?'<span style="color:var(--text-4)">-</span>':((l.paid||'').trim()?`<span style="color:#2563EB">${ordAuDate(l.paid)}</span>`:(l.held?'<span style="color:#7C3AED;font-weight:600">⏸ 보류</span>':'<span style="color:var(--text-4)">-</span>'))}</td>
+        <td style="padding:4px 6px">${ordIsCancelled(l)?'<span style="color:var(--text-4)">-</span>':((l.paid||'').trim()?`<span style="color:#2563EB">${ordAuDate(l.paid)}</span>`:(l.held?'<span style="color:#2A8C86;font-weight:600">⏸ 보류</span>':'<span style="color:var(--text-4)">-</span>'))}</td>
         <td style="padding:4px 6px;text-align:right;white-space:nowrap">${isInvoiceEditor()?`<button onclick="ordOpenForm('${l.id}')" style="background:none;border:none;cursor:pointer;font-size:13px" title="수정">✏️</button>`:''}</td>
       </tr>`).join('')}
       </tbody></table></div>
@@ -10996,11 +10996,11 @@ function ordFormHtml(){
   const autoNo = isNew && !addingExisting ? ordGenOrderNo(o.date) : '';
   const noDisplay = fixedNo || autoNo;
   const title = addingExisting ? `＋ 라인 추가 — ${esc(fixedNo)}` : isNew ? '＋ 새 발주 추가' : '✏️ 발주 라인 수정';
-  return `<div style="background:var(--card-bg);border:2px solid #6366F1;border-radius:11px;padding:13px;margin-bottom:12px">
-    <div style="font-size:13px;font-weight:800;color:#6366F1;margin-bottom:9px">${title}</div>
+  return `<div style="background:var(--card-bg);border:2px solid #1F6F6B;border-radius:11px;padding:13px;margin-bottom:12px">
+    <div style="font-size:13px;font-weight:800;color:#1F6F6B;margin-bottom:9px">${title}</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-      <div><label style="font-size:10px;color:var(--text-4);font-weight:700">오더번호 ${(isNew&&!addingExisting)?'<span style="color:#6366F1">(자동)</span>':''}</label>
-        <div id="ordf-nodisp" style="padding:6px 8px;font-size:13px;font-weight:800;color:var(--text-1);background:rgba(99,102,241,0.08);border:1px solid var(--border-3);border-radius:7px">${esc(noDisplay||'—')}</div></div>
+      <div><label style="font-size:10px;color:var(--text-4);font-weight:700">오더번호 ${(isNew&&!addingExisting)?'<span style="color:#1F6F6B">(자동)</span>':''}</label>
+        <div id="ordf-nodisp" style="padding:6px 8px;font-size:13px;font-weight:800;color:var(--text-1);background:rgba(31,111,107,0.08);border:1px solid var(--border-3);border-radius:7px">${esc(noDisplay||'—')}</div></div>
       <div><label style="font-size:10px;color:var(--text-4);font-weight:700">오더일</label>${inp('date','','type="date" '+((isNew&&!addingExisting)?'onchange="ordSyncNo()"':''))}</div>
       <div><label style="font-size:10px;color:var(--text-4);font-weight:700">카테고리</label><select id="ordf-category" style="width:100%;padding:6px 8px;font-size:12px;border:1px solid var(--border-2);border-radius:7px;background:var(--card-bg);color:var(--text-1)">${ORD_CATS.map(c=>`<option ${o.category===c?'selected':''}>${c}</option>`).join('')}</select></div>
       <div><label style="font-size:10px;color:var(--text-4);font-weight:700">서플라이어</label>${inp('supplier','예: Ardex','list="ordf-suplist"')}<datalist id="ordf-suplist">${sups.map(s=>`<option value="${esc(s)}">`).join('')}</datalist></div>
@@ -11084,7 +11084,7 @@ function ordRemitViewHtml(){
     const paidB = g.allPaid ? '<span style="background:#DBEAFE;color:#1E40AF;font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px">결제완료</span>'
                             : (g.anyPaid ? '<span style="background:#FEF3C7;color:#92400E;font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px">부분결제</span>' : '');
     const invNoVal = remitInvNo[g.no]!=null ? remitInvNo[g.no] : ordRemitDefaultInvNo(g);
-    return `<div style="border:1px solid ${on?'#6366F1':'var(--border-2)'};background:${on?'rgba(99,102,241,0.06)':'var(--card-bg)'};border-radius:9px;padding:9px 11px;margin-bottom:7px">
+    return `<div style="border:1px solid ${on?'#1F6F6B':'var(--border-2)'};background:${on?'rgba(31,111,107,0.06)':'var(--card-bg)'};border-radius:9px;padding:9px 11px;margin-bottom:7px">
       <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
         <input type="checkbox" ${on?'checked':''} onchange="remitSel['${esc(g.no)}']=this.checked;renderOrders()" style="width:17px;height:17px;flex-shrink:0"/>
         <div style="flex:1;min-width:0">
@@ -11102,7 +11102,7 @@ function ordRemitViewHtml(){
   };
   return `<div style="padding:14px 16px">
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px">
-      <div><h2 style="margin:0;font-size:18px;font-weight:800;color:var(--text-1)">🧾 레미턴스 빌더</h2>
+      <div><h2 style="margin:0;font-size:18px;font-weight:800;color:var(--text-1)">레미턴스 빌더</h2>
       <p style="margin:2px 0 0;font-size:11px;color:var(--text-4)">결제할 오더 선택 → 합산 → Claude가 레미턴스 생성·발송</p></div>
       <button class="btn-secondary" style="padding:7px 12px;font-size:12px" onclick="ordView='list';renderOrders()">← 목록</button>
     </div>
@@ -11185,10 +11185,10 @@ function ordPriceViewHtml(){
       const dd=ordDMY(x.date);
       const isLast = idx===s.arr.length-1;
       const isFrom = lc && (x.date===lc.fromDate) && Math.abs(Number(x.unitPrice)-lc.from)<0.005 && idx===s.arr.map(y=>y.date).lastIndexOf(lc.fromDate);
-      const bg = isLast?'#EEF2FF':(isFrom?'#FEF3C7':'rgba(127,127,140,0.08)');
-      const bd = isLast?'#C7D2FE':(isFrom?'#FCD34D':'var(--border-3)');
+      const bg = isLast?'#E3EFEC':(isFrom?'#FEF3C7':'rgba(127,127,140,0.08)');
+      const bd = isLast?'#BFDCD6':(isFrom?'#FCD34D':'var(--border-3)');
       return `<span style="display:inline-flex;align-items:center;gap:5px;background:${bg};border:1px solid ${bd};border-radius:6px;padding:3px 8px;margin:0 5px 5px 0;font-size:11px">
-        <span style="color:var(--text-4);font-weight:600">${dd}</span><span style="font-weight:800;color:${isLast?'#4338CA':'var(--text-1)'}">$${Number(x.unitPrice).toFixed(2)}</span></span>`;
+        <span style="color:var(--text-4);font-weight:600">${dd}</span><span style="font-weight:800;color:${isLast?'#185A57':'var(--text-1)'}">$${Number(x.unitPrice).toFixed(2)}</span></span>`;
     }).join('');
     return `<div style="background:var(--card-bg);border:1px solid ${s.suspect?'#FCA5A5':'var(--border-2)'};border-radius:10px;padding:11px 13px;margin-bottom:9px">
       <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:6px">
@@ -11213,7 +11213,7 @@ function ordPriceViewHtml(){
   const fSus = filt.filter(s=>s.suspect), fNorm = filt.filter(s=>!s.suspect);
   return `<div style="padding:14px 16px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-      <div><h2 style="margin:0;font-size:18px;font-weight:800;color:var(--text-1)">📈 단가 추이</h2>
+      <div><h2 style="margin:0;font-size:18px;font-weight:800;color:var(--text-1)">단가 추이</h2>
       <p style="margin:2px 0 0;font-size:11px;color:var(--text-4)">품목별 개당 단가 변화 · 단위/입력오류 플래그</p></div>
       <button class="btn-secondary" style="padding:7px 12px;font-size:12px" onclick="ordView='list';renderOrders()">← 목록</button>
     </div>
@@ -11253,7 +11253,7 @@ function renderVehicles() {
     <div style="padding:14px 16px">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:14px">
         <div>
-          <h2 style="margin:0;font-size:18px;font-weight:800;color:var(--text-1)">🚗 차량 관리</h2>
+          <h2 style="margin:0;font-size:18px;font-weight:800;color:var(--text-1)">차량 관리</h2>
           <p style="margin:2px 0 0;font-size:11px;color:var(--text-4)">Rego · CTP · NRMA 등 갱신 일정 추적</p>
         </div>
         <button class="btn-primary" style="padding:7px 12px;font-size:12px" onclick="vhOpenForm()">＋ 차량 추가</button>
@@ -11333,12 +11333,12 @@ function _vhCardHtml(v, isArchived) {
 
   return `<div style="background:var(--card-bg);border:1px solid var(--border-2);border-radius:10px;margin-bottom:10px;overflow:hidden;${isArchived?'opacity:0.6':''}">
     <div style="padding:10px 14px;background:var(--card-bg-alt);border-bottom:1px solid var(--border-2);display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-      <span style="font-size:14px;font-weight:800;color:var(--text-1);font-family:monospace;background:#EEF2FF;color:#3730A3;padding:3px 10px;border-radius:5px">${esc(v.rego||'')}</span>
+      <span style="font-size:14px;font-weight:800;color:var(--text-1);font-family:monospace;background:#E3EFEC;color:#134845;padding:3px 10px;border-radius:5px">${esc(v.rego||'')}</span>
       ${v.name ? `<span style="font-size:12px;color:var(--text-2);font-weight:600">${esc(v.name)}</span>` : ''}
       ${isArchived ? `<span style="font-size:10px;background:#9CA3AF;color:#fff;padding:1px 6px;border-radius:3px;font-weight:700">폐차/보관</span>` : ''}
       ${v.notes ? `<span style="font-size:11px;color:var(--text-4);font-style:italic">${esc(v.notes)}</span>` : ''}
       <div style="margin-left:auto;display:flex;gap:4px">
-        <button onclick="vhAddRenewal('${v.id}')" style="background:#4F46E5;color:#fff;border:none;border-radius:5px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer">+ 항목</button>
+        <button onclick="vhAddRenewal('${v.id}')" style="background:#1F6F6B;color:#fff;border:none;border-radius:5px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer">+ 항목</button>
         <button onclick="vhEdit('${v.id}')" style="background:none;border:1px solid #D1D5DB;color:#374151;border-radius:5px;padding:4px 8px;font-size:11px;cursor:pointer">✎</button>
         <button onclick="vhToggleArchive('${v.id}')" title="${isArchived?'복원':'폐차/보관 처리'}" style="background:none;border:1px solid #D1D5DB;color:#6B7280;border-radius:5px;padding:4px 8px;font-size:11px;cursor:pointer">${isArchived?'↩':'📦'}</button>
         <button onclick="vhDelete('${v.id}')" style="background:none;border:none;color:#DC2626;font-size:13px;cursor:pointer;padding:2px 5px">✕</button>
@@ -11368,8 +11368,8 @@ function vhCancelForm() {
 function _vhFormHtml() {
   const editing = _vhEditId && _vhEditId !== 'new';
   const f = _vhForm || {};
-  return `<div style="background:#fff;border:2px solid #4F46E5;border-radius:12px;padding:14px 16px;margin-bottom:14px">
-    <h3 style="margin:0 0 10px;font-size:14px;font-weight:800;color:#4338CA">${editing?'✎ 차량 수정':'＋ 새 차량'}</h3>
+  return `<div style="background:#fff;border:2px solid #1F6F6B;border-radius:12px;padding:14px 16px;margin-bottom:14px">
+    <h3 style="margin:0 0 10px;font-size:14px;font-weight:800;color:#185A57">${editing?'✎ 차량 수정':'＋ 새 차량'}</h3>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px">
       <div>
         <label style="display:block;font-size:10px;font-weight:700;color:var(--text-3);margin-bottom:3px">번호판 (Rego) *</label>
@@ -11386,7 +11386,7 @@ function _vhFormHtml() {
     </div>
     <div style="display:flex;gap:6px;margin-top:10px;justify-content:flex-end">
       <button onclick="vhCancelForm()" style="background:#F3F4F6;color:#374151;border:none;padding:7px 14px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer">취소</button>
-      <button onclick="vhSaveForm()" style="background:#4F46E5;color:#fff;border:none;padding:7px 16px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">💾 저장</button>
+      <button onclick="vhSaveForm()" style="background:#1F6F6B;color:#fff;border:none;padding:7px 16px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">💾 저장</button>
     </div>
   </div>`;
 }
@@ -11449,8 +11449,8 @@ function _vhRenewFormHtml() {
   const v = vehicles.find(x => x.id === vehicleId);
   const isNew = rid === 'new';
   const f = _vhRenewForm || {};
-  return `<div style="background:#fff;border:2px solid #4F46E5;border-radius:12px;padding:14px 16px;margin-bottom:14px">
-    <h3 style="margin:0 0 10px;font-size:14px;font-weight:800;color:#4338CA">${isNew?'＋ 새 갱신 항목':'✎ 갱신 항목 수정'} <span style="font-size:12px;color:#6B7280">— ${esc(v?.rego||'')}</span></h3>
+  return `<div style="background:#fff;border:2px solid #1F6F6B;border-radius:12px;padding:14px 16px;margin-bottom:14px">
+    <h3 style="margin:0 0 10px;font-size:14px;font-weight:800;color:#185A57">${isNew?'＋ 새 갱신 항목':'✎ 갱신 항목 수정'} <span style="font-size:12px;color:#6B7280">— ${esc(v?.rego||'')}</span></h3>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px">
       <div>
         <label style="display:block;font-size:10px;font-weight:700;color:var(--text-3);margin-bottom:3px">종류 *</label>
@@ -11481,7 +11481,7 @@ function _vhRenewFormHtml() {
     </div>
     <div style="display:flex;gap:6px;margin-top:10px;justify-content:flex-end">
       <button onclick="vhCancelRenewal()" style="background:#F3F4F6;color:#374151;border:none;padding:7px 14px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer">취소</button>
-      <button onclick="vhSaveRenewal()" style="background:#4F46E5;color:#fff;border:none;padding:7px 16px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">💾 저장</button>
+      <button onclick="vhSaveRenewal()" style="background:#1F6F6B;color:#fff;border:none;padding:7px 16px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">💾 저장</button>
     </div>
   </div>`;
 }
@@ -11583,9 +11583,9 @@ function renderCalendar() {
     const invs = byDay[d] || [];
     const total = invs.reduce((s,i)=>s+(parseFloat(i.amount)||0), 0);
     const isToday = `${calMonth}-${String(d).padStart(2,'0')}` === today;
-    cells += `<div style="min-height:56px;border:1px solid ${invs.length?'rgba(16,185,129,0.45)':'var(--border-2)'};border-radius:6px;padding:3px 3px 4px;background:${isToday?'#EEF2FF':invs.length?'rgba(16,185,129,0.08)':'var(--card-bg)'};display:flex;flex-direction:column;cursor:${invs.length?'pointer':'default'};font-size:11px;line-height:1.2;min-width:0;overflow:hidden" ${invs.length?`onclick="filterByDate('${calMonth}-${String(d).padStart(2,'0')}')"`:''}>
+    cells += `<div style="min-height:56px;border:1px solid ${invs.length?'rgba(16,185,129,0.45)':'var(--border-2)'};border-radius:6px;padding:3px 3px 4px;background:${isToday?'#E3EFEC':invs.length?'rgba(16,185,129,0.08)':'var(--card-bg)'};display:flex;flex-direction:column;cursor:${invs.length?'pointer':'default'};font-size:11px;line-height:1.2;min-width:0;overflow:hidden" ${invs.length?`onclick="filterByDate('${calMonth}-${String(d).padStart(2,'0')}')"`:''}>
       <div style="display:flex;justify-content:space-between;align-items:center;gap:2px">
-        <span style="font-weight:${isToday?'800':'600'};color:${isToday?'#4F46E5':'var(--text-2)'}">${d}</span>
+        <span style="font-weight:${isToday?'800':'600'};color:${isToday?'#1F6F6B':'var(--text-2)'}">${d}</span>
         ${invs.length?`<span class="cal-cnt" style="font-size:9px;font-weight:700;color:#fff;background:#059669;border-radius:8px;padding:0 4px;line-height:14px">${invs.length}</span>`:''}
       </div>
       ${invs.length?`<div class="cal-amt" style="font-size:10px;color:#059669;margin-top:auto;font-weight:700;white-space:nowrap;letter-spacing:-0.3px;text-align:center">${calAmt(total)}</div>`:''}
