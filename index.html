@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
 <meta name="apple-mobile-web-app-title" content="WorkLog"/>
-<meta name="theme-color" content="#1E1B4B"/>
+<meta name="theme-color" content="#1C2430"/>
 <meta name="color-scheme" content="light"/>
 <!-- 모바일/PWA 캐시 방지 — 새 버전 받아오도록 -->
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
@@ -18,7 +18,7 @@
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
 // ℹ️ reload 는 코드만 갱신 — Firebase 주소(wm_fb_url)·로그인 세션(wm_session)은 localStorage 라 유지됨(재로그인 불필요).
-const APP_BUILD = '2026-10-21-02';
+const APP_BUILD = '2026-10-21-03';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출. ?_=타임스탬프 + no-store 로 캐시 우회.
 function _fetchLatestBuild(){
   return fetch(location.pathname + '?_=' + Date.now(), { cache: 'no-store', headers: { 'Range': 'bytes=0-3000' } })
@@ -56,7 +56,7 @@ function _forceUpdate(){
 <style>
   *, *::before, *::after { box-sizing: border-box; }
   html, body {
-    background-color: #F0F4FF !important;
+    background-color: #F5F6F4 !important;
     color-scheme: light;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
   }
@@ -105,7 +105,7 @@ function _forceUpdate(){
     #wl-app-root {
       display: flex !important;
       min-height: 100vh;
-      background: #F0F4FF !important;
+      background: #F5F6F4 !important;
     }
 
     /* 사이드바 */
@@ -114,7 +114,7 @@ function _forceUpdate(){
       flex-direction: column;
       width: 240px;
       min-height: 100vh;
-      background: #1E1B4B;
+      background: #1C2430;
       position: fixed;
       left: 0; top: 0; bottom: 0;
       z-index: 200;
@@ -157,10 +157,10 @@ function _forceUpdate(){
       color: rgba(255,255,255,0.9);
     }
     .dt-nav-item.active {
-      background: rgba(99,102,241,0.2);
+      background: rgba(95,184,176,0.18);
       color: #fff;
       font-weight: 700;
-      border-left-color: #818CF8;
+      border-left-color: #5FB8B0;
     }
     .dt-nav-item .nav-emoji {
       font-size: 16px;
@@ -187,7 +187,7 @@ function _forceUpdate(){
     /* 상단 헤더 바 */
     .dt-topbar {
       background: #fff;
-      border-bottom: 1px solid #E8EBF5;
+      border-bottom: 1px solid #E4E7E4;
       padding: 0 32px;
       height: 60px;
       display: flex;
@@ -201,7 +201,7 @@ function _forceUpdate(){
     .dt-topbar-title {
       font-size: 15px;
       font-weight: 700;
-      color: #1E1B4B;
+      color: #1C2430;
     }
 
     /* 콘텐츠 영역 */
@@ -230,10 +230,10 @@ function _forceUpdate(){
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
-</head><body style="margin:0;padding:0;background:#f4f6fb">
-<div id="loading" style="display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:16px;background:#f4f6fb;font-family:sans-serif">
+</head><body style="margin:0;padding:0;background:#F5F6F4">
+<div id="loading" style="display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:16px;background:#F5F6F4;font-family:sans-serif">
   <div style="font-size:40px">📋</div>
-  <p style="color:#3b7ff5;font-weight:700;font-size:16px" id="loadmsg">K&M WorkLog 로딩 중...</p>
+  <p style="color:#1F6F6B;font-weight:700;font-size:16px" id="loadmsg">K&M WorkLog 로딩 중...</p>
 </div>
 <div id="root" style="display:none"></div>
 <script id="src" type="text/plain">
@@ -2557,7 +2557,7 @@ function ReqHistoryEditor({ selId, leaves, persist, periodStart, isSuperAdmin })
           </p>
         )}
         <button onClick={addEntry}
-          style={{ width:"100%",background:"#3b7ff5",color:"#fff",border:"none",borderRadius:10,padding:"11px 0",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit" }}>
+          style={{ width:"100%",background:"#1F6F6B",color:"#fff",border:"none",borderRadius:10,padding:"11px 0",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit" }}>
           저장
         </button>
       </div>
@@ -2704,7 +2704,7 @@ function DeductTab({ users, leaves, wpStart, wpEnd, persist, removeSavedDeductio
         ))}
 
         <button onClick={saveAll}
-          style={{ width:"100%",marginTop:8,background:"#3b7ff5",color:"#fff",border:"none",borderRadius:10,padding:"11px 0",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit" }}>
+          style={{ width:"100%",marginTop:8,background:"#1F6F6B",color:"#fff",border:"none",borderRadius:10,padding:"11px 0",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit" }}>
           💾 저장
         </button>
       </div>
@@ -2926,7 +2926,7 @@ function MgmtTab({ fbUrl, fA }) {
     return s + calcAmt(m).total;
   }, 0) + kyleFinal + saraFinal;
 
-  const COLORS = ['#4F46E5','#059669','#D97706','#DC2626','#7C3AED','#0891B2'];
+  const COLORS = ['#1F6F6B','#059669','#D97706','#DC2626','#7C3AED','#0891B2'];
   const typeLabel = {monthly:'월급',invoice:'인보이스',invoice_gst:'인보이스+GST'};
   const periodLabel = periodDiff===curDiff?'현재 기간':periodDiff===curDiff-1?'이전 기간':`${curDiff-periodDiff}기간 전`;
 
@@ -2941,25 +2941,25 @@ function MgmtTab({ fbUrl, fA }) {
           <p style={{margin:'2px 0 0',fontSize:11,color:'#6B7280'}}>호주 시드니 시간 기준</p>
         </div>
         <button onClick={()=>{setEditMember(null);setShowForm(true);}}
-          style={{background:'#4F46E5',color:'#fff',border:'none',borderRadius:9,padding:'8px 14px',fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:'inherit',boxShadow:'0 2px 6px rgba(79,70,229,0.25)'}}>
+          style={{background:'#1F6F6B',color:'#fff',border:'none',borderRadius:9,padding:'8px 14px',fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:'inherit',boxShadow:'0 2px 6px rgba(28,36,48,0.25)'}}>
           + 멤버
         </button>
       </div>
 
       {/* 기간 네비게이션 */}
-      <div style={{background:'#fff',borderRadius:14,padding:'12px 16px',marginBottom:14,border:'1px solid #E5E8F5',display:'flex',alignItems:'center',justifyContent:'space-between',boxShadow:'0 1px 4px rgba(79,70,229,0.06)'}}>
+      <div style={{background:'#fff',borderRadius:14,padding:'12px 16px',marginBottom:14,border:'1px solid #E4E7E4',display:'flex',alignItems:'center',justifyContent:'space-between',boxShadow:'0 1px 4px rgba(28,36,48,0.06)'}}>
         <button onClick={()=>setPeriodDiff(d=>d-1)}
-          style={{background:'#EEF2FF',border:'none',color:'#4F46E5',borderRadius:8,width:34,height:34,fontSize:18,cursor:'pointer',fontWeight:700}}>‹</button>
+          style={{background:'#E3EFEC',border:'none',color:'#1F6F6B',borderRadius:8,width:34,height:34,fontSize:18,cursor:'pointer',fontWeight:700}}>‹</button>
         <div style={{textAlign:'center'}}>
           <p style={{margin:0,fontSize:13,fontWeight:700,color:'#111827'}}>{auD(periodStart)} ~ {auD(periodEnd)}</p>
-          <p style={{margin:'2px 0 0',fontSize:11,color:'#4F46E5',fontWeight:600}}>{periodLabel}</p>
+          <p style={{margin:'2px 0 0',fontSize:11,color:'#1F6F6B',fontWeight:600}}>{periodLabel}</p>
         </div>
         <button onClick={()=>{if(periodDiff<curDiff)setPeriodDiff(d=>d+1);}}
-          style={{background:periodDiff>=curDiff?'#F3F4F6':'#EEF2FF',border:'none',color:periodDiff>=curDiff?'#D1D5DB':'#4F46E5',borderRadius:8,width:34,height:34,fontSize:18,cursor:periodDiff>=curDiff?'default':'pointer',fontWeight:700}}>›</button>
+          style={{background:periodDiff>=curDiff?'#F3F4F6':'#E3EFEC',border:'none',color:periodDiff>=curDiff?'#D1D5DB':'#1F6F6B',borderRadius:8,width:34,height:34,fontSize:18,cursor:periodDiff>=curDiff?'default':'pointer',fontWeight:700}}>›</button>
       </div>
 
       {/* 기간 총액 요약 */}
-      <div style={{background:'linear-gradient(135deg,#4F46E5,#7C3AED)',borderRadius:14,padding:'16px',marginBottom:14,color:'#fff'}}>
+      <div style={{background:'linear-gradient(135deg,#1F6F6B,#1C2430)',borderRadius:14,padding:'16px',marginBottom:14,color:'#fff'}}>
         <p style={{margin:'0 0 4px',fontSize:11,fontWeight:600,opacity:0.7,textTransform:'uppercase',letterSpacing:1}}>이번 포트나잇 예상 총액</p>
         <p style={{margin:0,fontSize:28,fontWeight:900,letterSpacing:'-0.5px'}}>{fA(totalExpected)}</p>
         <p style={{margin:'4px 0 0',fontSize:11,opacity:0.6}}>{members.length}명</p>
@@ -2995,7 +2995,7 @@ function MgmtTab({ fbUrl, fA }) {
         const periodTypeLabel = periodType==='monthly' ? '월급' : (periodGstOn ? '인보이스+GST' : '인보이스');
 
         return (
-          <div key={m.id} style={{background:'#fff',borderRadius:16,marginBottom:10,border:'1px solid #E5E8F5',overflow:'hidden',boxShadow:'0 2px 8px rgba(79,70,229,0.07)'}}>
+          <div key={m.id} style={{background:'#fff',borderRadius:16,marginBottom:10,border:'1px solid #E4E7E4',overflow:'hidden',boxShadow:'0 2px 8px rgba(28,36,48,0.07)'}}>
             <div style={{padding:'16px',cursor:'pointer'}} onClick={()=>setSelMemberId(expanded?null:m.id)}>
               <div style={{display:'flex',alignItems:'center',gap:12}}>
                 <div style={{width:44,height:44,borderRadius:12,background:`${color}15`,border:`2px solid ${color}30`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,fontWeight:900,color,flexShrink:0}}>
@@ -3036,9 +3036,9 @@ function MgmtTab({ fbUrl, fA }) {
                     {c.invTotal>0 && (c.invGst>0 ? (<>
                       <span style={{color:'#6B7280'}}>인보이스(ex.GST) <strong style={{color:'#6B7280'}}>{fA(c.inv)}</strong></span>
                       <span style={{color:'#6B7280'}}>GST +10% <strong style={{color:'#D97706'}}>{fA(c.invGst)}</strong></span>
-                      <span style={{color:'#6B7280'}}>인보이스(inc.GST) <strong style={{color:'#4F46E5'}}>{fA(c.invTotal)}</strong></span>
+                      <span style={{color:'#6B7280'}}>인보이스(inc.GST) <strong style={{color:'#1F6F6B'}}>{fA(c.invTotal)}</strong></span>
                     </>) : (
-                      <span style={{color:'#6B7280'}}>인보이스 <strong style={{color:'#4F46E5'}}>{fA(c.invTotal)}</strong></span>
+                      <span style={{color:'#6B7280'}}>인보이스 <strong style={{color:'#1F6F6B'}}>{fA(c.invTotal)}</strong></span>
                     ))}
                   </div>
                 )}
@@ -3062,9 +3062,9 @@ function MgmtTab({ fbUrl, fA }) {
                       <span style={{color:'#D97706'}}>GST +10%</span>
                       <span style={{fontWeight:600,color:'#D97706'}}>+{fA(((periodBase-deductEach)*0.1))}</span>
                     </div>}
-                    <div style={{borderTop:'1px solid #E5E8F5',marginTop:4,paddingTop:6,display:'flex',justifyContent:'space-between'}}>
+                    <div style={{borderTop:'1px solid #E4E7E4',marginTop:4,paddingTop:6,display:'flex',justifyContent:'space-between'}}>
                       <span style={{fontWeight:700,color:'#111827'}}>최종 인보이스</span>
-                      <span style={{fontWeight:800,color:'#4F46E5',fontSize:14}}>{fA(ksFinal)}</span>
+                      <span style={{fontWeight:800,color:'#1F6F6B',fontSize:14}}>{fA(ksFinal)}</span>
                     </div>
                   </div>
                 )}
@@ -3074,10 +3074,10 @@ function MgmtTab({ fbUrl, fA }) {
                     <div style={{display:'flex',flexWrap:'wrap',gap:10,fontSize:12}}>
                       <span style={{color:'#6B7280'}}>인보이스(ex.GST) <strong style={{color:'#6B7280'}}>{fA(c.inv)}</strong></span>
                       <span style={{color:'#6B7280'}}>GST +10% <strong style={{color:'#D97706'}}>{fA(c.invGst)}</strong></span>
-                      <span style={{color:'#6B7280'}}>인보이스(inc.GST) <strong style={{color:'#4F46E5'}}>{fA(c.invTotal)}</strong></span>
+                      <span style={{color:'#6B7280'}}>인보이스(inc.GST) <strong style={{color:'#1F6F6B'}}>{fA(c.invTotal)}</strong></span>
                     </div>
                   ) : (
-                    <span style={{fontSize:12,color:'#6B7280'}}>인보이스 <strong style={{color:'#4F46E5'}}>{fA(c.invTotal)}</strong></span>
+                    <span style={{fontSize:12,color:'#6B7280'}}>인보이스 <strong style={{color:'#1F6F6B'}}>{fA(c.invTotal)}</strong></span>
                   )
                 )}
               </div>
@@ -3087,7 +3087,7 @@ function MgmtTab({ fbUrl, fA }) {
             {expanded && (
               <div style={{borderTop:'1px solid #F3F4F6',padding:'12px 16px',display:'flex',gap:8}}>
                 <button onClick={()=>{setEditMember(m);setShowForm(true);}}
-                  style={{flex:1,background:'#EEF2FF',color:'#4F46E5',border:'1px solid #C7D2FE',borderRadius:9,padding:'9px',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>
+                  style={{flex:1,background:'#E3EFEC',color:'#1F6F6B',border:'1px solid #BFDCD6',borderRadius:9,padding:'9px',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>
                   ✏️ 수정
                 </button>
                 <button onClick={()=>delMember(m.id)}
@@ -3102,7 +3102,7 @@ function MgmtTab({ fbUrl, fA }) {
 
       {/* 카일+사라 공제 설정 */}
       {(kyleMember||saraMember) && (
-        <div style={{background:'#fff',borderRadius:14,border:'1px solid #E5E8F5',overflow:'hidden',marginTop:4,boxShadow:'0 1px 4px rgba(79,70,229,0.06)'}}>
+        <div style={{background:'#fff',borderRadius:14,border:'1px solid #E4E7E4',overflow:'hidden',marginTop:4,boxShadow:'0 1px 4px rgba(28,36,48,0.06)'}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'14px 16px',cursor:'pointer'}} onClick={()=>setKsEditOpen(!ksEditOpen)}>
             <div>
               <p style={{margin:0,fontSize:13,fontWeight:700,color:'#7C3AED'}}>📅 날짜별 공제 설정</p>
@@ -3122,12 +3122,12 @@ function MgmtTab({ fbUrl, fA }) {
                 <div style={{flex:1}}>
                   <p style={{margin:'0 0 4px',fontSize:11,color:'#6B7280',fontWeight:600}}>20일 공제액</p>
                   <input type="number" value={ksConfig.d20} onChange={e=>setKsConfig(c=>({...c,d20:e.target.value}))}
-                    style={{width:'100%',padding:'9px 12px',border:'1.5px solid #E5E8F5',borderRadius:8,fontSize:14,fontFamily:'inherit',background:'#fff',outline:'none'}} placeholder="0.00"/>
+                    style={{width:'100%',padding:'9px 12px',border:'1.5px solid #E4E7E4',borderRadius:8,fontSize:14,fontFamily:'inherit',background:'#fff',outline:'none'}} placeholder="0.00"/>
                 </div>
                 <div style={{flex:1}}>
                   <p style={{margin:'0 0 4px',fontSize:11,color:'#6B7280',fontWeight:600}}>27일 공제액</p>
                   <input type="number" value={ksConfig.d27} onChange={e=>setKsConfig(c=>({...c,d27:e.target.value}))}
-                    style={{width:'100%',padding:'9px 12px',border:'1.5px solid #E5E8F5',borderRadius:8,fontSize:14,fontFamily:'inherit',background:'#fff',outline:'none'}} placeholder="0.00"/>
+                    style={{width:'100%',padding:'9px 12px',border:'1.5px solid #E4E7E4',borderRadius:8,fontSize:14,fontFamily:'inherit',background:'#fff',outline:'none'}} placeholder="0.00"/>
                 </div>
               </div>
               <button onClick={saveKsConfig} disabled={ksSaving}
@@ -3191,13 +3191,13 @@ function MgmtMemberForm({ member, currentPeriodStart, onSave, onClose }) {
     setHistory(h => h.filter(x => x!==target));
   };
 
-  const IS = {width:'100%',padding:'10px 12px',border:'1.5px solid #E5E8F5',borderRadius:9,fontSize:14,fontFamily:'inherit',background:'#fff',color:'#111827',outline:'none'};
-  const IS_SM = {width:'100%',padding:'8px 10px',border:'1.5px solid #E5E8F5',borderRadius:8,fontSize:13,fontFamily:'inherit',background:'#fff',color:'#111827',outline:'none'};
+  const IS = {width:'100%',padding:'10px 12px',border:'1.5px solid #E4E7E4',borderRadius:9,fontSize:14,fontFamily:'inherit',background:'#fff',color:'#111827',outline:'none'};
+  const IS_SM = {width:'100%',padding:'8px 10px',border:'1.5px solid #E4E7E4',borderRadius:8,fontSize:13,fontFamily:'inherit',background:'#fff',color:'#111827',outline:'none'};
   const LB = {display:'block',fontSize:11,fontWeight:700,color:'#6B7280',marginBottom:4,textTransform:'uppercase',letterSpacing:0.5};
 
   return (
     <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.4)',zIndex:200,display:'flex',alignItems:'flex-end',justifyContent:'center',backdropFilter:'blur(2px)'}}>
-      <div style={{background:'#fff',borderRadius:'20px 20px 0 0',width:'100%',maxWidth:600,maxHeight:'92vh',overflowY:'auto',padding:'22px 20px',boxShadow:'0 -4px 30px rgba(79,70,229,0.12)'}}>
+      <div style={{background:'#fff',borderRadius:'20px 20px 0 0',width:'100%',maxWidth:600,maxHeight:'92vh',overflowY:'auto',padding:'22px 20px',boxShadow:'0 -4px 30px rgba(28,36,48,0.12)'}}>
         <div style={{display:'flex',justifyContent:'space-between',marginBottom:20}}>
           <h3 style={{fontSize:17,fontWeight:800,color:'#111827'}}>{member?'멤버 수정':'멤버 추가'}</h3>
           <button onClick={onClose} style={{background:'none',border:'none',fontSize:22,cursor:'pointer',color:'#9CA3AF'}}>×</button>
@@ -3222,17 +3222,17 @@ function MgmtMemberForm({ member, currentPeriodStart, onSave, onClose }) {
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
             <label style={{...LB,margin:0}}>💰 금액 이력 (기간별 보존)</label>
             <button onClick={addHistory}
-              style={{background:'#EEF2FF',color:'#4F46E5',border:'1px solid #C7D2FE',borderRadius:7,padding:'5px 12px',fontSize:12,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>
+              style={{background:'#E3EFEC',color:'#1F6F6B',border:'1px solid #BFDCD6',borderRadius:7,padding:'5px 12px',fontSize:12,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>
               + 이력 추가
             </button>
           </div>
           <p style={{margin:'0 0 10px',fontSize:11,color:'#9CA3AF'}}>적용 시작일 이후 기간은 해당 금액으로 표시돼요</p>
 
           {sortedHist.map((h,i) => (
-            <div key={i} style={{background:i===0?'#F0F4FF':'#F9FAFB',borderRadius:12,padding:'12px 14px',marginBottom:8,border:`1.5px solid ${i===0?'#C7D2FE':'#E5E8F5'}`}}>
+            <div key={i} style={{background:i===0?'#F5F6F4':'#F9FAFB',borderRadius:12,padding:'12px 14px',marginBottom:8,border:`1.5px solid ${i===0?'#BFDCD6':'#E4E7E4'}`}}>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
                 <div style={{display:'flex',alignItems:'center',gap:8}}>
-                  <span style={{fontSize:10,fontWeight:700,color:i===0?'#4F46E5':'#9CA3AF',textTransform:'uppercase'}}>
+                  <span style={{fontSize:10,fontWeight:700,color:i===0?'#1F6F6B':'#9CA3AF',textTransform:'uppercase'}}>
                     {i===0?'✅ 최신':'이전'} · 적용 시작일
                   </span>
                   <input type="date" value={h.from} onChange={e=>setH(i,'from',e.target.value)}
@@ -3325,7 +3325,7 @@ function MgmtMemberForm({ member, currentPeriodStart, onSave, onClose }) {
               salary: finalLatest2.salary, tax: finalLatest2.tax, super: finalLatest2.super,
               invoiceAmount: finalLatest2.invoiceAmount, invoiceGst: finalLatest2.invoiceGst
             });
-          }} style={{flex:2,background:'#4F46E5',color:'#fff',border:'none',borderRadius:10,padding:12,fontSize:14,fontWeight:700,cursor:'pointer',fontFamily:'inherit',boxShadow:'0 2px 8px rgba(79,70,229,0.25)'}}>
+          }} style={{flex:2,background:'#1F6F6B',color:'#fff',border:'none',borderRadius:10,padding:12,fontSize:14,fontWeight:700,cursor:'pointer',fontFamily:'inherit',boxShadow:'0 2px 8px rgba(28,36,48,0.25)'}}>
             💾 저장
           </button>
         </div>
@@ -3348,7 +3348,7 @@ function SummarySection({users, leaves, periodStart, calcWage, getSavedDeduction
     if (!co) return null;
     const L = (co.name||"").trim().charAt(0).toUpperCase();
     if (!L) return null;
-    return <span style={{ display:"inline-block",minWidth:14,textAlign:"center",background:L==="K"?"#4F46E5":"#0891B2",color:"#fff",borderRadius:4,fontSize:9,fontWeight:800,padding:"0 3px",marginRight:3,lineHeight:"14px",verticalAlign:"middle" }}>{L}</span>;
+    return <span style={{ display:"inline-block",minWidth:14,textAlign:"center",background:L==="K"?"#1F6F6B":"#0891B2",color:"#fff",borderRadius:4,fontSize:9,fontWeight:800,padding:"0 3px",marginRight:3,lineHeight:"14px",verticalAlign:"middle" }}>{L}</span>;
   };
   const fmtD = (ps) => { const d=new Date(ps+"T00:00:00"); d.setDate(d.getDate()+13); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); };
   // 이 기간이 입사일 이전, 또는 퇴사일 이후라면 "정산 미완료" 알림에서 제외
@@ -4142,7 +4142,10 @@ function ResignedGate({ name, onLogout }) {
 function Header({ user, onLogout, onChangePw }) {
   return (
     <div style={styles.header} className="mb-header">
-      <div style={styles.headerLeft}><span style={styles.headerLogo}>📋</span><span style={styles.headerTitle}>WorkLog</span></div>
+      <div style={styles.headerLeft}>
+        <div style={styles.headerMono}>K<b style={{ color:"#E9A23B" }}>&amp;</b>M</div>
+        <div><div style={styles.headerTitle}>WorkLog</div><div style={styles.headerSub}>근무일지 · 연차 · 급여</div></div>
+      </div>
       <div style={styles.headerRight}>
         <button onClick={onChangePw}
           style={{ background:"none",border:"none",cursor:"pointer",color:C.sub,padding:4,fontSize:12,fontFamily:"inherit" }}
@@ -4152,6 +4155,22 @@ function Header({ user, onLogout, onChangePw }) {
       </div>
     </div>
   );
+}
+
+// 아래 탭 선 아이콘 (세 앱 공통 모양)
+const NAV_ICON_PATHS = {
+  home: <path d="M4 11l8-6 8 6v9H4z"/>,
+  log: <><path d="M6 3h12v18H6z"/><path d="M9 8h6M9 12h6M9 16h4"/></>,
+  leave: <><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></>,
+  payroll: <><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/></>,
+  rate: <path d="M12 3v18M16 7.5c0-1.9-1.8-3-4-3s-4 1.1-4 3 1.8 2.6 4 3 4 1.2 4 3.2-1.8 3-4 3-4-1.1-4-3"/>,
+  team: <><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M16 4.6a3.2 3.2 0 0 1 0 6.3M21 20c0-2.8-1.8-5.1-4.3-5.8"/></>,
+  company: <path d="M4 21V5l8-2v18M12 8h8v13M3 21h18M7.5 8h1M7.5 12h1M7.5 16h1M15.5 12h1M15.5 16h1"/>,
+  mgmt: <path d="M12 3.5l2.6 5.3 5.8.8-4.2 4.1 1 5.8L12 16.8 6.8 19.5l1-5.8-4.2-4.1 5.8-.8z"/>,
+  more: <><circle cx="6" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="18" cy="12" r="1"/></>,
+};
+function NavIcon({ k, size=22 }) {
+  return <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" style={{ display:"block" }}>{NAV_ICON_PATHS[k]}</svg>;
 }
 
 function BottomNav({ tab, setTab, isAdmin, isSuperAdmin, userHasLeave, user, logs }) {
@@ -4185,11 +4204,11 @@ function BottomNav({ tab, setTab, isAdmin, isSuperAdmin, userHasLeave, user, log
             background: active ? C.primary+"18" : "transparent",
             transition:"all .2s",
           }}>
-            <span style={{ fontSize:20, filter: active ? "none" : "grayscale(30%)", opacity: active ? 1 : 0.6 }}>{item.emoji}</span>
+            <span style={{ color: active ? C.primary : "#8A939B", display:"flex" }}><NavIcon k={item.key}/></span>
           </div>
           {!!item.badge && <div style={{ position:"absolute",top:0,right:0,width:16,height:16,background:"#EF4444",borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:800,color:"#fff",border:"2px solid #fff" }}>{item.badge}</div>}
         </div>
-        <span style={{ fontSize:10,fontWeight:active?700:500,color:active?C.primary:"#aaa",transition:"all .2s" }}>{item.label}</span>
+        <span style={{ fontSize:10,fontWeight:active?700:500,color:active?C.primary:"#8A939B",transition:"all .2s" }}>{item.label}</span>
         {active && <div style={{ position:"absolute",top:0,left:"50%",transform:"translateX(-50%)",width:24,height:3,borderRadius:"0 0 3px 3px",background:C.primary }} />}
       </button>
     );
@@ -4208,9 +4227,9 @@ function BottomNav({ tab, setTab, isAdmin, isSuperAdmin, userHasLeave, user, log
                 width:40,height:40,borderRadius:12,display:"flex",alignItems:"center",justifyContent:"center",
                 background: (overflowActive||menuOpen) ? C.primary+"18" : "transparent", transition:"all .2s"
               }}>
-                <span style={{ fontSize:22, fontWeight:700, color: (overflowActive||menuOpen)?C.primary:"#aaa", lineHeight:1 }}>⋯</span>
+                <span style={{ color: (overflowActive||menuOpen)?C.primary:"#8A939B", display:"flex" }}><NavIcon k="more"/></span>
               </div>
-              <span style={{ fontSize:10,fontWeight:(overflowActive||menuOpen)?700:500,color:(overflowActive||menuOpen)?C.primary:"#aaa",transition:"all .2s" }}>더보기</span>
+              <span style={{ fontSize:10,fontWeight:(overflowActive||menuOpen)?700:500,color:(overflowActive||menuOpen)?C.primary:"#8A939B",transition:"all .2s" }}>더보기</span>
               {overflowActive && <div style={{ position:"absolute",top:0,left:"50%",transform:"translateX(-50%)",width:24,height:3,borderRadius:"0 0 3px 3px",background:C.primary }} />}
             </button>
             {menuOpen && (
@@ -4220,7 +4239,7 @@ function BottomNav({ tab, setTab, isAdmin, isSuperAdmin, userHasLeave, user, log
                   return (
                     <button key={it.key} onClick={() => { setTab(it.key); setMenuOpen(false); }}
                       style={{ display:"flex",alignItems:"center",gap:10,width:"100%",border:"none",background: active ? C.primary+"15" : "none",padding:"10px 14px",cursor:"pointer",fontSize:13,fontWeight:active?700:500,color:active?C.primary:"#111827",fontFamily:"inherit",textAlign:"left" }}>
-                      <span style={{ fontSize:18 }}>{it.emoji}</span>
+                      <span style={{ display:"flex",color:active?C.primary:"#69737C" }}><NavIcon k={it.key} size={19}/></span>
                       <span>{it.label}</span>
                     </button>
                   );
@@ -4270,6 +4289,39 @@ function HomeTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist, on
         <h2 style={styles.greetingText}>안녕하세요, {user.name}님 👋</h2>
         <p style={styles.dateText}>{korDate(todayStr)}</p>
       </div>
+
+      {/* ── 오늘 근무일지: 진행 막대 + 아직 안 쓴 사람 전원 (승찬이 스크린샷 공유용이라 줄임 없음) ── */}
+      {isAdmin && (() => {
+        const active = staffUsers.filter(u => !u.resignedDate);
+        const doneIds = new Set(todayLogs.map(l => l.userId));
+        const done = active.filter(u => doneIds.has(u.id)).length;
+        const todayDow = new Date(todayStr+"T00:00:00").getDay();
+        const weekend = todayDow===0 || todayDow===6;
+        const notYet = weekend ? [] : active.filter(u => !doneIds.has(u.id));
+        const pct = active.length ? Math.round(done / active.length * 100) : 0;
+        return (
+          <div style={{ background:"#fff",border:"1px solid "+C.border,borderRadius:12,padding:12,marginBottom:12 }}>
+            <div style={{ display:"flex",justifyContent:"space-between",alignItems:"baseline" }}>
+              <span style={{ fontWeight:600,fontSize:14,color:C.text }}>오늘 근무일지</span>
+              <span style={{ fontSize:24,fontWeight:700,color:C.text,fontVariantNumeric:"tabular-nums" }}>{done}<span style={{ fontSize:14,color:C.sub,fontWeight:500 }}> / {active.length}명</span></span>
+            </div>
+            <div style={{ height:6,borderRadius:3,background:C.border,margin:"8px 0 10px",overflow:"hidden" }}>
+              <div style={{ height:"100%",width:pct+"%",background:C.primary,transition:"width .3s" }}/>
+            </div>
+            {weekend ? <p style={{ margin:0,fontSize:12,color:C.sub }}>주말이에요</p>
+            : notYet.length === 0 ? <p style={{ margin:0,fontSize:12,color:"#2E7D4F",fontWeight:600 }}>모두 작성했어요</p>
+            : <>
+              <p style={{ margin:"0 0 6px",fontSize:12,color:C.sub }}>아직 안 쓴 사람 {notYet.length}명</p>
+              <div style={{ display:"flex",flexWrap:"wrap",gap:5 }}>
+                {notYet.map(u => (
+                  <span key={u.id} onClick={()=>_jumpToLogAt(todayStr, u.id)} title="눌러서 이 직원 근무일지 보기/등록"
+                    style={{ fontSize:12,padding:"3px 8px",borderRadius:6,background:C.bg,border:"1px solid "+C.border,color:C.text,cursor:"pointer" }}>{u.name}</span>
+                ))}
+              </div>
+            </>}
+          </div>
+        );
+      })()}
 
       {/* ── 🚨 Tax 부족 알림 (admin 전용) — fixedPay 비WHV 직원 중 원천징수 부족분 ── */}
       {isAdmin && (() => {
@@ -4396,63 +4448,38 @@ function HomeTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist, on
         return (
           <>
           {birthdayUsers.length > 0 && (
-          <div style={{ background:"linear-gradient(135deg,#FEF3C7 0%,#FECACA 100%)",border:"1.5px solid #FBBF24",borderRadius:14,padding:"14px 16px",marginBottom:upcoming.length?8:14,display:"flex",alignItems:"center",gap:12 }}>
-            <span style={{ fontSize:34 }}>🎂</span>
-            <div style={{ flex:1 }}>
-              <p style={{ margin:0,fontSize:14,fontWeight:800,color:"#92400E" }}>
-                {isMyBirthday ? `오늘 ${user.name}님의 생일이에요! 🎉` : `오늘은 ${birthdayUsers.map(u=>u.name).join(', ')}님의 생일이에요`}
-              </p>
-              <p style={{ margin:"3px 0 0",fontSize:11,color:"#92400E" }}>
-                {isMyBirthday ? '동료들의 축하 메시지를 받아보세요 ✨' : '한 마디 따뜻한 축하 보내주세요 🎁'}
-              </p>
-            </div>
-          </div>
+            <AlertRow tone="a" n="오늘">
+              <b>{isMyBirthday ? `오늘 ${user.name}님의 생일이에요! 🎉` : `${birthdayUsers.map(u=>u.name).join(', ')} 생일이에요`}</b>
+              <span style={{ color:C.sub }}>{isMyBirthday ? ' · 동료들의 축하를 받아보세요' : ' · 축하 한마디 보내주세요'}</span>
+            </AlertRow>
           )}
-          {upcoming.length > 0 && (
-          <div style={{ background:"#FFFBEB",border:"1.5px solid #FDE68A",borderRadius:14,padding:"12px 14px",marginBottom:14 }}>
-            <p style={{ margin:"0 0 6px",fontSize:12,fontWeight:800,color:"#92400E" }}>🎂 다가오는 생일 (10일 이내)</p>
-            {upcoming.map(({u,d}) => (
-              <div key={u.id} style={{ display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:13,padding:"3px 0" }}>
-                <span style={{ color:"#78350F",fontWeight:600 }}>{u.name}{u.id===user.id?" (나)":""}</span>
-                <span style={{ color:d<=3?"#DC2626":"#B45309",fontWeight:700 }}>{d===1?"내일 🎉":`D-${d}`} · {mmdd(u.birthDate)}</span>
-              </div>
-            ))}
-          </div>
-          )}
+          {upcoming.map(({u,d}) => (
+            <AlertRow key={u.id} tone="a" n={d===1?"내일":`D-${d}`}>
+              {u.name}{u.id===user.id?" (나)":""} 생일 · {mmdd(u.birthDate)}
+            </AlertRow>
+          ))}
           </>
         );
       })()}
-      <div style={styles.statsGrid}>
-        {!isAdmin&&<><StatCard label="연차 잔여" value={`${myRemDays.toFixed(1)}일`} sub={myRbr.list.length?("남은 "+myRbr.list.map(x=>`$${x.rate} ${x.days.toFixed(1)}일`).join(" · ")):`적립 ${myAccDays.toFixed(1)}일 / 20일`} color="#4f8ef7" emoji="🏖️"/><StatCard label="이번 달 근무" value={`${fmt(monthHours)}h`} sub={`${monthLogs.length}일 출근`} color="#34c98b" emoji="💼"/></>}
+      <div style={isAdmin?{}:styles.statsGrid}>
+        {!isAdmin&&<><StatCard label="연차 잔여" value={`${myRemDays.toFixed(1)}일`} sub={myRbr.list.length?("남은 "+myRbr.list.map(x=>`$${x.rate} ${x.days.toFixed(1)}일`).join(" · ")):`적립 ${myAccDays.toFixed(1)}일 / 20일`} color="#2A8C86" emoji="🏖️"/><StatCard label="이번 달 근무" value={`${fmt(monthHours)}h`} sub={`${monthLogs.length}일 출근`} color="#34c98b" emoji="💼"/></>}
       {!isAdmin && (() => {
         const myMissing = getMissingLogs([user], logs, APP_START_DATE, today);
         const missDays = myMissing.length > 0 ? myMissing[0].missing : [];
         if (missDays.length === 0) return null;
         return (
-          <div style={{ background:"#FEF2F2",border:"1.5px solid #FECACA",borderRadius:14,padding:"12px 14px",marginBottom:14 }}>
-            <div style={{ display:"flex",alignItems:"center",gap:8,marginBottom:8 }}>
-              <span style={{ fontSize:16 }}>⚠️</span>
-              <div>
-                <p style={{ margin:0,fontSize:13,fontWeight:700,color:"#DC2626" }}>미제출 근무일지 {missDays.length}일</p>
-                <p style={{ margin:0,fontSize:11,color:"#888" }}>근무일지를 등록해주세요</p>
-              </div>
+          <div style={{ gridColumn:"1/-1",background:"#fff",border:"1px solid "+C.border,borderRadius:12,padding:"10px 12px" }}>
+            <div style={{ display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:6 }}>
+              <span style={{ fontWeight:600,fontSize:14,color:C.text }}>밀린 근무일지</span>
+              <span style={{ fontSize:12,color:C.sub }}>눌러서 바로 쓰기</span>
             </div>
             <div style={{ display:"flex",flexWrap:"wrap",gap:4 }}>
-              {missDays.map(d => {
-                const dt = new Date(d+"T00:00:00");
-                const label = `${dt.getMonth()+1}/${dt.getDate()}`;
-                return (
-                  <span key={d} onClick={()=>{
-                      const BASE=new Date("2026-04-13T00:00:00");
-                      const absIdx=_fnDiff(d);
-                      const curIdx=_fnDiff(new Date());
-                      onJumpToLog&&onJumpToLog(d,user.id,absIdx-curIdx);
-                    }}
-                    style={{ fontSize:11,fontWeight:600,background:"#FEE2E2",color:"#DC2626",borderRadius:6,padding:"2px 8px",cursor:"pointer",textDecoration:"underline" }}>
-                    {label}
-                  </span>
-                );
-              })}
+              {missDays.map(d => (
+                <span key={d} onClick={()=>onJumpToLog&&onJumpToLog(d,user.id,_fnDiff(d)-_fnDiff(new Date()))}
+                  style={{ fontSize:12,padding:"2px 7px",borderRadius:5,background:"#FBE9E9",color:"#B4232C",fontVariantNumeric:"tabular-nums",cursor:"pointer" }}>
+                  {ddmm(d)}
+                </span>
+              ))}
             </div>
           </div>
         );
@@ -4469,7 +4496,6 @@ function HomeTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist, on
           </div>
         ) : null;
       })()}
-        {isAdmin&&<><StatCard label="전체 직원" value={`${staffUsers.length}명`} sub="재직 중" color="#4f8ef7" emoji="👥"/><StatCard label="오늘 출근" value={`${todayLogs.length}명`} sub="근무일지 등록" color="#34c98b" emoji="✅"/></>}
       </div>
       <div style={styles.section}>
           {/* ── 비자 만료 경고 ── */}
@@ -4490,24 +4516,11 @@ function HomeTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist, on
             return (
               <div style={{ marginBottom:14 }}>
                 {warnings.map(({ u, diff, expired }) => (
-                  <div key={u.id}
-                    onClick={()=>{ if(isAdmin && onJumpToEmp) onJumpToEmp(u.id); }}
-                    title={isAdmin?"클릭해서 직원 관리에서 비자 수정":""}
-                    style={{ display:"flex",alignItems:"center",gap:12,background:expired||diff<=7?"#FEF2F2":"#FFFBEB",border:`1.5px solid ${expired||diff<=7?"#FECACA":"#FDE68A"}`,borderRadius:12,padding:"12px 14px",marginBottom:8,boxShadow:"0 1px 4px rgba(0,0,0,0.05)",cursor:isAdmin?"pointer":"default",transition:"transform 0.15s" }}
-                    onMouseOver={e=>{ if(isAdmin) e.currentTarget.style.transform='translateY(-1px)'; }}
-                    onMouseOut={e=>{ if(isAdmin) e.currentTarget.style.transform='none'; }}>
-                    <div style={{ fontSize:24,flexShrink:0 }}>{expired?"🚨":diff<=7?"⚠️":"⏰"}</div>
-                    <div style={{ flex:1,minWidth:0 }}>
-                      {isAdmin && <p style={{ margin:"0 0 1px",fontSize:13,fontWeight:700,color:C.text }}>{u.name}</p>}
-                      <p style={{ margin:0,fontSize:12,color:C.sub }}>{u.visa.type} · 만료 {u.visa.to}</p>
-                    </div>
-                    <div style={{ textAlign:"right",flexShrink:0 }}>
-                      {expired
-                        ? <span style={{ fontSize:12,fontWeight:800,color:"#DC2626",background:"#FEE2E2",padding:"4px 8px",borderRadius:6 }}>만료됨</span>
-                        : <span style={{ fontSize:18,fontWeight:900,color:diff<=7?"#DC2626":"#D97706" }}>D-{diff}</span>
-                      }
-                    </div>
-                  </div>
+                  <AlertRow key={u.id} tone={expired||diff<=7?"r":"a"} n={expired?"만료":`D-${diff}`}
+                    onClick={isAdmin && onJumpToEmp ? ()=>onJumpToEmp(u.id) : undefined}
+                    title={isAdmin?"눌러서 직원 관리에서 비자 수정":""}>
+                    {isAdmin ? u.name : "내"} 비자({u.visa.type}) {expired?"만료됨":"만료"} · {auD(u.visa.to)}
+                  </AlertRow>
                 ))}
               </div>
             );
@@ -4516,7 +4529,7 @@ function HomeTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist, on
           <h3 style={{ ...styles.sectionTitle,margin:0 }}>{isAdmin?"근무현황":"근무일지"}</h3>
           {isAdmin&&<input type="date" style={{ ...styles.input,width:"auto",fontSize:12,padding:"4px 8px" }} value={selectedDate} onChange={e=>setSelectedDate(e.target.value)}/>}
         </div>
-        {isAdmin&&missingStaff.length>0&&(
+        {isAdmin&&selectedDate!==todayStr&&missingStaff.length>0&&(
           <div style={{ background:"#fff8f0",border:"1px solid #ffd699",borderRadius:10,padding:"8px 12px",marginBottom:10 }}>
             <p style={{ margin:"0 0 6px",fontSize:11,fontWeight:700,color:"#a05c00" }}>⚠️ 미등록 ({missingStaff.length}명)</p>
             <div style={{ display:"flex",flexWrap:"wrap",gap:6 }}>
@@ -4539,46 +4552,34 @@ function HomeTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist, on
       {isAdmin && (() => {
         // 앱 시작일(4/13) ~ 오늘까지 전체 미제출 확인
         const ps = APP_START_DATE;
-        const pe = today;
+        // 오늘은 위 "오늘 근무일지" 카드에 나오니 어제까지만
+        const _y = new Date(today+"T00:00:00"); _y.setDate(_y.getDate()-1);
+        const pe = _y.getFullYear()+"-"+String(_y.getMonth()+1).padStart(2,"0")+"-"+String(_y.getDate()).padStart(2,"0");
         const missing = getMissingLogs(users, logs, ps, pe);
         if (missing.length === 0) return null;
         const [open, setOpen] = React.useState(true);
-        const totalDays = missing.reduce((s,r)=>s+r.missing.length,0);
+        const jump = (d, empId) => {
+          if(!onJumpToLog) return;
+          onJumpToLog(d, empId, _fnDiff(new Date(d+"T00:00:00")) - _fnDiff(new Date()));
+        };
         return (
-          <div style={{ background:"#FEF2F2",border:"1.5px solid #FECACA",borderRadius:14,padding:"12px 14px",marginBottom:14 }}>
-            <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",marginBottom:open?10:0 }}
+          <div style={{ background:"#fff",border:"1px solid "+C.border,borderRadius:12,padding:"10px 12px",marginBottom:14 }}>
+            <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",paddingBottom:open?6:0 }}
               onClick={()=>setOpen(p=>!p)}>
-              <div style={{ display:"flex",alignItems:"center",gap:8 }}>
-                <span style={{ fontSize:16 }}>⚠️</span>
-                <div>
-                  <p style={{ margin:0,fontSize:13,fontWeight:700,color:"#DC2626" }}>미제출 근무일지</p>
-                  <p style={{ margin:0,fontSize:11,color:"#888" }}>{ps} ~ {pe} · {missing.length}명 · {totalDays}일</p>
-                </div>
-              </div>
-              <span style={{ color:"#DC2626",fontSize:12 }}>{open?"▲":"▼"}</span>
+              <span style={{ fontWeight:600,fontSize:14,color:C.text }}>밀린 근무일지</span>
+              <span style={{ color:C.sub,fontSize:12 }}>오늘 제외 {open?"▲":"▼"}</span>
             </div>
             {open && missing.map(({emp, missing:days}) => (
-              <div key={emp.id} style={{ background:"#fff",borderRadius:10,padding:"8px 12px",marginBottom:6 }}>
-                <p style={{ margin:"0 0 6px",fontSize:13,fontWeight:700,color:"#111" }}>{emp.name}</p>
-                <div style={{ display:"flex",flexWrap:"wrap",gap:4 }}>
-                  {days.map(d => {
-                    const dt = new Date(d+"T00:00:00");
-                    const label = `${dt.getMonth()+1}/${dt.getDate()}`;
-                    return (
-                      <span key={d} onClick={()=>{
-                          if(!onJumpToLog) return;
-                          const BASE=new Date("2026-04-13T00:00:00");
-                          const dDate=new Date(d+"T00:00:00");
-                          const absIdx=_fnDiff(dDate);
-                          const curIdx=_fnDiff(new Date());
-                          onJumpToLog(d, emp.id, absIdx-curIdx);
-                        }}
-                        style={{ fontSize:11,fontWeight:600,background:"#FEE2E2",color:"#DC2626",borderRadius:6,padding:"2px 8px",cursor:"pointer",textDecoration:"underline" }}>
-                        {label}
-                      </span>
-                    );
-                  })}
-                </div>
+              <div key={emp.id} style={{ display:"flex",gap:8,alignItems:"baseline",padding:"6px 0",borderTop:"1px solid "+C.border,fontSize:13 }}>
+                <b style={{ minWidth:52,flexShrink:0,color:C.text }}>{emp.name}</b>
+                <span style={{ display:"flex",flexWrap:"wrap",gap:4 }}>
+                  {days.map(d => (
+                    <span key={d} onClick={()=>jump(d, emp.id)}
+                      style={{ fontSize:11.5,padding:"1px 6px",borderRadius:5,background:"#FBE9E9",color:"#B4232C",fontVariantNumeric:"tabular-nums",cursor:"pointer" }}>
+                      {ddmm(d)}
+                    </span>
+                  ))}
+                </span>
               </div>
             ))}
           </div>
@@ -4645,7 +4646,7 @@ function HomeTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist, on
             const used=+(lv.usedDays)||0;
             const carryover=calcCarryover(lv);const rbr=leaveRemainingByRate(lv);
             const rem=Math.round((carryover+acc+grant-used)*10)/10;
-            const color=rem<0?"#c0392b":rem<4?"#f77":"#4f8ef7";
+            const color=rem<0?"#c0392b":rem<4?"#f77":"#2A8C86";
             const pct=acc>0?Math.min(100,Math.max(0,(rem/ANNUAL_LEAVE_DAYS)*100)):0;
             return(<div key={u.id} style={styles.leaveRow}><div style={styles.leaveRowLeft}><div style={styles.logAvatar}>{u.name[0]}</div><div><p style={styles.logName}>{u.name}<span style={styles.deptBadge}>{u.dept}</span></p><p style={styles.logContent}><span style={{ color,fontWeight:700 }}>{rem<0?"⚠️ ":""}{rem.toFixed(1)}일 가능</span>{" "}<span style={{ color:"#aaa" }}>/ 적립 {acc.toFixed(1)}일{rbr.list.length?" · 남은 "+rbr.list.map(x=>`$${x.rate} ${x.days.toFixed(1)}일`).join(" · "):""}</span></p></div></div><div style={styles.miniBar}><div style={{ ...styles.miniBarFill,width:pct+"%",background:color }}/></div></div>);
           })}
@@ -4654,17 +4655,30 @@ function HomeTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist, on
     </div>
   );
 }
+// 홈 알림 한 줄 (생일·비자 공통 모양). tone: "r" 빨강 / "a" 주황
+function AlertRow({ tone, n, onClick, title, children }) {
+  const red = tone === "r";
+  return (
+    <div onClick={onClick} title={title}
+      style={{ display:"flex",alignItems:"center",gap:10,background:"#fff",border:"1px solid "+C.border,borderRadius:12,padding:"10px 12px",marginBottom:8,fontSize:13,color:C.text,cursor:onClick?"pointer":"default" }}>
+      <span style={{ minWidth:24,height:24,borderRadius:12,padding:"0 7px",boxSizing:"border-box",display:"inline-flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:12,flexShrink:0,whiteSpace:"nowrap",background:red?"#FBE9E9":"#FBF0DD",color:red?"#B4232C":"#9A5B0C" }}>{n}</span>
+      <span style={{ flex:1,minWidth:0 }}>{children}</span>
+      {onClick && <span style={{ color:C.sub,fontSize:16,lineHeight:1 }}>›</span>}
+    </div>
+  );
+}
+const ddmm = d => d ? `${d.slice(8,10)}/${d.slice(5,7)}` : "";
 function StatCard({label,value,sub,color,emoji}){return(<div style={{ ...styles.statCard,borderTop:`3px solid ${color}` }}><span style={styles.statEmoji}>{emoji}</span><p style={styles.statValue}>{value}</p><p style={styles.statLabel}>{label}</p><p style={styles.statSub}>{sub}</p></div>);}
 
 // ─── Styles ────────────────────────────────────────────────────────────────
 const C = {
-  primary: "#4F46E5",
-  primaryLight: "#EEF2FF",
-  bg: "#F4F6FF",
+  primary: "#1F6F6B",
+  primaryLight: "#E3EFEC",
+  bg: "#F5F6F4",
   card: "#FFFFFF",
-  border: "#E5E8F5",
-  text: "#111827",
-  sub: "#6B7280",
+  border: "#E4E7E4",
+  text: "#1C2430",
+  sub: "#69737C",
   success: "#059669",
   successLight: "#ECFDF5",
   danger: "#DC2626",
@@ -4674,46 +4688,48 @@ const C = {
 };
 
 const styles = {
-  app: { fontFamily: "'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif", background: C.bg, backgroundColor: "#f4f6fb", minHeight: "100vh", minHeight: "100dvh", display: "flex", flexDirection: "column", maxWidth: 480, margin: "0 auto", position: "relative", width: "100%" },
+  app: { fontFamily: "'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif", background: C.bg, backgroundColor: "#F5F6F4", minHeight: "100vh", minHeight: "100dvh", display: "flex", flexDirection: "column", maxWidth: 480, margin: "0 auto", position: "relative", width: "100%" },
   content: { flex: 1, overflowY: "auto", paddingBottom: 72 }, contentDesktop: { flex: 1, overflowY: "auto", paddingBottom: 20 },
   page: { padding: "16px 18px 0" },
   pageHeader: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 },
   pageTitle: { margin: 0, fontSize: 20, fontWeight: 800, color: C.text, letterSpacing: "-0.5px" },
-  loginWrap: { minHeight: "100vh", minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(135deg, #EEF2FF 0%, #F0F4FF 50%, #E0E7FF 100%)" },
-  loginBox: { background: "#fff", borderRadius: 24, padding: "36px 28px", width: "100%", maxWidth: 380, boxShadow: "0 20px 60px rgba(79,70,229,0.15)", border: "1px solid #E5E8F5" },
+  loginWrap: { minHeight: "100vh", minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: "#F5F6F4" },
+  loginBox: { background: "#fff", borderRadius: 24, padding: "36px 28px", width: "100%", maxWidth: 380, boxShadow: "0 20px 60px rgba(28,36,48,0.15)", border: "1px solid #E4E7E4" },
   loginLogo: { textAlign: "center", marginBottom: 28 },
   logoIcon: { fontSize: 44, marginBottom: 8 },
-  logoTitle: { margin: 0, fontSize: 28, fontWeight: 900, color: "#4F46E5", letterSpacing: "-0.5px" },
+  logoTitle: { margin: 0, fontSize: 28, fontWeight: 900, color: "#1F6F6B", letterSpacing: "-0.5px" },
   logoSub: { margin: "4px 0 0", fontSize: 13, color: "#8891a8" },
-  header: { background: "#fff", borderBottom: "1px solid #E5E8F5", padding: "12px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 10, boxShadow: "0 1px 3px rgba(79,70,229,0.06)" },
-  headerLeft: { display: "flex", alignItems: "center", gap: 8 },
+  header: { background: "#fff", borderBottom: "1px solid #E4E7E4", padding: "12px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 10, boxShadow: "0 1px 3px rgba(28,36,48,0.06)" },
+  headerLeft: { display: "flex", alignItems: "center", gap: 10 },
+  headerMono: { width: 30, height: 30, borderRadius: 8, background: "#1C2430", color: "#fff", fontWeight: 700, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", letterSpacing: "-0.3px", flexShrink: 0 },
+  headerSub: { fontSize: 11, color: "#69737C", marginTop: -1 },
   headerLogo: { fontSize: 22 },
-  headerTitle: { fontSize: 17, fontWeight: 800, color: "#4F46E5", margin: 0, letterSpacing: "-0.3px" },
+  headerTitle: { fontSize: 17, fontWeight: 700, color: "#1C2430", margin: 0, letterSpacing: "-0.3px", lineHeight: 1.2 },
   headerRight: { display: "flex", alignItems: "center", gap: 8 },
   headerUser: { fontSize: 13, color: "#1a1d2e", fontWeight: 500, display: "flex", alignItems: "center", gap: 6 },
-  roleBadge: { background: "#EEF2FF", color: "#4F46E5", fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 8 },
+  roleBadge: { background: "#E3EFEC", color: "#1F6F6B", fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 8 },
   logoutBtn: { background: "none", border: "none", cursor: "pointer", color: "#8891a8", padding: 4, display: "flex" },
   nav: { position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 480, background: "rgba(255,255,255,0.95)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)", borderTop: "1px solid " + C.border, display: "flex", padding: "6px 0 env(safe-area-inset-bottom, 8px)", zIndex: 20 },
   navItem: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3, background: "none", border: "none", cursor: "pointer", color: "#8891a8", padding: "4px 0", fontSize: 10 },
-  navItemActive: { color: "#3b7ff5" },
+  navItemActive: { color: "#1F6F6B" },
   navLabel: { fontSize: 11, fontWeight: 500 },
   field: { marginBottom: 14 },
   label: { display: "block", fontSize: 12, fontWeight: 600, color: "#8891a8", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.04em" },
-  input: { width: "100%", boxSizing: "border-box", border: "1.5px solid #E5E8F5", borderRadius: 10, padding: "10px 14px", fontSize: 14, color: "#111827", background: "#fff", outline: "none", fontFamily: "inherit", transition: "border-color 0.15s" },
+  input: { width: "100%", boxSizing: "border-box", border: "1.5px solid #E4E7E4", borderRadius: 10, padding: "10px 14px", fontSize: 14, color: "#111827", background: "#fff", outline: "none", fontFamily: "inherit", transition: "border-color 0.15s" },
   row2: { display: "flex", gap: 12 },
-  hoursDisplay: { textAlign: "center", background: "#EEF2FF", borderRadius: 10, padding: "8px 12px", fontSize: 14, color: "#4F46E5", marginBottom: 14, fontWeight: 600 },
+  hoursDisplay: { textAlign: "center", background: "#E3EFEC", borderRadius: 10, padding: "8px 12px", fontSize: 14, color: "#1F6F6B", marginBottom: 14, fontWeight: 600 },
   errText: { color: "#f76f6f", fontSize: 13, margin: "-6px 0 10px", textAlign: "center" },
-  btnPrimary: { width: "100%", background: "#4F46E5", color: "#fff", border: "none", borderRadius: 12, padding: "13px 0", fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", boxShadow: "0 2px 8px rgba(79,70,229,0.25)" },
+  btnPrimary: { width: "100%", background: "#1F6F6B", color: "#fff", border: "none", borderRadius: 12, padding: "13px 0", fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", boxShadow: "0 2px 8px rgba(28,36,48,0.25)" },
   btnSecondary: { flex: 1, background: "#F3F4F6", color: "#374151", border: "1px solid #E5E7EB", borderRadius: 12, padding: "12px 0", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" },
-  btnAdd: { display: "flex", alignItems: "center", gap: 5, background: "#4F46E5", color: "#fff", border: "none", borderRadius: 10, padding: "8px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", boxShadow: "0 1px 4px rgba(79,70,229,0.2)" },
+  btnAdd: { display: "flex", alignItems: "center", gap: 5, background: "#1F6F6B", color: "#fff", border: "none", borderRadius: 10, padding: "8px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", boxShadow: "0 1px 4px rgba(28,36,48,0.2)" },
   iconBtn: { background: "none", border: "none", cursor: "pointer", color: "#8891a8", padding: 4, display: "flex", alignItems: "center" },
   modal: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 100, display: "flex", alignItems: "flex-end", justifyContent: "center", backdropFilter: "blur(2px)" },
-  modalBox: { background: "#fff", borderRadius: "20px 20px 0 0", padding: "24px 20px", paddingBottom: "calc(24px + env(safe-area-inset-bottom, 16px))", width: "100%", maxWidth: 480, maxHeight: "92dvh", overflowY: "auto", boxShadow: "0 -4px 30px rgba(79,70,229,0.12)" },
+  modalBox: { background: "#fff", borderRadius: "20px 20px 0 0", padding: "24px 20px", paddingBottom: "calc(24px + env(safe-area-inset-bottom, 16px))", width: "100%", maxWidth: 480, maxHeight: "92dvh", overflowY: "auto", boxShadow: "0 -4px 30px rgba(28,36,48,0.12)" },
   modalHeader: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 },
   modalTitle: { margin: 0, fontSize: 18, fontWeight: 700, color: "#1a1d2e" },
   modalFooter: { display: "flex", gap: 10, marginTop: 8 },
   statsGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 20 },
-  statCard: { background: "#fff", borderRadius: 14, padding: "14px", boxShadow: "0 2px 10px rgba(79,70,229,0.08)", border: "1px solid #E5E8F5" },
+  statCard: { background: "#fff", borderRadius: 14, padding: "14px", boxShadow: "0 2px 10px rgba(28,36,48,0.08)", border: "1px solid #E4E7E4" },
   statEmoji: { fontSize: 22 },
   statValue: { margin: "8px 0 2px", fontSize: 22, fontWeight: 900, color: "#111827", letterSpacing: "-0.5px" },
   statLabel: { margin: 0, fontSize: 12, color: "#8891a8", fontWeight: 600 },
@@ -4723,20 +4739,20 @@ const styles = {
   greeting: { padding: "20px 18px 8px" },
   greetingText: { margin: 0, fontSize: 22, fontWeight: 800, color: "#111827", letterSpacing: "-0.5px" },
   dateText: { margin: "4px 0 0", fontSize: 13, color: "#8891a8" },
-  logCard: { background: "#fff", borderRadius: 12, padding: "12px 16px", marginBottom: 8, display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: "0 1px 6px rgba(79,70,229,0.07)", border: "1px solid #E5E8F5" },
+  logCard: { background: "#fff", borderRadius: 12, padding: "12px 16px", marginBottom: 8, display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: "0 1px 6px rgba(28,36,48,0.07)", border: "1px solid #E4E7E4" },
   logCardLeft: { display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 },
-  logAvatar: { width: 34, height: 34, borderRadius: "50%", background: "linear-gradient(135deg, #4f8ef7, #7b5ea7)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, flexShrink: 0 },
+  logAvatar: { width: 34, height: 34, borderRadius: "50%", background: "#E3EFEC", color: "#1F6F6B", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, flexShrink: 0 },
   logName: { margin: 0, fontSize: 13, fontWeight: 600, color: "#1a1d2e" },
   logContent: { margin: "2px 0 0", fontSize: 12, color: "#8891a8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 180 },
   logHours: { fontSize: 11, color: "#8891a8", textAlign: "right", flexShrink: 0 },
-  logHoursBig: { fontSize: 14, fontWeight: 700, color: "#4F46E5" },
+  logHoursBig: { fontSize: 14, fontWeight: 700, color: "#1F6F6B" },
   filterRow: { display: "flex", gap: 8, marginBottom: 8 },
-  filterInput: { flex: 1, border: "1.5px solid #E5E8F5", borderRadius: 10, padding: "8px 12px", fontSize: 13, background: "#fff", color: "#111827", fontFamily: "inherit", outline: "none" },
+  filterInput: { flex: 1, border: "1.5px solid #E4E7E4", borderRadius: 10, padding: "8px 12px", fontSize: 13, background: "#fff", color: "#111827", fontFamily: "inherit", outline: "none" },
   logSummary: { fontSize: 12, color: "#8891a8", marginBottom: 10, fontWeight: 500 },
-  logItem: { background: "#fff", borderRadius: 12, padding: "12px 16px", marginBottom: 8, display: "flex", gap: 10, alignItems: "flex-start", boxShadow: "0 1px 6px rgba(79,70,229,0.07)", border: "1px solid #E5E8F5" },
-  logItemDate: { fontSize: 12, fontWeight: 700, color: "#4F46E5", width: 48, flexShrink: 0, paddingTop: 2 },
+  logItem: { background: "#fff", borderRadius: 12, padding: "12px 16px", marginBottom: 8, display: "flex", gap: 10, alignItems: "flex-start", boxShadow: "0 1px 6px rgba(28,36,48,0.07)", border: "1px solid #E4E7E4" },
+  logItemDate: { fontSize: 12, fontWeight: 700, color: "#1F6F6B", width: 48, flexShrink: 0, paddingTop: 2 },
   logItemBody: { flex: 1, minWidth: 0 },
-  empName: { fontSize: 11, fontWeight: 700, color: "#fff", background: "#3b7ff5", borderRadius: 6, padding: "1px 7px", marginBottom: 4, display: "inline-block" },
+  empName: { fontSize: 11, fontWeight: 700, color: "#fff", background: "#1F6F6B", borderRadius: 6, padding: "1px 7px", marginBottom: 4, display: "inline-block" },
   logItemContent: { margin: "0 0 6px", fontSize: 13, color: "#1a1d2e" },
   logItemMeta: { display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#8891a8" },
   statusBadge: { borderRadius: 6, padding: "1px 7px", fontSize: 11, fontWeight: 600, marginLeft: 4 },
@@ -4754,13 +4770,13 @@ const styles = {
   leaveNums: { display: "flex", justifyContent: "space-between", fontSize: 12, color: "#8891a8" },
   leaveChips: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 6 },
   chip: { border: "1.5px solid", borderRadius: 10, padding: "8px 6px", display: "flex", flexDirection: "column", alignItems: "center", gap: 2 },
-  empCard: { background: "#fff", borderRadius: 14, padding: "14px 16px", marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: "0 1px 6px rgba(79,70,229,0.07)", border: "1px solid #E5E8F5" },
+  empCard: { background: "#fff", borderRadius: 14, padding: "14px 16px", marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: "0 1px 6px rgba(28,36,48,0.07)", border: "1px solid #E4E7E4" },
   empCardLeft: { display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 0 },
   deptBadge: { fontSize: 10, fontWeight: 600, color: "#7b5ea7", background: "#7b5ea715", borderRadius: 6, padding: "1px 6px", marginLeft: 4 },
   empty: { textAlign: "center", padding: "32px 0", background: "#fff", borderRadius: 12, marginBottom: 8 },
   typeRow: { display: "flex", gap: 8 },
-  typeBtn: { flex: 1, padding: "9px 4px", border: "1.5px solid #eaecf3", borderRadius: 10, background: "#f4f6fb", color: "#8891a8", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s" },
-  typeBtnActive: { border: "1.5px solid #3b7ff5", background: "#3b7ff512", color: "#3b7ff5" },
+  typeBtn: { flex: 1, padding: "9px 4px", border: "1.5px solid #eaecf3", borderRadius: 10, background: "#F5F6F4", color: "#8891a8", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s" },
+  typeBtnActive: { border: "1.5px solid #1F6F6B", background: "#1F6F6B12", color: "#1F6F6B" },
   timeInfoBox: { display: "flex", alignItems: "center", gap: 8, background: "#f0f5ff", border: "1px solid #c5d8ff", borderRadius: 10, padding: "10px 14px", marginBottom: 14, fontSize: 13, color: "#3b5fc0" },
   timeInfoIcon: { fontSize: 16 },
   timeInfoHours: { marginLeft: "auto", fontWeight: 700, fontSize: 14 },
@@ -4769,7 +4785,7 @@ const styles = {
   otLabel: { fontSize: 12, color: "#8891a8", fontWeight: 400 },
   travelToggleRow: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0 10px", borderTop: "1px solid #eaecf3", marginTop: 4 },
   travelToggleLabel: { fontSize: 14, fontWeight: 600, color: "#1a1d2e" },
-  toggleBtn: { padding: "5px 16px", borderRadius: 20, border: "1.5px solid #eaecf3", background: "#f4f6fb", color: "#8891a8", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" },
+  toggleBtn: { padding: "5px 16px", borderRadius: 20, border: "1.5px solid #eaecf3", background: "#F5F6F4", color: "#8891a8", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" },
   toggleBtnOn: { border: "1.5px solid #34c98b", background: "#34c98b18", color: "#34c98b" },
   travelBox: { background: "#f5fdf8", border: "1px solid #b3f5d4", borderRadius: 12, padding: "14px", marginBottom: 14 },
   bizTripRow: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 },
@@ -4789,7 +4805,7 @@ const styles = {
   legKmInput: { width: 60, border: "none", background: "transparent", fontSize: 12, fontWeight: 700, color: "#1a6644", fontFamily: "inherit", outline: "none", textAlign: "center" },
   legKmReset: { fontSize: 10, color: "#2d7a5a", background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", padding: 0 },
   osrmBtn: { fontSize: 13, background: "none", border: "none", cursor: "pointer", padding: "0 2px", lineHeight: 1 },
-  geocodeBtn: { background: "#3b7ff5", color: "#fff", border: "none", borderRadius: 8, padding: "8px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", width: "100%", textAlign: "center", textDecoration: "none", display: "block" },
+  geocodeBtn: { background: "#1F6F6B", color: "#fff", border: "none", borderRadius: 8, padding: "8px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", width: "100%", textAlign: "center", textDecoration: "none", display: "block" },
   returnLegBox: { background: "#f0f9ff", border: "1px solid #c5e8ff", borderRadius: 10, padding: "10px 12px", marginBottom: 8 },
   returnLegHeader: { marginBottom: 6 },
   returnLegLabel: { fontSize: 12, fontWeight: 600, color: "#3b5fc0" },
@@ -4810,23 +4826,23 @@ const styles = {
   confirmedBadge: { fontSize: 10, background: "#e8faf2", color: "#1a6644", borderRadius: 6, padding: "2px 7px", fontWeight: 600, display: "inline-block", marginTop: 3 },
   accrualInfo: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 },
   accrualLabel: { fontSize: 11, color: "#8891a8", fontWeight: 600, textTransform: "uppercase" },
-  accrualRate: { fontSize: 12, color: "#3b7ff5", fontWeight: 600 },
+  accrualRate: { fontSize: 12, color: "#1F6F6B", fontWeight: 600 },
   todayAccrualBox: { background: "linear-gradient(135deg, #eef4ff, #f0f9ff)", border: "1.5px solid #c5d8ff", borderRadius: 12, padding: "12px 14px", marginBottom: 12 },
   todayAccrualMain: { display: "flex", alignItems: "baseline", gap: 8, marginBottom: 5 },
   todayAccrualLabel: { fontSize: 11, fontWeight: 700, color: "#3b5fc0", textTransform: "uppercase", letterSpacing: "0.04em", marginRight: 2 },
-  todayAccrualValue: { fontSize: 22, fontWeight: 800, color: "#3b7ff5" },
-  todayAccrualHours: { fontSize: 15, fontWeight: 700, color: "#3b7ff5", opacity: 0.75 },
+  todayAccrualValue: { fontSize: 22, fontWeight: 800, color: "#1F6F6B" },
+  todayAccrualHours: { fontSize: 15, fontWeight: 700, color: "#1F6F6B", opacity: 0.75 },
   todayAccrualSub: { display: "flex", justifyContent: "space-between", fontSize: 11, color: "#8891a8" },
   rateAccrualBox: { background: "#f8f4ff", border: "1.5px solid #d0bfff", borderRadius: 12, padding: "12px 14px", marginBottom: 12 },
   rateAccrualTitle: { margin: "0 0 10px", fontSize: 12, fontWeight: 700, color: "#5a3e9b" },
   rateAccrualRow: { borderRadius: 10, padding: "10px 10px", marginBottom: 8, background: "#fff", border: "1px solid #ece5ff", display: "flex", alignItems: "center", justifyContent: "space-between" },
-  rateAccrualActive: { border: "1.5px solid #4f8ef7", background: "#f0f6ff" },
+  rateAccrualActive: { border: "1.5px solid #2A8C86", background: "#EEF6F4" },
   rateAccrualLeft: { flex: 1 },
   rateAccrualDates: { margin: 0, fontSize: 11, color: "#1a1d2e", fontWeight: 500 },
   rateAccrualCalDays: { margin: "2px 0 6px", fontSize: 11, color: "#8891a8" },
   rateAccrualNums: { display: "flex", alignItems: "baseline", gap: 5 },
-  rateAccrualDays: { fontSize: 18, fontWeight: 800, color: "#3b7ff5" },
-  rateAccrualHoursText: { fontSize: 13, fontWeight: 700, color: "#3b7ff5", opacity: 0.8 },
+  rateAccrualDays: { fontSize: 18, fontWeight: 800, color: "#1F6F6B" },
+  rateAccrualHoursText: { fontSize: 13, fontWeight: 700, color: "#1F6F6B", opacity: 0.8 },
   rateAccrualOf: { fontSize: 11, color: "#8891a8" },
   rateAccrualRateCol: { display: "flex", flexDirection: "column", alignItems: "flex-end", flexShrink: 0, marginLeft: 10 },
   rateAccrualRate: { fontSize: 16, fontWeight: 800, color: "#5a3e9b" },
@@ -4845,12 +4861,12 @@ const styles = {
   usageSection: { marginTop: 10, borderTop: "1px solid #eaecf3", paddingTop: 10 },
   usageSectionHeader: { display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", padding: "2px 0 6px" },
   usageSectionTitle: { fontSize: 12, fontWeight: 700, color: "#1a1d2e" },
-  usageBadge: { fontSize: 11, background: "#3b7ff518", color: "#3b7ff5", borderRadius: 6, padding: "1px 7px", fontWeight: 600 },
-  usageAddBtn: { fontSize: 11, background: "#3b7ff5", color: "#fff", border: "none", borderRadius: 6, padding: "3px 9px", cursor: "pointer", fontFamily: "inherit", fontWeight: 700 },
+  usageBadge: { fontSize: 11, background: "#1F6F6B18", color: "#1F6F6B", borderRadius: 6, padding: "1px 7px", fontWeight: 600 },
+  usageAddBtn: { fontSize: 11, background: "#1F6F6B", color: "#fff", border: "none", borderRadius: 6, padding: "3px 9px", cursor: "pointer", fontFamily: "inherit", fontWeight: 700 },
   usageList: { paddingTop: 4 },
   usageRow: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid #eaecf3" },
   usageLeft: { display: "flex", alignItems: "center", gap: 10 },
-  usageDateBadge: { background: "#3b7ff518", color: "#3b7ff5", borderRadius: 8, padding: "4px 8px", fontSize: 12, fontWeight: 700, minWidth: 36, textAlign: "center" },
+  usageDateBadge: { background: "#1F6F6B18", color: "#1F6F6B", borderRadius: 8, padding: "4px 8px", fontSize: 12, fontWeight: 700, minWidth: 36, textAlign: "center" },
   usageDays: { margin: 0, fontSize: 14, fontWeight: 700, color: "#1a1d2e" },
   usageHours: { fontSize: 11, fontWeight: 400, color: "#8891a8" },
   usageNote: { margin: "2px 0 0", fontSize: 11, color: "#8891a8" },
@@ -4863,15 +4879,15 @@ const styles = {
   backupDesc: { fontSize: 12, color: "#8891a8", marginBottom: 12, whiteSpace: "pre-line", lineHeight: 1.6 },
   payPeriodBox: { background: "#f0f5ff", border: "1.5px solid #c5d8ff", borderRadius: 12, padding: "14px", marginBottom: 16 },
   payPeriodRow: { display: "flex", alignItems: "flex-end", gap: 10 },
-  payPeriodArrow: { fontSize: 18, color: "#3b7ff5", paddingBottom: 10, flexShrink: 0 },
+  payPeriodArrow: { fontSize: 18, color: "#1F6F6B", paddingBottom: 10, flexShrink: 0 },
   payCard: { background: "#fff", borderRadius: 14, padding: "14px 16px", marginBottom: 12, boxShadow: "0 2px 8px #0000000a" },
   payCardHeader: { display: "flex", alignItems: "center", gap: 10, marginBottom: 12 },
   payGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 },
-  payStatCell: { background: "#f4f6fb", borderRadius: 10, padding: "10px 12px", display: "flex", flexDirection: "column", gap: 2 },
-  todayBtn: { fontSize: 12, fontWeight: 600, background: "#3b7ff518", color: "#3b7ff5", border: "1.5px solid #3b7ff544", borderRadius: 8, padding: "5px 12px", cursor: "pointer", fontFamily: "inherit" },
-  invoiceBtn: { fontSize: 11, fontWeight: 700, background: "#fff", border: "1.5px solid #3b7ff5", color: "#3b7ff5", borderRadius: 8, padding: "5px 10px", cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap", flexShrink: 0 },
+  payStatCell: { background: "#F5F6F4", borderRadius: 10, padding: "10px 12px", display: "flex", flexDirection: "column", gap: 2 },
+  todayBtn: { fontSize: 12, fontWeight: 600, background: "#1F6F6B18", color: "#1F6F6B", border: "1.5px solid #1F6F6B44", borderRadius: 8, padding: "5px 12px", cursor: "pointer", fontFamily: "inherit" },
+  invoiceBtn: { fontSize: 11, fontWeight: 700, background: "#fff", border: "1.5px solid #1F6F6B", color: "#1F6F6B", borderRadius: 8, padding: "5px 10px", cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap", flexShrink: 0 },
   noLeaveBadge: { fontSize: 10, fontWeight: 700, background: "#f7727218", color: "#f77", borderRadius: 6, padding: "2px 8px", border: "1px solid #f7727244" },
-  leaveBadge: { fontSize: 11, fontWeight: 600, background: "#3b7ff515", color: "#3b7ff5", borderRadius: 6, padding: "2px 8px" },
+  leaveBadge: { fontSize: 11, fontWeight: 600, background: "#1F6F6B15", color: "#1F6F6B", borderRadius: 6, padding: "2px 8px" },
   leaveSettingBox: { background: "#f8f4ff", border: "1.5px solid #d0bfff", borderRadius: 10, padding: "12px 14px", marginBottom: 14 },
   leaveSettingTitle: { margin: "0 0 10px", fontSize: 12, fontWeight: 700, color: "#5a3e9b" },
   periodBox: { background: "#f8f4ff", border: "1px solid #d6c5f5", borderRadius: 10, padding: "12px 14px", marginTop: 12 },
@@ -4884,7 +4900,7 @@ const styles = {
   periodRate: { fontSize: 13, fontWeight: 700, color: "#5a3e9b" },
   periodTotal: { fontSize: 11, color: "#8891a8", textAlign: "right", marginTop: 4 },
   rateRow: { display: "flex", gap: 8, alignItems: "flex-start", marginBottom: 10 },
-  addViaBtn2: { fontSize: 11, background: "#3b7ff5", color: "#fff", border: "none", borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontFamily: "inherit", fontWeight: 600 },
+  addViaBtn2: { fontSize: 11, background: "#1F6F6B", color: "#fff", border: "none", borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontFamily: "inherit", fontWeight: 600 },
 };
 
 // ─── OSRM + Geocode helpers ────────────────────────────────────────────────
@@ -4894,7 +4910,7 @@ async function geocodePlace(query){try{const url=`https://nominatim.openstreetma
 // ─── OsrmLegBox ───────────────────────────────────────────────────────────
 function OsrmLegBox({from,to,autoKm,overrideVal,onOverride,onReset}){const[loading,setLoading]=useState(false);const fetchOsrm=async()=>{const c1=LOCATION_COORDS[from],c2=LOCATION_COORDS[to];if(!c1||!c2)return;setLoading(true);const km=await fetchDrivingKm(c1,c2);setLoading(false);if(km)onOverride(km);};const display=overrideVal!==undefined?overrideVal:(autoKm||"");return(<div style={styles.legKmBox}>{overrideVal===undefined&&autoKm!==null&&<span style={styles.legKmAuto}>📐 {autoKm}km</span>}<input type="number" style={styles.legKmInput} value={display} placeholder={autoKm!==null?`${autoKm}`:"km"} onChange={e=>onOverride(e.target.value)} min={0}/>{LOCATION_COORDS[from]&&LOCATION_COORDS[to]&&<button style={styles.osrmBtn} onClick={fetchOsrm} disabled={loading} title="실제 도로 거리">{loading?"…":"🗺️"}</button>}{overrideVal!==undefined&&<button style={styles.legKmReset} onClick={onReset}>↺</button>}</div>);}
 
-function GeocodeLegBox({fromName,toName,overrideVal,onOverride,onReset}){const ref=useRef(null);const mapsUrl=fromName&&toName?`https://www.google.com/maps/dir/${encodeURIComponent(fromName+", NSW")}/${encodeURIComponent(toName+", NSW")}`:null;return(<div style={{ ...styles.legKmBox,borderColor:"#a0c4ff",background:"#f0f6ff",flexDirection:"column",alignItems:"stretch",gap:8,minWidth:190,padding:"10px 12px" }}>{mapsUrl&&<a href={mapsUrl} target="_blank" rel="noopener noreferrer" style={styles.geocodeBtn}>🗺️ Google Maps에서 거리 확인</a>}<div style={{ display:"flex",alignItems:"center",gap:6 }}><input ref={ref} type="text" inputMode="numeric" pattern="[0-9]*" style={{ ...styles.legKmInput,flex:1,textAlign:"left",fontSize:14,width:"auto",minWidth:60 }} defaultValue={overrideVal||""} placeholder="km 입력" onBlur={e=>{if(e.target.value)onOverride(e.target.value);}} onKeyDown={e=>{if(e.key==="Enter"&&ref.current&&ref.current.value)onOverride(ref.current.value);}}/><span style={{ fontSize:11,color:"#8891a8",whiteSpace:"nowrap" }}>km</span>{overrideVal!==undefined&&<button style={styles.legKmReset} onClick={()=>{if(ref.current)ref.current.value="";onReset();}}>↺</button>}</div>{overrideVal!==undefined&&<span style={{ fontSize:11,color:"#34c98b",fontWeight:600 }}>✅ {overrideVal}km 저장됨</span>}</div>);}
+function GeocodeLegBox({fromName,toName,overrideVal,onOverride,onReset}){const ref=useRef(null);const mapsUrl=fromName&&toName?`https://www.google.com/maps/dir/${encodeURIComponent(fromName+", NSW")}/${encodeURIComponent(toName+", NSW")}`:null;return(<div style={{ ...styles.legKmBox,borderColor:"#a0c4ff",background:"#EEF6F4",flexDirection:"column",alignItems:"stretch",gap:8,minWidth:190,padding:"10px 12px" }}>{mapsUrl&&<a href={mapsUrl} target="_blank" rel="noopener noreferrer" style={styles.geocodeBtn}>🗺️ Google Maps에서 거리 확인</a>}<div style={{ display:"flex",alignItems:"center",gap:6 }}><input ref={ref} type="text" inputMode="numeric" pattern="[0-9]*" style={{ ...styles.legKmInput,flex:1,textAlign:"left",fontSize:14,width:"auto",minWidth:60 }} defaultValue={overrideVal||""} placeholder="km 입력" onBlur={e=>{if(e.target.value)onOverride(e.target.value);}} onKeyDown={e=>{if(e.key==="Enter"&&ref.current&&ref.current.value)onOverride(ref.current.value);}}/><span style={{ fontSize:11,color:"#8891a8",whiteSpace:"nowrap" }}>km</span>{overrideVal!==undefined&&<button style={styles.legKmReset} onClick={()=>{if(ref.current)ref.current.value="";onReset();}}>↺</button>}</div>{overrideVal!==undefined&&<span style={{ fontSize:11,color:"#34c98b",fontWeight:600 }}>✅ {overrideVal}km 저장됨</span>}</div>);}
 
 const WORK_TYPES_BASE=[{key:"fulltime",label:"풀타임",emoji:"✅"},{key:"overtime",label:"오버타임",emoji:"⏰"},{key:"parttime",label:"파트타임",emoji:"🕐"},{key:"dayoff",label:"휴무",emoji:"🌴"}];
 function getWorkTypes(date,hasLeaveAccrual){const types=[...WORK_TYPES_BASE];if(hasLeaveAccrual){const day=new Date((date||today)+"T00:00:00").getDay();if(day>=1&&day<=5)types.push({key:"publicholiday",label:"퍼블릭홀리데이",emoji:"🎉"});}return types;}
@@ -4934,7 +4950,7 @@ function LogTab({user,users,logs,leaves,isAdmin,isSuperAdmin,isViewAdmin,persist
         </div>
         <button style={styles.navArrow} onClick={()=>setWagePeriodOffset(o=>o+1)}>›</button>
       </div>}
-      {viewMode==="date"&&<input type="date" style={styles.filterInput} value={filterDate} onChange={e=>setFilterDate(e.target.value)}/>}{isAdmin&&<select style={styles.filterInput} value={filterUser} onChange={e=>setFilterUser(e.target.value)}><option value="all">전체 직원</option>{users.filter(u=>u.role==="employee").map(u=><option key={u.id} value={u.id}>{u.name}</option>)}</select>}</div><div style={styles.logSummary}><span>총 {filtered.length}건 &nbsp;|&nbsp; {fmt(filtered.reduce((s,l)=>s+(l.hours||0),0))}시간</span></div>{filtered.length===0?<EmptyState msg="해당 기간 근무일지가 없습니다."/>:filtered.map(l=>{const emp=users.find(u=>u.id===l.userId);return(<div key={l.id} style={styles.logItem}><div style={styles.logItemDate}>{l.date.slice(5)} ({["일","월","화","수","목","금","토"][new Date(l.date+"T00:00:00").getDay()]})</div><div style={styles.logItemBody}>{isAdmin&&<span style={styles.empName}>{(emp&&emp.name)||l.userId}</span>}<p style={styles.logItemContent}>{l.content}</p><div style={styles.logItemMeta}>{(()=>{if(l.workType==="dayoff")return<span style={{ color:"#888" }}>🌴 휴무</span>;if(l.workType==="publicholiday")return<span style={{ color:"#e07000" }}>🎉 퍼블릭홀리데이 <strong>{fmt(FULLTIME_HOURS)}h</strong></span>;if(l.workType==="overtime"){const otH=calcHours(l.otStart,l.otEnd);return<><strong>{fmt(FULLTIME_HOURS)}h</strong><span style={{ color:"#f7a440",fontWeight:700 }}>+ {fmt(otH)}h OT</span></>;}return<strong>{fmt(l.hours)}h</strong>;})()}<span style={{ ...styles.statusBadge,background:l.workType==="overtime"?"#f7a44022":l.workType==="parttime"?"#7b5ea722":l.workType==="dayoff"?"#88888822":l.workType==="publicholiday"?"#e0700022":"#4f8ef722",color:l.workType==="overtime"?"#c87800":l.workType==="parttime"?"#7b5ea7":l.workType==="dayoff"?"#888":l.workType==="publicholiday"?"#e07000":"#3b7ff5" }}>{l.workType==="fulltime"?"풀타임":l.workType==="overtime"?"오버타임":l.workType==="parttime"?"파트타임":l.workType==="dayoff"?"휴무":l.workType==="publicholiday"?"퍼블릭홀리데이":l.status}</span></div>{l.needsReview && !l.reviewedByEmp && !isAdmin && (
+      {viewMode==="date"&&<input type="date" style={styles.filterInput} value={filterDate} onChange={e=>setFilterDate(e.target.value)}/>}{isAdmin&&<select style={styles.filterInput} value={filterUser} onChange={e=>setFilterUser(e.target.value)}><option value="all">전체 직원</option>{users.filter(u=>u.role==="employee").map(u=><option key={u.id} value={u.id}>{u.name}</option>)}</select>}</div><div style={styles.logSummary}><span>총 {filtered.length}건 &nbsp;|&nbsp; {fmt(filtered.reduce((s,l)=>s+(l.hours||0),0))}시간</span></div>{filtered.length===0?<EmptyState msg="해당 기간 근무일지가 없습니다."/>:filtered.map(l=>{const emp=users.find(u=>u.id===l.userId);return(<div key={l.id} style={styles.logItem}><div style={styles.logItemDate}>{l.date.slice(5)} ({["일","월","화","수","목","금","토"][new Date(l.date+"T00:00:00").getDay()]})</div><div style={styles.logItemBody}>{isAdmin&&<span style={styles.empName}>{(emp&&emp.name)||l.userId}</span>}<p style={styles.logItemContent}>{l.content}</p><div style={styles.logItemMeta}>{(()=>{if(l.workType==="dayoff")return<span style={{ color:"#888" }}>🌴 휴무</span>;if(l.workType==="publicholiday")return<span style={{ color:"#e07000" }}>🎉 퍼블릭홀리데이 <strong>{fmt(FULLTIME_HOURS)}h</strong></span>;if(l.workType==="overtime"){const otH=calcHours(l.otStart,l.otEnd);return<><strong>{fmt(FULLTIME_HOURS)}h</strong><span style={{ color:"#f7a440",fontWeight:700 }}>+ {fmt(otH)}h OT</span></>;}return<strong>{fmt(l.hours)}h</strong>;})()}<span style={{ ...styles.statusBadge,background:l.workType==="overtime"?"#f7a44022":l.workType==="parttime"?"#7b5ea722":l.workType==="dayoff"?"#88888822":l.workType==="publicholiday"?"#e0700022":"#2A8C8622",color:l.workType==="overtime"?"#c87800":l.workType==="parttime"?"#7b5ea7":l.workType==="dayoff"?"#888":l.workType==="publicholiday"?"#e07000":"#1F6F6B" }}>{l.workType==="fulltime"?"풀타임":l.workType==="overtime"?"오버타임":l.workType==="parttime"?"파트타임":l.workType==="dayoff"?"휴무":l.workType==="publicholiday"?"퍼블릭홀리데이":l.status}</span></div>{l.needsReview && !l.reviewedByEmp && !isAdmin && (
                   <div style={{ marginTop:6,display:"flex",alignItems:"center",justifyContent:"space-between",background:"#FEF2F2",border:"1px solid #FECACA",borderRadius:8,padding:"6px 10px" }}>
                     <span style={{ fontSize:11,fontWeight:700,color:"#DC2626" }}>📢 관리자 확인 요청</span>
                     <button style={{ fontSize:11,fontWeight:700,background:"#DC2626",color:"#fff",border:"none",borderRadius:6,padding:"3px 10px",cursor:"pointer",fontFamily:"inherit" }}
@@ -5004,13 +5020,13 @@ React.useEffect(()=>{const stops=Array.isArray(travel.stops)?travel.stops:[];con
     </div>
     {form.lunchBreak&&<span style={{ marginLeft:"auto",fontSize:12,fontWeight:700,color:"#F97316" }}>−0.5h</span>}
   </div>
-</>)}{workType!=="dayoff"&&<div style={styles.hoursDisplay}>총 근무시간: <strong>{fmt(form.hours)}시간</strong>{workType==="overtime"&&otHours>0&&<span style={styles.otLabel}> (기본 {fmt(FULLTIME_HOURS)}h + OT {fmt(otHours)}h)</span>}</div>}<div style={styles.field}><label style={styles.label}>업무 내용</label><textarea style={{ ...styles.input,height:72,resize:"vertical" }} value={form.content} onChange={e=>set("content",e.target.value)} placeholder="오늘의 업무 내용을 입력하세요."/></div><div style={styles.travelToggleRow}><span style={styles.travelToggleLabel}>🚗 Travel Allowance (거리)</span><button style={{ ...styles.toggleBtn,...(hasTavel?styles.toggleBtnOn:{}) }} onClick={()=>setHasTravel(p=>!p)}>{hasTavel?"ON":"OFF"}</button></div><div style={styles.travelToggleRow}><span style={styles.travelToggleLabel}>🍽️ 출장 저녁식비{travel.hasDinner?<span style={{fontSize:13,color:"#e07000",fontWeight:800}}> $25</span>:<span style={{fontSize:10,color:"#999",fontWeight:400}}> (트래블 없이도 청구 가능)</span>}</span><button style={{ ...styles.toggleBtn,...(travel.hasDinner?styles.toggleBtnOn:{}) }} onClick={()=>setTravelField({hasDinner:!travel.hasDinner})}>{travel.hasDinner?"ON":"OFF"}</button></div>{hasTavel&&(<div style={styles.travelBox}><div style={styles.bizTripRow}><div><p style={styles.bizTripLabel}>🏨 출장 모드</p><p style={styles.bizTripSub}>ON: 편도 계산 (자부담 25km)</p></div><button style={{ ...styles.toggleBtn,...(travel.isBizTrip?styles.toggleBtnOn:{}) }} onClick={()=>setTravelField({isBizTrip:!travel.isBizTrip})}>{travel.isBizTrip?"ON":"OFF"}</button></div><div style={styles.divider}/><label style={{ ...styles.label,marginBottom:10 }}>경로</label>{travel.stops.map((stop,i)=>{const isFirst=i===0;const isLast=i===travel.stops.length-1;const isMiddle=!isFirst&&!isLast;const isCustomMode=stopModes[i]==="custom";const leg=travelCalc.legs[i];const overrideVal=travel.kmOverrides[i];return(<div key={i}><div style={styles.stopRow}><div style={styles.stopDotCol}><div style={{ ...styles.stopDot,background:isFirst?"#4f8ef7":isLast?"#f76f6f":"#ffc347" }}/>{!isLast&&<div style={styles.stopLine}/>}</div><div style={{ flex:1 }}><div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4 }}><label style={{ ...styles.label,fontSize:10,margin:0 }}>{isFirst?"출발지":isLast?"도착지":`경유지 ${i}`}</label><button style={styles.modeToggle} onClick={()=>{if(isCustomMode){setStop(i,"",false);}else{setStop(i,stop||"",true);}}}>{isCustomMode?"📋 목록에서 선택":"✏️ 직접 입력"}</button></div><div style={{ display:"flex",gap:6,alignItems:"center" }}>{isCustomMode?<input style={{ ...styles.input,flex:1,borderColor:"#ffc347" }} value={stop} onChange={e=>setStop(i,e.target.value,true)} placeholder="지명 직접 입력..."/>:<select style={{ ...styles.input,flex:1 }} value={stop} onChange={e=>setStop(i,e.target.value,false)}><option value="">-- 선택 --</option>{ALL_LOCATIONS.map(n=><option key={n} value={n}>{n}</option>)}</select>}{isMiddle&&<button style={{ ...styles.iconBtn,color:"#f77",flexShrink:0 }} onClick={()=>removeStop(i)}>{Icon.trash}</button>}</div></div></div>{leg&&<div style={styles.legKmRow}><div style={styles.legKmLine}/>{leg.isManual?<GeocodeLegBox fromName={travel.stops[i]} toName={travel.stops[i+1]} overrideVal={travel.kmOverrides[i]} onOverride={(v)=>setKmOverride(i,v)} onReset={()=>setKmOverride(i,"")}/>:<OsrmLegBox from={leg.from} to={leg.to} autoKm={leg.autoKm} overrideVal={overrideVal} onOverride={(v)=>setKmOverride(i,v)} onReset={()=>setKmOverride(i,"")}/>}<div style={styles.legKmLine}/></div>}</div>);})} <button style={styles.addViaBtn} onClick={addStop}>+ 경유지 추가</button>{!travel.isBizTrip&&!travelCalc.isClosedLoop&&(travel.stops||[]).length>2&&travelCalc.outboundKm>0&&<div style={styles.returnLegBox}><div style={styles.returnLegHeader}><span style={styles.returnLegLabel}>↩️ 귀환 (목적지 → 출발지 직통)</span></div><div style={styles.legKmRow}><div style={styles.legKmLine}/>{travelCalc.returnIsManual?<GeocodeLegBox fromName={travel.stops[travel.stops.length-1]} toName={travel.stops[0]} overrideVal={travel.kmOverrides["return"]} onOverride={(v)=>setTravelField({kmOverrides:{...travel.kmOverrides,return:v}})} onReset={()=>{const o={...travel.kmOverrides};delete o["return"];setTravelField({kmOverrides:o});}}/>:<div style={styles.legKmBox}>{travelCalc.returnAutoKm!==null&&travel.kmOverrides["return"]===undefined&&<span style={styles.legKmAuto}>📐 {travelCalc.returnAutoKm}km</span>}<input type="number" style={styles.legKmInput} value={travel.kmOverrides["return"]||""} placeholder={travelCalc.returnAutoKm!==null?`${travelCalc.returnAutoKm}`:"km"} onChange={e=>setTravelField({kmOverrides:{...travel.kmOverrides,return:e.target.value}})} min={0}/>{travel.kmOverrides["return"]!==undefined&&<button style={styles.legKmReset} onClick={()=>{const o={...travel.kmOverrides};delete o["return"];setTravelField({kmOverrides:o});}}>↺</button>}</div>}<div style={styles.legKmLine}/></div></div>}{travelCalc.outboundKm>0&&<div style={styles.allowanceResult}>{travelCalc.needsConfirm&&<div style={styles.confirmWarning}>⚠️ 수동 입력 km 포함 — 관리자 확인 필요</div>}<div style={styles.allowanceRow}><span style={styles.allowanceLabel}>편도 (경유 포함)</span><span style={styles.allowanceValue}>{travelCalc.outboundKm} km</span></div>{!travel.isBizTrip&&!travelCalc.isClosedLoop&&<div style={styles.allowanceRow}><span style={styles.allowanceLabel}>↩️ 귀환 (직통)</span><span style={styles.allowanceValue}>{travelCalc.returnKm} km</span></div>}<div style={{ ...styles.allowanceRow,borderTop:"1px solid #b3f5d4",paddingTop:8,marginTop:4 }}><span style={{ ...styles.allowanceLabel,fontWeight:700,color:"#1a6644" }}>{travel.isBizTrip?"편도 합계":"총 거리"}</span><span style={styles.allowanceValue}>{travelCalc.totalKm} km</span></div><div style={{ ...styles.allowanceRow,borderTop:"1px solid #b3f5d4",paddingTop:8,marginTop:4 }}><span style={{ ...styles.allowanceLabel,fontWeight:700,color:"#1a6644" }}>Travel Allowance</span><span style={styles.allowanceBig}>${travelCalc.allowance.toFixed(2)}</span></div>{travel.isBizTrip&&travel.hasDinner&&<div style={styles.dinnerRow}><span style={styles.allowanceLabel}>🍽️ 출장 저녁식비</span><span style={{ fontSize:15,fontWeight:700,color:"#e07000" }}>$25.00</span></div>}{travel.isBizTrip&&travel.hasDinner&&<div style={{ ...styles.allowanceRow,borderTop:"1px solid #b3f5d4",paddingTop:8,marginTop:4 }}><span style={{ ...styles.allowanceLabel,fontWeight:700,color:"#1a6644" }}>합계</span><span style={styles.allowanceBig}>${(travelCalc.allowance+25).toFixed(2)}</span></div>}</div>}</div>)}{submitErr&&<p style={{ color:"#f77",fontSize:13,fontWeight:600,margin:"0 0 10px" }}>⚠️ {submitErr}</p>}<div style={styles.modalFooter}><button style={styles.btnSecondary} onClick={onClose}>취소</button><button style={styles.btnPrimary} onClick={submit}>{log?"수정 완료":"등록"}</button></div></div></div>);}
+</>)}{workType!=="dayoff"&&<div style={styles.hoursDisplay}>총 근무시간: <strong>{fmt(form.hours)}시간</strong>{workType==="overtime"&&otHours>0&&<span style={styles.otLabel}> (기본 {fmt(FULLTIME_HOURS)}h + OT {fmt(otHours)}h)</span>}</div>}<div style={styles.field}><label style={styles.label}>업무 내용</label><textarea style={{ ...styles.input,height:72,resize:"vertical" }} value={form.content} onChange={e=>set("content",e.target.value)} placeholder="오늘의 업무 내용을 입력하세요."/></div><div style={styles.travelToggleRow}><span style={styles.travelToggleLabel}>🚗 Travel Allowance (거리)</span><button style={{ ...styles.toggleBtn,...(hasTavel?styles.toggleBtnOn:{}) }} onClick={()=>setHasTravel(p=>!p)}>{hasTavel?"ON":"OFF"}</button></div><div style={styles.travelToggleRow}><span style={styles.travelToggleLabel}>🍽️ 출장 저녁식비{travel.hasDinner?<span style={{fontSize:13,color:"#e07000",fontWeight:800}}> $25</span>:<span style={{fontSize:10,color:"#999",fontWeight:400}}> (트래블 없이도 청구 가능)</span>}</span><button style={{ ...styles.toggleBtn,...(travel.hasDinner?styles.toggleBtnOn:{}) }} onClick={()=>setTravelField({hasDinner:!travel.hasDinner})}>{travel.hasDinner?"ON":"OFF"}</button></div>{hasTavel&&(<div style={styles.travelBox}><div style={styles.bizTripRow}><div><p style={styles.bizTripLabel}>🏨 출장 모드</p><p style={styles.bizTripSub}>ON: 편도 계산 (자부담 25km)</p></div><button style={{ ...styles.toggleBtn,...(travel.isBizTrip?styles.toggleBtnOn:{}) }} onClick={()=>setTravelField({isBizTrip:!travel.isBizTrip})}>{travel.isBizTrip?"ON":"OFF"}</button></div><div style={styles.divider}/><label style={{ ...styles.label,marginBottom:10 }}>경로</label>{travel.stops.map((stop,i)=>{const isFirst=i===0;const isLast=i===travel.stops.length-1;const isMiddle=!isFirst&&!isLast;const isCustomMode=stopModes[i]==="custom";const leg=travelCalc.legs[i];const overrideVal=travel.kmOverrides[i];return(<div key={i}><div style={styles.stopRow}><div style={styles.stopDotCol}><div style={{ ...styles.stopDot,background:isFirst?"#2A8C86":isLast?"#f76f6f":"#ffc347" }}/>{!isLast&&<div style={styles.stopLine}/>}</div><div style={{ flex:1 }}><div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4 }}><label style={{ ...styles.label,fontSize:10,margin:0 }}>{isFirst?"출발지":isLast?"도착지":`경유지 ${i}`}</label><button style={styles.modeToggle} onClick={()=>{if(isCustomMode){setStop(i,"",false);}else{setStop(i,stop||"",true);}}}>{isCustomMode?"📋 목록에서 선택":"✏️ 직접 입력"}</button></div><div style={{ display:"flex",gap:6,alignItems:"center" }}>{isCustomMode?<input style={{ ...styles.input,flex:1,borderColor:"#ffc347" }} value={stop} onChange={e=>setStop(i,e.target.value,true)} placeholder="지명 직접 입력..."/>:<select style={{ ...styles.input,flex:1 }} value={stop} onChange={e=>setStop(i,e.target.value,false)}><option value="">-- 선택 --</option>{ALL_LOCATIONS.map(n=><option key={n} value={n}>{n}</option>)}</select>}{isMiddle&&<button style={{ ...styles.iconBtn,color:"#f77",flexShrink:0 }} onClick={()=>removeStop(i)}>{Icon.trash}</button>}</div></div></div>{leg&&<div style={styles.legKmRow}><div style={styles.legKmLine}/>{leg.isManual?<GeocodeLegBox fromName={travel.stops[i]} toName={travel.stops[i+1]} overrideVal={travel.kmOverrides[i]} onOverride={(v)=>setKmOverride(i,v)} onReset={()=>setKmOverride(i,"")}/>:<OsrmLegBox from={leg.from} to={leg.to} autoKm={leg.autoKm} overrideVal={overrideVal} onOverride={(v)=>setKmOverride(i,v)} onReset={()=>setKmOverride(i,"")}/>}<div style={styles.legKmLine}/></div>}</div>);})} <button style={styles.addViaBtn} onClick={addStop}>+ 경유지 추가</button>{!travel.isBizTrip&&!travelCalc.isClosedLoop&&(travel.stops||[]).length>2&&travelCalc.outboundKm>0&&<div style={styles.returnLegBox}><div style={styles.returnLegHeader}><span style={styles.returnLegLabel}>↩️ 귀환 (목적지 → 출발지 직통)</span></div><div style={styles.legKmRow}><div style={styles.legKmLine}/>{travelCalc.returnIsManual?<GeocodeLegBox fromName={travel.stops[travel.stops.length-1]} toName={travel.stops[0]} overrideVal={travel.kmOverrides["return"]} onOverride={(v)=>setTravelField({kmOverrides:{...travel.kmOverrides,return:v}})} onReset={()=>{const o={...travel.kmOverrides};delete o["return"];setTravelField({kmOverrides:o});}}/>:<div style={styles.legKmBox}>{travelCalc.returnAutoKm!==null&&travel.kmOverrides["return"]===undefined&&<span style={styles.legKmAuto}>📐 {travelCalc.returnAutoKm}km</span>}<input type="number" style={styles.legKmInput} value={travel.kmOverrides["return"]||""} placeholder={travelCalc.returnAutoKm!==null?`${travelCalc.returnAutoKm}`:"km"} onChange={e=>setTravelField({kmOverrides:{...travel.kmOverrides,return:e.target.value}})} min={0}/>{travel.kmOverrides["return"]!==undefined&&<button style={styles.legKmReset} onClick={()=>{const o={...travel.kmOverrides};delete o["return"];setTravelField({kmOverrides:o});}}>↺</button>}</div>}<div style={styles.legKmLine}/></div></div>}{travelCalc.outboundKm>0&&<div style={styles.allowanceResult}>{travelCalc.needsConfirm&&<div style={styles.confirmWarning}>⚠️ 수동 입력 km 포함 — 관리자 확인 필요</div>}<div style={styles.allowanceRow}><span style={styles.allowanceLabel}>편도 (경유 포함)</span><span style={styles.allowanceValue}>{travelCalc.outboundKm} km</span></div>{!travel.isBizTrip&&!travelCalc.isClosedLoop&&<div style={styles.allowanceRow}><span style={styles.allowanceLabel}>↩️ 귀환 (직통)</span><span style={styles.allowanceValue}>{travelCalc.returnKm} km</span></div>}<div style={{ ...styles.allowanceRow,borderTop:"1px solid #b3f5d4",paddingTop:8,marginTop:4 }}><span style={{ ...styles.allowanceLabel,fontWeight:700,color:"#1a6644" }}>{travel.isBizTrip?"편도 합계":"총 거리"}</span><span style={styles.allowanceValue}>{travelCalc.totalKm} km</span></div><div style={{ ...styles.allowanceRow,borderTop:"1px solid #b3f5d4",paddingTop:8,marginTop:4 }}><span style={{ ...styles.allowanceLabel,fontWeight:700,color:"#1a6644" }}>Travel Allowance</span><span style={styles.allowanceBig}>${travelCalc.allowance.toFixed(2)}</span></div>{travel.isBizTrip&&travel.hasDinner&&<div style={styles.dinnerRow}><span style={styles.allowanceLabel}>🍽️ 출장 저녁식비</span><span style={{ fontSize:15,fontWeight:700,color:"#e07000" }}>$25.00</span></div>}{travel.isBizTrip&&travel.hasDinner&&<div style={{ ...styles.allowanceRow,borderTop:"1px solid #b3f5d4",paddingTop:8,marginTop:4 }}><span style={{ ...styles.allowanceLabel,fontWeight:700,color:"#1a6644" }}>합계</span><span style={styles.allowanceBig}>${(travelCalc.allowance+25).toFixed(2)}</span></div>}</div>}</div>)}{submitErr&&<p style={{ color:"#f77",fontSize:13,fontWeight:600,margin:"0 0 10px" }}>⚠️ {submitErr}</p>}<div style={styles.modalFooter}><button style={styles.btnSecondary} onClick={onClose}>취소</button><button style={styles.btnPrimary} onClick={submit}>{log?"수정 완료":"등록"}</button></div></div></div>);}
 
 // ─── FirebaseSetup ─────────────────────────────────────────────────────────
-function FirebaseSetup({onDone}){const[url,setUrl]=useState("");const[testing,setTesting]=useState(false);const[err,setErr]=useState("");const test=async()=>{if(!url.trim()){setErr("URL을 입력하세요.");return;}const clean=url.trim().replace(/\/$/,"");setTesting(true);setErr("");try{const r=await fetch(clean+"/.json");if(!r.ok)throw new Error("연결 실패 (HTTP "+r.status+")");setTesting(false);onDone(clean);}catch(e){setTesting(false);setErr("❌ 연결 실패: "+e.message+"\nURL을 다시 확인해주세요.");}};return(<div style={{ minHeight:"100dvh",background:"#f4f6fb",display:"flex",alignItems:"center",justifyContent:"center",padding:20 }}><div style={{ background:"#fff",borderRadius:20,padding:"32px 24px",width:"100%",maxWidth:400,boxShadow:"0 8px 40px #3b7ff520" }}><div style={{ textAlign:"center",marginBottom:24 }}><div style={{ fontSize:44,marginBottom:8 }}>🔥</div><h2 style={{ margin:0,fontSize:22,fontWeight:800,color:"#3b7ff5" }}>Firebase 연결</h2><p style={{ margin:"8px 0 0",fontSize:13,color:"#888" }}>실시간 동기화를 위해 한 번만 설정해요</p></div><div style={{ background:"#f0f5ff",borderRadius:12,padding:14,marginBottom:20,fontSize:12,color:"#3b5fc0",lineHeight:1.7 }}><strong>설정 방법 (5분)</strong><br/>1. <a href="https://console.firebase.google.com" target="_blank" rel="noopener" style={{ color:"#3b7ff5" }}>console.firebase.google.com</a> 접속<br/>2. 프로젝트 만들기 (Google Analytics 비활성화)<br/>3. 왼쪽 "빌드" → "Realtime Database" → "데이터베이스 만들기"<br/>4. <strong>테스트 모드</strong>로 시작 → 완료<br/>5. 화면 상단 URL 복사 후 아래 붙여넣기<br/><span style={{ color:"#888" }}>예: https://myapp-default-rtdb.firebaseio.com</span></div><div style={{ marginBottom:14 }}><label style={{ display:"block",fontSize:11,fontWeight:600,color:"#888",marginBottom:6,textTransform:"uppercase" }}>Firebase Database URL</label><input style={{ width:"100%",boxSizing:"border-box",border:"1.5px solid #e0e6f0",borderRadius:10,padding:"10px 12px",fontSize:13,fontFamily:"inherit",outline:"none" }} value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://yourapp-default-rtdb.firebaseio.com" autoCapitalize="none"/></div>{err&&<p style={{ color:"#f77",fontSize:12,marginBottom:10,whiteSpace:"pre-line" }}>{err}</p>}<button style={{ width:"100%",background:"#3b7ff5",color:"#fff",border:"none",borderRadius:12,padding:"13px 0",fontSize:15,fontWeight:700,cursor:"pointer",fontFamily:"inherit" }} onClick={test} disabled={testing}>{testing?"연결 테스트 중...":"🔗 연결하기"}</button></div></div>);}
+function FirebaseSetup({onDone}){const[url,setUrl]=useState("");const[testing,setTesting]=useState(false);const[err,setErr]=useState("");const test=async()=>{if(!url.trim()){setErr("URL을 입력하세요.");return;}const clean=url.trim().replace(/\/$/,"");setTesting(true);setErr("");try{const r=await fetch(clean+"/.json");if(!r.ok)throw new Error("연결 실패 (HTTP "+r.status+")");setTesting(false);onDone(clean);}catch(e){setTesting(false);setErr("❌ 연결 실패: "+e.message+"\nURL을 다시 확인해주세요.");}};return(<div style={{ minHeight:"100dvh",background:"#F5F6F4",display:"flex",alignItems:"center",justifyContent:"center",padding:20 }}><div style={{ background:"#fff",borderRadius:20,padding:"32px 24px",width:"100%",maxWidth:400,boxShadow:"0 8px 40px #1F6F6B20" }}><div style={{ textAlign:"center",marginBottom:24 }}><div style={{ fontSize:44,marginBottom:8 }}>🔥</div><h2 style={{ margin:0,fontSize:22,fontWeight:800,color:"#1F6F6B" }}>Firebase 연결</h2><p style={{ margin:"8px 0 0",fontSize:13,color:"#888" }}>실시간 동기화를 위해 한 번만 설정해요</p></div><div style={{ background:"#f0f5ff",borderRadius:12,padding:14,marginBottom:20,fontSize:12,color:"#3b5fc0",lineHeight:1.7 }}><strong>설정 방법 (5분)</strong><br/>1. <a href="https://console.firebase.google.com" target="_blank" rel="noopener" style={{ color:"#1F6F6B" }}>console.firebase.google.com</a> 접속<br/>2. 프로젝트 만들기 (Google Analytics 비활성화)<br/>3. 왼쪽 "빌드" → "Realtime Database" → "데이터베이스 만들기"<br/>4. <strong>테스트 모드</strong>로 시작 → 완료<br/>5. 화면 상단 URL 복사 후 아래 붙여넣기<br/><span style={{ color:"#888" }}>예: https://myapp-default-rtdb.firebaseio.com</span></div><div style={{ marginBottom:14 }}><label style={{ display:"block",fontSize:11,fontWeight:600,color:"#888",marginBottom:6,textTransform:"uppercase" }}>Firebase Database URL</label><input style={{ width:"100%",boxSizing:"border-box",border:"1.5px solid #e0e6f0",borderRadius:10,padding:"10px 12px",fontSize:13,fontFamily:"inherit",outline:"none" }} value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://yourapp-default-rtdb.firebaseio.com" autoCapitalize="none"/></div>{err&&<p style={{ color:"#f77",fontSize:12,marginBottom:10,whiteSpace:"pre-line" }}>{err}</p>}<button style={{ width:"100%",background:"#1F6F6B",color:"#fff",border:"none",borderRadius:12,padding:"13px 0",fontSize:15,fontWeight:700,cursor:"pointer",fontFamily:"inherit" }} onClick={test} disabled={testing}>{testing?"연결 테스트 중...":"🔗 연결하기"}</button></div></div>);}
 
 // ─── LeaveTab (simplified - core functionality) ────────────────────────────
-function LeaveUsageSection({records,leaveStartDate,isAdmin,onUpdate}){const[expanded,setExpanded]=useState(false);const[showAdd,setShowAdd]=useState(false);const[editId,setEditId]=useState(null);const[confirmDeleteId,setConfirmDeleteId]=useState(null);const[form,setForm]=useState({date:today,days:1,note:"",type:"use"});const yr=getCurrentLeaveYear(leaveStartDate);const yrStart=yr?(yr.start.getFullYear()+"-"+String(yr.start.getMonth()+1).padStart(2,"0")+"-"+String(yr.start.getDate()).padStart(2,"0")):"0000-01-01";const yrEnd=yr?(yr.end.getFullYear()+"-"+String(yr.end.getMonth()+1).padStart(2,"0")+"-"+String(yr.end.getDate()).padStart(2,"0")):"9999-12-31";const currYearRecords=records.filter(r=>r.date>=yrStart&&r.date<=yrEnd);const sorted=[...records].sort((a,b)=>b.date.localeCompare(a.date));const openAdd=()=>{setForm({date:today,days:1,note:"",type:"use"});setEditId(null);setShowAdd(true);};const openEdit=(r)=>{setForm({date:r.date,days:r.days,note:r.note||"",type:r.type||"use"});setEditId(r.id);setShowAdd(true);};const save=()=>{if(!form.date||!form.days)return;const next=editId?records.map(r=>r.id===editId?{...r,...form,days:+(form.days)}:r):[...records,{id:uid(),date:form.date,days:+(form.days),note:form.note,type:form.type||"use"}];onUpdate(next);setShowAdd(false);};const del=(id)=>{onUpdate(records.filter(r=>r.id!==id));setConfirmDeleteId(null);};const totalUsed=Math.round(currYearRecords.filter(r=>(r.type||"use")==="use").reduce((s,r)=>s+(+(r.days)||0),0)*100)/100;const totalGrant=Math.round(currYearRecords.filter(r=>r.type==="grant").reduce((s,r)=>s+(+(r.days)||0),0)*100)/100;return(<div style={styles.usageSection}><div style={styles.usageSectionHeader} onClick={()=>setExpanded(p=>!p)}><div style={{ display:"flex",alignItems:"center",gap:8 }}><span style={styles.usageSectionTitle}>📋 연차 사용/지급 기록</span><span style={styles.usageBadge}>사용 {totalUsed}일{totalGrant>0?` · 지급 +${totalGrant}일`:""}</span></div><div style={{ display:"flex",alignItems:"center",gap:8 }}>{isAdmin&&onUpdate&&<button style={styles.usageAddBtn} onClick={e=>{e.stopPropagation();openAdd();}}>+ 추가</button>}<span style={{ fontSize:12,color:"#888" }}>{expanded?"▲":"▼"}</span></div></div>{expanded&&<div style={styles.usageList}>{sorted.length===0?<p style={{ margin:"8px 0",fontSize:12,color:"#aaa",textAlign:"center" }}>사용 기록이 없습니다.</p>:sorted.map(r=>{const isCurrYear=r.date>=yrStart&&r.date<=yrEnd;const isGrant=r.type==="grant";return(<div key={r.id} style={{ ...styles.usageRow,opacity:isCurrYear?1:0.5 }}><div style={styles.usageLeft}><div style={{ ...styles.usageDateBadge,background:isGrant?"#34c98b":isCurrYear?"#4f8ef7":"#aaa" }}>{r.date.slice(5)}</div><div><p style={styles.usageDays}>{isGrant?"+":"-"}{+(r.days)}일<span style={styles.usageHours}> ({((+(r.days))*HOURS_PER_DAY).toFixed(1)}h)</span>{!isCurrYear&&<span style={{ fontSize:9,color:"#aaa",marginLeft:4 }}>이전연도</span>}</p>{r.note&&<p style={styles.usageNote}>{r.note}</p>}</div></div>{isAdmin&&onUpdate&&(confirmDeleteId===r.id?<div style={styles.confirmInline}><span style={{ fontSize:11,color:"#f77" }}>삭제?</span><button style={styles.confirmYes} onClick={()=>del(r.id)}>예</button><button style={styles.confirmNo} onClick={()=>setConfirmDeleteId(null)}>아니오</button></div>:<div style={{ display:"flex",gap:2 }}><button style={styles.iconBtn} onClick={()=>openEdit(r)}>{Icon.edit}</button><button style={{ ...styles.iconBtn,color:"#f77" }} onClick={()=>setConfirmDeleteId(r.id)}>{Icon.trash}</button></div>)}</div>);})}</div>}{showAdd&&isAdmin&&<div style={styles.modal}><div style={styles.modalBox}><div style={styles.modalHeader}><h3 style={styles.modalTitle}>{editId?"기록 수정":"연차 사용/지급 추가"}</h3><button style={styles.iconBtn} onClick={()=>setShowAdd(false)}>{Icon.x}</button></div><div style={styles.field}><label style={styles.label}>유형</label><div style={{ display:"flex",gap:8 }}><button onClick={()=>setForm(f=>({...f,type:"use"}))} style={{ ...styles.btnSecondary,flex:1,background:form.type!=="grant"?"#f77":"#f4f6fb",color:form.type!=="grant"?"#fff":C.sub,border:"none" }}>➖ 사용</button><button onClick={()=>setForm(f=>({...f,type:"grant"}))} style={{ ...styles.btnSecondary,flex:1,background:form.type==="grant"?"#34c98b":"#f4f6fb",color:form.type==="grant"?"#fff":C.sub,border:"none" }}>➕ 지급</button></div></div><div style={styles.row2}><div style={{ ...styles.field,flex:1 }}><label style={styles.label}>날짜</label><input type="date" style={styles.input} value={form.date} onChange={e=>setForm(f=>({...f,date:e.target.value}))}/></div><div style={{ ...styles.field,width:90 }}><label style={styles.label}>일수</label><input type="number" style={styles.input} value={form.days} min={0.5} max={ANNUAL_LEAVE_DAYS} step={0.5} onChange={e=>setForm(f=>({...f,days:e.target.value}))}/></div></div><div style={styles.hoursDisplay}>{+(form.days)||0}일 = {((+(form.days)||0)*HOURS_PER_DAY).toFixed(1)}h</div><div style={styles.field}><label style={styles.label}>사유 (선택)</label><input style={styles.input} value={form.note} onChange={e=>setForm(f=>({...f,note:e.target.value}))} placeholder="예: 여름 휴가, 개인 사유..."/></div><div style={styles.modalFooter}><button style={styles.btnSecondary} onClick={()=>setShowAdd(false)}>취소</button><button style={styles.btnPrimary} onClick={save}>{editId?"수정":"추가"}</button></div></div></div>}</div>);}
+function LeaveUsageSection({records,leaveStartDate,isAdmin,onUpdate}){const[expanded,setExpanded]=useState(false);const[showAdd,setShowAdd]=useState(false);const[editId,setEditId]=useState(null);const[confirmDeleteId,setConfirmDeleteId]=useState(null);const[form,setForm]=useState({date:today,days:1,note:"",type:"use"});const yr=getCurrentLeaveYear(leaveStartDate);const yrStart=yr?(yr.start.getFullYear()+"-"+String(yr.start.getMonth()+1).padStart(2,"0")+"-"+String(yr.start.getDate()).padStart(2,"0")):"0000-01-01";const yrEnd=yr?(yr.end.getFullYear()+"-"+String(yr.end.getMonth()+1).padStart(2,"0")+"-"+String(yr.end.getDate()).padStart(2,"0")):"9999-12-31";const currYearRecords=records.filter(r=>r.date>=yrStart&&r.date<=yrEnd);const sorted=[...records].sort((a,b)=>b.date.localeCompare(a.date));const openAdd=()=>{setForm({date:today,days:1,note:"",type:"use"});setEditId(null);setShowAdd(true);};const openEdit=(r)=>{setForm({date:r.date,days:r.days,note:r.note||"",type:r.type||"use"});setEditId(r.id);setShowAdd(true);};const save=()=>{if(!form.date||!form.days)return;const next=editId?records.map(r=>r.id===editId?{...r,...form,days:+(form.days)}:r):[...records,{id:uid(),date:form.date,days:+(form.days),note:form.note,type:form.type||"use"}];onUpdate(next);setShowAdd(false);};const del=(id)=>{onUpdate(records.filter(r=>r.id!==id));setConfirmDeleteId(null);};const totalUsed=Math.round(currYearRecords.filter(r=>(r.type||"use")==="use").reduce((s,r)=>s+(+(r.days)||0),0)*100)/100;const totalGrant=Math.round(currYearRecords.filter(r=>r.type==="grant").reduce((s,r)=>s+(+(r.days)||0),0)*100)/100;return(<div style={styles.usageSection}><div style={styles.usageSectionHeader} onClick={()=>setExpanded(p=>!p)}><div style={{ display:"flex",alignItems:"center",gap:8 }}><span style={styles.usageSectionTitle}>📋 연차 사용/지급 기록</span><span style={styles.usageBadge}>사용 {totalUsed}일{totalGrant>0?` · 지급 +${totalGrant}일`:""}</span></div><div style={{ display:"flex",alignItems:"center",gap:8 }}>{isAdmin&&onUpdate&&<button style={styles.usageAddBtn} onClick={e=>{e.stopPropagation();openAdd();}}>+ 추가</button>}<span style={{ fontSize:12,color:"#888" }}>{expanded?"▲":"▼"}</span></div></div>{expanded&&<div style={styles.usageList}>{sorted.length===0?<p style={{ margin:"8px 0",fontSize:12,color:"#aaa",textAlign:"center" }}>사용 기록이 없습니다.</p>:sorted.map(r=>{const isCurrYear=r.date>=yrStart&&r.date<=yrEnd;const isGrant=r.type==="grant";return(<div key={r.id} style={{ ...styles.usageRow,opacity:isCurrYear?1:0.5 }}><div style={styles.usageLeft}><div style={{ ...styles.usageDateBadge,background:isGrant?"#34c98b":isCurrYear?"#2A8C86":"#aaa" }}>{r.date.slice(5)}</div><div><p style={styles.usageDays}>{isGrant?"+":"-"}{+(r.days)}일<span style={styles.usageHours}> ({((+(r.days))*HOURS_PER_DAY).toFixed(1)}h)</span>{!isCurrYear&&<span style={{ fontSize:9,color:"#aaa",marginLeft:4 }}>이전연도</span>}</p>{r.note&&<p style={styles.usageNote}>{r.note}</p>}</div></div>{isAdmin&&onUpdate&&(confirmDeleteId===r.id?<div style={styles.confirmInline}><span style={{ fontSize:11,color:"#f77" }}>삭제?</span><button style={styles.confirmYes} onClick={()=>del(r.id)}>예</button><button style={styles.confirmNo} onClick={()=>setConfirmDeleteId(null)}>아니오</button></div>:<div style={{ display:"flex",gap:2 }}><button style={styles.iconBtn} onClick={()=>openEdit(r)}>{Icon.edit}</button><button style={{ ...styles.iconBtn,color:"#f77" }} onClick={()=>setConfirmDeleteId(r.id)}>{Icon.trash}</button></div>)}</div>);})}</div>}{showAdd&&isAdmin&&<div style={styles.modal}><div style={styles.modalBox}><div style={styles.modalHeader}><h3 style={styles.modalTitle}>{editId?"기록 수정":"연차 사용/지급 추가"}</h3><button style={styles.iconBtn} onClick={()=>setShowAdd(false)}>{Icon.x}</button></div><div style={styles.field}><label style={styles.label}>유형</label><div style={{ display:"flex",gap:8 }}><button onClick={()=>setForm(f=>({...f,type:"use"}))} style={{ ...styles.btnSecondary,flex:1,background:form.type!=="grant"?"#f77":"#F5F6F4",color:form.type!=="grant"?"#fff":C.sub,border:"none" }}>➖ 사용</button><button onClick={()=>setForm(f=>({...f,type:"grant"}))} style={{ ...styles.btnSecondary,flex:1,background:form.type==="grant"?"#34c98b":"#F5F6F4",color:form.type==="grant"?"#fff":C.sub,border:"none" }}>➕ 지급</button></div></div><div style={styles.row2}><div style={{ ...styles.field,flex:1 }}><label style={styles.label}>날짜</label><input type="date" style={styles.input} value={form.date} onChange={e=>setForm(f=>({...f,date:e.target.value}))}/></div><div style={{ ...styles.field,width:90 }}><label style={styles.label}>일수</label><input type="number" style={styles.input} value={form.days} min={0.5} max={ANNUAL_LEAVE_DAYS} step={0.5} onChange={e=>setForm(f=>({...f,days:e.target.value}))}/></div></div><div style={styles.hoursDisplay}>{+(form.days)||0}일 = {((+(form.days)||0)*HOURS_PER_DAY).toFixed(1)}h</div><div style={styles.field}><label style={styles.label}>사유 (선택)</label><input style={styles.input} value={form.note} onChange={e=>setForm(f=>({...f,note:e.target.value}))} placeholder="예: 여름 휴가, 개인 사유..."/></div><div style={styles.modalFooter}><button style={styles.btnSecondary} onClick={()=>setShowAdd(false)}>취소</button><button style={styles.btnPrimary} onClick={save}>{editId?"수정":"추가"}</button></div></div></div>}</div>);}
 
 function LeaveAccrualSettings({noLeave,setNoLeave,hasFlatPay,setHasFlatPay,leaveStartDate,setLeaveStartDate,joinDate}){const[useCustom,setUseCustom]=useState(!!(leaveStartDate&&leaveStartDate!==joinDate));return(<div style={styles.leaveSettingBox}><p style={styles.leaveSettingTitle}>🏖️ 연차 적립 설정</p><label style={styles.dinnerCheck}><input type="checkbox" checked={noLeave} onChange={e=>setNoLeave(e.target.checked)} style={{ width:16,height:16,accentColor:"#f77" }}/><span style={{ color:noLeave?"#f77":C.text,fontWeight:noLeave?700:400 }}>연차 적립 없음</span></label>{noLeave&&<label style={{ ...styles.dinnerCheck,marginTop:6,background:"#EFF6FF",borderRadius:8,padding:"6px 10px" }}><input type="checkbox" checked={hasFlatPay} onChange={e=>setHasFlatPay(e.target.checked)} style={{ width:16,height:16,accentColor:C.primary }}/><div><span style={{ color:hasFlatPay?C.primary:C.text,fontWeight:hasFlatPay?700:400,fontSize:13 }}>💰 고정지급 + 킵/캐시 관리</span><p style={{ margin:0,fontSize:10,color:C.sub }}>기준일 없이 Gross - 고정지급액 = 변동분</p></div></label>}{!noLeave&&(<><label style={{ ...styles.dinnerCheck,marginTop:8 }}><input type="checkbox" checked={useCustom} onChange={e=>{setUseCustom(e.target.checked);if(!e.target.checked)setLeaveStartDate(joinDate);}} style={{ width:16,height:16,accentColor:C.primary }}/><span>입사일과 다른 날짜부터 적립</span></label>{useCustom?<div style={{ ...styles.field,marginTop:8,marginBottom:0 }}><label style={styles.label}>적립 시작일</label><input type="date" style={styles.input} value={leaveStartDate||""} onChange={e=>setLeaveStartDate(e.target.value)}/></div>:<p style={{ margin:"6px 0 0",fontSize:11,color:C.sub }}>입사일({auD(joinDate)})부터 자동 적립</p>}</>)}</div>);}
 
@@ -5044,7 +5060,7 @@ function TeamTab({users,leaves,logs,persist,isSuperAdmin,companies,jumpEmpName,o
     if(leaveData)newLeaves[newId]=leaveData;
     persist(users.map(u=>u.id===oldId?updated:u),newLogs,newLeaves);
     setEditEmp(null);
-  };const moveEmp=(id,dir)=>{const idx=users.findIndex(u=>u.id===id);if(idx<0)return;const newIdx=idx+dir;if(newIdx<0||newIdx>=users.length)return;const newUsers=[...users];[newUsers[idx],newUsers[newIdx]]=[newUsers[newIdx],newUsers[idx]];persist(newUsers,null,null);};const resignEmp=(id)=>{const updated=users.map(u=>u.id===id?{...u,resignedDate:today}:u);persist(updated,null,null);setConfirmId(null);};const reinstateEmp=(id)=>{const updated=users.map(u=>u.id===id?{...u,resignedDate:null}:u);persist(updated,null,null);};return(<div style={styles.page}><div style={styles.pageHeader}><h2 style={styles.pageTitle}>직원 관리</h2><div style={{ display:"flex",gap:6 }}>{isSuperAdmin&&<button style={{ ...styles.btnSecondary,fontSize:12,padding:"6px 10px" }} onClick={()=>setReordering(r=>!r)}>{reordering?"✅ 완료":"↕️ 순서변경"}</button>}{isSuperAdmin&&!reordering&&<button style={styles.btnAdd} onClick={()=>setShowAdd(true)}>{Icon.plus} 추가</button>}</div></div><div style={{ marginBottom:12 }}><input style={{ ...styles.input,width:"100%",boxSizing:"border-box" }} placeholder="🔍 이름 또는 부서로 검색..." value={search} onChange={e=>setSearch(e.target.value)}/></div>{[...adminEmps,...staffEmps].map(u=>{const lv=normLeave(leaves[u.id],u.joinDate);const roleLabel=u.role==="superadmin"?"🔑 슈퍼관리자":u.role==="viewadmin"?"👁️ 관리자":null;return(<div key={u.id} style={{ ...styles.empCard,...(roleLabel?{borderLeft:"3px solid #3b7ff5"}:{}) }}><div style={styles.empCardLeft}><div style={{ ...styles.logAvatar,width:44,height:44,fontSize:18,opacity:u.resignedDate?0.5:1 }}>{u.name[0]}</div><div><p style={styles.logName}>{u.name}<span style={styles.deptBadge}>{u.dept}</span>{u.resignedDate&&<span style={{ marginLeft:5,fontSize:10,background:"#f77",color:"#fff",borderRadius:4,padding:"1px 5px" }}>퇴사</span>}</p><p style={styles.logContent}>ID: <strong>{u.id}</strong> &nbsp;|&nbsp; {u.resignedDate?`퇴사: ${auD(u.resignedDate)}`:`입사: ${auD(u.joinDate)}`}{roleLabel&&<span style={{ marginLeft:6,fontSize:10,color:"#3b7ff5",fontWeight:700 }}>{roleLabel}</span>}</p><div style={{ display:"flex",alignItems:"center",gap:6,marginTop:2 }}>{lv.noLeave&&<span style={styles.noLeaveBadge}>연차 미적용</span>}</div>{u.birthDate&&<p style={{ margin:"2px 0 0",fontSize:10,color:"#7c2d12",fontWeight:600 }}>🎂 생일 {auD(u.birthDate)}{isBirthdayToday(u.birthDate)&&<span style={{ marginLeft:4,background:"#FBBF24",color:"#fff",padding:"1px 5px",borderRadius:4,fontSize:9 }}>오늘!</span>}{(()=>{const d=daysUntilBirthday(u.birthDate);return (d>=1&&d<=10)?<span style={{ marginLeft:4,background:"#FDE68A",color:"#92400E",padding:"1px 5px",borderRadius:4,fontSize:9,fontWeight:700 }}>{d===1?"내일":"D-"+d}</span>:null;})()}</p>}{u.visa&&u.visa.type&&(()=>{const ongoing=!u.visa.to;const expired=u.visa.to&&new Date(u.visa.to+"T00:00:00")<new Date(today+"T00:00:00");const remain=(u.visa.to&&!expired)?Math.max(0,Math.round((new Date(u.visa.to+"T00:00:00")-new Date(today+"T00:00:00"))/86400000)):0;return <p style={{ margin:"2px 0 0",fontSize:10,color:"#1a7a4a",fontWeight:600 }}>🛂 {u.visa.type} {u.visa.from&&`${auD(u.visa.from)} ~`} {auD(u.visa.to)||"현재"}{expired&&<span style={{ color:"#f77" }}> (만료)</span>}{ongoing&&<span style={{ marginLeft:6,color:"#0f766e" }}>📅 진행중</span>}{!ongoing&&!expired&&<span style={{ marginLeft:6,color:remain<=60?"#f77":"#0f766e",fontWeight:700 }}>📅 남은 {remain}일</span>}</p>;})()}{(Array.isArray((leaves[u.id]||{}).workHistory)?(leaves[u.id]||{}).workHistory:Object.values((leaves[u.id]||{}).workHistory||{})).map((wh,wi)=>{const co=companies&&companies.find(c=>c.id===wh.companyId);const days=calcVisaDays(wh.from,wh.to);return <p key={wi} style={{margin:"1px 0",fontSize:10,color:"#555"}}>🏢 {co?co.name:"?"} {auD(wh.from)||""} ~ {auD(wh.to)||"현재"}{wh.from&&<span style={{ marginLeft:6,color:"#0f766e",fontWeight:600 }}>📅 {days}일</span>}</p>;})}{effectiveTaxPeriods(leaves[u.id]).map((th,ti)=>{const days=calcVisaDays(th.from,th.to);const isAbn=(th.type||"")==="ABN";return <p key={"t"+ti} style={{margin:"1px 0",fontSize:10,color:isAbn?"#92400E":"#1e40af",fontWeight:600}}>{isAbn?"📄 ABN":"🧾 TFN"} {auD(th.from)||""} ~ {auD(th.to)||"현재"}{th.from&&<span style={{ marginLeft:6,color:"#0f766e",fontWeight:600 }}>📅 {days}일</span>}{th.auto&&<span style={{ marginLeft:5,fontSize:9,color:"#aaa",fontWeight:500 }}>자동</span>}</p>;})}</div>
+  };const moveEmp=(id,dir)=>{const idx=users.findIndex(u=>u.id===id);if(idx<0)return;const newIdx=idx+dir;if(newIdx<0||newIdx>=users.length)return;const newUsers=[...users];[newUsers[idx],newUsers[newIdx]]=[newUsers[newIdx],newUsers[idx]];persist(newUsers,null,null);};const resignEmp=(id)=>{const updated=users.map(u=>u.id===id?{...u,resignedDate:today}:u);persist(updated,null,null);setConfirmId(null);};const reinstateEmp=(id)=>{const updated=users.map(u=>u.id===id?{...u,resignedDate:null}:u);persist(updated,null,null);};return(<div style={styles.page}><div style={styles.pageHeader}><h2 style={styles.pageTitle}>직원 관리</h2><div style={{ display:"flex",gap:6 }}>{isSuperAdmin&&<button style={{ ...styles.btnSecondary,fontSize:12,padding:"6px 10px" }} onClick={()=>setReordering(r=>!r)}>{reordering?"✅ 완료":"↕️ 순서변경"}</button>}{isSuperAdmin&&!reordering&&<button style={styles.btnAdd} onClick={()=>setShowAdd(true)}>{Icon.plus} 추가</button>}</div></div><div style={{ marginBottom:12 }}><input style={{ ...styles.input,width:"100%",boxSizing:"border-box" }} placeholder="🔍 이름 또는 부서로 검색..." value={search} onChange={e=>setSearch(e.target.value)}/></div>{[...adminEmps,...staffEmps].map(u=>{const lv=normLeave(leaves[u.id],u.joinDate);const roleLabel=u.role==="superadmin"?"🔑 슈퍼관리자":u.role==="viewadmin"?"👁️ 관리자":null;return(<div key={u.id} style={{ ...styles.empCard,...(roleLabel?{borderLeft:"3px solid #1F6F6B"}:{}) }}><div style={styles.empCardLeft}><div style={{ ...styles.logAvatar,width:44,height:44,fontSize:18,opacity:u.resignedDate?0.5:1 }}>{u.name[0]}</div><div><p style={styles.logName}>{u.name}<span style={styles.deptBadge}>{u.dept}</span>{u.resignedDate&&<span style={{ marginLeft:5,fontSize:10,background:"#f77",color:"#fff",borderRadius:4,padding:"1px 5px" }}>퇴사</span>}</p><p style={styles.logContent}>ID: <strong>{u.id}</strong> &nbsp;|&nbsp; {u.resignedDate?`퇴사: ${auD(u.resignedDate)}`:`입사: ${auD(u.joinDate)}`}{roleLabel&&<span style={{ marginLeft:6,fontSize:10,color:"#1F6F6B",fontWeight:700 }}>{roleLabel}</span>}</p><div style={{ display:"flex",alignItems:"center",gap:6,marginTop:2 }}>{lv.noLeave&&<span style={styles.noLeaveBadge}>연차 미적용</span>}</div>{u.birthDate&&<p style={{ margin:"2px 0 0",fontSize:10,color:"#7c2d12",fontWeight:600 }}>🎂 생일 {auD(u.birthDate)}{isBirthdayToday(u.birthDate)&&<span style={{ marginLeft:4,background:"#FBBF24",color:"#fff",padding:"1px 5px",borderRadius:4,fontSize:9 }}>오늘!</span>}{(()=>{const d=daysUntilBirthday(u.birthDate);return (d>=1&&d<=10)?<span style={{ marginLeft:4,background:"#FDE68A",color:"#92400E",padding:"1px 5px",borderRadius:4,fontSize:9,fontWeight:700 }}>{d===1?"내일":"D-"+d}</span>:null;})()}</p>}{u.visa&&u.visa.type&&(()=>{const ongoing=!u.visa.to;const expired=u.visa.to&&new Date(u.visa.to+"T00:00:00")<new Date(today+"T00:00:00");const remain=(u.visa.to&&!expired)?Math.max(0,Math.round((new Date(u.visa.to+"T00:00:00")-new Date(today+"T00:00:00"))/86400000)):0;return <p style={{ margin:"2px 0 0",fontSize:10,color:"#1a7a4a",fontWeight:600 }}>🛂 {u.visa.type} {u.visa.from&&`${auD(u.visa.from)} ~`} {auD(u.visa.to)||"현재"}{expired&&<span style={{ color:"#f77" }}> (만료)</span>}{ongoing&&<span style={{ marginLeft:6,color:"#0f766e" }}>📅 진행중</span>}{!ongoing&&!expired&&<span style={{ marginLeft:6,color:remain<=60?"#f77":"#0f766e",fontWeight:700 }}>📅 남은 {remain}일</span>}</p>;})()}{(Array.isArray((leaves[u.id]||{}).workHistory)?(leaves[u.id]||{}).workHistory:Object.values((leaves[u.id]||{}).workHistory||{})).map((wh,wi)=>{const co=companies&&companies.find(c=>c.id===wh.companyId);const days=calcVisaDays(wh.from,wh.to);return <p key={wi} style={{margin:"1px 0",fontSize:10,color:"#555"}}>🏢 {co?co.name:"?"} {auD(wh.from)||""} ~ {auD(wh.to)||"현재"}{wh.from&&<span style={{ marginLeft:6,color:"#0f766e",fontWeight:600 }}>📅 {days}일</span>}</p>;})}{effectiveTaxPeriods(leaves[u.id]).map((th,ti)=>{const days=calcVisaDays(th.from,th.to);const isAbn=(th.type||"")==="ABN";return <p key={"t"+ti} style={{margin:"1px 0",fontSize:10,color:isAbn?"#92400E":"#1e40af",fontWeight:600}}>{isAbn?"📄 ABN":"🧾 TFN"} {auD(th.from)||""} ~ {auD(th.to)||"현재"}{th.from&&<span style={{ marginLeft:6,color:"#0f766e",fontWeight:600 }}>📅 {days}일</span>}{th.auto&&<span style={{ marginLeft:5,fontSize:9,color:"#aaa",fontWeight:500 }}>자동</span>}</p>;})}</div>
             </div><div style={{ display:"flex",gap:4,flexShrink:0,alignItems:"center" }}>{reordering?<><button style={{ ...styles.iconBtn,fontSize:16 }} onClick={()=>moveEmp(u.id,-1)}>▲</button><button style={{ ...styles.iconBtn,fontSize:16 }} onClick={()=>moveEmp(u.id,1)}>▼</button></>:<>{isSuperAdmin&&!u.resignedDate&&<button style={styles.iconBtn} onClick={()=>{setConfirmId(null);setEditEmp(u);}}>{Icon.edit}</button>}{isSuperAdmin&&(confirmId===`resign_${u.id}`?<div style={styles.confirmInline}><span style={{ fontSize:11,color:"#e67e22" }}>퇴사?</span><button style={styles.confirmYes} onClick={()=>resignEmp(u.id)}>예</button><button style={styles.confirmNo} onClick={()=>setConfirmId(null)}>아니오</button></div>:confirmId===`delete_${u.id}`?<div style={styles.confirmInline}><span style={{ fontSize:11,color:"#f77" }}>삭제?</span><button style={styles.confirmYes} onClick={()=>deleteEmp(u.id)}>예</button><button style={styles.confirmNo} onClick={()=>setConfirmId(null)}>아니오</button></div>:u.resignedDate?<div style={{ display:"flex",gap:4 }}><button style={{ ...styles.btnSecondary,fontSize:11,padding:"4px 8px" }} onClick={()=>reinstateEmp(u.id)}>복직</button><button style={{ ...styles.iconBtn,color:"#f77" }} onClick={()=>{setEditEmp(null);setConfirmId(`delete_${u.id}`);}}>{Icon.trash}</button></div>:<div style={{ display:"flex",gap:4 }}><button style={{ ...styles.iconBtn,color:"#e67e22",fontSize:11,fontWeight:700 }} onClick={()=>{setEditEmp(null);setConfirmId(`resign_${u.id}`);}}>퇴사</button><button style={{ ...styles.iconBtn,color:"#f77" }} onClick={()=>{setEditEmp(null);setConfirmId(`delete_${u.id}`);}}>{Icon.trash}</button></div>)}</>}</div></div>);})} {resignedEmps.length>0&&<div style={{ marginTop:16 }}><button style={{ ...styles.btnSecondary,fontSize:12,width:"100%",marginBottom:showResigned?10:0,background:showResigned?"#fff0f0":undefined,borderColor:"#f77",color:"#c0392b" }} onClick={()=>setShowResigned(v=>!v)}>{showResigned?`▲ 퇴사 직원 숨기기`:`▼ 퇴사 직원 보기 (${resignedEmps.length}명)`}</button>{showResigned&&resignedEmps.map(u=>(<div key={u.id} style={{ ...styles.empCard,opacity:0.7,borderLeft:"3px solid #f77" }}><div style={styles.empCardLeft}><div style={{ ...styles.logAvatar,width:44,height:44,fontSize:18,background:"#eee",color:"#999" }}>{u.name[0]}</div><div><p style={styles.logName}>{u.name}<span style={styles.deptBadge}>{u.dept}</span><span style={{ fontSize:10,background:"#f77",color:"#fff",borderRadius:4,padding:"1px 5px",marginLeft:4 }}>퇴사</span></p><p style={styles.logContent}>퇴사일: {auD(u.resignedDate)} &nbsp;|&nbsp; 입사: {auD(u.joinDate)}</p></div></div><div style={{ display:"flex",gap:4 }}><button style={{ ...styles.btnSecondary,fontSize:11,padding:"4px 8px" }} onClick={()=>reinstateEmp(u.id)}>복직</button>{confirmId===`delete_${u.id}`?<div style={styles.confirmInline}><span style={{ fontSize:11,color:"#f77" }}>삭제?</span><button style={styles.confirmYes} onClick={()=>deleteEmp(u.id)}>예</button><button style={styles.confirmNo} onClick={()=>setConfirmId(null)}>아니오</button></div>:<button style={{ ...styles.iconBtn,color:"#f77" }} onClick={()=>setConfirmId(`delete_${u.id}`)}>{Icon.trash}</button>}</div></div>))}</div>}{showAdd&&<AddEmpForm companies={companies} onSave={(emp,leaveData)=>{persist([...users,emp],null,{...leaves,[emp.id]:leaveData});setShowAdd(false);}} onClose={()=>setShowAdd(false)}/>}{editEmp&&<EditEmpForm emp={editEmp} leaveData={normLeave(leaves[editEmp.id],editEmp.joinDate)} companies={companies} onSave={saveEmp} onClose={()=>setEditEmp(null)}/>}<DataBackup users={users} leaves={leaves} logs={logs} persist={persist}/></div>);}
 
 // ─── App ───────────────────────────────────────────────────────────────────
@@ -5288,11 +5304,11 @@ function App() {
   };
   const logout=async()=>{liveWantedRef.current=false;stopLive();fbSignOut();await sessionRemove();setSession(null);};
 
-  if(!ready)return(<div style={{ minHeight:"100dvh",display:"flex",alignItems:"center",justifyContent:"center",background:"#f4f6fb" }}><div style={{ textAlign:"center" }}><div style={{ fontSize:40,marginBottom:12 }}>📋</div><p style={{ color:"#3b7ff5",fontWeight:700,fontSize:16 }}>WorkLog 로딩 중...</p></div></div>);
+  if(!ready)return(<div style={{ minHeight:"100dvh",display:"flex",alignItems:"center",justifyContent:"center",background:"#F5F6F4" }}><div style={{ textAlign:"center" }}><div style={{ fontSize:40,marginBottom:12 }}>📋</div><p style={{ color:"#1F6F6B",fontWeight:700,fontSize:16 }}>WorkLog 로딩 중...</p></div></div>);
   if(!getFbUrl())return(<FirebaseSetup onDone={async(url)=>{setFbUrl(url);_fbUrl=url;const r=await loadFromFb();if(!r.any){await saveFb(SEED_USERS,[],SEED_LEAVES);}startLive();setFbConfigured(true);}}/>);
   if(!session)return<LoginScreen onLogin={login}/>;
   // 핵심 데이터(직원·근무일지·연차)가 다 로드되기 전엔 잘못된 수치(연차/미제출 등)가 잠깐 보이므로 로딩 표시
-  if(!dataReady)return(<div style={{ minHeight:"100dvh",display:"flex",alignItems:"center",justifyContent:"center",background:"#f4f6fb" }}><div style={{ textAlign:"center" }}><div style={{ fontSize:40,marginBottom:12 }}>📋</div><p style={{ color:"#3b7ff5",fontWeight:700,fontSize:16 }}>데이터 불러오는 중...</p><p style={{ color:"#9aa3b5",fontSize:12,marginTop:4 }}>잠시만 기다려주세요</p></div></div>);
+  if(!dataReady)return(<div style={{ minHeight:"100dvh",display:"flex",alignItems:"center",justifyContent:"center",background:"#F5F6F4" }}><div style={{ textAlign:"center" }}><div style={{ fontSize:40,marginBottom:12 }}>📋</div><p style={{ color:"#1F6F6B",fontWeight:700,fontSize:16 }}>데이터 불러오는 중...</p><p style={{ color:"#9aa3b5",fontSize:12,marginTop:4 }}>잠시만 기다려주세요</p></div></div>);
 
   const currentUser=users.find(u=>u.id===session.id)||session;
   // 퇴사 처리된 계정은 이미 로그인돼 있어도 접근 차단 (users 는 30초마다 갱신되므로 곧 반영됨)
@@ -5307,8 +5323,8 @@ function App() {
       {isDesktop && (
         <div className="dt-sidebar">
           <div className="dt-sidebar-logo">
-            <div className="dt-sidebar-logo-title">📋 K&M WorkLog</div>
-            <div className="dt-sidebar-logo-sub">Tiling Management</div>
+            <div className="dt-sidebar-logo-title" style={{display:'flex',alignItems:'center',gap:10}}><span style={{...styles.headerMono,background:'#fff',color:'#1C2430'}}>K<b style={{color:'#E9A23B'}}>&amp;</b>M</span>WorkLog</div>
+            <div className="dt-sidebar-logo-sub">근무일지 · 연차 · 급여</div>
           </div>
           <div style={{flex:1,padding:'12px 0',overflowY:'auto'}}>
             {[
@@ -5323,7 +5339,7 @@ function App() {
             ].map(item => (
               <button key={item.key} onClick={()=>setTab(item.key)}
                 className={'dt-nav-item'+(tab===item.key?' active':'')}>
-                <span className="nav-emoji">{item.emoji}</span>
+                <span className="nav-emoji" style={{display:'inline-flex'}}><NavIcon k={item.key} size={19}/></span>
                 {item.label}
               </button>
             ))}
@@ -5350,7 +5366,7 @@ function App() {
             <button onClick={()=>setShowChangePw(true)}
               style={{background:'none',border:'none',cursor:'pointer',color:C.sub,padding:'4px 8px',fontSize:12,fontFamily:'inherit',borderRadius:6}}
               title="비밀번호 변경">🔑 비번변경</button>
-            <span style={{background:'#EEF2FF',color:'#4F46E5',borderRadius:6,padding:'4px 10px',fontWeight:700}}>{currentUser?.name}</span>
+            <span style={{background:'#E3EFEC',color:'#1F6F6B',borderRadius:6,padding:'4px 10px',fontWeight:700}}>{currentUser?.name}</span>
             <span style={{color:C.sub}}>{isAdmin?'관리자':'직원'}</span>
             <button onClick={logout}
               style={{background:'#FEF2F2',color:'#DC2626',border:'1px solid #FECACA',borderRadius:8,padding:'5px 12px',fontSize:12,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>
