@@ -19,7 +19,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-10-21-09';
+const APP_BUILD = '2026-10-21-12';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -1469,10 +1469,163 @@ body.invoice-readonly::before {
 <script>
 // ── Firebase REST API ─────────────────────────────────────────────────────────
 const FB_BASE = 'https://knmtilingptyltd-12520-default-rtdb.firebaseio.com';
+// ── Firebase 로그인 (직원별 계정) ─────────────────────────────────────────────
+// 세 앱(WorkLog·인보이스·SiteLog)이 똑같은 코드를 씀. 직원은 예전 아이디/비밀번호 그대로 로그인하고,
+// 앱이 Firebase Auth 계정(아이디 해시 이메일)으로 로그인해 받은 토큰을 모든 DB 요청에 ?auth= 로 붙인다.
+// 비밀번호는 DB 에 저장하지 않음(Firebase Auth 가 해시로 보관).
+//   authMap/{uid} = {id, admin, off}  어느 계정이 어느 직원인지 + DB 규칙용 권한 (관리자만 수정)
+//   loginIndex/{아이디해시} = {v}     비밀번호 리셋 때마다 새 계정(버전+1)을 만들기 때문에 현재 버전 (공개)
+// 관리자가 비밀번호를 리셋하면 새 버전 계정을 만들고 예전 계정 연결을 끊음 → 예전 토큰은 DB 접근 불가.
+const FB_DB = 'https://knmtilingptyltd-12520-default-rtdb.firebaseio.com';
+const FB_API_KEY = 'AIzaSyCnthAi14hL60O63K5q0ea_PBo1ALg8w_w';
+const FB_AUTH_LS = 'knm_fb_auth_v2';
+const FB_ID_DOMAIN = 'staff.knmtilingbathurst.com';
+let _fbAuth = null;
+try { _fbAuth = JSON.parse(localStorage.getItem(FB_AUTH_LS) || 'null'); } catch (e) {}
+let fbOnAuthLost = null;   // 앱별: 토큰이 무효(리셋·퇴사)가 됐을 때 로그인 화면으로
+function _fbAuthSave(a) {
+  _fbAuth = a;
+  try { a ? localStorage.setItem(FB_AUTH_LS, JSON.stringify(a)) : localStorage.removeItem(FB_AUTH_LS); } catch (e) {}
+}
+function fbSignOut() { _fbAuthSave(null); }
+async function _fbKey(id) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('knm-login|' + id));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 24);
+}
+// Firebase 는 비밀번호 6자 이상이 필요 → 직원 비밀번호 앞뒤에 고정 문자를 붙여 씀
+function _fbPass(pw) { return 'knm#' + pw + '#wl'; }
+function _fbEmail(key, v) { return key + (v ? '.' + v : '') + '@' + FB_ID_DOMAIN; }
+async function _fbIdt(method, body) {
+  const r = await fetch('https://identitytoolkit.googleapis.com/v1/accounts:' + method + '?key=' + FB_API_KEY, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+  });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error((d.error && d.error.message) || ('HTTP ' + r.status));
+  return d;
+}
+async function _fbLoginVer(key) {
+  const r = await fetch(FB_DB + '/loginIndex/' + key + '.json');
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  const d = await r.json();
+  return (d && d.v) || 0;
+}
+function _fbKeep(d, id, admin) {
+  _fbAuthSave({ id, uid: d.localId, admin: !!admin, idToken: d.idToken, refreshToken: d.refreshToken,
+    exp: Date.now() + (Number(d.expiresIn) - 120) * 1000 });
+}
+// 로그인. 실패하면 Error: WRONG(아이디/비번 틀림) · OFF(퇴사/차단) · UNMAPPED(계정 미연결) · 그 외(네트워크 등)
+async function fbSignIn(id, pw) {
+  const key = await _fbKey(id);
+  const v = await _fbLoginVer(key);
+  let d;
+  try { d = await _fbIdt('signInWithPassword', { email: _fbEmail(key, v), password: _fbPass(pw), returnSecureToken: true }); }
+  catch (e) { if (/INVALID_LOGIN|INVALID_PASSWORD|EMAIL_NOT_FOUND|INVALID_EMAIL|USER_DISABLED/.test(e.message)) throw new Error('WRONG'); throw e; }
+  const r = await fetch(FB_DB + '/authMap/' + d.localId + '.json?auth=' + encodeURIComponent(d.idToken));
+  const m = r.ok ? await r.json() : null;
+  if (!m || m.id !== id) throw new Error('UNMAPPED');
+  if (m.off) throw new Error('OFF');
+  _fbKeep(d, id, m.admin);
+}
+function fbLoginErrText(e) {
+  const m = String((e && e.message) || e);
+  if (m === 'WRONG') return '아이디 또는 비밀번호가 올바르지 않습니다.';
+  if (m === 'OFF') return '🚫 사용이 중지된 계정이에요. 관리자에게 문의하세요.';
+  if (m === 'UNMAPPED') return '계정이 아직 연결되지 않았어요. 관리자에게 문의하세요.';
+  if (/TOO_MANY/.test(m)) return '시도가 너무 많아요. 잠시 뒤 다시 해 주세요.';
+  return '연결 실패: ' + m;
+}
+let _fbTokP = null;
+async function fbIdToken(force) {
+  if (!_fbAuth) return null;
+  if (!force && _fbAuth.exp > Date.now()) return _fbAuth.idToken;
+  if (!_fbTokP) _fbTokP = (async () => {
+    try {
+      const r = await fetch('https://securetoken.googleapis.com/v1/token?key=' + FB_API_KEY, {
+        method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'grant_type=refresh_token&refresh_token=' + encodeURIComponent(_fbAuth.refreshToken)
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        if (r.status >= 400 && r.status < 500) { _fbAuthSave(null); if (fbOnAuthLost) fbOnAuthLost(); }
+        return null;
+      }
+      _fbAuthSave({ ..._fbAuth, idToken: d.id_token, refreshToken: d.refresh_token, exp: Date.now() + (Number(d.expires_in) - 120) * 1000 });
+      return d.id_token;
+    } catch (e) { return _fbAuth && _fbAuth.idToken; } finally { _fbTokP = null; }
+  })();
+  return _fbTokP;
+}
+function _fbWithAuth(url, t) { return t ? url + (url.includes('?') ? '&' : '?') + 'auth=' + encodeURIComponent(t) : url; }
+async function fbAuthUrl(url, force) { return _fbWithAuth(url, await fbIdToken(force)); }
+// DB 요청용 fetch — 토큰을 붙이고, 401 이면 토큰을 새로 받아 한 번 재시도. 그래도 401 이면 로그아웃 처리.
+async function fbFetch(url, opts) {
+  let r = await fetch(await fbAuthUrl(url), opts);
+  if (r.status === 401 && _fbAuth) {
+    r = await fetch(await fbAuthUrl(url, true), opts);
+    if (r.status === 401 && _fbAuth) { _fbAuthSave(null); if (fbOnAuthLost) fbOnAuthLost(); }
+  }
+  return r;
+}
+async function _fbJson(method, path, body) {
+  const r = await fbFetch(FB_DB + '/' + path + '.json', body === undefined ? { method } :
+    { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  if (!r.ok) throw new Error('DB ' + r.status);
+  return r.json();
+}
+// 본인 비밀번호 변경 (현재 비밀번호 확인 후)
+async function fbChangeOwnPw(cur, next) {
+  if (!_fbAuth) throw new Error('NOAUTH');
+  const id = _fbAuth.id;
+  await fbSignIn(id, cur);
+  const d = await _fbIdt('update', { idToken: _fbAuth.idToken, password: _fbPass(next), returnSecureToken: true });
+  _fbKeep(d, id, _fbAuth.admin);
+}
+function fbUserFlags(u) {
+  return { admin: !!u && (u.role === 'admin' || u.role === 'superadmin' || u.id === 'admin'),
+    off: !u || !!u.resignedDate || u.active === false || u.disabled === true || u.left === true || u.resigned === true };
+}
+// 관리자: 직원 계정 만들기 / 비밀번호 리셋 (새 버전 계정 생성 → 연결 교체)
+async function fbAdminSetPw(id, pw, flags) {
+  const key = await _fbKey(id);
+  let v = await _fbLoginVer(key), d = null;
+  for (let i = 0; i < 5 && !d; i++) {
+    v++;
+    try { d = await _fbIdt('signUp', { email: _fbEmail(key, v), password: _fbPass(pw), returnSecureToken: true }); }
+    catch (e) { if (!/EMAIL_EXISTS/.test(e.message)) throw e; }
+  }
+  if (!d) throw new Error('EMAIL_EXISTS');
+  const map = (await _fbJson('GET', 'authMap')) || {};
+  const upd = {};
+  Object.keys(map).forEach(u => { if (map[u] && map[u].id === id && u !== (_fbAuth && _fbAuth.uid)) upd[u] = null; });
+  upd[d.localId] = { id, admin: !!flags.admin, off: !!flags.off };
+  await _fbJson('PATCH', 'authMap', upd);
+  await _fbJson('PUT', 'loginIndex/' + key, { v });
+  if (_fbAuth && _fbAuth.id === id) {   // 내 비밀번호를 리셋한 경우: 새 계정으로 갈아타고 예전 연결 정리
+    const old = _fbAuth.uid;
+    _fbKeep(d, id, flags.admin);
+    await _fbJson('PATCH', 'authMap', { [old]: null }).catch(() => {});
+  }
+}
+// 관리자: 직원 목록의 역할·퇴사 상태를 authMap(DB 규칙용)에 맞춤. 지워진 직원 계정은 차단.
+async function fbAdminSyncFlags(users) {
+  if (!_fbAuth || !_fbAuth.admin) return;
+  const map = (await _fbJson('GET', 'authMap')) || {};
+  const byId = {};
+  (users || []).forEach(u => { if (u && u.id) byId[u.id] = u; });
+  const upd = {};
+  Object.keys(map).forEach(uid => {
+    const m = map[uid];
+    if (!m || uid === _fbAuth.uid) return;   // 내 계정은 건드리지 않음(실수로 잠기지 않게)
+    const w = fbUserFlags(byId[m.id]);
+    if (!!m.admin !== w.admin) upd[uid + '/admin'] = w.admin;
+    if (!!m.off !== w.off) upd[uid + '/off'] = w.off;
+  });
+  if (Object.keys(upd).length) await _fbJson('PATCH', 'authMap', upd);
+}
 
 async function fbGet(path) {
   try {
-    const r = await fetch(FB_BASE + '/' + path + '.json');
+    const r = await fbFetch(FB_BASE + '/' + path + '.json');
     return r.ok ? r.json() : null;
   } catch(e) { return null; }
 }
@@ -1496,7 +1649,7 @@ function _guardWrite() {
 async function fbSet(path, val) {
   if (!_guardWrite()) return;
   try {
-    await fetch(FB_BASE + '/' + path + '.json', {
+    await fbFetch(FB_BASE + '/' + path + '.json', {
       method: 'PUT', headers: {'Content-Type':'application/json'},
       body: JSON.stringify(val)
     });
@@ -1505,7 +1658,7 @@ async function fbSet(path, val) {
 async function fbPush(path, val) {
   if (!_guardWrite()) return null;
   try {
-    const r = await fetch(FB_BASE + '/' + path + '.json', {
+    const r = await fbFetch(FB_BASE + '/' + path + '.json', {
       method: 'POST', headers: {'Content-Type':'application/json'},
       body: JSON.stringify(val)
     });
@@ -1516,7 +1669,7 @@ async function fbPush(path, val) {
 async function fbDel(path) {
   if (!_guardWrite()) return;
   try {
-    await fetch(FB_BASE + '/' + path + '.json', { method: 'DELETE' });
+    await fbFetch(FB_BASE + '/' + path + '.json', { method: 'DELETE' });
   } catch(e) {}
 }
 
@@ -1808,11 +1961,13 @@ function _hideLockScreen() {
 }
 
 // 사용자 데이터 (Firebase users 노드)에서 ID로 사용자 찾기
-async function _findUser(id, pw) {
+async function _findUser(id) {
   const usersRaw = await fbGet('users');
   const usersList = Array.isArray(usersRaw) ? usersRaw : (usersRaw ? Object.values(usersRaw) : []);
-  return usersList.find(u => u && u.id === id && (pw === undefined || u.pw === pw)) || null;
+  return usersList.find(u => u && u.id === id) || null;
 }
+// 이 기기에 해당 직원의 Firebase 로그인이 살아있는지
+function _fbSignedInAs(id) { return !!(_fbAuth && id && _fbAuth.id === id); }
 
 // 인보이스 앱 접근 권한: admin/superadmin 자동, 그 외엔 invoiceUsers/{id}/canInvoice 필요
 function _canInvoiceAccess(user, invoiceUserData) {
@@ -1840,7 +1995,12 @@ async function _migrateOldMasterPin() {
 }
 
 async function initInvoiceAuth() {
-  // 1) 세션 살아있으면 통과
+  // 토큰이 무효가 되면(비번 리셋·권한 해제) 잠금 해제 풀고 다시 로그인
+  fbOnAuthLost = () => { sessionStorage.removeItem('invoice_unlocked'); location.reload(); };
+  // 1) 세션 살아있으면 통과 (Firebase 로그인도 같은 사람이어야 함)
+  if (sessionStorage.getItem('invoice_unlocked') === 'true' && !_fbSignedInAs(sessionStorage.getItem('invoice_user_id'))) {
+    sessionStorage.removeItem('invoice_unlocked');
+  }
   if (sessionStorage.getItem('invoice_unlocked') === 'true') {
     // role 이 누락된 옛 세션(역할 추적 추가 전에 unlock된 세션)이면 Firebase 에서 보충
     if (!sessionStorage.getItem('invoice_user_role')) {
@@ -1869,6 +2029,8 @@ async function initInvoiceAuth() {
   return new Promise((resolve) => {
     // ── 화면 A: PIN 입력 (이미 PIN 등록된 사용자, 같은 디바이스) ──
     const showPinScreen = async (userId) => {
+      // PIN 은 이 기기에 Firebase 로그인이 남아 있을 때만 (없으면 아이디/비번 다시)
+      if (!_fbSignedInAs(userId)) return showFullLogin(userId);
       const user = await _findUser(userId);
       const invUserData = await fbGet('invoiceUsers/' + userId);
       if (!user || !invUserData || !invUserData.pinHash) {
@@ -1941,8 +2103,12 @@ async function initInvoiceAuth() {
         const pw = document.getElementById('lk-pw').value;
         const err = document.getElementById('lk-err');
         if (!id || !pw) { err.textContent = '아이디/비밀번호를 입력하세요'; return; }
-        const user = await _findUser(id, pw);
-        if (!user) { err.textContent = '❌ 아이디 또는 비밀번호가 맞지 않아요'; return; }
+        err.textContent = '확인 중...';
+        try { await fbSignIn(id, pw); }
+        catch (e) { err.textContent = '❌ ' + (e.message === 'WRONG' ? '아이디 또는 비밀번호가 맞지 않아요' : fbLoginErrText(e)); return; }
+        err.textContent = '';
+        const user = await _findUser(id);
+        if (!user) { err.textContent = '❌ 직원 정보를 찾을 수 없어요'; return; }
         const invUserData = await fbGet('invoiceUsers/' + user.id);
         if (!_canInvoiceAccess(user, invUserData)) {
           err.textContent = '❌ 인보이스 앱 접근 권한이 없어요. 관리자에게 문의하세요.';

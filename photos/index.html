@@ -197,8 +197,161 @@ input,textarea,select{font-family:inherit;font-size:16px}
 <div id="toast" class="toast"></div>
 <datalist id="builder-list"></datalist>
 <script>
-const APP_BUILD='2026-10-16-06';
+const APP_BUILD='2026-10-21-02';
 const RTDB='https://knmtilingptyltd-12520-default-rtdb.firebaseio.com';
+// ── Firebase 로그인 (직원별 계정) ─────────────────────────────────────────────
+// 세 앱(WorkLog·인보이스·SiteLog)이 똑같은 코드를 씀. 직원은 예전 아이디/비밀번호 그대로 로그인하고,
+// 앱이 Firebase Auth 계정(아이디 해시 이메일)으로 로그인해 받은 토큰을 모든 DB 요청에 ?auth= 로 붙인다.
+// 비밀번호는 DB 에 저장하지 않음(Firebase Auth 가 해시로 보관).
+//   authMap/{uid} = {id, admin, off}  어느 계정이 어느 직원인지 + DB 규칙용 권한 (관리자만 수정)
+//   loginIndex/{아이디해시} = {v}     비밀번호 리셋 때마다 새 계정(버전+1)을 만들기 때문에 현재 버전 (공개)
+// 관리자가 비밀번호를 리셋하면 새 버전 계정을 만들고 예전 계정 연결을 끊음 → 예전 토큰은 DB 접근 불가.
+const FB_DB = 'https://knmtilingptyltd-12520-default-rtdb.firebaseio.com';
+const FB_API_KEY = 'AIzaSyCnthAi14hL60O63K5q0ea_PBo1ALg8w_w';
+const FB_AUTH_LS = 'knm_fb_auth_v2';
+const FB_ID_DOMAIN = 'staff.knmtilingbathurst.com';
+let _fbAuth = null;
+try { _fbAuth = JSON.parse(localStorage.getItem(FB_AUTH_LS) || 'null'); } catch (e) {}
+let fbOnAuthLost = null;   // 앱별: 토큰이 무효(리셋·퇴사)가 됐을 때 로그인 화면으로
+function _fbAuthSave(a) {
+  _fbAuth = a;
+  try { a ? localStorage.setItem(FB_AUTH_LS, JSON.stringify(a)) : localStorage.removeItem(FB_AUTH_LS); } catch (e) {}
+}
+function fbSignOut() { _fbAuthSave(null); }
+async function _fbKey(id) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('knm-login|' + id));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 24);
+}
+// Firebase 는 비밀번호 6자 이상이 필요 → 직원 비밀번호 앞뒤에 고정 문자를 붙여 씀
+function _fbPass(pw) { return 'knm#' + pw + '#wl'; }
+function _fbEmail(key, v) { return key + (v ? '.' + v : '') + '@' + FB_ID_DOMAIN; }
+async function _fbIdt(method, body) {
+  const r = await fetch('https://identitytoolkit.googleapis.com/v1/accounts:' + method + '?key=' + FB_API_KEY, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+  });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error((d.error && d.error.message) || ('HTTP ' + r.status));
+  return d;
+}
+async function _fbLoginVer(key) {
+  const r = await fetch(FB_DB + '/loginIndex/' + key + '.json');
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  const d = await r.json();
+  return (d && d.v) || 0;
+}
+function _fbKeep(d, id, admin) {
+  _fbAuthSave({ id, uid: d.localId, admin: !!admin, idToken: d.idToken, refreshToken: d.refreshToken,
+    exp: Date.now() + (Number(d.expiresIn) - 120) * 1000 });
+}
+// 로그인. 실패하면 Error: WRONG(아이디/비번 틀림) · OFF(퇴사/차단) · UNMAPPED(계정 미연결) · 그 외(네트워크 등)
+async function fbSignIn(id, pw) {
+  const key = await _fbKey(id);
+  const v = await _fbLoginVer(key);
+  let d;
+  try { d = await _fbIdt('signInWithPassword', { email: _fbEmail(key, v), password: _fbPass(pw), returnSecureToken: true }); }
+  catch (e) { if (/INVALID_LOGIN|INVALID_PASSWORD|EMAIL_NOT_FOUND|INVALID_EMAIL|USER_DISABLED/.test(e.message)) throw new Error('WRONG'); throw e; }
+  const r = await fetch(FB_DB + '/authMap/' + d.localId + '.json?auth=' + encodeURIComponent(d.idToken));
+  const m = r.ok ? await r.json() : null;
+  if (!m || m.id !== id) throw new Error('UNMAPPED');
+  if (m.off) throw new Error('OFF');
+  _fbKeep(d, id, m.admin);
+}
+function fbLoginErrText(e) {
+  const m = String((e && e.message) || e);
+  if (m === 'WRONG') return '아이디 또는 비밀번호가 올바르지 않습니다.';
+  if (m === 'OFF') return '🚫 사용이 중지된 계정이에요. 관리자에게 문의하세요.';
+  if (m === 'UNMAPPED') return '계정이 아직 연결되지 않았어요. 관리자에게 문의하세요.';
+  if (/TOO_MANY/.test(m)) return '시도가 너무 많아요. 잠시 뒤 다시 해 주세요.';
+  return '연결 실패: ' + m;
+}
+let _fbTokP = null;
+async function fbIdToken(force) {
+  if (!_fbAuth) return null;
+  if (!force && _fbAuth.exp > Date.now()) return _fbAuth.idToken;
+  if (!_fbTokP) _fbTokP = (async () => {
+    try {
+      const r = await fetch('https://securetoken.googleapis.com/v1/token?key=' + FB_API_KEY, {
+        method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'grant_type=refresh_token&refresh_token=' + encodeURIComponent(_fbAuth.refreshToken)
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        if (r.status >= 400 && r.status < 500) { _fbAuthSave(null); if (fbOnAuthLost) fbOnAuthLost(); }
+        return null;
+      }
+      _fbAuthSave({ ..._fbAuth, idToken: d.id_token, refreshToken: d.refresh_token, exp: Date.now() + (Number(d.expires_in) - 120) * 1000 });
+      return d.id_token;
+    } catch (e) { return _fbAuth && _fbAuth.idToken; } finally { _fbTokP = null; }
+  })();
+  return _fbTokP;
+}
+function _fbWithAuth(url, t) { return t ? url + (url.includes('?') ? '&' : '?') + 'auth=' + encodeURIComponent(t) : url; }
+async function fbAuthUrl(url, force) { return _fbWithAuth(url, await fbIdToken(force)); }
+// DB 요청용 fetch — 토큰을 붙이고, 401 이면 토큰을 새로 받아 한 번 재시도. 그래도 401 이면 로그아웃 처리.
+async function fbFetch(url, opts) {
+  let r = await fetch(await fbAuthUrl(url), opts);
+  if (r.status === 401 && _fbAuth) {
+    r = await fetch(await fbAuthUrl(url, true), opts);
+    if (r.status === 401 && _fbAuth) { _fbAuthSave(null); if (fbOnAuthLost) fbOnAuthLost(); }
+  }
+  return r;
+}
+async function _fbJson(method, path, body) {
+  const r = await fbFetch(FB_DB + '/' + path + '.json', body === undefined ? { method } :
+    { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  if (!r.ok) throw new Error('DB ' + r.status);
+  return r.json();
+}
+// 본인 비밀번호 변경 (현재 비밀번호 확인 후)
+async function fbChangeOwnPw(cur, next) {
+  if (!_fbAuth) throw new Error('NOAUTH');
+  const id = _fbAuth.id;
+  await fbSignIn(id, cur);
+  const d = await _fbIdt('update', { idToken: _fbAuth.idToken, password: _fbPass(next), returnSecureToken: true });
+  _fbKeep(d, id, _fbAuth.admin);
+}
+function fbUserFlags(u) {
+  return { admin: !!u && (u.role === 'admin' || u.role === 'superadmin' || u.id === 'admin'),
+    off: !u || !!u.resignedDate || u.active === false || u.disabled === true || u.left === true || u.resigned === true };
+}
+// 관리자: 직원 계정 만들기 / 비밀번호 리셋 (새 버전 계정 생성 → 연결 교체)
+async function fbAdminSetPw(id, pw, flags) {
+  const key = await _fbKey(id);
+  let v = await _fbLoginVer(key), d = null;
+  for (let i = 0; i < 5 && !d; i++) {
+    v++;
+    try { d = await _fbIdt('signUp', { email: _fbEmail(key, v), password: _fbPass(pw), returnSecureToken: true }); }
+    catch (e) { if (!/EMAIL_EXISTS/.test(e.message)) throw e; }
+  }
+  if (!d) throw new Error('EMAIL_EXISTS');
+  const map = (await _fbJson('GET', 'authMap')) || {};
+  const upd = {};
+  Object.keys(map).forEach(u => { if (map[u] && map[u].id === id && u !== (_fbAuth && _fbAuth.uid)) upd[u] = null; });
+  upd[d.localId] = { id, admin: !!flags.admin, off: !!flags.off };
+  await _fbJson('PATCH', 'authMap', upd);
+  await _fbJson('PUT', 'loginIndex/' + key, { v });
+  if (_fbAuth && _fbAuth.id === id) {   // 내 비밀번호를 리셋한 경우: 새 계정으로 갈아타고 예전 연결 정리
+    const old = _fbAuth.uid;
+    _fbKeep(d, id, flags.admin);
+    await _fbJson('PATCH', 'authMap', { [old]: null }).catch(() => {});
+  }
+}
+// 관리자: 직원 목록의 역할·퇴사 상태를 authMap(DB 규칙용)에 맞춤. 지워진 직원 계정은 차단.
+async function fbAdminSyncFlags(users) {
+  if (!_fbAuth || !_fbAuth.admin) return;
+  const map = (await _fbJson('GET', 'authMap')) || {};
+  const byId = {};
+  (users || []).forEach(u => { if (u && u.id) byId[u.id] = u; });
+  const upd = {};
+  Object.keys(map).forEach(uid => {
+    const m = map[uid];
+    if (!m || uid === _fbAuth.uid) return;   // 내 계정은 건드리지 않음(실수로 잠기지 않게)
+    const w = fbUserFlags(byId[m.id]);
+    if (!!m.admin !== w.admin) upd[uid + '/admin'] = w.admin;
+    if (!!m.off !== w.off) upd[uid + '/off'] = w.off;
+  });
+  if (Object.keys(upd).length) await _fbJson('PATCH', 'authMap', upd);
+}
 // Photos stored on Cloudflare R2 (via Worker, free egress). Upload key is light protection.
 const WORKER='https://km-photos-api.kmtiling.workers.dev';
 const UPLOAD_KEY='c3621d2542c3e8db9ae086e4a5c8c83d';
@@ -207,11 +360,11 @@ const isAdmin=()=>!!(S.user&&(S.user.role==='admin'||S.user.id==='admin'));
 const canEditEntry=e=>!!(S.user&&(isAdmin()||(e&&e.authorId&&e.authorId===S.user.id)));
 const COLORS=['#6d5efc','#ef4444','#f59e0b','#10b981','#0891b2','#8b5cf6','#ec4899','#334155'];
 
-async function rtGet(p){const r=await fetch(`${RTDB}/${p}.json`);return r.ok?r.json():null;}
-async function rtPost(p,v){const r=await fetch(`${RTDB}/${p}.json`,{method:'POST',body:JSON.stringify(v)});return r.json();}
-async function rtPut(p,v){const r=await fetch(`${RTDB}/${p}.json`,{method:'PUT',body:JSON.stringify(v)});return r.json();}
-async function rtPatch(p,v){const r=await fetch(`${RTDB}/${p}.json`,{method:'PATCH',body:JSON.stringify(v)});return r.json();}
-async function rtDel(p){await fetch(`${RTDB}/${p}.json`,{method:'DELETE'});}
+async function rtGet(p){const r=await fbFetch(`${RTDB}/${p}.json`);return r.ok?r.json():null;}
+async function rtPost(p,v){const r=await fbFetch(`${RTDB}/${p}.json`,{method:'POST',body:JSON.stringify(v)});return r.json();}
+async function rtPut(p,v){const r=await fbFetch(`${RTDB}/${p}.json`,{method:'PUT',body:JSON.stringify(v)});return r.json();}
+async function rtPatch(p,v){const r=await fbFetch(`${RTDB}/${p}.json`,{method:'PATCH',body:JSON.stringify(v)});return r.json();}
+async function rtDel(p){await fbFetch(`${RTDB}/${p}.json`,{method:'DELETE'});}
 
 async function stUpload(path,blob){
   const r=await fetch(`${WORKER}/up?path=${encodeURIComponent(path)}`,
@@ -242,16 +395,19 @@ function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clea
 // A user is blocked by removing them from `users`, or setting active:false / disabled:true / left:true.
 const isActive=u=>!!u && !u.resignedDate && u.active!==false && u.disabled!==true && u.left!==true && u.resigned!==true;
 async function tryLogin(id,pw){
+  id=id.trim();
+  try{await fbSignIn(id,pw);}
+  catch(e){const m=e.message;return{err:m==='WRONG'?'Wrong username or password':m==='OFF'?'This account is disabled':m==='UNMAPPED'?'Account not set up yet — ask the admin':/TOO_MANY/.test(m)?'Too many attempts — try again later':'Connection failed: '+m};}
   const users=await rtGet('users');const arr=Array.isArray(users)?users:Object.values(users||{});
-  const u=arr.find(x=>x&&x.id===id.trim());
-  if(!u)return{err:'User not found'};
-  if((u.pw||'')!==pw)return{err:'Wrong password'};
-  if(!isActive(u))return{err:'This account is disabled'};
+  const u=arr.find(x=>x&&x.id===id);
+  if(!u){fbSignOut();return{err:'User not found'};}
+  if(!isActive(u)){fbSignOut();return{err:'This account is disabled'};}
   return{user:{id:u.id,name:u.name||u.id}};
 }
 // Re-check the signed-in user still exists & is active. Logs out immediately if not.
 async function validateSession(){
   if(!S.user)return false;
+  if(!_fbAuth||_fbAuth.id!==S.user.id){localStorage.removeItem('photoapp_session');S.user=null;return false;}   // Firebase 로그인 필요
   try{
     const users=await rtGet('users');const arr=Array.isArray(users)?users:Object.values(users||{});
     const u=arr.find(x=>x&&x.id===S.user.id);
@@ -294,7 +450,7 @@ function appMenu(){
   document.body.appendChild(m);
   m.onclick=e=>{if(e.target===m)m.remove();};
   $('#mn-close',m).onclick=()=>m.remove();
-  $('#mn-out',m).onclick=()=>{if(confirm('Log out?')){localStorage.removeItem('photoapp_session');S.user=null;m.remove();renderLogin();}};
+  $('#mn-out',m).onclick=()=>{if(confirm('Log out?')){localStorage.removeItem('photoapp_session');fbSignOut();S.user=null;m.remove();renderLogin();}};
 }
 
 // builders (reuse invoice builders + builders used on sites)
@@ -888,7 +1044,7 @@ function openViewer(key){
   document.body.appendChild(v);
 }
 
-(async function(){const s=loadSession();if(s){S.user=s;if(await validateSession())openProjects();else{renderLogin();setTimeout(()=>toast('Your access has been removed'),300);}}else renderLogin();})();
+(async function(){fbOnAuthLost=()=>{localStorage.removeItem('photoapp_session');S.user=null;renderLogin();};const s=loadSession();if(s){S.user=s;const signed=_fbAuth&&_fbAuth.id===s.id;if(await validateSession())openProjects();else{renderLogin();if(signed)setTimeout(()=>toast('Your access has been removed'),300);}}else renderLogin();})();
 // Auto-update: compare the running build against ver.txt on the server; if newer, reload with a cache-busting ?v=.
 // ⚠️ 배포 때 APP_BUILD 와 photos/ver.txt 를 같은 값으로 올릴 것.
 async function checkUpdate(){
