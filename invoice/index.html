@@ -19,7 +19,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-10-21-12';
+const APP_BUILD = '2026-10-21-13';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -812,6 +812,66 @@ body.invoice-readonly::before {
   .content { max-width: 1400px; }
   #inv-list { grid-template-columns: 1fr 1fr 1fr; }
 }
+
+/* ── 2026-10 새 디자인: K&M 공통 색(먹색·로고 주황·청록), 목록 줄, 위 숫자 줄, 한 줄 알림 ── */
+:root{--bg:#F5F6F4;--bg-grad:#F5F6F4;--card-bg-alt:#F7F8F6;--border:#E4E7E4;--border-2:#E4E7E4;--border-3:#EEF0EE;
+  --header-bg:#1C2430;--accent:#1F6F6B;--accent-light:#2A8C86;--shadow:rgba(28,36,48,0.05);--shadow-strong:rgba(28,36,48,0.14);
+  --km-amber:#E9A23B;--km-amber-soft:#FBF0DD;--km-red:#B4232C;--km-red-soft:#FBE9E9;--km-green:#2E7D4F;--km-green-soft:#E4F2E9;--km-warn:#9A5B0C;--km-teal:#1F6F6B;--km-teal-text:#1F6F6B}
+body[data-theme="dark"]{--bg:#12181D;--bg-grad:#12181D;--card-bg:#1B232A;--card-bg-alt:#151C21;--border:#2B3740;--border-2:#2B3740;--border-3:#232D35;
+  --header-bg:#0C1115;--accent:#5FB8B0;--accent-light:#2A8C86;
+  --km-amber-soft:#3A2E1A;--km-red:#F08A8F;--km-red-soft:#3A1F22;--km-green:#7FCF9E;--km-green-soft:#1D3326;--km-warn:#E8B566;--km-teal:#2A8C86;--km-teal-text:#5FB8B0}
+.header .logo b{color:var(--km-amber)}
+.kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));background:var(--card-bg);border:1px solid var(--border);border-radius:12px;margin-bottom:10px}
+.kpis>div{padding:9px 11px;min-width:0}
+.kpis>div+div{border-left:1px solid var(--border)}
+.kpis .l{font-size:11px;color:var(--text-3)}
+.kpis .v{font-weight:700;font-size:15px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kpis .v.red{color:var(--km-red)}.kpis .v.green{color:var(--km-green)}
+body[data-active-tab="invoices"] .bbar,body:not([data-active-tab]) .bbar{display:none}
+body[data-active-tab="invoices"] .content,body:not([data-active-tab]) .content{padding-bottom:24px}
+.irow .idetail{padding:10px 0 0;border-top:1px dashed var(--border)}
+.km-alert{background:var(--card-bg);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:8px}
+.km-alert-h{display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer;font-size:13px;color:var(--text)}
+.km-alert-h .n{min-width:24px;height:24px;border-radius:12px;padding:0 7px;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0}
+.km-alert.r .n{background:var(--km-red-soft);color:var(--km-red)}
+.km-alert.a .n{background:var(--km-amber-soft);color:var(--km-warn)}
+.km-alert-h .t{flex:1;min-width:0;font-weight:600}
+.km-alert-h .s{font-size:11px;color:var(--text-4);white-space:nowrap}
+.km-alert-h .amt{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.km-alert-h .chev{color:var(--text-4);font-size:12px}
+#inv-list{background:var(--card-bg);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+#inv-list:empty,#inv-list>.empty:only-child{background:none;border:none}
+.irow{border-bottom:1px solid var(--border-3)}
+.irow:last-of-type{border-bottom:none}
+.irow-main{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;padding:11px 13px;cursor:pointer}
+.irow-main:active{background:var(--card-bg-alt)}
+.irow .t{font-weight:600;font-size:14.5px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.irow .m{font-size:12.5px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.irow .m .sent{color:var(--km-teal-text);font-weight:600}
+.irow .m .age{color:var(--km-red);font-weight:600}
+.irow .proj{font-size:12px;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;grid-column:1}
+.irow .amt{font-weight:700;font-size:14.5px;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--text)}
+.irow .amt.neg{color:var(--km-red)}
+.irow .amt small{display:block;font-size:10.5px;font-weight:500;color:var(--text-4)}
+.irow .amt .was{text-decoration:line-through;color:var(--text-4);font-weight:500;font-size:11px}
+.irow .amt .rem{color:var(--km-red)}
+.irow .tag{display:inline-block;font-size:10px;font-weight:700;border-radius:4px;padding:0 5px;margin-left:5px;vertical-align:1px;background:var(--card-bg-alt);color:var(--text-3);border:1px solid var(--border)}
+.irow .note-preview{grid-column:1/-1;font-style:normal;font-size:12px;color:var(--text);background:var(--km-amber-soft);border-radius:6px;padding:3px 8px;margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:text}
+.irow .note-preview.empty{display:none}
+.irow.draft .irow-main{background:repeating-linear-gradient(135deg,transparent,transparent 10px,var(--card-bg-alt) 10px,var(--card-bg-alt) 11px)}
+.spill{justify-self:end;align-self:start;font-size:11px;font-weight:600;padding:1px 8px;border-radius:6px;white-space:nowrap;background:var(--card-bg-alt);color:var(--text-3);border:1px solid var(--border)}
+.spill.OVERDUE,.spill.SUSPEND{background:var(--km-red-soft);color:var(--km-red);border-color:transparent}
+.spill.ONGOING,.spill.BOOKING{background:var(--km-amber-soft);color:var(--km-warn);border-color:transparent}
+.spill.PAID,.spill.FINISH,.spill.DEPOSIT{background:var(--km-green-soft);color:var(--km-green);border-color:transparent}
+.spill.RETENTION{background:#EEF2FF;color:#4338CA;border-color:transparent}
+.spill.DRAFT{border-style:dashed}
+.irow-actions{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.irow-actions button{border:1px solid var(--border);background:var(--card-bg);color:var(--text);border-radius:8px;padding:7px 12px;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer}
+.irow-actions button.pay{background:var(--km-teal);border-color:var(--km-teal);color:#fff}
+.btn-gold{background:var(--km-teal)}
+.fbtn.active{background:var(--text)!important;color:var(--card-bg)!important;border-color:var(--text)!important}
+.irow .amt .was{display:block}
+@media (min-width:768px){body{background:var(--bg)}#inv-list{display:block}}
 </style>
 </head>
 <body>
@@ -2707,6 +2767,8 @@ function updateBar() {
   document.getElementById('bs-out').innerHTML = `${fA(out)}<span class="bstat-ex">${fAex(out)} ex</span>`;
   document.getElementById('bs-ov').innerHTML  = `${fA(ov)}<span class="bstat-ex">${fAex(ov)} ex</span>`;
   document.getElementById('bs-mo').innerHTML  = `${fA(mo)}<span class="bstat-ex">${fAex(mo)} ex</span>`;
+  const k = document.getElementById('inv-kpis');
+  if (k) k.innerHTML = `<div><div class="l">미수금</div><div class="v">${fA(out)}</div></div><div><div class="l">연체</div><div class="v red">${fA(ov)}</div></div><div><div class="l">이번달 입금</div><div class="v green">${fA(mo)}</div></div>`;
 }
 
 // ── Aging helpers ─────────────────────────────────────────────────────────────
@@ -2760,6 +2822,7 @@ let invTabReady = false;
 function setupInvTab() {
   if (invTabReady) return;
   document.getElementById('tab-invoices').innerHTML = `
+    <div class="kpis" id="inv-kpis"></div>
     <div id="uninvoiced-alert"></div>
     <div id="unpaid-month-alert"></div>
     <div class="search-row">
@@ -2816,12 +2879,12 @@ async function renderUninvoicedAlert() {
       ${isInvoiceEditor()?`<button onclick="dismissUninvoiced('${v.id}')" style="background:none;border:1px solid var(--border-2);border-radius:6px;padding:3px 8px;font-size:11px;color:#059669;cursor:pointer;white-space:nowrap">✓ 처리</button>`:''}
     </div>`;
   };
-  el.innerHTML = `<div style="border:1.5px solid #FCA5A5;background:#FEF2F2;border-radius:11px;overflow:hidden;margin-bottom:10px">
-    <div onclick="_uninvoicedOpen=!_uninvoicedOpen;renderUninvoicedAlert()" style="display:flex;align-items:center;gap:8px;padding:9px 12px;cursor:pointer">
-      <span style="font-size:15px">⚠️</span>
-      <b style="font-size:13px;color:#B91C1C;flex:1">완료됐는데 인보이스 안 낸 현장 ${items.length}건</b>
-      <span style="font-size:10px;color:var(--text-4)">${checkedAt} 체크</span>
-      <span style="color:#B91C1C">${_uninvoicedOpen?'▲':'▼'}</span>
+  el.innerHTML = `<div class="km-alert r">
+    <div class="km-alert-h" onclick="_uninvoicedOpen=!_uninvoicedOpen;renderUninvoicedAlert()">
+      <span class="n">${items.length}</span>
+      <span class="t">완료됐는데 인보이스 안 낸 현장</span>
+      <span class="s">${checkedAt} 체크</span>
+      <span class="chev">${_uninvoicedOpen?'▲':'▼'}</span>
     </div>
     ${_uninvoicedOpen?`<div style="background:var(--card-bg)">${items.map(row).join('')}</div>`:''}
   </div>`;
@@ -2921,12 +2984,12 @@ function renderUnpaidMonthAlert() {
       <b style="font-size:12px;color:#C2410C;white-space:nowrap">${fA(remaining(inv))}</b>
     </div>`;
   };
-  el.innerHTML = `<div style="border:1.5px solid #FDBA74;background:#FFF7ED;border-radius:11px;overflow:hidden;margin-bottom:10px">
-    <div onclick="_unpaidMonthOpen=!_unpaidMonthOpen;renderUnpaidMonthAlert()" style="display:flex;align-items:center;gap:8px;padding:9px 12px;cursor:pointer">
-      <span style="font-size:15px">💸</span>
-      <b style="font-size:13px;color:#C2410C;flex:1">발행 한 달 지났는데 미입금 ${items.length}건</b>
-      <span style="font-size:11px;font-weight:700;color:#C2410C">${fA(total)}</span>
-      <span style="color:#C2410C">${_unpaidMonthOpen?'▲':'▼'}</span>
+  el.innerHTML = `<div class="km-alert a">
+    <div class="km-alert-h" onclick="_unpaidMonthOpen=!_unpaidMonthOpen;renderUnpaidMonthAlert()">
+      <span class="n">${items.length}</span>
+      <span class="t">발행 한 달 지난 미입금</span>
+      <span class="amt">${fA(total)}</span>
+      <span class="chev">${_unpaidMonthOpen?'▲':'▼'}</span>
     </div>
     ${_unpaidMonthOpen?`<div style="background:var(--card-bg)">${items.map(row).join('')}</div>`:''}
   </div>`;
@@ -2942,13 +3005,13 @@ function updateSearchScopeBtn() {
   const btn = document.getElementById('search-scope-btn');
   if (!btn) return;
   if (searchScope === 'all') {
-    btn.textContent = '🌐 전체';
-    btn.style.background = '#4F46E5';
+    btn.textContent = '전체';
+    btn.style.background = 'var(--km-teal)';
     btn.style.color = '#fff';
-    btn.style.borderColor = '#4F46E5';
+    btn.style.borderColor = 'var(--km-teal)';
   } else {
-    btn.textContent = '📁 현재 탭';
-    btn.style.background = '#fff';
+    btn.textContent = '현재 탭';
+    btn.style.background = 'var(--card-bg)';
     btn.style.color = '#6B7280';
     btn.style.borderColor = '#E5E7EB';
   }
@@ -3129,45 +3192,25 @@ function renderInv() {
     
     const notePrev = (inv.note||'').replace(/\n/g,' ').trim();
     
-    // Card body only — detail panel is built LAZILY on first toggle
-    h += `<div class="icard ${bgClass}">
-      <div class="icard-body" style="padding:10px 12px">
-        <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start">
-          <div style="min-width:0;flex:1">
-            <div style="font-size:14px;font-weight:700;color:#111827;line-height:1.3">
-              ${coBadge}<span onclick="event.stopPropagation();filterByBuilder('${esc(inv.builderName||'').replace(/'/g,"\\'")}')" style="cursor:pointer;border-bottom:1px dashed transparent" onmouseover="this.style.borderBottomColor='currentColor'" onmouseout="this.style.borderBottomColor='transparent'" title="이 빌더만 보기">${esc(inv.builderName||'—')}</span>${(/^private$/i.test(inv.builderName||'') && (inv.privateName||inv.privateEmail)) ? ` <span style="font-size:12px;color:#6B7280;font-weight:500">(${esc(inv.privateName || inv.privateEmail)})</span>` : ''}
-              ${inv.type==='PO'?` <span style="background:#EDE9FE;color:#7C3AED;border-radius:3px;padding:0 4px;font-size:9px;font-weight:700">PO</span>`:''}
-              ${inv.type==='PROGRESS'?` <span style="background:#FEF3C7;color:#92400E;border-radius:3px;padding:0 4px;font-size:9px;font-weight:700">%</span>`:''}
-              ${isRetention?` <span style="color:#3730A3">🔒</span>`:''}
-            </div>
-            <div style="font-size:12px;color:#4B5563;line-height:1.3;margin-top:2px">${esc(inv.address||'—')}</div>
-            ${inv.projectName
-              ? `<div style="font-size:11px;color:#7C3AED;line-height:1.3;margin-top:2px;font-weight:600">🏷️ ${esc(inv.projectName)}</div>`
-              : (inv.poNumber ? `<div style="font-size:11px;color:#7C3AED;line-height:1.3;margin-top:2px;font-weight:600">PO #${esc(inv.poNumber)}</div>` : '')}
-            <div style="font-size:11px;color:#6B7280;line-height:1.3;margin-top:2px">
-              ${inv.invoiceNum?`<span style="font-weight:600">#${esc(inv.invoiceNum)}</span> · `:''}${fD(inv.invoiceDate)}
-              ${overdue?`<span style="color:#DC2626;font-weight:700"> · ⏰ ${fmtAging(days)}</span>`:''}
-            </div>
-            <div class="note-preview" id="np-${inv.id}" style="margin-top:3px;cursor:text" onclick="event.stopPropagation();startMemoEdit('${inv.id}')" title="클릭해서 메모 수정">${notePrev ? `📝 ${esc(notePrev)}` : `<span style="color:#9CA3AF;font-style:italic">📝 메모 추가...</span>`}</div>
-          </div>
-          <div style="flex-shrink:0;text-align:right;min-width:110px">
-            ${isPartial && !isRetention && rem > 0.01 ? `
-              <!-- Partial payment: small struck-through total, deposit info, then remaining (consistent size with normal amount) -->
-              <div style="font-size:10px;color:#9CA3AF;text-decoration:line-through;line-height:1.1">${fA(amt)}</div>
-              <div style="font-size:9px;color:#059669;line-height:1.2">입금 ${fA(paid)}</div>
-              <div style="font-size:15px;font-weight:800;color:#DC2626;line-height:1.1;margin-top:2px">${fA(rem)} <span style="font-size:9px;color:#DC2626;font-weight:700">잔액</span></div>
-            ` : `
-              <div style="font-size:15px;font-weight:800;color:${amt<0?'#DC2626':'#111827'};line-height:1.1">${fA(amt)}</div>
-              <div style="font-size:10px;color:#9CA3AF;line-height:1.2">${fAex(amt)} ex</div>
-            `}
-            <div style="margin-top:4px"><span class="pill pill-${ss}" style="font-size:10px;padding:2px 6px">${ss}</span></div>
-            ${isRetention?(()=>{const r=rem>0?rem:amt;return `<div style="font-size:10px;color:#3730A3;font-weight:700;margin-top:3px;line-height:1.2">보류 ${fA(r)}<br/><span style="font-weight:500;color:#6366F1">${fAex(r)} ex</span></div>`;})():''}
-            ${(inv.status==='INVOICE'||inv.status==='ONGOING'||inv.status==='RETENTION') && rem > 0.01 ? `<button onclick="event.stopPropagation();quickPay('${inv.id}')" style="margin-top:6px;background:#10B981;color:#fff;border:none;border-radius:6px;padding:4px 8px;font-size:11px;font-weight:600;cursor:pointer" title="빠른 입금 추가">💰 입금</button>` : ''}
-          </div>
-        </div>
+    // 목록 한 줄 — 누르면 상세(입금·메모·항목)가 아래로 펼쳐짐. 상세는 처음 펼칠 때 만듦.
+    const sentTxt = inv.sentAt ? fD(String(inv.sentAt).slice(0,10)) : '';
+    const tags = (inv.type==='PO'?'<span class="tag">PO</span>':'') + (inv.type==='PROGRESS'?'<span class="tag">%</span>':'') + (isRetention?'<span class="tag">🔒</span>':'');
+    const sub = inv.projectName ? esc(inv.projectName) : (inv.poNumber ? 'PO #' + esc(inv.poNumber) : '');
+    const amtHtml = (isPartial && !isRetention && rem > 0.01)
+      ? `<span class="was">${fA(amt)}</span><span class="rem">${fA(rem)}</span><small>잔액 · 입금 ${fA(paid)}</small>`
+      : `${fA(amt)}<small>${fAex(amt)} ex</small>`;
+    const pillTxt = overdue ? `${fmtAging(days)} 연체` : ss;
+    h += `<div class="irow ${inv.status==='DRAFT'?'draft':''}">
+      <div class="irow-main" onclick="toggleD('${inv.id}')">
+        <span class="t">${coBadge}<span onclick="event.stopPropagation();filterByBuilder('${esc(inv.builderName||'').replace(/'/g,"\\'")}')">${esc(inv.builderName||'—')}</span>${tags}</span>
+        <span class="amt${amt<0?' neg':''}">${amtHtml}</span>
+        <span class="m">${inv.invoiceNum?esc(inv.invoiceNum)+' · ':''}${sentTxt?`<span class="sent" title="메일 보낸 날">${sentTxt}</span> · `:''}${fD(inv.invoiceDate)} · ${esc(inv.address||'—')}</span>
+        <span class="spill ${ss}">${esc(pillTxt)}</span>
+        ${sub?`<span class="proj">${sub}</span>`:''}
+        ${isRetention?(()=>{const rr=rem>0?rem:amt;return `<span class="m" style="grid-column:1/-1;color:#4338CA">보류 ${fA(rr)} (${fAex(rr)} ex)</span>`;})():''}
+        <div class="note-preview${notePrev?'':' empty'}" id="np-${inv.id}" onclick="event.stopPropagation();startMemoEdit('${inv.id}')" title="눌러서 메모 수정">${esc(notePrev)}</div>
       </div>
-      <button class="iexpand" onclick="toggleD('${inv.id}')" aria-label="상세 펼치기">▼ 더보기</button>
-      <div id="d-${inv.id}" style="display:none" data-built="0"></div>
+      <div id="d-${inv.id}" style="display:none;padding:0 13px 12px" data-built="0"></div>
     </div>`;
   });
   
@@ -3214,8 +3257,13 @@ function buildDetailHTML(inv) {
       </div>`;
     }
   }
+  const _canPay = (inv.status==='INVOICE'||inv.status==='ONGOING'||inv.status==='RETENTION') && rem > 0.01;
   return `<div class="idetail">
-    <div style="background:#F9FAFB;border-radius:8px;padding:8px;margin-bottom:8px">
+    <div class="irow-actions">
+      ${_canPay?`<button class="pay" onclick="event.stopPropagation();quickPay('${inv.id}')">입금 등록</button>`:''}
+      <button onclick="event.stopPropagation();const n=document.getElementById('np-${inv.id}');if(n)n.classList.remove('empty');startMemoEdit('${inv.id}')">메모</button>
+    </div>
+    <div style="background:var(--card-bg-alt);border-radius:8px;padding:8px;margin-bottom:8px">
       ${_discRows}
       <div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0${_discRows?';border-top:1px solid #E5E7EB;margin-top:4px;padding-top:6px':''}">
         <span style="color:#6B7280">청구금액 (inc.GST)</span>
@@ -3242,7 +3290,7 @@ function buildDetailHTML(inv) {
     ${inv.projectName?`<div style="font-size:12px;color:#7C3AED;margin-top:8px">📁 ${esc(inv.projectName)}</div>`:''}
     ${inv.startDate?`<div style="font-size:11px;color:#9CA3AF;margin-top:4px">🚀 Start: ${fD(inv.startDate)}${inv.dueDate?`  ⏰ Due: ${fD(inv.dueDate)}`:''}</div>`:''}
     ${inv.poNumber?`<div style="font-size:12px;color:#7C3AED;margin-top:4px">PO #${esc(inv.poNumber)}</div>`:''}
-    ${inv.note?`<div style="font-size:12px;color:#555;margin-top:8px;white-space:pre-wrap">📝 ${esc(inv.note)}</div>`:''}
+    ${inv.note && (inv.note.length > 40 || inv.note.includes('\n'))?`<div style="font-size:12px;color:var(--text-2);margin-top:8px;white-space:pre-wrap">${esc(inv.note)}</div>`:''}
     ${inv.lineItems && Object.keys(inv.lineItems).length ? (() => {
       const items = Array.isArray(inv.lineItems) ? inv.lineItems : Object.values(inv.lineItems);
       if (!items.length) return '';
@@ -3298,8 +3346,8 @@ function buildDetailHTML(inv) {
       <button class="btn-primary" style="flex:1.3;min-width:120px;padding:8px;font-size:12px;background:#F59E0B" onclick="publishDraft('${inv.id}', true)" title="오늘 날짜로 변경 후 발행 (만기일도 오늘+14일로 재계산)">📅 오늘날짜로 발행</button>
       <button class="btn-primary" style="flex:1.3;min-width:130px;padding:8px;font-size:12px;background:#7C3AED" onclick="publishDraft('${inv.id}', true, true)" title="오늘 날짜로 발행 + 이메일 모달 열기">📧 발행+이메일</button>` : ''}
       ${inv.status === 'INVOICE' ? `<button style="flex:1;min-width:100px;padding:8px;font-size:11px;background:#FEF3C7;color:#92400E;border:1px solid #FDE68A;border-radius:9px;cursor:pointer" onclick="revertToDraft('${inv.id}')" title="실수로 발행했을 때 DRAFT로 복구">↩️ Draft로 되돌리기</button>` : ''}
-      ${inv.status && inv.status !== 'DRAFT' ? `<button class="btn-primary" style="flex:1;min-width:100px;padding:8px;font-size:12px;background:#7C3AED" onclick="composeEmailById('${inv.id}')" title="이메일 발송/재발송">📧 이메일</button>` : ''}
-      <button class="btn-primary" style="flex:1;min-width:90px;padding:8px;font-size:12px;background:#10B981" onclick="printInvoice('${inv.id}')" title="인쇄용 인보이스 생성">🖨️ 인쇄 / PDF</button>
+      ${inv.status && inv.status !== 'DRAFT' ? `<button class="btn-primary" style="flex:1;min-width:100px;padding:8px;font-size:12px;background:var(--km-teal);box-shadow:none" onclick="composeEmailById('${inv.id}')" title="이메일 발송/재발송">📧 이메일</button>` : ''}
+      <button class="btn-primary" style="flex:1;min-width:90px;padding:8px;font-size:12px;background:var(--header-bg);box-shadow:none" onclick="printInvoice('${inv.id}')" title="인쇄용 인보이스 생성">🖨️ 인쇄 / PDF</button>
       ${(() => {
         const _b = builders.find(x => x.name === inv.builderName);
         return _b && (_b.needsStatement || _b.statementTemplate)
@@ -3437,7 +3485,7 @@ async function revertToDraft(id) {
 
 function toggleD(id) {
   const el = document.getElementById('d-'+id);
-  const btn = el.previousElementSibling;
+  if (!el) return;
   const open = el.style.display === 'none';
   // Build detail HTML on first open
   if (open && el.dataset.built === '0') {
@@ -3448,7 +3496,6 @@ function toggleD(id) {
     }
   }
   el.style.display = open ? 'block' : 'none';
-  btn.textContent = open ? '▲ 접기' : '▼ 더보기';
 }
 
 // ── Invoice CRUD ──────────────────────────────────────────────────────────────
@@ -6293,7 +6340,6 @@ function startMemoEdit(id) {
   window._editingMemo = true;   // 편집 중 전역 단축키 차단
   const cur = (inv.note || '').replace(/\n/g, ' ').trim();
   el.innerHTML = `<span style="display:inline-flex;gap:4px;align-items:center;width:100%">
-    <span style="flex-shrink:0">📝</span>
     <input id="np-input-${id}" type="text" value="${esc(cur)}" placeholder="메모 입력 후 Enter (취소: Esc)"
       style="flex:1;font-size:11px;padding:3px 6px;border:1px solid #C7D2FE;border-radius:4px;font-family:inherit;background:#fff;color:#111827;min-width:0"/>
   </span>`;
@@ -6314,7 +6360,8 @@ function cancelMemoEdit(id) {
   const el = document.getElementById('np-' + id);
   if (!el) return;
   const cur = (inv.note || '').replace(/\n/g, ' ').trim();
-  el.innerHTML = cur ? `📝 ${esc(cur)}` : `<span style="color:#9CA3AF;font-style:italic">📝 메모 추가...</span>`;
+  el.innerHTML = esc(cur);
+  el.classList.toggle('empty', !cur);
   el.dataset.editing = '';
   window._editingMemo = false;
 }
@@ -6332,7 +6379,8 @@ async function saveMemoEdit(id) {
   window._editingMemo = false;
   const el = document.getElementById('np-' + id);
   if (el) {
-    el.innerHTML = newNote ? `📝 ${esc(newNote)}` : `<span style="color:#9CA3AF;font-style:italic">📝 메모 추가...</span>`;
+    el.innerHTML = esc(newNote);
+    el.classList.toggle('empty', !newNote);
     el.dataset.editing = '';
   }
   // Firebase 에는 note 만 패치 (전체 inv 덮어쓰기 방지)
