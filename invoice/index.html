@@ -19,7 +19,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-10-21-16';
+const APP_BUILD = '2026-10-21-17';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -827,6 +827,52 @@ body[data-theme="dark"]{--bg:#12181D;--bg-grad:#12181D;--card-bg:#1B232A;--card-
 .kpis .l{font-size:11px;color:var(--text-3)}
 .kpis .v{font-weight:700;font-size:15px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .kpis .v.red{color:var(--km-red)}.kpis .v.green{color:var(--km-green)}
+/* ── 2026-10 탭 공통 배치: 제목 줄, 납작한 카드, 목록 줄, 작은 토글 ── */
+.pg-h{display:flex;align-items:flex-end;justify-content:space-between;gap:8px;flex-wrap:wrap;margin:2px 0 12px}
+.pg-h h2{margin:0;font-size:19px;font-weight:800;color:var(--text);letter-spacing:-.3px}
+.pg-h .sub{font-size:11.5px;color:var(--text-3);margin-top:2px}
+.pg-h .acts{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.kbtn{display:inline-flex;align-items:center;gap:4px;background:var(--card-bg);color:var(--text);border:1px solid var(--border);border-radius:9px;padding:7px 12px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap}
+.kbtn.pri{background:var(--km-teal);border-color:var(--km-teal);color:#fff}
+.kbtn.sm{padding:4px 9px;font-size:11.5px;border-radius:7px}
+.sec{background:var(--card-bg);border:1px solid var(--border);border-radius:12px;margin-bottom:12px;overflow:hidden}
+.sec-h{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 14px;border-bottom:1px solid var(--border-3);flex-wrap:wrap}
+.sec-h .t{font-size:13px;font-weight:700;color:var(--text)}
+.sec-h .m{font-size:11.5px;color:var(--text-3);font-weight:500;margin-left:6px}
+.sec-b{padding:12px 14px}
+.lrow{display:flex;align-items:center;gap:10px;padding:10px 14px;border-top:1px solid var(--border-3);min-width:0}
+.sec-h+.lrow,.lrow:first-child{border-top:none}
+.lrow.click{cursor:pointer}.lrow.click:active{background:var(--card-bg-alt)}
+.lrow .main{flex:1;min-width:0}
+.lrow .nm{font-weight:600;font-size:14px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lrow .sub{font-size:12px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+.lrow .amt{text-align:right;font-weight:700;font-size:14px;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--text)}
+.lrow .amt small{display:block;font-size:11px;font-weight:500;color:var(--text-4)}
+.lrow .amt.red{color:var(--km-red)}.lrow .amt.green{color:var(--km-green)}
+.minibar{height:4px;background:var(--card-bg-alt);border-radius:2px;overflow:hidden;margin-top:5px}
+.minibar>i{display:block;height:100%;background:var(--km-teal);border-radius:2px}
+.minibar.red>i{background:var(--km-red)}
+.seg{display:inline-flex;background:var(--card-bg-alt);border:1px solid var(--border);border-radius:9px;padding:2px;gap:2px;max-width:100%;overflow-x:auto}
+.seg button{border:0;background:transparent;padding:5px 11px;border-radius:7px;font-size:12px;font-weight:600;color:var(--text-3);cursor:pointer;font-family:inherit;white-space:nowrap}
+.seg button.on{background:var(--card-bg);color:var(--text);box-shadow:0 1px 2px rgba(28,36,48,.12)}
+.chip{display:inline-block;font-size:10.5px;font-weight:700;border-radius:5px;padding:1px 6px;background:var(--card-bg-alt);color:var(--text-3);border:1px solid var(--border);white-space:nowrap}
+.chip.red{background:var(--km-red-soft);color:var(--km-red);border-color:transparent}
+.chip.amber{background:var(--km-amber-soft);color:var(--km-warn);border-color:transparent}
+.chip.green{background:var(--km-green-soft);color:var(--km-green);border-color:transparent}
+.chip.teal{background:#E3EFEC;color:var(--km-teal-text);border-color:transparent}
+body[data-theme="dark"] .chip.teal{background:#1D3330}
+.kpis.k2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.kpis.k4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.kpis .s{font-size:10.5px;color:var(--text-4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kpis.wrap{grid-template-columns:repeat(3,minmax(0,1fr))}
+.kpis.wrap>div:nth-child(n+4){border-top:1px solid var(--border)}
+.kpis.wrap>div:nth-child(3n+1){border-left:none}
+.kpis>div.click{cursor:pointer}
+.kpis.wrap .v{font-size:14px}
+.kpis .v.teal{color:var(--km-teal-text)}.kpis .v.amber{color:var(--km-warn)}
+/* 다른 탭 안의 옛 그림자 카드 → 납작한 테두리 카드 */
+#tab-partners [style*="box-shadow:0 1px"],#tab-stats [style*="box-shadow:0 1px"],#tab-expenses [style*="box-shadow:0 1px"],#tab-builders [style*="box-shadow:0 1px"],#tab-orders [style*="box-shadow:0 1px"],#tab-vehicles [style*="box-shadow:0 1px"],#tab-letters [style*="box-shadow:0 1px"],#tab-calendar [style*="box-shadow:0 1px"],#tab-partners [style*="box-shadow:0 2px"],#tab-expenses [style*="box-shadow:0 2px"],#tab-builders [style*="box-shadow:0 2px"],#tab-orders [style*="box-shadow:0 2px"],#tab-vehicles [style*="box-shadow:0 2px"],#tab-calendar [style*="box-shadow:0 2px"]{box-shadow:none!important;border:1px solid var(--border)!important}
+#tab-builders .card,#tab-orders .card,#tab-vehicles .card,#tab-expenses .card,#tab-letters .card,#tab-calendar .card,#tab-stats .card,#tab-partners .card{box-shadow:none;border-radius:12px}
 body[data-active-tab="invoices"] .bbar,body:not([data-active-tab]) .bbar{display:none}
 body[data-active-tab="invoices"] .content,body:not([data-active-tab]) .content{padding-bottom:24px}
 .irow .idetail{padding:10px 0 0;border-top:1px dashed var(--border)}
@@ -1452,9 +1498,8 @@ body[data-active-tab="invoices"] .content,body:not([data-active-tab]) .content{p
     <h3 style="font-size:16px;font-weight:800">일괄 입금 등록</h3>
     <button onclick="closeBulkPay()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#9CA3AF">×</button>
   </div>
-  <div style="background:#EFF6FF;border:1px solid #BFDCD6;border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:#134845;line-height:1.5">
-    💡 빌더 이름·인보이스 번호·주소로 검색하면서 골라봐. 검색을 바꿔도 <strong>이전 선택은 유지</strong>됩니다.<br>
-    ☑️ 체크 = 전액 입금 · 옆 칸에 금액 입력 = 부분 입금 · 둘 다 비우면 건너뜀.
+  <div style="font-size:12px;color:#6B7280;margin:-4px 0 12px;line-height:1.5">
+    체크하면 전액 입금, 금액을 넣으면 부분 입금이에요. 검색을 바꿔도 고른 건 그대로 남아요.
   </div>
 
   <div style="display:grid;grid-template-columns:1fr 2fr;gap:8px;margin-bottom:10px">
@@ -1463,7 +1508,7 @@ body[data-active-tab="invoices"] .content,body:not([data-active-tab]) .content{p
       <input type="text" id="bp-date" placeholder="DD/MM/YYYY" maxlength="10" style="width:100%;padding:8px 10px;font-size:13px;border:1.5px solid #E5E7EB;border-radius:8px;box-sizing:border-box;font-family:inherit"/>
     </div>
     <div>
-      <label style="display:block;font-size:11px;font-weight:700;color:#6B7280;margin-bottom:4px">🔍 빌더/인보이스 검색</label>
+      <label style="display:block;font-size:11px;font-weight:700;color:#6B7280;margin-bottom:4px">빌더/인보이스 검색</label>
       <div style="position:relative">
         <input type="text" id="bp-search" placeholder="예: renas, hines, INV-1503, Mudgee..." oninput="filterBulkPayList(this.value)" style="width:100%;padding:8px 30px 8px 10px;font-size:13px;border:1.5px solid #E5E7EB;border-radius:8px;box-sizing:border-box;font-family:inherit"/>
         <button type="button" onclick="document.getElementById('bp-search').value='';filterBulkPayList('')" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;color:#9CA3AF;font-size:14px;cursor:pointer;padding:2px 6px" title="초기화">×</button>
@@ -1474,15 +1519,15 @@ body[data-active-tab="invoices"] .content,body:not([data-active-tab]) .content{p
   <!-- 선택 요약 chip 영역 -->
   <div id="bp-selected-chips" style="margin-bottom:8px;display:none"></div>
 
-  <div id="bp-list" style="max-height:48vh;overflow-y:auto;border:1px solid #E5E7EB;border-radius:8px"></div>
+  <div id="bp-list" style="max-height:48vh;overflow-y:auto;border:1px solid #E4E7E4;border-radius:12px"></div>
 
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;padding:10px 12px;background:#F9FAFB;border-radius:8px">
-    <div style="font-size:13px;color:#374151">
-      적용 예정 합계: <strong id="bp-sum-amt" style="color:#059669;font-size:15px">$0.00</strong> <span id="bp-sum-cnt" style="font-size:11px;color:#6B7280">(0건)</span>
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:12px;padding:10px 12px;border:1px solid #E4E7E4;border-radius:12px">
+    <div style="font-size:12px;color:#6B7280;min-width:0">
+      입금 합계 <span id="bp-sum-cnt" style="font-size:11px">(0건)</span><br><strong id="bp-sum-amt" style="color:#1C2430;font-size:16px">$0.00</strong>
     </div>
-    <div style="display:flex;gap:6px">
-      <button onclick="closeBulkPay()" style="background:#F3F4F6;color:#374151;border:none;padding:8px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">취소</button>
-      <button onclick="saveBulkPay()" style="background:#10B981;color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">💾 일괄 등록</button>
+    <div style="display:flex;gap:6px;flex-shrink:0">
+      <button class="kbtn" onclick="closeBulkPay()">취소</button>
+      <button class="kbtn pri" onclick="saveBulkPay()">일괄 등록</button>
     </div>
   </div>
 </div>
@@ -2627,8 +2672,8 @@ function renderLetters(){
   const coOpts = (companies||[]).map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');
   const typeOpts = Object.keys(LETTER_TEMPLATES).map(k=>`<option value="${k}" ${k===letterType?'selected':''}>${esc(LETTER_TEMPLATES[k].label)}</option>`).join('');
   document.getElementById('tab-letters').innerHTML = `
-    <div style="max-width:1120px;margin:0 auto;padding:8px">
-      <h2 style="font-size:18px;font-weight:800;margin:6px 0 14px">회사 레터</h2>
+    <div style="max-width:1120px;margin:0 auto">
+      <div class="pg-h"><div><h2>레터</h2><div class="sub">재직 확인서 등 회사 레터를 만들어 PDF로 저장</div></div></div>
       <div style="display:flex;gap:22px;flex-wrap:wrap;align-items:flex-start">
         <div style="flex:1;min-width:300px">
           <div class="mb"><label class="label">레터 종류</label><select class="select" id="letter-type" onchange="onLetterTypeChange(this.value)">${typeOpts}</select></div>
@@ -2637,8 +2682,8 @@ function renderLetters(){
             <div class="mb" style="flex:1"><label class="label">날짜</label><input type="date" class="input" id="letter-date" value="${today}" oninput="updateLetterPreview()"/></div>
           </div>
           <div id="letter-fields">${letterFieldsHtml()}</div>
-          <button class="btn-primary" style="width:100%;background:#10B981;margin-top:6px" onclick="printLetter()">🖨️ PDF / 인쇄</button>
-          <p style="font-size:11px;color:var(--text-4,#888);margin-top:8px;line-height:1.6">로고·주소·이메일·서명·서명자 이름/직책은 <b>⚙️ 회사 설정</b>에 등록된 값이 자동으로 들어가요. 인쇄창에서 "PDF로 저장"을 고르면 저장됩니다.</p>
+          <button class="btn-primary" style="width:100%;margin-top:6px" onclick="printLetter()">PDF / 인쇄</button>
+          <p style="font-size:11px;color:var(--text-4,#888);margin-top:8px;line-height:1.6">로고·주소·이메일·서명·서명자 이름/직책은 <b>회사 설정</b>에 등록된 값이 자동으로 들어가요. 인쇄창에서 "PDF로 저장"을 고르면 저장됩니다.</p>
         </div>
         <div style="flex:1;min-width:300px">
           <label class="label">미리보기</label>
@@ -6444,18 +6489,18 @@ function _renderAllBulkPay() {
   });
   const listEl = document.getElementById('bp-list');
   if (items.length === 0) {
-    listEl.innerHTML = '<div style="padding:24px;text-align:center;color:#9CA3AF;font-size:13px">미수금 인보이스가 없어요 🎉</div>';
+    listEl.innerHTML = '<div style="padding:24px;text-align:center;color:#9CA3AF;font-size:13px">미수금 인보이스가 없어요</div>';
     return;
   }
   const fAU = n => '$' + (Math.round((n||0)*100)/100).toLocaleString('en-AU',{minimumFractionDigits:2, maximumFractionDigits:2});
 
   let h = '<table style="width:100%;border-collapse:collapse;font-size:12px">';
-  h += `<thead style="background:#F9FAFB;position:sticky;top:0;z-index:2">
+  h += `<thead style="background:#F7F8F6;position:sticky;top:0;z-index:2;color:#6B7280;font-size:11px">
     <tr>
-      <th style="text-align:center;padding:6px 8px;border-bottom:1px solid #E5E7EB;width:40px">전액</th>
-      <th style="text-align:left;padding:6px 8px;border-bottom:1px solid #E5E7EB">인보이스</th>
-      <th style="text-align:right;padding:6px 8px;border-bottom:1px solid #E5E7EB">잔액</th>
-      <th style="text-align:right;padding:6px 8px;border-bottom:1px solid #E5E7EB;width:120px">부분 금액 ($)</th>
+      <th style="text-align:center;padding:6px 4px;border-bottom:1px solid #E4E7E4;width:34px;font-weight:600;white-space:nowrap">전액</th>
+      <th style="text-align:left;padding:6px 8px;border-bottom:1px solid #E4E7E4;font-weight:600">인보이스</th>
+      <th style="text-align:right;padding:6px 8px;border-bottom:1px solid #E4E7E4;font-weight:600">잔액</th>
+      <th style="text-align:right;padding:6px 8px;border-bottom:1px solid #E4E7E4;width:84px;font-weight:600">부분 입금</th>
     </tr>
   </thead><tbody>`;
 
@@ -6467,18 +6512,18 @@ function _renderAllBulkPay() {
       const cnt    = items.filter(x => x.builderName === lastBuilder).length;
       const sumRem = items.filter(x => x.builderName === lastBuilder).reduce((s,x)=>s+remaining(x),0);
       const bEsc   = esc(lastBuilder||'').replace(/"/g,'&quot;');
-      h += `<tr class="bp-group-row" data-builder="${bEsc}" data-search="${esc((lastBuilder||'').toLowerCase()).replace(/"/g,'&quot;')}" style="background:#EFF6FF">
-        <td colspan="4" style="padding:7px 10px;font-weight:800;color:#134845;font-size:12px">
+      h += `<tr class="bp-group-row" data-builder="${bEsc}" data-search="${esc((lastBuilder||'').toLowerCase()).replace(/"/g,'&quot;')}" style="background:#F7F8F6;border-top:1px solid #E4E7E4">
+        <td colspan="4" style="padding:8px 10px;font-weight:700;color:#1C2430;font-size:12.5px">
           <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
             <input type="checkbox" class="bp-group-cb" data-builder="${bEsc}" onchange="onBulkPayGroupCheck(this)"/>
-            🏗️ ${esc(lastBuilder)}
-            <span style="font-size:11px;font-weight:500;color:#6B7280;margin-left:auto">${cnt}건 · 잔액 합계 ${fAU(sumRem)}</span>
+            ${esc(lastBuilder)}
+            <span style="font-size:11px;font-weight:500;color:#6B7280;margin-left:auto;white-space:nowrap">${cnt}건 · 잔액 합계 ${fAU(sumRem)}</span>
           </label>
         </td>
       </tr>`;
     }
     const rem = remaining(i);
-    const projName = i.projectName ? `<span style="font-size:10px;color:#2A8C86">🏷 ${esc(i.projectName.slice(0,30))}</span>` : '';
+    const projName = i.projectName ? `<span style="font-size:10px;color:#1F6F6B">${esc(i.projectName.slice(0,30))}</span>` : '';
     const stPill = i.status === 'RETENTION' ? '<span style="background:#E3EFEC;color:#134845;font-size:9px;padding:1px 5px;border-radius:3px;margin-left:4px">RET</span>'
                  : i.status === 'ONGOING'   ? '<span style="background:#FEF3C7;color:#B45309;font-size:9px;padding:1px 5px;border-radius:3px;margin-left:4px">ON</span>'
                  : '';
@@ -6494,7 +6539,7 @@ function _renderAllBulkPay() {
         <div style="font-size:10px;color:#6B7280">${fD(i.invoiceDate)} · ${esc((i.address||'').slice(0,40))}</div>
         ${projName}
       </td>
-      <td style="text-align:right;padding:7px 8px;color:#DC2626;font-weight:700">${fAU(rem)}</td>
+      <td style="text-align:right;padding:7px 8px;color:#B4232C;font-weight:700;white-space:nowrap">${fAU(rem)}</td>
       <td style="text-align:right;padding:7px 8px">
         <input type="number" step="0.01" class="bp-amt" data-id="${i.id}" data-rem="${rem}" data-num="${esc(i.invoiceNum||'')}" placeholder="부분" style="width:100%;padding:5px 7px;font-size:11px;border:1px solid #E5E7EB;border-radius:6px;text-align:right;box-sizing:border-box" oninput="onBulkPayAmount(this)"/>
       </td>
@@ -6557,7 +6602,7 @@ function _renderSelectedChips() {
   sel.forEach(s => { (byBuilder[s.builder] = byBuilder[s.builder] || []).push(s); });
   let h = '<div style="background:#ECFDF5;border:1px solid #A7F3D0;border-radius:8px;padding:8px 10px;font-size:11px;color:#065F46"><strong>선택됨:</strong> ';
   Object.entries(byBuilder).forEach(([b, list]) => {
-    h += `<span style="display:inline-block;background:#fff;border:1px solid #A7F3D0;border-radius:12px;padding:2px 9px;margin:2px 4px 2px 0">🏗️ ${esc(b)} <strong>${list.length}건</strong></span>`;
+    h += `<span style="display:inline-block;background:#fff;border:1px solid #A7F3D0;border-radius:12px;padding:2px 9px;margin:2px 4px 2px 0">${esc(b)} <strong>${list.length}건</strong></span>`;
   });
   h += '</div>';
   chipsEl.innerHTML = h;
@@ -8536,42 +8581,47 @@ function renderBuilderTerms() {
   const rest = sorted.filter(b => !(b.claimDay || b.payTerm || b.contractNote));
   const row = b => {
     const avgPay = avgPaymentDays(b.name);
-    return `<div class="card" onclick="openBM('${b.id}')" style="cursor:pointer;padding:10px 12px">
-      <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline;flex-wrap:wrap">
-        <div style="font-size:14px;font-weight:700;color:#111827">${esc(b.name)}</div>
-        ${avgPay?`<div style="font-size:11px;color:#6B7280">⏱️ 실제 평균 ${avgPay.avg}일</div>`:''}
+    return `<div class="lrow click" onclick="openBM('${b.id}')" style="align-items:flex-start">
+      <div class="main">
+        <div class="nm">${esc(b.name)}</div>
+        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:4px">
+          <span class="chip ${b.claimDay?'teal':''}">청구 ${b.claimDay?esc(CLAIM_DAYS[b.claimDay]||b.claimDay):'미정'}</span>
+          <span class="chip ${b.payTerm?'green':''}">입금 ${b.payTerm?esc(PAY_TERMS[b.payTerm]||b.payTerm):'미정'}</span>
+        </div>
+        ${b.contractNote?`<div style="font-size:12px;color:var(--text-3);margin-top:5px;line-height:1.45;white-space:normal">${esc(b.contractNote)}</div>`:''}
       </div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;font-size:12px">
-        <span style="background:#E3EFEC;color:#134845;border-radius:6px;padding:2px 7px">📤 청구 ${b.claimDay?esc(CLAIM_DAYS[b.claimDay]||b.claimDay):'미정'}</span>
-        <span style="background:${b.payTerm?'#ECFDF5':'#F3F4F6'};color:${b.payTerm?'#065F46':'#6B7280'};border-radius:6px;padding:2px 7px">💰 입금 ${b.payTerm?esc(PAY_TERMS[b.payTerm]||b.payTerm):'미정'}</span>
-      </div>
-      ${b.contractNote?`<div style="font-size:11px;color:#6B7280;margin-top:5px;line-height:1.45">${esc(b.contractNote)}</div>`:''}
+      ${avgPay?`<div class="amt" style="font-weight:500;font-size:12px;color:var(--text-3)">실제 평균<br><b style="color:var(--text);font-size:14px">${avgPay.avg}일</b></div>`:''}
     </div>`;
   };
-  let h = `<div style="font-size:12px;color:#6B7280;margin-bottom:8px">계약서 기준 청구 마감일·입금 기한 (${withT.length}곳). 누르면 수정할 수 있어요.</div>`;
-  h += withT.map(row).join('') || '<div class="empty"><p>아직 입력된 조건이 없어요</p></div>';
-  if (rest.length) h += `<details style="margin-top:10px"><summary style="cursor:pointer;font-size:12px;color:#6B7280">조건 미입력 빌더 ${rest.length}곳</summary>${rest.map(row).join('')}</details>`;
+  let h = `<div class="sec"><div class="sec-h"><div class="t">계약 기준 입금 조건<span class="m">${withT.length}곳 · 누르면 수정</span></div></div>`;
+  h += withT.map(row).join('') || '<div class="sec-b" style="color:var(--text-4)">아직 입력된 조건이 없어요</div>';
+  h += '</div>';
+  if (rest.length) h += `<details class="sec"><summary style="cursor:pointer;font-size:12.5px;color:var(--text-3);padding:10px 14px">조건 미입력 빌더 ${rest.length}곳</summary>${rest.map(row).join('')}</details>`;
   return h;
 }
 function renderBuilders() {
-  let h = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:8px;flex-wrap:wrap">
-    <div style="font-size:15px;font-weight:800;color:#111827">빌더 목록 (${builders.length})</div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap">
-      <button class="${_bldTermsView?'btn-gold':'btn-secondary'}" style="padding:6px 10px;font-size:12px" onclick="toggleBldTerms()" title="빌더별 청구일·입금 기한 한눈에 보기">📅 입금 조건</button>
-      <button class="btn-secondary" style="padding:6px 10px;font-size:12px" onclick="dedupeBuilders()" title="같은 이름의 빌더 중복 제거">🧹 중복정리</button>
-      <button class="btn-secondary" style="padding:6px 10px;font-size:12px" onclick="importBuilders()" title="K&M 빌더 60개 일괄 가져오기">📥 가져오기</button>
-      <button class="btn-gold" onclick="openBM(null)">+ 빌더추가</button>
+  let h = `<div class="pg-h">
+    <div><h2>빌더</h2><div class="sub">${builders.length}곳 · 누르면 정보 수정</div></div>
+    <div class="acts">
+      <button class="kbtn" onclick="dedupeBuilders()" title="같은 이름의 빌더 중복 제거">중복정리</button>
+      <button class="kbtn" onclick="importBuilders()" title="K&M 빌더 60개 일괄 가져오기">가져오기</button>
+      <button class="kbtn pri" onclick="openBM(null)">+ 빌더</button>
     </div>
+  </div>
+  <div class="seg" style="margin-bottom:12px">
+    <button class="${_bldTermsView?'':'on'}" onclick="if(_bldTermsView)toggleBldTerms()">목록</button>
+    <button class="${_bldTermsView?'on':''}" onclick="if(!_bldTermsView)toggleBldTerms()" title="빌더별 청구일·입금 기한 한눈에 보기">입금 조건</button>
   </div>`;
   if (_bldTermsView && builders.length) {
     h += renderBuilderTerms();
   } else if (!builders.length) {
-    h += `<div class="empty"><div style="font-size:44px;margin-bottom:10px">🏗️</div><p style="font-size:14px;margin-bottom:14px">빌더를 추가해보세요</p>
-      <button class="btn-primary" style="padding:10px 18px" onclick="importBuilders()">📥 K&M 빌더 60개 가져오기</button>
+    h += `<div class="empty"><p style="font-size:14px;margin-bottom:14px">빌더를 추가해보세요</p>
+      <button class="btn-primary" style="padding:10px 18px" onclick="importBuilders()">K&M 빌더 60개 가져오기</button>
     </div>`;
   } else {
     // sort alphabetically
     const sorted = [...builders].sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+    h += '<div class="sec">';
     sorted.forEach(b => {
       const bi = invoices.filter(i=>i.builderName===b.name);
       const out = bi.filter(i=>i.status==='INVOICE'||i.status==='ONGOING').reduce((s,i)=>s+Math.max(0,remaining(i)),0);
@@ -8579,22 +8629,20 @@ function renderBuilders() {
       const co = companies.find(c=>c.id===b.defaultCompany);
       const billLabel = b.billingType==='MONTHLY' ? '월별' : '건별';
       const avgPay = avgPaymentDays(b.name);
-      // 평균 결제일수: 빠르면 초록, 보통이면 회색, 느리면 주황
-      const avgColor = avgPay ? (avgPay.avg <= 21 ? '#059669' : avgPay.avg <= 45 ? '#6B7280' : '#C2410C') : '#9CA3AF';
-      h += `<div class="card" onclick="openBM('${b.id}')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
-        <div style="min-width:0;flex:1">
-          <div style="font-size:14px;font-weight:700;color:#111827;margin-bottom:2px">${esc(b.name)}<span class="bill-badge bill-${b.billingType||'PER_JOB'}">${billLabel}</span>${co?` <span class="co-badge ${co.id==='co2'?'co2':''}">${esc(co.prefix.replace('-',''))}</span>`:''}</div>
-          ${b.contactPerson?`<div style="font-size:12px;color:#6B7280">👤 ${esc(b.contactPerson)}</div>`:''}
-          ${emailToShow?`<div style="font-size:11px;color:#9CA3AF;margin-top:2px;word-break:break-all">📧 <span onclick="event.stopPropagation();copyEmail('${esc(emailToShow)}', this)" style="color:#1F6F6B;cursor:pointer;text-decoration:underline" title="클릭하면 복사됨">${esc(emailToShow)}</span></div>`:''}
-          ${b.contact?`<div style="font-size:11px;color:#9CA3AF">📞 <a href="tel:${esc(b.contact.replace(/\s/g,''))}" onclick="event.stopPropagation()" style="color:#1F6F6B;text-decoration:none">${esc(b.contact)}</a></div>`:''}
-          ${avgPay ? `<div style="font-size:11px;color:${avgColor};margin-top:3px;font-weight:600" title="PAID 상태 ${avgPay.n}건의 청구일→마지막 입금일 평균">⏱️ 평균 ${avgPay.avg}일 후 입금 <span style="color:#9CA3AF;font-weight:400">(${avgPay.n}건)</span></div>` : ''}
+      // 평균 결제일수: 빠르면 초록, 보통이면 회색, 느리면 빨강
+      const avgCls = avgPay ? (avgPay.avg <= 21 ? 'green' : avgPay.avg <= 45 ? '' : 'red') : '';
+      const meta = [b.contactPerson ? esc(b.contactPerson) : '',
+        b.contact ? `<a href="tel:${esc(b.contact.replace(/\s/g,''))}" onclick="event.stopPropagation()" style="color:inherit">${esc(b.contact)}</a>` : ''].filter(Boolean).join(' · ');
+      h += `<div class="lrow click" onclick="openBM('${b.id}')" style="align-items:flex-start">
+        <div class="main">
+          <div class="nm">${esc(b.name)} <span class="chip">${billLabel}</span>${co?` <span class="chip teal">${esc(co.prefix.replace('-',''))}</span>`:''}</div>
+          ${meta?`<div class="sub">${meta}</div>`:''}
+          ${emailToShow?`<div class="sub"><span onclick="event.stopPropagation();copyEmail('${esc(emailToShow)}', this)" style="color:var(--km-teal-text);cursor:pointer" title="누르면 복사">${esc(emailToShow)}</span></div>`:''}
         </div>
-        <div style="text-align:right;flex-shrink:0">
-          <div style="font-size:13px;font-weight:700;color:${out>0?'#DC2626':'#059669'}">${out>0?fA(out):'✅ 완납'}</div>
-          <div style="font-size:11px;color:#9CA3AF">${bi.length}건</div>
-        </div>
+        <div class="amt ${out>0?'red':'green'}">${out>0?fA(out):'완납'}<small>${bi.length}건${avgPay?` · <span class="${avgCls}" style="${avgCls==='red'?'color:var(--km-red)':avgCls==='green'?'color:var(--km-green)':''}" title="PAID ${avgPay.n}건 평균">평균 ${avgPay.avg}일</span>`:''}</small></div>
       </div>`;
     });
+    h += '</div>';
   }
   document.getElementById('tab-builders').innerHTML = h;
 }
@@ -9349,68 +9397,33 @@ function _renderPartnersSync() {
     const cashDiff = cashKyle - cashMax;  // 양수면 Kyle이 더 가져감 → Max가 받아야
 
     el.innerHTML = `
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:8px;flex-wrap:wrap">
-        <h2 style="margin:0;font-size:18px;font-weight:800;color:var(--text)">운영자 정산 (Kyle / Max)</h2>
-        <div style="display:flex;gap:6px;flex-wrap:wrap">
-          <button class="btn-secondary" style="padding:8px 12px;font-size:12px" onclick="openPartnerModal(null,'spend')" title="개인 결제 추가">+ 개인결제</button>
-          <button class="btn-secondary" style="padding:8px 12px;font-size:12px;background:#FEF3C7;color:#92400E;border-color:#FDE68A" onclick="openPartnerModal(null,'cash')" title="캐시 인출 추가">+ 캐시 인출</button>
+      <div class="pg-h">
+        <div><h2>운영자 정산</h2><div class="sub">Kyle · Max 개인사용과 캐시 인출</div></div>
+        <div class="acts">
+          <button class="kbtn" onclick="openPartnerModal(null,'spend')" title="개인 결제 추가">+ 개인결제</button>
+          <button class="kbtn" onclick="openPartnerModal(null,'cash')" title="캐시 인출 추가">+ 캐시 인출</button>
         </div>
       </div>
 
-      <!-- 통합 정산 패널 (개인사용 + 캐시 한 컴팩트 카드) -->
-      <div style="background:var(--card-bg);border-radius:12px;padding:14px;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,0.05)">
-        <!-- 개인사용 행 -->
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-          <span style="font-size:11px;font-weight:700;color:#185A57">📊 개인사용</span>
-          <span style="font-size:9px;color:var(--text-4)">기간별 차액</span>
+      <!-- 개인사용 / 캐시 요약 -->
+      <div class="sec">
+        <div class="sec-h"><div class="t">개인사용<span class="m">기간별 차액 누적</span></div></div>
+        <div class="kpis" style="border:none;border-radius:0;margin:0">
+          <div><div class="l">Kyle 사용</div><div class="v">${fA(spentKyle)}</div><div class="s">${allSpends.filter(e=>e.person==='kyle').length}건</div></div>
+          <div><div class="l">Max 사용</div><div class="v">${fA(spentMax)}</div><div class="s">${allSpends.filter(e=>e.person==='max').length}건</div></div>
+          ${Math.abs(finalDiff)<0.01
+            ? `<div><div class="l">정산</div><div class="v green">완료</div></div>`
+            : `<div><div class="l">${finalDiff>0?'Kyle':'Max'}가 받을 돈</div><div class="v green">${fA(Math.abs(finalDiff))}</div></div>`}
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:12px">
-          <div style="background:#E3EFEC;border-radius:10px;padding:10px 6px;text-align:center;min-width:0">
-            <div style="font-size:9px;color:#185A57;font-weight:700;letter-spacing:0.3px">KYLE 사용</div>
-            <div style="font-size:14px;font-weight:800;color:#1E3A8A;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${fA(spentKyle)}</div>
-            <div style="font-size:9px;color:#6B7280;margin-top:1px">${allSpends.filter(e=>e.person==='kyle').length}건</div>
-          </div>
-          <div style="background:#FEF3C7;border-radius:10px;padding:10px 6px;text-align:center;min-width:0">
-            <div style="font-size:9px;color:#92400E;font-weight:700;letter-spacing:0.3px">MAX 사용</div>
-            <div style="font-size:14px;font-weight:800;color:#7C2D12;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${fA(spentMax)}</div>
-            <div style="font-size:9px;color:#6B7280;margin-top:1px">${allSpends.filter(e=>e.person==='max').length}건</div>
-          </div>
-          <div style="background:${Math.abs(finalDiff)<0.01?'#F0FDF4':'#ECFDF5'};border:1.5px solid ${Math.abs(finalDiff)<0.01?'#86EFAC':'#34D399'};border-radius:10px;padding:8px 6px;text-align:center;min-width:0">
-            ${Math.abs(finalDiff)<0.01
-              ? `<div style="font-size:9px;color:#166534;font-weight:700">정산</div>
-                 <div style="font-size:14px;font-weight:800;color:#166534;margin-top:3px">✅ 완료</div>`
-              : `<div style="font-size:8.5px;color:#047857;font-weight:700">받을 사람</div>
-                 <div style="font-size:14px;font-weight:900;color:#065F46;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${finalDiff>0?'🟦 Kyle':'🟧 Max'}</div>
-                 <div style="font-size:12px;font-weight:800;color:#047857;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${fA(Math.abs(finalDiff))}</div>
-                 <div style="font-size:8px;color:#059669;font-weight:600">받아야 함</div>`}
-          </div>
-        </div>
-
-        <!-- 캐시 행 (분리선 위) -->
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;padding-top:10px;border-top:1px dashed var(--border-2)">
-          <span style="font-size:11px;font-weight:700;color:#92400E">💵 캐시 인출</span>
-          <span style="font-size:9px;color:var(--text-4)">별도 정산</span>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
-          <div style="background:#EFF6FF;border-radius:10px;padding:10px 6px;text-align:center;min-width:0">
-            <div style="font-size:9px;color:#1E40AF;font-weight:700;letter-spacing:0.3px">KYLE 인출</div>
-            <div style="font-size:14px;font-weight:800;color:#1E3A8A;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${fA(cashKyle)}</div>
-            <div style="font-size:9px;color:#6B7280;margin-top:1px">${cashes.filter(e=>e.person==='kyle').length}건</div>
-          </div>
-          <div style="background:#FFFBEB;border-radius:10px;padding:10px 6px;text-align:center;min-width:0">
-            <div style="font-size:9px;color:#9A3412;font-weight:700;letter-spacing:0.3px">MAX 인출</div>
-            <div style="font-size:14px;font-weight:800;color:#7C2D12;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${fA(cashMax)}</div>
-            <div style="font-size:9px;color:#6B7280;margin-top:1px">${cashes.filter(e=>e.person==='max').length}건</div>
-          </div>
-          <div style="background:${Math.abs(cashDiff)<0.01?'#F0FDF4':'#ECFDF5'};border:1.5px solid ${Math.abs(cashDiff)<0.01?'#86EFAC':'#34D399'};border-radius:10px;padding:8px 6px;text-align:center;min-width:0">
-            ${Math.abs(cashDiff)<0.01
-              ? `<div style="font-size:9px;color:#166534;font-weight:700">정산</div>
-                 <div style="font-size:14px;font-weight:800;color:#166534;margin-top:3px">✅ 완료</div>`
-              : `<div style="font-size:8.5px;color:#047857;font-weight:700">받을 사람</div>
-                 <div style="font-size:14px;font-weight:900;color:#065F46;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cashDiff>0?'🟧 Max':'🟦 Kyle'}</div>
-                 <div style="font-size:12px;font-weight:800;color:#047857;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${fA(Math.abs(cashDiff))}</div>
-                 <div style="font-size:8px;color:#059669;font-weight:600">받아야 함</div>`}
-          </div>
+      </div>
+      <div class="sec">
+        <div class="sec-h"><div class="t">캐시 인출<span class="m">별도 정산</span></div></div>
+        <div class="kpis" style="border:none;border-radius:0;margin:0">
+          <div><div class="l">Kyle 인출</div><div class="v">${fA(cashKyle)}</div><div class="s">${cashes.filter(e=>e.person==='kyle').length}건</div></div>
+          <div><div class="l">Max 인출</div><div class="v">${fA(cashMax)}</div><div class="s">${cashes.filter(e=>e.person==='max').length}건</div></div>
+          ${Math.abs(cashDiff)<0.01
+            ? `<div><div class="l">정산</div><div class="v green">완료</div></div>`
+            : `<div><div class="l">${cashDiff>0?'Max':'Kyle'}가 받을 돈</div><div class="v green">${fA(Math.abs(cashDiff))}</div></div>`}
         </div>
       </div>
 
@@ -9418,48 +9431,42 @@ function _renderPartnersSync() {
       <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px">
         <input id="partner-search-input" type="text" class="input"
           value="${esc(_partnerSearch)}"
-          placeholder="🔍 노트 / 날짜 (예: 점심, 03/04/2026, 2026-04)"
+          placeholder="노트 / 날짜 검색 (예: 점심, 03/04/2026)"
           style="flex:1;font-size:13px;padding:8px 12px"
           oncompositionstart="this.dataset.composing='1'"
           oncompositionend="this.dataset.composing='';_partnerSearchImmediate(this.value)"
           oninput="if(this.dataset.composing!=='1')_partnerSearchInput(this.value)"
         />
-        ${_partnerSearch ? `<button onclick="_partnerSearchImmediate('')" style="background:#F3F4F6;color:#374151;border:1px solid #E5E7EB;border-radius:8px;padding:7px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">✕ 해제</button>` : ''}
+        ${_partnerSearch ? `<button class="kbtn" onclick="_partnerSearchImmediate('')">해제</button>` : ''}
       </div>
-      <div style="margin-bottom:14px;padding:8px;background:var(--card-bg-alt);border-radius:8px;display:flex;flex-direction:column;gap:6px">
-        <!-- 종류 토글 행: 개인사용 ↔ 캐시 인출 -->
-        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-          <span style="font-size:11px;font-weight:700;color:var(--text-3);min-width:36px">종류</span>
-          <button onclick="_partnerSection='spend';renderPartners()" style="flex:1;min-width:120px;background:${_partnerSection==='spend'?'#185A57':'#fff'};color:${_partnerSection==='spend'?'#fff':'#185A57'};border:1px solid #185A57;padding:6px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">📊 개인사용 (${allSpends.length})</button>
-          <button onclick="_partnerSection='cash';renderPartners()" style="flex:1;min-width:120px;background:${_partnerSection==='cash'?'#92400E':'#fff'};color:${_partnerSection==='cash'?'#fff':'#92400E'};border:1px solid #92400E;padding:6px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">💵 캐시 인출 (${allCashes.length})</button>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+        <div class="seg">
+          <button class="${_partnerSection==='spend'?'on':''}" onclick="_partnerSection='spend';renderPartners()">개인사용 ${allSpends.length}</button>
+          <button class="${_partnerSection==='cash'?'on':''}" onclick="_partnerSection='cash';renderPartners()">캐시 ${allCashes.length}</button>
         </div>
-        <!-- 사람 필터 행 -->
-        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-          <span style="font-size:11px;font-weight:700;color:var(--text-3);min-width:36px">사람</span>
-          <button onclick="_partnerFilter='all';renderPartners()" style="flex:1;min-width:60px;background:${_partnerFilter==='all'?'#1F6F6B':'#fff'};color:${_partnerFilter==='all'?'#fff':'#1F6F6B'};border:1px solid #1F6F6B;padding:6px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">전체</button>
-          <button onclick="_partnerFilter='kyle';renderPartners()" style="flex:1;min-width:60px;background:${_partnerFilter==='kyle'?'#1E3A8A':'#fff'};color:${_partnerFilter==='kyle'?'#fff':'#1E3A8A'};border:1px solid #1E3A8A;padding:6px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">🟦 Kyle</button>
-          <button onclick="_partnerFilter='max';renderPartners()" style="flex:1;min-width:60px;background:${_partnerFilter==='max'?'#7C2D12':'#fff'};color:${_partnerFilter==='max'?'#fff':'#7C2D12'};border:1px solid #7C2D12;padding:6px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">🟧 Max</button>
+        <div class="seg">
+          <button class="${_partnerFilter==='all'?'on':''}" onclick="_partnerFilter='all';renderPartners()">전체</button>
+          <button class="${_partnerFilter==='kyle'?'on':''}" onclick="_partnerFilter='kyle';renderPartners()">Kyle</button>
+          <button class="${_partnerFilter==='max'?'on':''}" onclick="_partnerFilter='max';renderPartners()">Max</button>
         </div>
-        <!-- 뷰 토글 행 — 개인사용일 때만 (캐시는 단일 리스트) -->
         ${_partnerSection==='spend' ? `
-        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-          <span style="font-size:11px;font-weight:700;color:var(--text-3);min-width:36px">뷰</span>
-          <button onclick="_partnerView='period';renderPartners()" style="flex:1;min-width:100px;background:${_partnerView==='period'?'#1F6F6B':'#fff'};color:${_partnerView==='period'?'#fff':'#1F6F6B'};border:1px solid #1F6F6B;padding:6px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">📊 기간별</button>
-          <button onclick="_partnerView='raw';renderPartners()" style="flex:1;min-width:100px;background:${_partnerView==='raw'?'#1F6F6B':'#fff'};color:${_partnerView==='raw'?'#fff':'#1F6F6B'};border:1px solid #1F6F6B;padding:6px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">📋 전체 목록</button>
+        <div class="seg">
+          <button class="${_partnerView==='period'?'on':''}" onclick="_partnerView='period';renderPartners()">기간별</button>
+          <button class="${_partnerView==='raw'?'on':''}" onclick="_partnerView='raw';renderPartners()">전체 목록</button>
         </div>` : ''}
       </div>
 
       <!-- 임시저장 섹션 — 정보 미완성 (날짜 or 금액 누락) entries. 집계 제외 -->
       ${visibleDrafts.length > 0 ? `
-      <div style="background:#FFFBEB;border:1px dashed #FCD34D;border-radius:12px;padding:12px;margin-bottom:14px">
-        <div style="font-size:12px;font-weight:700;color:#92400E;margin-bottom:8px">📝 임시저장 (${visibleDrafts.length}건) <span style="font-size:10px;color:#A78B4B;font-weight:400">— 정보가 부족해서 집계에서 제외됨. 클릭해서 보완하세요</span></div>
+      <div class="sec" style="border-style:dashed">
+        <div class="sec-h"><div class="t">임시저장 ${visibleDrafts.length}건<span class="m">정보가 부족해 집계에서 빠짐 · 눌러서 보완</span></div></div>
         ${_renderPartnerDraftTable(visibleDrafts)}
       </div>` : ''}
 
       <!-- 메인 영역 — 종류 토글에 따라 분기 -->
       ${_partnerSection === 'cash'
-        ? `<div style="background:var(--card-bg);border-radius:12px;padding:8px;box-shadow:0 1px 4px rgba(0,0,0,0.05)">
-            <div style="padding:6px 10px;font-size:13px;font-weight:700;color:#92400E">💵 캐시 인출 내역 (${_filterByPerson(cashes).length}건)</div>
+        ? `<div class="sec">
+            <div class="sec-h"><div class="t">캐시 인출 내역<span class="m">${_filterByPerson(cashes).length}건</span></div></div>
             ${_renderPartnerCashTable(_filterByPerson(cashes))}
           </div>`
         : (_partnerView === 'period' ? _renderPartnerPeriodTable(periodMap) : _renderPartnerRawList(spends))
@@ -9474,133 +9481,76 @@ function _togglePartnerPeriod(ps) {
   renderPartners();
 }
 
+function _pPersonChip(p) {
+  return p === 'kyle' ? '<span class="chip teal">Kyle</span>' : '<span class="chip amber">Max</span>';
+}
+// 개인결제 / 캐시 한 줄 (노트 · 날짜 · 사람 · 금액 · 수정/삭제)
+function _pEntryRow(e, type, opts) {
+  const o = opts || {};
+  const dateStr = e.date ? _pFD(e.date) : '<span style="color:var(--km-red);font-weight:600">날짜 미정</span>';
+  const hasAmt = e.amount && parseFloat(e.amount) !== 0;
+  return `<div class="lrow"${o.bg?` style="background:${o.bg}"`:''}>
+    <div class="main">
+      <div class="nm" style="font-weight:500;font-size:13px">${esc(e.note||'') || '<span style="color:var(--text-4)">노트 없음</span>'}</div>
+      <div class="sub">${_pPersonChip(e.person)} ${dateStr}${o.showType?` · ${e.type==='cash'?'캐시':'개인결제'}`:''}</div>
+    </div>
+    <div class="amt">${hasAmt ? fA(e.amount) : '<span style="color:var(--km-red)">금액 미정</span>'}</div>
+    <button class="kbtn sm" onclick="event.stopPropagation();openPartnerModal('${e.id}','${type||e.type}')" title="수정">수정</button>
+    <button onclick="event.stopPropagation();deletePartnerEntry('${e.id}')" style="background:none;border:none;cursor:pointer;font-size:16px;padding:2px 4px;color:var(--text-4)" title="삭제">×</button>
+  </div>`;
+}
+
 function _renderPartnerPeriodTable(periodMap) {
   const sortedKeys = Object.keys(periodMap).sort((a,b) => b.localeCompare(a));
   if (sortedKeys.length === 0) {
-    return `<div style="text-align:center;padding:40px;color:var(--text-4);font-size:13px;background:var(--card-bg);border-radius:12px">📋 기록이 없어요. 위 버튼으로 추가하세요.</div>`;
+    return `<div class="sec"><div class="sec-b" style="text-align:center;color:var(--text-4);padding:32px">기록이 없어요. 위 버튼으로 추가하세요.</div></div>`;
   }
   let rowsHTML = '';
   for (const ps of sortedKeys) {
     const p = periodMap[ps];
     const pe = _periodEndOf(ps);
     const diff = p.max - p.kyle;
-    const receiver = diff > 0 ? 'Kyle' : (diff < 0 ? 'Max' : '-');
-    const receiverColor = diff > 0 ? '#1E3A8A' : (diff < 0 ? '#7C2D12' : 'var(--text-4)');
+    const receiver = diff > 0 ? 'Kyle' : (diff < 0 ? 'Max' : '');
     // 검색 활성 시 매칭된 기간은 자동 펼침
     const isExpanded = _expandedPeriods.has(ps) || !!_partnerSearch;
     const visible = _filterBySearch(_filterByPerson(p.entries));
     // 필터(사람 or 검색) 적용 시 해당 entries 없으면 행 숨김
     if ((_partnerFilter !== 'all' || _partnerSearch) && visible.length === 0) continue;
     rowsHTML += `
-      <tr style="border-bottom:1px solid var(--border-2);cursor:pointer" onclick="_togglePartnerPeriod('${ps}')">
-        <td style="padding:7px 8px;color:var(--text-2);white-space:nowrap;font-weight:600;position:sticky;left:0;background:var(--card-bg);z-index:1;box-shadow:1px 0 0 var(--border-2)">${_pFD(ps)} ~ ${_pFD(pe)}</td>
-        <td style="padding:7px 8px;text-align:right;color:${p.kyle!==0?'#1E3A8A':'var(--text-4)'};font-variant-numeric:tabular-nums">${p.kyle!==0?fA(p.kyle):'—'}</td>
-        <td style="padding:7px 8px;text-align:right;color:${p.max!==0?'#7C2D12':'var(--text-4)'};font-variant-numeric:tabular-nums">${p.max!==0?fA(p.max):'—'}</td>
-        <td style="padding:7px 8px;text-align:right;font-weight:700;color:${receiverColor};font-variant-numeric:tabular-nums">${diff!==0?fA(Math.abs(diff)):'—'}</td>
-        <td style="padding:7px 8px;font-weight:700;color:${receiverColor};white-space:nowrap">${receiver==='-'?'-':'👈 '+receiver}</td>
-        <td style="padding:7px 8px;text-align:center;color:var(--text-3);font-size:11px">${visible.length}건</td>
-        <td style="padding:7px 8px;text-align:center;color:var(--text-3);font-size:14px">${isExpanded?'▼':'▶'}</td>
-      </tr>`;
+      <div class="lrow click" onclick="_togglePartnerPeriod('${ps}')">
+        <div class="main">
+          <div class="nm">${_pFD(ps)} ~ ${_pFD(pe)}</div>
+          <div class="sub">Kyle ${p.kyle!==0?fA(p.kyle):'—'} · Max ${p.max!==0?fA(p.max):'—'} · ${visible.length}건</div>
+        </div>
+        <div class="amt">${diff!==0?fA(Math.abs(diff)):'—'}<small>${receiver?receiver+' 받음':'같음'}</small></div>
+        <span style="color:var(--text-4);font-size:11px;width:12px;text-align:center">${isExpanded?'▾':'▸'}</span>
+      </div>`;
     if (isExpanded) {
-      rowsHTML += `<tr><td colspan="7" style="padding:0;background:#FAFAFA"><div style="padding:8px 16px">${_renderEntriesInPeriod(visible)}</div></td></tr>`;
+      rowsHTML += _renderEntriesInPeriod(visible);
     }
   }
-  const emptyRow = !rowsHTML
-    ? `<tr><td colspan="7" style="padding:32px;text-align:center;color:var(--text-4);font-size:13px">🔍 검색 결과 없음 ${_partnerSearch?`(검색어: "${esc(_partnerSearch)}")`:''}</td></tr>`
-    : '';
-  // 기간 컬럼은 sticky left — 가로 스크롤 해도 항상 보임
-  const _stickyTh = 'position:sticky;left:0;background:var(--card-bg-alt);z-index:2;box-shadow:1px 0 0 var(--border-2)';
-  return `
-    <div style="background:var(--card-bg);border-radius:12px;padding:8px;box-shadow:0 1px 4px rgba(0,0,0,0.05);overflow-x:auto">
-      <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:680px">
-        <thead>
-          <tr style="text-align:left">
-            <th style="padding:8px;border-bottom:1px solid var(--border);font-weight:700;${_stickyTh}">기간</th>
-            <th style="padding:8px;border-bottom:1px solid var(--border);font-weight:700;text-align:right;color:#1E3A8A;background:var(--card-bg-alt)">Kyle 사용</th>
-            <th style="padding:8px;border-bottom:1px solid var(--border);font-weight:700;text-align:right;color:#7C2D12;background:var(--card-bg-alt)">Max 사용</th>
-            <th style="padding:8px;border-bottom:1px solid var(--border);font-weight:700;text-align:right;background:var(--card-bg-alt)">차액</th>
-            <th style="padding:8px;border-bottom:1px solid var(--border);font-weight:700;background:var(--card-bg-alt)">받을 사람</th>
-            <th style="padding:8px;border-bottom:1px solid var(--border);font-weight:700;text-align:center;width:60px;background:var(--card-bg-alt)">건수</th>
-            <th style="padding:8px;border-bottom:1px solid var(--border);width:40px;background:var(--card-bg-alt)"></th>
-          </tr>
-        </thead>
-        <tbody>${rowsHTML}${emptyRow}</tbody>
-      </table>
-    </div>
-  `;
+  if (!rowsHTML) rowsHTML = `<div class="sec-b" style="text-align:center;color:var(--text-4);padding:28px">검색 결과 없음 ${_partnerSearch?`("${esc(_partnerSearch)}")`:''}</div>`;
+  return `<div class="sec">
+    <div class="sec-h"><div class="t">기간별<span class="m">2주 단위 · 눌러서 내역 보기</span></div></div>
+    ${rowsHTML}
+  </div>`;
 }
 
 function _renderEntriesInPeriod(entries) {
-  if (!entries.length) return '<p style="color:var(--text-4);font-size:11px;padding:6px;margin:0">기록 없음</p>';
+  if (!entries.length) return '<div class="lrow" style="background:var(--card-bg-alt);color:var(--text-4);font-size:12px">기록 없음</div>';
   const sorted = [...entries].sort((a,b) => (a.date||'').localeCompare(b.date||''));
-  return `
-    <table style="width:100%;border-collapse:collapse;font-size:11px">
-      <thead>
-        <tr style="text-align:left;color:var(--text-3)">
-          <th style="padding:4px 6px;font-weight:700">날짜</th>
-          <th style="padding:4px 6px;font-weight:700">사람</th>
-          <th style="padding:4px 6px;text-align:right;font-weight:700">금액</th>
-          <th style="padding:4px 6px;font-weight:700">노트</th>
-          <th style="padding:4px 6px;width:50px"></th>
-        </tr>
-      </thead>
-      <tbody>
-        ${sorted.map(e => {
-          const isKyle = e.person === 'kyle';
-          return `<tr style="border-top:1px solid #EEE">
-            <td style="padding:4px 6px;color:var(--text-2);white-space:nowrap">${e.date ? _pFD(e.date) : ''}</td>
-            <td style="padding:4px 6px;color:${isKyle?'#1E3A8A':'#7C2D12'};font-weight:700">${isKyle?'Kyle':'Max'}</td>
-            <td style="padding:4px 6px;text-align:right;color:${isKyle?'#1E3A8A':'#7C2D12'};font-variant-numeric:tabular-nums">${fA(e.amount)}</td>
-            <td style="padding:4px 6px;color:var(--text-2);font-size:10px">${esc(e.note||'')}</td>
-            <td style="padding:4px 6px;text-align:right;white-space:nowrap">
-              <button onclick="event.stopPropagation();openPartnerModal('${e.id}','spend')" style="background:none;border:none;cursor:pointer;font-size:12px;padding:1px 3px" title="수정">✏️</button>
-              <button onclick="event.stopPropagation();deletePartnerEntry('${e.id}')" style="background:none;border:none;cursor:pointer;font-size:12px;padding:1px 3px;color:#EF4444" title="삭제">🗑</button>
-            </td>
-          </tr>`;
-        }).join('')}
-      </tbody>
-    </table>
-  `;
+  return sorted.map(e => _pEntryRow(e, 'spend', {bg:'var(--card-bg-alt)'})).join('');
 }
 
 function _renderPartnerRawList(spends) {
   const filtered = _filterByPerson(spends).sort((a,b) => (b.date||'').localeCompare(a.date||''));
   if (!filtered.length) {
-    return `<div style="text-align:center;padding:40px;color:var(--text-4);font-size:13px;background:var(--card-bg);border-radius:12px">📋 기록이 없어요.</div>`;
+    return `<div class="sec"><div class="sec-b" style="text-align:center;color:var(--text-4);padding:32px">기록이 없어요.</div></div>`;
   }
-  const _stickyTh = 'position:sticky;left:0;background:var(--card-bg-alt);z-index:2;box-shadow:1px 0 0 var(--border-2)';
-  const _stickyTd = 'position:sticky;left:0;background:var(--card-bg);z-index:1;box-shadow:1px 0 0 var(--border-2)';
-  return `
-    <div style="background:var(--card-bg);border-radius:12px;padding:8px;box-shadow:0 1px 4px rgba(0,0,0,0.05);overflow-x:auto">
-      <div style="font-size:11px;color:var(--text-3);padding:4px 8px">${filtered.length}건 (최근순)</div>
-      <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:600px">
-        <thead>
-          <tr style="text-align:left">
-            <th style="padding:6px 8px;border-bottom:1px solid var(--border);font-weight:700;${_stickyTh}">날짜</th>
-            <th style="padding:6px 8px;border-bottom:1px solid var(--border);font-weight:700;background:var(--card-bg-alt)">사람</th>
-            <th style="padding:6px 8px;border-bottom:1px solid var(--border);font-weight:700;text-align:right;background:var(--card-bg-alt)">금액</th>
-            <th style="padding:6px 8px;border-bottom:1px solid var(--border);font-weight:700;background:var(--card-bg-alt)">노트</th>
-            <th style="padding:6px 8px;border-bottom:1px solid var(--border);width:60px;background:var(--card-bg-alt)"></th>
-          </tr>
-        </thead>
-        <tbody>
-          ${filtered.map(e => {
-            const isKyle = e.person === 'kyle';
-            return `<tr style="border-bottom:1px solid var(--border-2)">
-              <td style="padding:5px 8px;color:var(--text-2);white-space:nowrap;font-weight:600;${_stickyTd}">${e.date ? _pFD(e.date) : ''}</td>
-              <td style="padding:5px 8px;color:${isKyle?'#1E3A8A':'#7C2D12'};font-weight:700">${isKyle?'Kyle':'Max'}</td>
-              <td style="padding:5px 8px;text-align:right;color:${isKyle?'#1E3A8A':'#7C2D12'};font-variant-numeric:tabular-nums">${fA(e.amount)}</td>
-              <td style="padding:5px 8px;color:var(--text-2);font-size:11px">${esc(e.note||'')}</td>
-              <td style="padding:5px 8px;text-align:right;white-space:nowrap">
-                <button onclick="openPartnerModal('${e.id}','spend')" style="background:none;border:none;cursor:pointer;font-size:13px;padding:2px 4px" title="수정">✏️</button>
-                <button onclick="deletePartnerEntry('${e.id}')" style="background:none;border:none;cursor:pointer;font-size:13px;padding:2px 4px;color:#EF4444" title="삭제">🗑</button>
-              </td>
-            </tr>`;
-          }).join('')}
-        </tbody>
-      </table>
-    </div>
-  `;
+  return `<div class="sec">
+    <div class="sec-h"><div class="t">전체 목록<span class="m">${filtered.length}건 · 최근순</span></div></div>
+    ${filtered.map(e => _pEntryRow(e, 'spend')).join('')}
+  </div>`;
 }
 
 function _renderPartnerDraftTable(entries) {
@@ -9611,66 +9561,14 @@ function _renderPartnerDraftTable(entries) {
     if (a.date && !b.date) return -1;
     return (b.date||'').localeCompare(a.date||'');
   });
-  return `
-    <div style="display:flex;flex-direction:column;gap:5px">
-      ${sorted.map(e => {
-        const isKyle = e.person === 'kyle';
-        const dateStr = e.date ? _pFD(e.date) : '<span style="color:#DC2626;font-weight:700">날짜 미정</span>';
-        const amtStr = (e.amount && parseFloat(e.amount) !== 0)
-          ? `<span style="color:${isKyle?'#1E3A8A':'#7C2D12'};font-weight:700">${fA(e.amount)}</span>`
-          : `<span style="color:#DC2626;font-weight:700">금액 미정</span>`;
-        const type = e.type === 'cash' ? '💵' : '📊';
-        return `<div style="display:flex;gap:8px;align-items:center;padding:6px 8px;background:#fff;border:1px solid #FDE68A;border-radius:6px;font-size:11px">
-          <span title="${e.type==='cash'?'캐시':'개인결제'}">${type}</span>
-          <span style="color:${isKyle?'#1E3A8A':'#7C2D12'};font-weight:700;min-width:40px">${isKyle?'Kyle':'Max'}</span>
-          <span style="min-width:90px">${dateStr}</span>
-          <span style="min-width:80px;text-align:right">${amtStr}</span>
-          <span style="flex:1;color:var(--text-2);font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.note||'')}</span>
-          <button onclick="openPartnerModal('${e.id}','${e.type}')" style="background:none;border:none;cursor:pointer;font-size:13px;padding:2px 4px" title="수정">✏️</button>
-          <button onclick="deletePartnerEntry('${e.id}')" style="background:none;border:none;cursor:pointer;font-size:13px;padding:2px 4px;color:#EF4444" title="삭제">🗑</button>
-        </div>`;
-      }).join('')}
-    </div>
-  `;
+  return sorted.map(e => _pEntryRow(e, e.type, {showType:true})).join('');
 }
 function _renderPartnerCashTable(entries) {
   if (!entries.length) {
-    return `<p style="color:var(--text-4);font-size:12px;text-align:center;padding:20px;margin:0">캐시 인출 기록이 없어요.</p>`;
+    return `<div class="sec-b" style="text-align:center;color:var(--text-4)">캐시 인출 기록이 없어요.</div>`;
   }
   const sorted = [...entries].sort((a,b) => (b.date||'').localeCompare(a.date||''));
-  // 날짜 컬럼 sticky — 가로 스크롤해도 항상 보임
-  const _stickyTh = 'position:sticky;left:0;background:var(--card-bg-alt);z-index:2;box-shadow:1px 0 0 var(--border-2)';
-  const _stickyTd = 'position:sticky;left:0;background:var(--card-bg);z-index:1;box-shadow:1px 0 0 var(--border-2)';
-  return `
-    <div style="overflow-x:auto">
-      <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:560px">
-        <thead>
-          <tr style="text-align:left">
-            <th style="padding:6px 8px;border-bottom:1px solid var(--border);font-weight:700;${_stickyTh}">날짜</th>
-            <th style="padding:6px 8px;border-bottom:1px solid var(--border);font-weight:700;background:var(--card-bg-alt)">사람</th>
-            <th style="padding:6px 8px;border-bottom:1px solid var(--border);font-weight:700;text-align:right;background:var(--card-bg-alt)">금액</th>
-            <th style="padding:6px 8px;border-bottom:1px solid var(--border);font-weight:700;background:var(--card-bg-alt)">비고</th>
-            <th style="padding:6px 8px;border-bottom:1px solid var(--border);width:60px;background:var(--card-bg-alt)"></th>
-          </tr>
-        </thead>
-        <tbody>
-          ${sorted.map(e => {
-            const isKyle = e.person === 'kyle';
-            return `<tr style="border-bottom:1px solid var(--border-2)">
-              <td style="padding:5px 8px;color:var(--text-2);white-space:nowrap;font-weight:600;${_stickyTd}">${e.date ? _pFD(e.date) : ''}</td>
-              <td style="padding:5px 8px;color:${isKyle?'#1E3A8A':'#7C2D12'};font-weight:700">${isKyle?'Kyle':'Max'}</td>
-              <td style="padding:5px 8px;text-align:right;color:${isKyle?'#1E3A8A':'#7C2D12'};font-variant-numeric:tabular-nums">${fA(e.amount)}</td>
-              <td style="padding:5px 8px;color:var(--text-2);font-size:11px">${esc(e.note||'')}</td>
-              <td style="padding:5px 8px;text-align:right;white-space:nowrap">
-                <button onclick="openPartnerModal('${e.id}','cash')" style="background:none;border:none;cursor:pointer;font-size:13px;padding:2px 4px" title="수정">✏️</button>
-                <button onclick="deletePartnerEntry('${e.id}')" style="background:none;border:none;cursor:pointer;font-size:13px;padding:2px 4px;color:#EF4444" title="삭제">🗑</button>
-              </td>
-            </tr>`;
-          }).join('')}
-        </tbody>
-      </table>
-    </div>
-  `;
+  return sorted.map(e => _pEntryRow(e, 'cash')).join('');
 }
 
 function openPartnerModal(id, type) {
@@ -9990,91 +9888,89 @@ function renderStats() {
 
   // 월별 리포트 버튼 (default = 이번달)
   const _curMo = today.slice(0,7);
-  let h = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:8px;flex-wrap:wrap">
-    <h2 style="margin:0;font-size:18px;font-weight:800;color:var(--text)">통계</h2>
-    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-      <input type="month" id="stat-report-month" value="${_curMo}" class="input" style="width:140px;padding:7px 10px;font-size:13px"/>
-      <button class="btn-secondary" style="padding:7px 12px;font-size:12px" onclick="openMonthlyReport(document.getElementById('stat-report-month').value)">📄 월별 리포트</button>
+  let h = `<div class="pg-h">
+    <div><h2>통계</h2><div class="sub">입금 날짜 기준</div></div>
+    <div class="acts">
+      <input type="month" id="stat-report-month" value="${_curMo}" class="input" style="width:140px;padding:6px 10px;font-size:13px"/>
+      <button class="kbtn" onclick="openMonthlyReport(document.getElementById('stat-report-month').value)">월별 리포트</button>
     </div>
   </div>
-  <div class="stat-grid" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr))">
+  <div class="kpis wrap">
     ${[
-      ['💰 미수금', out, '#5FB8B0', 'INVOICE',    ''],
-      ['🔴 연체',   ov,  '#f87171', 'OVERDUE',    ''],
-      ['🔒 보류금', ret, '#1F6F6B', 'RETENTION',  ''],
-      ['✅ 총입금', pd,  '#34d399', 'PAID',       ''],
-      ['💵 이번달 입금', mo,  '#fbbf24', 'ALL',        today.slice(0,7)],
+      ['미수금', out, '', 'INVOICE', ''],
+      ['연체', ov, 'red', 'OVERDUE', ''],
+      ['보류금', ret, 'amber', 'RETENTION', ''],
+      ['총입금', pd, '', 'PAID', ''],
+      ['이번달 입금', mo, 'green', 'ALL', today.slice(0,7)],
     ].map(([l,v,c,filter,search])=>`
-      <div class="stat-card" style="border-top:3px solid ${c};cursor:pointer" onclick="curFilter='${filter}';searchQ='${search}';invLimit=INV_PAGE;showTab('invoices');renderInv()" title="${l} 인보이스 보기">
-        <div style="font-size:11px;color:var(--text-3);margin-bottom:4px">${l}</div>
-        <div style="font-size:17px;font-weight:800;color:${c}">${fA(v)}</div>
-        <div style="font-size:10px;color:var(--text-4);margin-top:2px">${fAex(v)} ex</div>
+      <div class="click" onclick="curFilter='${filter}';searchQ='${search}';invLimit=INV_PAGE;showTab('invoices');renderInv()" title="${l} 인보이스 보기">
+        <div class="l">${l}</div>
+        <div class="v ${c}">${fA(v)}</div>
+        <div class="s">${fAex(v)} ex</div>
       </div>`).join('')}
-    ${draftCount > 0 ? `<div class="stat-card" style="border-top:3px dashed #DC2626;cursor:pointer" onclick="curFilter='DRAFT';searchQ='';invLimit=INV_PAGE;showTab('invoices');renderInv()" title="DRAFT 인보이스 보기">
-      <div style="font-size:11px;color:var(--text-3);margin-bottom:4px">📝 임시저장</div>
-      <div style="font-size:17px;font-weight:800;color:#DC2626">${draftCount}건</div>
-      <div style="font-size:10px;color:var(--text-4);margin-top:2px">${fA(draftAmt)}</div>
-    </div>` : ''}
+    <div class="click" onclick="curFilter='DRAFT';searchQ='';invLimit=INV_PAGE;showTab('invoices');renderInv()" title="DRAFT 인보이스 보기">
+      <div class="l">임시저장</div>
+      <div class="v">${draftCount}건</div>
+      <div class="s">${fA(draftAmt)}</div>
+    </div>
   </div>
 
-  <!-- 청구 매출 차트 (월별 / 분기별 토글) -->
-  <div class="card" style="margin-bottom:12px;overflow:hidden">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:8px;flex-wrap:wrap">
-      <div style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:1px">💰 입금 매출 ${chartView==='quarter'?'(최근 8분기)':'(최근 12개월)'}</div>
-      <div style="display:flex;gap:4px">
-        <button onclick="statChartView='month';renderStats()" style="background:${chartView==='month'?'#1F6F6B':'#fff'};color:${chartView==='month'?'#fff':'#1F6F6B'};border:1px solid #1F6F6B;padding:4px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">월별</button>
-        <button onclick="statChartView='quarter';renderStats()" style="background:${chartView==='quarter'?'#1F6F6B':'#fff'};color:${chartView==='quarter'?'#fff':'#1F6F6B'};border:1px solid #1F6F6B;padding:4px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">분기별</button>
+  <!-- 입금 매출 차트 (월별 / 분기별 토글) -->
+  <div class="sec">
+    <div class="sec-h">
+      <div class="t">입금 매출<span class="m">${chartView==='quarter'?'최근 8분기':'최근 12개월'}</span></div>
+      <div class="seg">
+        <button class="${chartView==='month'?'on':''}" onclick="statChartView='month';renderStats()">월별</button>
+        <button class="${chartView==='quarter'?'on':''}" onclick="statChartView='quarter';renderStats()">분기별</button>
       </div>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(${sortedM.length}, minmax(0,1fr));gap:6px;height:160px;padding-bottom:24px;border-bottom:1px solid var(--border-2);position:relative">
+    <div class="sec-b" style="padding-bottom:30px">
+    <div style="display:grid;grid-template-columns:repeat(${sortedM.length}, minmax(0,1fr));gap:5px;height:150px;border-bottom:1px solid var(--border);position:relative">
       ${sortedM.map(([m,v]) => {
         const pct = (v/maxM)*100;
         const isThisPeriod = chartView==='month'
           ? (m === today.slice(0,7))
           : (m === `${today.slice(0,4)}-Q${Math.floor((parseInt(today.slice(5,7))-1)/3)+1}`);
         // chartView=='quarter': m 이미 "FY26-Q1" 형태로 옴 (그대로 표시)
-        const label = chartView==='quarter' ? m : m.slice(2).replace('-','/');
-        // 월별(12개) 은 라벨 회전 -30deg (좁아서), 분기별(8개) 은 직립
-        const labelStyle = chartView==='quarter'
-          ? 'position:absolute;bottom:-20px;left:0;right:0;text-align:center;font-size:10px;color:var(--text-4);white-space:nowrap'
-          : 'position:absolute;bottom:-18px;left:50%;font-size:9px;color:var(--text-4);transform:translateX(-50%) rotate(-35deg);transform-origin:50% 0;white-space:nowrap';
-        return `<div style="min-width:0;overflow:visible;display:flex;flex-direction:column;align-items:center;height:100%;justify-content:flex-end;position:relative" title="${m}: ${fA(v)}">
-          <div style="font-size:9px;color:var(--text-4);margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%">${v >= 10000 ? '$'+(v/1000).toFixed(0)+'k' : ''}</div>
-          <div style="width:100%;background:${isThisPeriod?'#F59E0B':'linear-gradient(180deg,#5FB8B0 0%,#1F6F6B 100%)'};border-radius:4px 4px 0 0;height:${pct}%;min-height:2px;transition:height 0.3s"></div>
-          <div style="${labelStyle}">${label}</div>
+        const label = chartView==='quarter' ? m.replace('FY','').replace('-',' ') : (m.slice(5)==='01' ? m.slice(2,4)+'/1' : String(parseInt(m.slice(5))));
+        return `<div style="min-width:0;display:flex;flex-direction:column;align-items:center;height:100%;justify-content:flex-end;position:relative" title="${m}: ${fA(v)}">
+          <div style="font-size:9px;color:var(--text-4);margin-bottom:3px;white-space:nowrap">${v >= 1000 ? Math.round(v/1000)+'k' : ''}</div>
+          <div style="width:100%;max-width:28px;background:${isThisPeriod?'var(--km-amber)':'var(--km-teal)'};border-radius:3px 3px 0 0;height:${pct}%;min-height:2px"></div>
+          <div style="position:absolute;bottom:-18px;left:0;right:0;text-align:center;font-size:10px;color:var(--text-4);white-space:nowrap">${label}</div>
         </div>`;
       }).join('')}
     </div>
+    </div>
   </div>
-  
-  <!-- Builder Distribution Chart (horizontal bars) -->
-  <div class="card" style="margin-bottom:12px">
-    <div style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:1px;margin-bottom:14px">🏗️ Top 8 빌더 (총 청구액)</div>
+
+  <!-- 빌더별 총 청구액 -->
+  <div class="sec">
+    <div class="sec-h"><div class="t">빌더별 청구액<span class="m">상위 8곳</span></div></div>
     ${topBuilders.map(([name,s],i) => {
       const pct = totalAll > 0 ? (s.total/totalAll)*100 : 0;
-      return `<div style="margin-bottom:10px">
-        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
-          <span style="font-weight:700;color:var(--text);cursor:pointer" onclick="filterByBuilder('${esc(name).replace(/'/g,"\\'")}')">${esc(name)}</span>
-          <span style="color:var(--text-3)">${fA(s.total)} <span style="color:var(--text-4)">(${pct.toFixed(1)}%)</span></span>
+      return `<div class="lrow click" onclick="filterByBuilder('${esc(name).replace(/'/g,"\\'")}')">
+        <div class="main">
+          <div class="nm">${esc(name)}</div>
+          <div class="minibar"><i style="width:${pct}%"></i></div>
         </div>
-        <div class="bar-wrap" style="height:8px;background:var(--card-bg-alt)"><div class="bar-fill" style="background:${COLORS[i%COLORS.length]};width:${pct}%"></div></div>
+        <div class="amt">${fA(s.total)}<small>${pct.toFixed(1)}% · ${s.count}건</small></div>
       </div>`;
     }).join('')}
   </div>
-  
-  <!-- Builder Outstanding -->
-  <div class="card" style="margin-bottom:12px">
-    <div style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">💸 빌더별 미수금</div>
+
+  <!-- 빌더별 미수금 -->
+  <div class="sec">
+    <div class="sec-h"><div class="t">빌더별 미수금</div></div>
     ${Object.entries(bs).filter(([_,s])=>s.outstanding>0).sort((a,b)=>b[1].outstanding-a[1].outstanding).slice(0,15).map(([name,s])=>`
-      <div style="margin-bottom:12px">
-        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px">
-          <span style="font-weight:700;color:var(--text);cursor:pointer" onclick="filterByBuilder('${esc(name).replace(/'/g,"\\'")}')">${esc(name)}</span>
-          <span style="color:#DC2626;font-weight:700">${fA(s.outstanding)}</span>
+      <div class="lrow click" onclick="filterByBuilder('${esc(name).replace(/'/g,"\\'")}')">
+        <div class="main">
+          <div class="nm">${esc(name)}</div>
+          <div class="sub">${s.count}건 · 총 ${fA(s.total)} · 입금 ${fA(s.paid)}</div>
+          <div class="minibar red"><i style="width:${s.total>0?Math.min(100,s.outstanding/s.total*100):0}%"></i></div>
         </div>
-        <div class="bar-wrap"><div class="bar-fill" style="background:#DC2626;width:${s.total>0?Math.min(100,s.outstanding/s.total*100):0}%"></div></div>
-        <div style="font-size:10px;color:var(--text-4)">${s.count}건 · 총 ${fA(s.total)} · 입금 ${fA(s.paid)}</div>
+        <div class="amt red">${fA(s.outstanding)}</div>
       </div>`).join('')}
-    ${Object.values(bs).every(s=>s.outstanding<=0)?'<div style="text-align:center;color:#059669;padding:20px;font-size:14px;font-weight:600">🎉 모든 미수금 정산됨!</div>':''}
+    ${Object.values(bs).every(s=>s.outstanding<=0)?'<div class="sec-b" style="text-align:center;color:var(--km-green);font-weight:600">모든 미수금 정산됨</div>':''}
   </div>`;
   document.getElementById('tab-stats').innerHTML = h;
 }
@@ -10293,34 +10189,31 @@ function renderMonthlyExpenses() {
   });
 
   let h = `
-    <div style="padding:14px 16px">
-      ${_expSubTabBar()}
-      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:14px">
-        <div>
-          <h2 style="margin:0;font-size:18px;font-weight:800;color:var(--text-1)">정기 지출 (월 단위)</h2>
-          <p style="margin:2px 0 0;font-size:11px;color:var(--text-4)">자재상·임대 등 매월 결제 항목 추적</p>
-        </div>
-        <button class="btn-primary" style="padding:7px 12px;font-size:12px" onclick="expAddVendor()">＋ 거래처 추가</button>
+    <div>
+      <div class="pg-h">
+        <div><h2>지출</h2><div class="sub">자재상·임대 등 매월 결제 항목</div></div>
+        <div class="acts"><button class="kbtn pri" onclick="expAddVendor()">+ 거래처</button></div>
       </div>
+      ${_expSubTabBar()}
 
       ${unpaidThisMonth.length > 0 ? `
-        <div style="background:#FEF3C7;border:1px solid #FDE68A;border-radius:10px;padding:10px 14px;margin-bottom:14px">
-          <div style="font-size:12px;font-weight:700;color:#92400E;margin-bottom:6px">⚠️ ${_expMonthLabel(thisMonth)} 미결제 ${unpaidThisMonth.length}건</div>
-          <div style="display:flex;flex-wrap:wrap;gap:5px">
-            ${unpaidThisMonth.map(v => `<span style="background:#FDE68A;color:#713F12;font-size:11px;font-weight:600;padding:3px 9px;border-radius:5px">${esc(v.name)}</span>`).join('')}
+        <div class="km-alert a">
+          <div class="km-alert-h" style="cursor:default"><span class="n">${unpaidThisMonth.length}</span><span class="t">${_expMonthLabel(thisMonth)} 아직 결제 안 함</span></div>
+          <div style="display:flex;flex-wrap:wrap;gap:5px;padding:0 12px 11px">
+            ${unpaidThisMonth.map(v => `<span class="chip amber" style="font-size:11.5px;font-weight:600">${esc(v.name)}</span>`).join('')}
           </div>
         </div>
       ` : `
-        <div style="background:#D1FAE5;border:1px solid #6EE7B7;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12px;font-weight:700;color:#065F46">✅ ${_expMonthLabel(thisMonth)} 모두 결제 완료</div>
+        <div class="km-alert"><div class="km-alert-h" style="cursor:default"><span class="t" style="color:var(--km-green)">${_expMonthLabel(thisMonth)} 모두 결제 완료</span></div></div>
       `}
 
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-        <button class="btn-secondary" style="padding:5px 10px;font-size:11px" onclick="expChangeRange(-6)">◀ 이전 6개월</button>
-        <span style="font-size:11px;color:var(--text-4)">${_expMonthLabel(months[0])} ~ ${_expMonthLabel(months[months.length-1])}</span>
-        <button class="btn-secondary" style="padding:5px 10px;font-size:11px" onclick="expChangeRange(6)">다음 6개월 ▶</button>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin:12px 0 8px">
+        <button class="kbtn sm" onclick="expChangeRange(-6)">‹ 이전 6개월</button>
+        <span style="font-size:12px;color:var(--text-3);font-weight:600">${_expMonthLabel(months[0])} ~ ${_expMonthLabel(months[months.length-1])}</span>
+        <button class="kbtn sm" onclick="expChangeRange(6)">다음 6개월 ›</button>
       </div>
 
-      <div style="overflow-x:auto;border:1px solid var(--border-2);border-radius:10px;background:var(--card-bg)">
+      <div style="overflow-x:auto;border:1px solid var(--border);border-radius:12px;background:var(--card-bg)">
         <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:560px">
           <thead>
             <tr style="background:var(--card-bg-alt)">
@@ -10340,7 +10233,7 @@ function renderMonthlyExpenses() {
             ${monthsRev.map(m => `
               <tr>
                 <td style="position:sticky;left:0;background:var(--card-bg);padding:6px 10px;border-bottom:1px solid var(--border-3);font-weight:700;color:${m===thisMonth?'#1F6F6B':'var(--text-2)'};z-index:1">
-                  ${_expMonthLabel(m)}${m===thisMonth?' <span style="font-size:9px;background:#1F6F6B;color:#fff;padding:1px 5px;border-radius:3px;margin-left:3px">현재</span>':''}
+                  ${_expMonthLabel(m)}${m===thisMonth?' <span class="chip teal" style="margin-left:3px">이번달</span>':''}
                 </td>
                 ${vendors.map(v => {
                   const cellKey = v.id + ':' + m;
@@ -10357,7 +10250,7 @@ function renderMonthlyExpenses() {
                           <button onclick="expCancelEdit()" style="flex:1;background:#E5E7EB;color:#374151;border:none;border-radius:4px;padding:4px;font-size:11px;cursor:pointer">✕</button>
                         </div>
                         <button onclick="expMarkNA('${v.id}','${m}')" title="이 달 결제 없음 (놓침 아님)" style="background:none;border:1px dashed #D1D5DB;color:#6B7280;border-radius:4px;padding:3px;font-size:10px;cursor:pointer">— 결제 없음으로 표시</button>
-                        <p style="font-size:9px;color:var(--text-4);margin:0;line-height:1.2">💡 금액·날짜 중 하나라도 입력하면 자동 결제완료</p>
+                        <p style="font-size:9px;color:var(--text-4);margin:0;line-height:1.2">금액이나 날짜를 넣으면 결제완료</p>
                       </div>
                     </td>`;
                   }
@@ -10424,13 +10317,12 @@ function renderMonthlyExpenses() {
         </table>
       </div>
 
-      <div style="margin-top:10px;padding:10px 12px;background:#F9FAFB;border-radius:8px;font-size:11px;color:var(--text-3);line-height:1.7">
-        💡 <strong>사용법</strong> · 상태 표시:
+      <div style="margin-top:8px;padding:2px 4px;font-size:11px;color:var(--text-4);line-height:1.7">
         <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#10B981;vertical-align:middle"></span> <strong>결제완료</strong>
         · <span style="display:inline-block;width:10px;height:10px;border-radius:50%;border:1.5px solid #F59E0B;vertical-align:middle"></span> <strong>금액만 입력됨 (미결제)</strong>
         · <span style="color:#6B7280">—</span> <strong>결제 없음 (놓침 X)</strong>
         · <span style="color:#D1D5DB">○</span> 비어있음
-        <br/>셀 클릭 → 금액·날짜·메모 입력 · ○를 직접 누르면 결제 완료 토글 · "없음" 클릭 → 결제 없음 처리 · 거래처명 클릭 → 이름 변경 · ✕ 삭제
+        <br/>칸을 누르면 금액·날짜·메모 입력 · 거래처 이름을 누르면 이름 변경
       </div>
     </div>
   `;
@@ -10441,11 +10333,11 @@ function renderMonthlyExpenses() {
 function _expSubTabBar() {
   const tabBtn = (key, label) => {
     const on = _expSubTab === key;
-    return `<button onclick="expSwitchSubTab('${key}')" style="background:${on?'#1F6F6B':'transparent'};color:${on?'#fff':'#1F6F6B'};border:1.5px solid #1F6F6B;padding:7px 16px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;flex:1;min-width:140px">${label}</button>`;
+    return `<button class="${on?'on':''}" onclick="expSwitchSubTab('${key}')">${label}</button>`;
   };
-  return `<div style="display:flex;gap:6px;margin-bottom:14px">
-    ${tabBtn('monthly','📅 정기 지출 (월결제)')}
-    ${tabBtn('personal','💳 개인카드 환급 (BAS)')}
+  return `<div class="seg" style="margin-bottom:12px">
+    ${tabBtn('monthly','정기 지출')}
+    ${tabBtn('personal','개인카드 환급')}
   </div>`;
 }
 
@@ -10499,27 +10391,24 @@ function renderPersonalCard() {
   const totalGst = totalAmt / 11;
 
   let h = `
-    <div style="padding:14px 16px">
-      ${_expSubTabBar()}
-
-      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:14px">
-        <div>
-          <h2 style="margin:0;font-size:18px;font-weight:800;color:var(--text-1)">개인카드 환급 (BAS)</h2>
-          <p style="margin:2px 0 0;font-size:11px;color:var(--text-4)">직원 개인카드 사용 → 회사 환급. 호주 FY 분기별 CSV 내보내기</p>
-        </div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap">
-          <button class="btn-secondary" style="padding:7px 10px;font-size:12px;background:${_pcShowSettings?'#E3EFEC':'#fff'};color:#1F6F6B;border-color:#BFDCD6" onclick="pcToggleSettings()" title="필터·정렬 설정">⚙️ 설정${(_pcNameFilter!=='all'||_pcSortBy!=='paid'||_pcSortDir!=='desc')?' •':''}</button>
-          <button class="btn-primary" style="padding:7px 12px;font-size:12px" onclick="pcOpenForm()">＋ 새 항목</button>
-          ${filtered.length > 0 ? `<button class="btn-secondary" style="padding:7px 12px;font-size:12px;background:#ECFDF5;color:#065F46;border-color:#A7F3D0" onclick="pcExportCSV()">📥 CSV 내보내기</button>` : ''}
+    <div>
+      <div class="pg-h">
+        <div><h2>지출</h2><div class="sub">직원 개인카드 사용 → 회사 환급 · 분기별 BAS용 CSV</div></div>
+        <div class="acts">
+          <button class="kbtn" onclick="pcToggleSettings()" title="필터·정렬 설정">설정${(_pcNameFilter!=='all'||_pcSortBy!=='paid'||_pcSortDir!=='desc')?' •':''}</button>
+          ${filtered.length > 0 ? `<button class="kbtn" onclick="pcExportCSV()">CSV 내보내기</button>` : ''}
+          <button class="kbtn pri" onclick="pcOpenForm()">+ 새 항목</button>
         </div>
       </div>
+      ${_expSubTabBar()}
 
       <!-- 분기 필터 -->
-      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px;padding:10px 12px;background:#E3EFEC;border:1px solid #BFDCD6;border-radius:10px">
-        <span style="font-size:11px;font-weight:700;color:#185A57">FY 분기 필터:</span>
-        <button onclick="_pcQuarterFilter='all';renderExpenses()" style="background:${_pcQuarterFilter==='all'?'#1F6F6B':'#fff'};color:${_pcQuarterFilter==='all'?'#fff':'#1F6F6B'};border:1px solid #1F6F6B;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">전체</button>
-        ${quartersSorted.map(q => `<button onclick="_pcQuarterFilter='${q}';renderExpenses()" style="background:${_pcQuarterFilter===q?'#1F6F6B':'#fff'};color:${_pcQuarterFilter===q?'#fff':'#1F6F6B'};border:1px solid #1F6F6B;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">${q}</button>`).join('')}
-        ${quartersSorted.length === 0 ? `<span style="font-size:11px;color:var(--text-4)">아직 항목이 없어요</span>` : ''}
+      <div style="margin-bottom:12px">
+        <div class="seg">
+          <button class="${_pcQuarterFilter==='all'?'on':''}" onclick="_pcQuarterFilter='all';renderExpenses()">전체</button>
+          ${quartersSorted.map(q => `<button class="${_pcQuarterFilter===q?'on':''}" onclick="_pcQuarterFilter='${q}';renderExpenses()">${q}</button>`).join('')}
+        </div>
+        ${quartersSorted.length === 0 ? `<span style="font-size:11px;color:var(--text-4);margin-left:6px">아직 항목이 없어요</span>` : ''}
       </div>
 
       ${_pcShowSettings ? _pcSettingsHtml(knownNames) : ''}
@@ -10529,23 +10418,14 @@ function renderPersonalCard() {
       ${(_pcEditId === 'new' || _pcEditId) ? _pcFormHtml(knownNames) : ''}
 
       <!-- 합계 카드 -->
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px">
-        <div style="background:#fff;border:1px solid var(--border-2);border-radius:10px;padding:10px 12px;text-align:center">
-          <div style="font-size:10px;color:var(--text-4);font-weight:600">항목 수</div>
-          <div style="font-size:18px;font-weight:800;color:var(--text-1);margin-top:2px">${filtered.length}</div>
-        </div>
-        <div style="background:#fff;border:1px solid var(--border-2);border-radius:10px;padding:10px 12px;text-align:center">
-          <div style="font-size:10px;color:var(--text-4);font-weight:600">합계 (GST 포함)</div>
-          <div style="font-size:18px;font-weight:800;color:#059669;margin-top:2px">${fmtMoney(totalAmt)}</div>
-        </div>
-        <div style="background:#fff;border:1px solid var(--border-2);border-radius:10px;padding:10px 12px;text-align:center">
-          <div style="font-size:10px;color:var(--text-4);font-weight:600">GST 합계</div>
-          <div style="font-size:18px;font-weight:800;color:#D97706;margin-top:2px">${fmtMoney(totalGst)}</div>
-        </div>
+      <div class="kpis">
+        <div><div class="l">항목 수</div><div class="v">${filtered.length}</div></div>
+        <div><div class="l">합계 (GST 포함)</div><div class="v">${fmtMoney(totalAmt)}</div></div>
+        <div><div class="l">GST 합계</div><div class="v">${fmtMoney(totalGst)}</div></div>
       </div>
 
       <!-- 항목 테이블 -->
-      <div style="overflow-x:auto;border:1px solid var(--border-2);border-radius:10px;background:var(--card-bg)">
+      <div style="overflow-x:auto;border:1px solid var(--border);border-radius:12px;background:var(--card-bg)">
         <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:680px">
           <thead>
             <tr style="background:var(--card-bg-alt)">
@@ -10923,37 +10803,47 @@ function renderOrders(){
   const sups = ordSuppliers();
   const chip = (lbl,val,col)=>`<div style="background:var(--card-bg);border:1px solid var(--border-2);border-radius:9px;padding:8px 12px;min-width:84px"><div style="font-size:10px;color:var(--text-4);font-weight:700">${lbl}</div><div style="font-size:17px;font-weight:800;color:${col||'var(--text-1)'}">${val}</div></div>`;
 
-  let h = `<div style="padding:14px 16px">
-    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px">
-      <div><h2 style="margin:0;font-size:18px;font-weight:800;color:var(--text-1)">발주 (Astro)</h2>
-      <p style="margin:2px 0 0;font-size:11px;color:var(--text-4)">오더 장부 · 단가 추이 · PO/레미턴스는 Claude가 생성·발송</p></div>
-      <div style="display:flex;gap:6px">
-        <button class="btn-secondary" style="padding:7px 11px;font-size:12px" onclick="ordView='${ordView==='price'?'list':'price'}';renderOrders()">📈 단가추이</button>
-        <button class="btn-secondary" style="padding:7px 11px;font-size:12px" onclick="ordView='remit';renderOrders()">🧾 레미턴스</button>
-        <button class="btn-primary" style="padding:7px 12px;font-size:12px" onclick="ordOpenForm('new')">＋ 발주 추가</button>
+  let h = `<div>
+    <div class="pg-h">
+      <div><h2>발주</h2><div class="sub">Astro 오더 장부 · 단가 추이 · 레미턴스</div></div>
+      <div class="acts">
+        <button class="kbtn pri" onclick="ordOpenForm('new')">+ 발주</button>
       </div>
     </div>
-    <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px">
-      ${chip('총 오더', totalOrders)}${chip('총 라인', totalLines)}${chip('미배송', undeliv, undeliv?'#D97706':'var(--text-1)')}${chip('미결제', unpaid, unpaid?'#DC2626':'var(--text-1)')}${held?chip('보류', held, '#2A8C86'):''}${chip(thisYear+' 오더', yearOrders,'#1F6F6B')}
+    ${_ordViewSeg()}
+    <div class="kpis wrap">
+      <div><div class="l">총 오더</div><div class="v">${totalOrders}</div><div class="s">${totalLines}개 라인</div></div>
+      <div class="click" onclick="ordFilterStatus='undelivered';renderOrders()"><div class="l">미배송</div><div class="v ${undeliv?'amber':''}">${undeliv}</div><div class="s">라인</div></div>
+      <div class="click" onclick="ordFilterStatus='unpaid';renderOrders()"><div class="l">미결제</div><div class="v ${unpaid?'red':''}">${unpaid}</div><div class="s">${held?'보류 '+held:'라인'}</div></div>
     </div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
-      <input id="ord-search" placeholder="🔍 품목·코드·오더번호·서플라이어…" value="${esc(ordSearch)}" oninput="ordSearch=this.value;clearTimeout(window._ordT);window._ordT=setTimeout(renderOrders,250)" style="flex:1;min-width:150px;padding:7px 10px;font-size:12px;border:1px solid var(--border-2);border-radius:8px;background:var(--card-bg);color:var(--text-1)"/>
+      <input id="ord-search" placeholder="품목·코드·오더번호·서플라이어 검색" value="${esc(ordSearch)}" oninput="ordSearch=this.value;clearTimeout(window._ordT);window._ordT=setTimeout(renderOrders,250)" style="flex:1;min-width:150px;padding:7px 10px;font-size:12px;border:1px solid var(--border-2);border-radius:8px;background:var(--card-bg);color:var(--text-1)"/>
       <select onchange="ordFilterSup=this.value;renderOrders()" style="padding:7px 8px;font-size:12px;border:1px solid var(--border-2);border-radius:8px;background:var(--card-bg);color:var(--text-1)"><option value="">서플라이어 전체</option>${sups.map(s=>`<option ${s===ordFilterSup?'selected':''}>${esc(s)}</option>`).join('')}</select>
       <select onchange="ordFilterCat=this.value;renderOrders()" style="padding:7px 8px;font-size:12px;border:1px solid var(--border-2);border-radius:8px;background:var(--card-bg);color:var(--text-1)"><option value="">카테고리 전체</option>${ORD_CATS.map(c=>`<option ${c===ordFilterCat?'selected':''}>${c}</option>`).join('')}</select>
       <select onchange="ordFilterStatus=this.value;renderOrders()" style="padding:7px 8px;font-size:12px;border:1px solid var(--border-2);border-radius:8px;background:var(--card-bg);color:var(--text-1)"><option value="">상태 전체</option><option value="undelivered" ${ordFilterStatus==='undelivered'?'selected':''}>미배송</option><option value="unpaid" ${ordFilterStatus==='unpaid'?'selected':''}>미결제</option><option value="held" ${ordFilterStatus==='held'?'selected':''}>보류</option><option value="backorder" ${ordFilterStatus==='backorder'?'selected':''}>백오더</option><option value="cancelled" ${ordFilterStatus==='cancelled'?'selected':''}>취소</option></select>
     </div>
     ${ordEditId ? ordFormHtml() : ''}
-    <div style="font-size:11px;color:var(--text-4);margin-bottom:8px">${groups.length}개 오더 · ${groups.reduce((s,g)=>s+g.lines.length,0)}개 라인</div>
-    ${groups.length===0 ? `<div style="text-align:center;padding:36px;color:var(--text-4);font-size:13px;background:var(--card-bg);border-radius:10px;border:1px dashed var(--border-2)">조건에 맞는 발주가 없어요.</div>` : groups.map(ordGroupHtml).join('')}
+    <div class="sec">
+      <div class="sec-h"><div class="t">오더<span class="m">${groups.length}개 · ${groups.reduce((s,g)=>s+g.lines.length,0)}개 라인 · ${thisYear}년 ${yearOrders}개</span></div></div>
+      ${groups.length===0 ? `<div class="sec-b" style="text-align:center;color:var(--text-4)">조건에 맞는 발주가 없어요.</div>` : groups.map(ordGroupHtml).join('')}
+    </div>
   </div>`;
   el.innerHTML = h;
 }
-function ordBadge(txt,bg,col){ return `<span style="background:${bg};color:${col};font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px">${txt}</span>`; }
+function _ordViewSeg(){
+  const v = (ordView==='price'||ordView==='remit') ? ordView : 'list';
+  return `<div class="seg" style="margin-bottom:12px">
+      <button class="${v==='list'?'on':''}" onclick="ordView='list';renderOrders()">오더</button>
+      <button class="${v==='price'?'on':''}" onclick="ordView='price';renderOrders()">단가추이</button>
+      <button class="${v==='remit'?'on':''}" onclick="ordView='remit';renderOrders()">레미턴스</button>
+    </div>`;
+}
+function ordBadge(txt,cls){ return `<span class="chip ${cls||''}">${txt}</span>`; }
 function ordGroupHtml(g){
   const open = !!ordExpanded[g.no];
-  const delivB = g.allCancelled ? '' : (g.allDeliv ? ordBadge('✓ 배송완료','#D1FAE5','#065F46') : g.anyDeliv ? ordBadge('부분배송','#FEF3C7','#92400E') : ordBadge('미배송','#FEE2E2','#B91C1C'));
-  const paidB = g.allCancelled ? '' : (g.allPaid ? ordBadge('✓ 결제완료','#DBEAFE','#1E40AF') : g.allHeld ? ordBadge('⏸ 보류','#E3EFEC','#185A57') : g.anyPaid ? ordBadge('부분결제','#FEF3C7','#92400E') : ordBadge('미결제','#F3F4F6','#6B7280'));
-  const cancB = g.hasCancelled ? ordBadge(g.allCancelled?'✕ 취소됨':'일부취소','#F3F4F6','#9CA3AF') : '';
+  const delivB = g.allCancelled ? '' : (g.allDeliv ? ordBadge('배송완료','green') : g.anyDeliv ? ordBadge('부분배송','amber') : ordBadge('미배송','red'));
+  const paidB = g.allCancelled ? '' : (g.allPaid ? ordBadge('결제완료','teal') : g.allHeld ? ordBadge('보류','') : g.anyPaid ? ordBadge('부분결제','amber') : ordBadge('미결제',''));
+  const cancB = g.hasCancelled ? ordBadge(g.allCancelled?'취소됨':'일부취소','') : '';
   let lines = '';
   if(open){
     lines = `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11.5px;margin-top:8px">
@@ -10973,15 +10863,17 @@ function ordGroupHtml(g){
       </tbody></table></div>
       ${isInvoiceEditor()?`<button class="btn-secondary" style="margin-top:8px;padding:5px 10px;font-size:11px" onclick="ordOpenForm('new','${encodeURIComponent(g.no)}')">＋ 이 오더에 라인 추가</button>`:''}`;
   }
-  return `<div style="background:var(--card-bg);border:1px solid var(--border-2);border-radius:11px;padding:11px 13px;margin-bottom:9px">
-    <div style="display:flex;align-items:center;gap:9px;cursor:pointer" onclick="ordExpanded['${esc(g.no)}']=${!open};renderOrders()">
-      <div style="flex:1;min-width:0">
-        <div style="font-size:13px;font-weight:800;color:var(--text-1)">${esc(g.no)} <span style="font-weight:500;color:var(--text-4);font-size:11px">· ${ordAuDate(g.date)}</span></div>
-        <div style="font-size:11px;color:var(--text-3);margin-top:2px">${g.lines.length}개 품목${g.sups.length?' · '+g.sups.map(esc).join(', '):''}${g.invTotal!=null?` · <b style="color:#059669">💰 $${g.invTotal.toLocaleString('en-AU',{minimumFractionDigits:2,maximumFractionDigits:2})}</b> <span style="color:var(--text-4)">(GST포함)</span>`:''}</div>
+  return `<div style="border-top:1px solid var(--border-3)">
+    <div class="lrow click" style="border-top:none;align-items:flex-start" onclick="ordExpanded['${esc(g.no)}']=${!open};renderOrders()">
+      <div class="main">
+        <div class="nm">${esc(g.no)} <span style="font-weight:500;color:var(--text-4);font-size:12px">· ${ordAuDate(g.date)}</span></div>
+        <div class="sub">${g.lines.length}개 품목${g.sups.length?' · '+g.sups.map(esc).join(', '):''}</div>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:5px">${cancB}${delivB}${paidB}</div>
       </div>
-      <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end">${cancB}${delivB}${paidB}<span style="color:var(--text-4);font-size:13px">${open?'▲':'▼'}</span></div>
+      <div class="amt">${g.invTotal!=null?'$'+g.invTotal.toLocaleString('en-AU',{minimumFractionDigits:2,maximumFractionDigits:2})+'<small>GST 포함</small>':'<span style="color:var(--text-4);font-weight:500">—</span>'}</div>
+      <span style="color:var(--text-4);font-size:11px;width:12px;text-align:center;padding-top:3px">${open?'▾':'▸'}</span>
     </div>
-    ${lines}
+    ${lines?`<div style="padding:0 14px 12px">${lines}</div>`:''}
   </div>`;
 }
 function ordFormHtml(){
@@ -11100,12 +10992,11 @@ function ordRemitViewHtml(){
       </div>`:''}
     </div>`;
   };
-  return `<div style="padding:14px 16px">
-    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px">
-      <div><h2 style="margin:0;font-size:18px;font-weight:800;color:var(--text-1)">레미턴스 빌더</h2>
-      <p style="margin:2px 0 0;font-size:11px;color:var(--text-4)">결제할 오더 선택 → 합산 → Claude가 레미턴스 생성·발송</p></div>
-      <button class="btn-secondary" style="padding:7px 12px;font-size:12px" onclick="ordView='list';renderOrders()">← 목록</button>
+  return `<div>
+    <div class="pg-h">
+      <div><h2>발주</h2><div class="sub">결제할 오더 선택 → 합산 → 레미턴스 생성·발송</div></div>
     </div>
+    ${_ordViewSeg()}
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;background:var(--card-bg);border:1px solid var(--border-2);border-radius:10px;padding:10px 12px">
       <label style="font-size:11px;color:var(--text-4);font-weight:700">결제일</label>
       <input type="date" value="${esc(remitPayDate)}" onchange="remitPayDate=this.value;renderOrders()" style="padding:6px 9px;font-size:12px;border:1px solid var(--border-2);border-radius:7px;background:var(--card-bg);color:var(--text-1)"/>
@@ -11211,14 +11102,13 @@ function ordPriceViewHtml(){
   const SORTLBL = {suspect:'기본(오류 먼저)',recent:'최근 거래순',count:'구매 횟수순',name:'이름순',change:'변동 큰순'};
   const sorted = filt.slice().sort(SORTERS[ordPriceSort]||SORTERS.suspect);
   const fSus = filt.filter(s=>s.suspect), fNorm = filt.filter(s=>!s.suspect);
-  return `<div style="padding:14px 16px">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-      <div><h2 style="margin:0;font-size:18px;font-weight:800;color:var(--text-1)">단가 추이</h2>
-      <p style="margin:2px 0 0;font-size:11px;color:var(--text-4)">품목별 개당 단가 변화 · 단위/입력오류 플래그</p></div>
-      <button class="btn-secondary" style="padding:7px 12px;font-size:12px" onclick="ordView='list';renderOrders()">← 목록</button>
+  return `<div>
+    <div class="pg-h">
+      <div><h2>발주</h2><div class="sub">품목별 개당 단가 변화 · 단위/입력오류 표시</div></div>
     </div>
+    ${_ordViewSeg()}
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
-      <input id="ordp-search" placeholder="🔍 품목명 검색 (예: silicone, FG8, grouter)" value="${esc(ordPriceSearch)}" oninput="ordPriceSearch=this.value;clearTimeout(window._ordpT);window._ordpT=setTimeout(()=>{renderOrders();const e=document.getElementById('ordp-search');if(e){e.focus();e.setSelectionRange(e.value.length,e.value.length);}},250)" style="flex:1;min-width:170px;padding:8px 11px;font-size:13px;border:1px solid var(--border-2);border-radius:8px;background:var(--card-bg);color:var(--text-1)"/>
+      <input id="ordp-search" placeholder="품목명 검색 (예: silicone, FG8, grouter)" value="${esc(ordPriceSearch)}" oninput="ordPriceSearch=this.value;clearTimeout(window._ordpT);window._ordpT=setTimeout(()=>{renderOrders();const e=document.getElementById('ordp-search');if(e){e.focus();e.setSelectionRange(e.value.length,e.value.length);}},250)" style="flex:1;min-width:170px;padding:8px 11px;font-size:13px;border:1px solid var(--border-2);border-radius:8px;background:var(--card-bg);color:var(--text-1)"/>
       <select onchange="ordPriceSort=this.value;renderOrders()" style="padding:8px 8px;font-size:12px;border:1px solid var(--border-2);border-radius:8px;background:var(--card-bg);color:var(--text-1)">${Object.keys(SORTLBL).map(k=>`<option value="${k}" ${ordPriceSort===k?'selected':''}>${SORTLBL[k]}</option>`).join('')}</select>
       <button onclick="ordPriceOnlySuspect=!ordPriceOnlySuspect;renderOrders()" style="padding:8px 12px;font-size:12px;font-weight:700;border-radius:8px;border:1px solid ${ordPriceOnlySuspect?'#FCA5A5':'var(--border-2)'};background:${ordPriceOnlySuspect?'#FEE2E2':'var(--card-bg)'};color:${ordPriceOnlySuspect?'#B91C1C':'var(--text-3)'};cursor:pointer;white-space:nowrap">⚠ 오류만 ${ordPriceOnlySuspect?'ON':'OFF'}</button>
     </div>
@@ -11250,53 +11140,35 @@ function renderVehicles() {
   const soon    = allRenewals.filter(r => { const d = _vhDaysLeft(r.expiry); return d !== null && d >= 0 && d <= 30; });
 
   let h = `
-    <div style="padding:14px 16px">
-      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:14px">
-        <div>
-          <h2 style="margin:0;font-size:18px;font-weight:800;color:var(--text-1)">차량 관리</h2>
-          <p style="margin:2px 0 0;font-size:11px;color:var(--text-4)">Rego · CTP · NRMA 등 갱신 일정 추적</p>
-        </div>
-        <button class="btn-primary" style="padding:7px 12px;font-size:12px" onclick="vhOpenForm()">＋ 차량 추가</button>
+    <div>
+      <div class="pg-h">
+        <div><h2>차량</h2><div class="sub">Rego · CTP · 보험 등 갱신 일정</div></div>
+        <div class="acts"><button class="kbtn pri" onclick="vhOpenForm()">+ 차량</button></div>
       </div>
 
-      ${(expired.length > 0 || soon.length > 0) ? `
-        <div style="background:linear-gradient(135deg,${expired.length>0?'#FEE2E2':'#FEF3C7'} 0%,${soon.length>0?'#FFFBEB':'#FEF3C7'} 100%);border:1px solid ${expired.length>0?'#FCA5A5':'#FCD34D'};border-radius:10px;padding:12px 14px;margin-bottom:14px">
-          ${expired.length > 0 ? `<div style="font-size:12px;font-weight:700;color:#B91C1C;margin-bottom:6px">🚨 만료된 갱신 ${expired.length}건</div>
-            <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:${soon.length>0?'10px':'0'}">
-              ${expired.map(r => `<span style="background:#FCA5A5;color:#7F1D1D;font-size:11px;font-weight:600;padding:3px 9px;border-radius:5px">${esc(r._vehicle.rego||'')} · ${(VEHICLE_RENEWAL_TYPES.find(t=>t.key===r.type)||{}).emoji||''} ${esc(r.type||'')} (${-_vhDaysLeft(r.expiry)}일 지남)</span>`).join('')}
-            </div>` : ''}
-          ${soon.length > 0 ? `<div style="font-size:12px;font-weight:700;color:#92400E;margin-bottom:6px">⚠️ 30일 이내 만료 ${soon.length}건</div>
-            <div style="display:flex;flex-wrap:wrap;gap:5px">
-              ${soon.map(r => `<span style="background:#FDE68A;color:#713F12;font-size:11px;font-weight:600;padding:3px 9px;border-radius:5px">${esc(r._vehicle.rego||'')} · ${(VEHICLE_RENEWAL_TYPES.find(t=>t.key===r.type)||{}).emoji||''} ${esc(r.type||'')} (${_vhDaysLeft(r.expiry)}일)</span>`).join('')}
-            </div>` : ''}
-        </div>` : (active.length > 0 ? `<div style="background:#D1FAE5;border:1px solid #6EE7B7;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12px;font-weight:700;color:#065F46">✅ 만료 임박한 갱신 없음 — 모두 여유 있음</div>` : '')}
+      ${expired.length > 0 ? `<div class="km-alert r"><div class="km-alert-h" style="cursor:default"><span class="n">${expired.length}</span><span class="t">만료된 갱신</span></div>
+          <div style="display:flex;flex-wrap:wrap;gap:5px;padding:0 12px 11px">${expired.map(r => `<span class="chip red" style="font-size:11.5px;font-weight:600">${esc(r._vehicle.rego||'')} · ${esc(r.type||'')} ${-_vhDaysLeft(r.expiry)}일 지남</span>`).join('')}</div></div>` : ''}
+      ${soon.length > 0 ? `<div class="km-alert a"><div class="km-alert-h" style="cursor:default"><span class="n">${soon.length}</span><span class="t">30일 안에 만료</span></div>
+          <div style="display:flex;flex-wrap:wrap;gap:5px;padding:0 12px 11px">${soon.map(r => `<span class="chip amber" style="font-size:11.5px;font-weight:600">${esc(r._vehicle.rego||'')} · ${esc(r.type||'')} ${_vhDaysLeft(r.expiry)}일 남음</span>`).join('')}</div></div>` : ''}
+      ${(!expired.length && !soon.length && active.length > 0) ? `<div class="km-alert"><div class="km-alert-h" style="cursor:default"><span class="t" style="color:var(--km-green)">30일 안에 만료되는 갱신 없음</span></div></div>` : ''}
 
       ${(_vhEditId === 'new' || _vhEditId) ? _vhFormHtml() : ''}
       ${_vhRenewId ? _vhRenewFormHtml() : ''}
 
       ${active.length === 0 ? `
-        <div style="text-align:center;padding:40px 16px;color:var(--text-4);font-size:13px;background:var(--card-bg);border-radius:10px;border:1px dashed var(--border-2)">
-          🚗 등록된 차량이 없어요. <strong>＋ 차량 추가</strong> 로 시작하세요.
-        </div>
+        <div class="sec"><div class="sec-b" style="text-align:center;color:var(--text-4)">등록된 차량이 없어요. <strong>+ 차량</strong>으로 시작하세요.</div></div>
       ` : active.map(v => _vhCardHtml(v)).join('')}
 
       ${archived.length > 0 ? `
         <div style="margin-top:16px">
-          <button class="btn-secondary" style="width:100%;padding:8px;font-size:12px;background:#F3F4F6;color:#6B7280;border-color:#D1D5DB" onclick="_vhShowArchived=${!_vhShowArchived};renderVehicles()">
-            ${_vhShowArchived ? '▲ 폐차/보관 차량 숨기기' : `▼ 폐차/보관 차량 보기 (${archived.length}대)`}
+          <button class="kbtn" style="width:100%;justify-content:center;margin-bottom:10px;color:var(--text-3)" onclick="_vhShowArchived=${!_vhShowArchived};renderVehicles()">
+            ${_vhShowArchived ? '폐차/보관 차량 숨기기' : `폐차/보관 차량 보기 (${archived.length}대)`}
           </button>
           ${_vhShowArchived ? archived.map(v => _vhCardHtml(v, true)).join('') : ''}
         </div>
       ` : ''}
 
-      <div style="margin-top:10px;padding:10px 12px;background:#F9FAFB;border-radius:8px;font-size:11px;color:var(--text-3);line-height:1.7">
-        💡 <strong>상태 색상</strong>:
-        <span style="background:#D1FAE5;color:#065F46;padding:1px 6px;border-radius:3px;font-weight:700">✅ 여유</span>
-        <span style="background:#FFFBEB;color:#92400E;padding:1px 6px;border-radius:3px;font-weight:700">🟡 90일 이내</span>
-        <span style="background:#FEF3C7;color:#B45309;padding:1px 6px;border-radius:3px;font-weight:700">⚠️ 30일 이내</span>
-        <span style="background:#FEE2E2;color:#B91C1C;padding:1px 6px;border-radius:3px;font-weight:700">🚨 만료됨</span>
-        <br/>갱신 완료 후 항목 클릭 → 새 만료일 입력 → 자동으로 다음 사이클 시작.
-      </div>
+      <div style="margin-top:8px;padding:2px 4px;font-size:11px;color:var(--text-4);line-height:1.6">갱신하면 <b>갱신</b>을 눌러 새 만료일을 넣으세요. 다음 주기가 자동으로 시작돼요.</div>
     </div>
   `;
   document.getElementById('tab-vehicles').innerHTML = h;
@@ -11307,41 +11179,45 @@ function _vhCardHtml(v, isArchived) {
   const fmtAU = ymd => isoToAu(ymd);
   let renewalsHtml;
   if (renewals.length === 0) {
-    renewalsHtml = `<div style="padding:12px;text-align:center;font-size:11px;color:var(--text-4);font-style:italic">갱신 항목이 없어요. 아래 "+ 항목 추가" 를 누르세요.</div>`;
+    renewalsHtml = `<div class="sec-b" style="text-align:center;font-size:12px;color:var(--text-4)">갱신 항목이 없어요. <b>+ 항목</b>을 누르세요.</div>`;
   } else {
     renewalsHtml = renewals.sort((a,b)=>(a.expiry||'').localeCompare(b.expiry||'')).map(r => {
       const t = VEHICLE_RENEWAL_TYPES.find(x => x.key === r.type) || {emoji:'📋', label:r.type||'기타'};
       const d = _vhDaysLeft(r.expiry);
       const st = _vhStatus(d);
-      return `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--border-3);background:${st.bg};border-left:4px solid ${st.color}">
-        <div style="flex:1;min-width:0">
-          <div style="font-size:12px;font-weight:700;color:var(--text-1)">${t.emoji} ${esc(t.label)}${r.provider?` <span style="font-weight:500;color:#6B7280;font-size:11px">· ${esc(r.provider)}</span>`:''}</div>
-          <div style="font-size:11px;color:var(--text-3);margin-top:2px">만료: <strong style="color:${st.color}">${r.expiry?fmtAU(r.expiry):'(미설정)'}</strong>${r.lastPaid?` · 최근 결제 ${fmtAU(r.lastPaid)}`:''}${r.cost?` · $${parseFloat(r.cost).toFixed(2)}`:''}</div>
-          ${r.notes?`<div style="font-size:10px;color:var(--text-4);margin-top:2px;font-style:italic">${esc(r.notes)}</div>`:''}
+      const dCls = d === null ? '' : d < 0 ? 'red' : d <= 30 ? 'amber' : d <= 90 ? 'amber' : 'green';
+      const dTxt = d === null ? '미설정' : d < 0 ? `${-d}일 지남` : `${d}일 남음`;
+      return `<div class="lrow" style="align-items:flex-start">
+        <div class="main">
+          <div class="nm" style="font-size:13.5px">${esc(t.label)}${r.provider?` <span style="font-weight:500;color:var(--text-4);font-size:12px">· ${esc(r.provider)}</span>`:''}</div>
+          <div class="sub" style="white-space:normal">만료 <b style="color:var(--text)">${r.expiry?fmtAU(r.expiry):'미설정'}</b>${r.lastPaid?` · 최근 결제 ${fmtAU(r.lastPaid)}`:''}${r.cost?` · $${parseFloat(r.cost).toFixed(2)}`:''}</div>
+          ${r.notes?`<div class="sub" style="white-space:normal;color:var(--text-4)">${esc(r.notes)}</div>`:''}
         </div>
-        <div style="text-align:center;min-width:65px">
-          <div style="font-size:11px;font-weight:700;color:${st.color}">${st.icon} ${st.label}</div>
-        </div>
-        <div style="display:flex;flex-direction:column;gap:2px">
-          <button onclick="vhMarkRenewed('${v.id}','${r.id}')" title="갱신 완료 → 만료일 갱신" style="background:#10B981;color:#fff;border:none;border-radius:5px;padding:3px 8px;font-size:10px;font-weight:700;cursor:pointer">✓ 갱신</button>
-          <button onclick="vhEditRenewal('${v.id}','${r.id}')" title="편집" style="background:none;border:1px solid #D1D5DB;color:#374151;border-radius:5px;padding:3px 8px;font-size:10px;cursor:pointer">✎</button>
-          <button onclick="vhDeleteRenewal('${v.id}','${r.id}')" title="삭제" style="background:none;border:none;color:#DC2626;font-size:11px;cursor:pointer">✕</button>
+        <span class="chip ${dCls}" style="margin-top:2px">${dTxt}</span>
+        <div style="display:flex;gap:3px;align-items:center">
+          <button class="kbtn sm" onclick="vhMarkRenewed('${v.id}','${r.id}')" title="갱신 완료 → 만료일 갱신">갱신</button>
+          <button class="kbtn sm" onclick="vhEditRenewal('${v.id}','${r.id}')" title="편집">✎</button>
+          <button onclick="vhDeleteRenewal('${v.id}','${r.id}')" title="삭제" style="background:none;border:none;color:var(--text-4);font-size:15px;cursor:pointer;padding:2px 3px">×</button>
         </div>
       </div>`;
     }).join('');
   }
 
-  return `<div style="background:var(--card-bg);border:1px solid var(--border-2);border-radius:10px;margin-bottom:10px;overflow:hidden;${isArchived?'opacity:0.6':''}">
-    <div style="padding:10px 14px;background:var(--card-bg-alt);border-bottom:1px solid var(--border-2);display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-      <span style="font-size:14px;font-weight:800;color:var(--text-1);font-family:monospace;background:#E3EFEC;color:#134845;padding:3px 10px;border-radius:5px">${esc(v.rego||'')}</span>
-      ${v.name ? `<span style="font-size:12px;color:var(--text-2);font-weight:600">${esc(v.name)}</span>` : ''}
-      ${isArchived ? `<span style="font-size:10px;background:#9CA3AF;color:#fff;padding:1px 6px;border-radius:3px;font-weight:700">폐차/보관</span>` : ''}
-      ${v.notes ? `<span style="font-size:11px;color:var(--text-4);font-style:italic">${esc(v.notes)}</span>` : ''}
-      <div style="margin-left:auto;display:flex;gap:4px">
-        <button onclick="vhAddRenewal('${v.id}')" style="background:#1F6F6B;color:#fff;border:none;border-radius:5px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer">+ 항목</button>
-        <button onclick="vhEdit('${v.id}')" style="background:none;border:1px solid #D1D5DB;color:#374151;border-radius:5px;padding:4px 8px;font-size:11px;cursor:pointer">✎</button>
-        <button onclick="vhToggleArchive('${v.id}')" title="${isArchived?'복원':'폐차/보관 처리'}" style="background:none;border:1px solid #D1D5DB;color:#6B7280;border-radius:5px;padding:4px 8px;font-size:11px;cursor:pointer">${isArchived?'↩':'📦'}</button>
-        <button onclick="vhDelete('${v.id}')" style="background:none;border:none;color:#DC2626;font-size:13px;cursor:pointer;padding:2px 5px">✕</button>
+  return `<div class="sec" style="${isArchived?'opacity:0.6':''}">
+    <div class="sec-h">
+      <div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1">
+        <span style="font-size:13px;font-weight:800;font-family:ui-monospace,monospace;letter-spacing:.5px;border:1.5px solid var(--text);color:var(--text);padding:1px 7px;border-radius:5px">${esc(v.rego||'')}</span>
+        <div style="min-width:0">
+          ${v.name ? `<div style="font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(v.name)}</div>` : ''}
+          ${v.notes ? `<div style="font-size:11px;color:var(--text-4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(v.notes)}</div>` : ''}
+        </div>
+        ${isArchived ? `<span class="chip">폐차/보관</span>` : ''}
+      </div>
+      <div style="display:flex;gap:4px">
+        <button class="kbtn sm" onclick="vhAddRenewal('${v.id}')">+ 항목</button>
+        <button class="kbtn sm" onclick="vhEdit('${v.id}')" title="차량 수정">✎</button>
+        <button class="kbtn sm" onclick="vhToggleArchive('${v.id}')" title="${isArchived?'복원':'폐차/보관 처리'}">${isArchived?'복원':'보관'}</button>
+        <button onclick="vhDelete('${v.id}')" title="삭제" style="background:none;border:none;color:var(--text-4);font-size:15px;cursor:pointer;padding:2px 4px">×</button>
       </div>
     </div>
     ${renewalsHtml}
@@ -11583,29 +11459,43 @@ function renderCalendar() {
     const invs = byDay[d] || [];
     const total = invs.reduce((s,i)=>s+(parseFloat(i.amount)||0), 0);
     const isToday = `${calMonth}-${String(d).padStart(2,'0')}` === today;
-    cells += `<div style="min-height:56px;border:1px solid ${invs.length?'rgba(16,185,129,0.45)':'var(--border-2)'};border-radius:6px;padding:3px 3px 4px;background:${isToday?'#E3EFEC':invs.length?'rgba(16,185,129,0.08)':'var(--card-bg)'};display:flex;flex-direction:column;cursor:${invs.length?'pointer':'default'};font-size:11px;line-height:1.2;min-width:0;overflow:hidden" ${invs.length?`onclick="filterByDate('${calMonth}-${String(d).padStart(2,'0')}')"`:''}>
+    cells += `<div style="min-height:56px;border:1px solid ${isToday?'var(--km-teal)':'var(--border-3)'};border-radius:7px;padding:3px 3px 4px;background:${invs.length?'rgba(31,111,107,0.08)':'var(--card-bg)'};display:flex;flex-direction:column;cursor:${invs.length?'pointer':'default'};font-size:11px;line-height:1.2;min-width:0;overflow:hidden" ${invs.length?`onclick="filterByDate('${calMonth}-${String(d).padStart(2,'0')}')"`:''}>
       <div style="display:flex;justify-content:space-between;align-items:center;gap:2px">
-        <span style="font-weight:${isToday?'800':'600'};color:${isToday?'#1F6F6B':'var(--text-2)'}">${d}</span>
-        ${invs.length?`<span class="cal-cnt" style="font-size:9px;font-weight:700;color:#fff;background:#059669;border-radius:8px;padding:0 4px;line-height:14px">${invs.length}</span>`:''}
+        <span style="font-weight:${isToday?'800':'600'};color:${isToday?'var(--km-teal-text)':'var(--text-2)'}">${d}</span>
+        ${invs.length?`<span class="cal-cnt" style="font-size:9px;font-weight:700;color:#fff;background:var(--km-teal);border-radius:8px;padding:0 4px;line-height:14px">${invs.length}</span>`:''}
       </div>
-      ${invs.length?`<div class="cal-amt" style="font-size:10px;color:#059669;margin-top:auto;font-weight:700;white-space:nowrap;letter-spacing:-0.3px;text-align:center">${calAmt(total)}</div>`:''}
+      ${invs.length?`<div class="cal-amt" style="font-size:10px;color:var(--km-teal-text);margin-top:auto;font-weight:700;white-space:nowrap;letter-spacing:-0.3px;text-align:center">${calAmt(total)}</div>`:''}
     </div>`;
   }
 
+  const listDays = Object.keys(byDay).map(Number).sort((a,b)=>b-a);
   document.getElementById('tab-calendar').innerHTML = `
-    <div class="card" style="margin-bottom:12px;padding-left:10px;padding-right:10px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-        <button class="btn-secondary" style="padding:6px 12px" onclick="calMove(-1)">‹</button>
-        <div style="font-size:15px;font-weight:800;color:var(--text)">${monthName}</div>
-        <button class="btn-secondary" style="padding:6px 12px" onclick="calMove(1)">›</button>
+    <div class="pg-h">
+      <div><h2>달력</h2><div class="sub">발행일 기준 · 날짜를 누르면 그날 인보이스</div></div>
+      <div class="acts">
+        <button class="kbtn" onclick="calMove(-1)" aria-label="이전 달">‹</button>
+        <span style="font-size:14px;font-weight:700;color:var(--text);min-width:110px;text-align:center">${monthName}</span>
+        <button class="kbtn" onclick="calMove(1)" aria-label="다음 달">›</button>
       </div>
-      <div style="text-align:center;font-size:12px;color:var(--text-3);margin-bottom:12px">이번 달 발행 <b style="color:var(--text)">${monthInvs.length}건</b> · <b style="color:#059669">${fA(monthTotal)}</b></div>
+    </div>
+    <div class="kpis k2">
+      <div><div class="l">이번 달 발행</div><div class="v">${monthInvs.length}건</div></div>
+      <div><div class="l">발행 금액</div><div class="v">${fA(monthTotal)}</div></div>
+    </div>
+    <div class="sec"><div class="sec-b" style="padding:10px">
       <div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px;margin-bottom:6px">
-        ${['일','월','화','수','목','금','토'].map((d,i)=>`<div style="text-align:center;font-size:10px;font-weight:700;color:${i===0?'#DC2626':i===6?'#2563EB':'var(--text-3)'}">${d}</div>`).join('')}
+        ${['일','월','화','수','목','금','토'].map((d,i)=>`<div style="text-align:center;font-size:10.5px;font-weight:600;color:${i===0?'var(--km-red)':'var(--text-3)'}">${d}</div>`).join('')}
       </div>
       <div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px">${cells}</div>
-    </div>
-    <div style="font-size:11px;color:var(--text-3);text-align:center;padding:8px">날짜 클릭 시 그 날 발행한 인보이스 보기</div>
+    </div></div>
+    ${listDays.length ? `<div class="sec">
+      <div class="sec-h"><div class="t">이번 달 발행 목록</div></div>
+      ${listDays.map(d => byDay[d].map(i => `<div class="lrow click" onclick="filterByDate('${i.invoiceDate}')">
+        <div style="width:34px;text-align:center;flex-shrink:0"><div style="font-weight:700;font-size:15px;color:var(--text)">${d}</div></div>
+        <div class="main"><div class="nm">${esc(i.builderName||'')}</div><div class="sub">${esc(i.invoiceNum||'')}${i.address?' · '+esc(i.address):''}</div></div>
+        <div class="amt">${fA(parseFloat(i.amount)||0)}<small>${esc(i.status||'')}</small></div>
+      </div>`).join('')).join('')}
+    </div>` : ''}
   `;
 }
 function calMove(delta) {
