@@ -19,7 +19,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-10-21-03';
+const APP_BUILD = '2026-10-21-04';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -2667,14 +2667,33 @@ function _addOneMonth(iso) {
   const nm = m === 12 ? 1 : m+1, ny = m === 12 ? y+1 : y;
   return `${ny}-${String(nm).padStart(2,'0')}-${String(Math.min(d,last)).padStart(2,'0')}`;
 }
+// 빌더별 평소 입금 일수(중앙값, 기록 3건 이상) — Renascent·Hines 처럼 원래 늦게 주는 곳은
+// 한 달 대신 "평소 + 14일" 지나야 알림.
+function _builderUsualPayDays() {
+  const by = {};
+  invoices.forEach(i => {
+    if (!i || !['PAID','RETENTION'].includes(i.status)) return;
+    const d = _daysToPaid(i);
+    if (d != null) (by[i.builderName] = by[i.builderName] || []).push(d);
+  });
+  const out = {};
+  Object.entries(by).forEach(([b,l]) => { if (l.length >= 3) { l.sort((x,y)=>x-y); out[b] = l[Math.floor(l.length/2)]; } });
+  return out;
+}
 function getUnpaidMonthInvoices() {
-  const todayIso = new Date().toLocaleDateString('en-CA');
+  const usual = _builderUsualPayDays();
+  const now = new Date(); now.setHours(0,0,0,0);
+  const todayIso = now.toLocaleDateString('en-CA');
   return invoices.filter(inv => {
     if (!inv || !inv.invoiceDate) return false;
     if (!['INVOICE','ONGOING','OVERDUE'].includes(inv.status)) return false;
     if (isRetentionHeld(inv)) return false;
     if (Math.round(remaining(inv)*100)/100 <= 0.01) return false;
-    return _addOneMonth(inv.invoiceDate) <= todayIso;
+    if (_addOneMonth(inv.invoiceDate) > todayIso) return false;
+    const u = usual[inv.builderName];
+    if (u == null) return true;
+    const days = Math.floor((now - new Date(inv.invoiceDate+'T00:00:00')) / 86400000);
+    return days > u + 14;
   }).sort((a,b) => (a.invoiceDate||'').localeCompare(b.invoiceDate||''));  // 오래된 순
 }
 function renderUnpaidMonthAlert() {
