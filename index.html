@@ -18,7 +18,7 @@
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
 // ℹ️ reload 는 코드만 갱신 — Firebase 주소(wm_fb_url)·로그인 세션(wm_session)은 localStorage 라 유지됨(재로그인 불필요).
-const APP_BUILD = '2026-10-13-02';
+const APP_BUILD = '2026-10-21-01';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출. ?_=타임스탬프 + no-store 로 캐시 우회.
 function _fetchLatestBuild(){
   return fetch(location.pathname + '?_=' + Date.now(), { cache: 'no-store', headers: { 'Range': 'bytes=0-3000' } })
@@ -264,6 +264,36 @@ async function fbSet(path, value) {
 async function fbUpdate(path, value) {
   const base = _fbUrl || getFbUrl(); if (!base) return false;
   try { const r = await fetch(base + "/" + path + ".json", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(value) }); return r.ok; } catch { return false; }
+}
+// 실시간 동기화 — Firebase REST 스트리밍(EventSource). 연결 시 1회 전체, 이후엔 바뀐 부분만 수신.
+//   (예전 30초 전체 폴링은 하루 2GB+ 다운로드 → Blaze 과금 원인이었음)
+//   onData(최신 전체값 사본, 전체수신여부). 반환값 = 연결 종료 함수.
+function _fbApplyAt(root, segs, val) {
+  if (!segs.length) return val;
+  if (root === null || typeof root !== "object") root = {};
+  let o = root;
+  for (let i = 0; i < segs.length - 1; i++) { const k = segs[i]; if (o[k] === null || typeof o[k] !== "object") o[k] = {}; o = o[k]; }
+  const k = segs[segs.length - 1];
+  if (val === null) delete o[k]; else o[k] = val;
+  return root;
+}
+function fbStream(path, onData) {
+  const base = _fbUrl || getFbUrl(); if (!base) return () => {};
+  let raw = null;
+  const es = new EventSource(base + "/" + path + ".json");
+  const handle = (isPatch) => (e) => {
+    let m; try { m = JSON.parse(e.data); } catch { return; }
+    if (!m) return;
+    const segs = String(m.path || "/").split("/").filter(Boolean);
+    if (isPatch) Object.keys(m.data || {}).forEach(k => { raw = _fbApplyAt(raw, segs.concat(k.split("/").filter(Boolean)), m.data[k]); });
+    else raw = _fbApplyAt(raw, segs, m.data);
+    // 사본 전달(JSON 왕복) — 화면 state 와 내부 미러를 분리, 배열 빈칸은 null 로 정규화(REST 와 동일)
+    onData(raw == null ? null : JSON.parse(JSON.stringify(raw)), !isPatch && !segs.length);
+  };
+  es.addEventListener("put", handle(false));
+  es.addEventListener("patch", handle(true));
+  es.addEventListener("cancel", () => es.close());
+  return () => es.close();
 }
 function lsGet(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch{return d;}}
 function lsSave(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch{}}
@@ -4940,14 +4970,63 @@ function App() {
     return{any:!!(u||l||lv),full};
   };
 
+  // 실시간 동기화: 노드별 스트림. 화면이 60초 이상 안 보이면 끊고, 다시 보이면 재연결(그때 1회 전체수신).
+  const streamsRef=useRef([]);
+  const gotRef=useRef({});
+  const firstFullRef=useRef(null);
+  const startLive=useCallback(()=>{
+    if(streamsRef.current.length)return;
+    if(!window.EventSource){   // 스트리밍 미지원 브라우저 → 화면 보일 때만 30초 폴링
+      loadFromFb().then(r=>{if(r.full&&firstFullRef.current)firstFullRef.current();});
+      pollRef.current=setInterval(loadFromFb,30000);
+      streamsRef.current=[()=>{clearInterval(pollRef.current);pollRef.current=null;}];
+      return;
+    }
+    streamsRef.current=["users","logs","leaves","companies"].map(node=>fbStream(node,(v,full)=>{
+      if(!v)return;
+      if(node==="users")setUsers(Array.isArray(v)?v.filter(x=>x!=null):Object.values(v));
+      else if(node==="logs"){
+        setLogs(Array.isArray(v)?v.filter(x=>x!=null):Object.values(v));
+        // 자가치유 마이그레이션: logs 가 아직 배열이면 id-키 객체로 1회 변환 (loadFromFb 와 동일)
+        if(full&&Array.isArray(v)&&v.length){
+          const obj={}; let ok=true;
+          v.forEach(x=>{ if(x&&x.id!=null) obj[String(x.id)]=x; else if(x) ok=false; });
+          if(ok) fbSet("logs",obj);
+        }
+      }
+      else if(node==="leaves")setLeaves(v);
+      else if(node==="companies")setCompanies(Array.isArray(v)?v.filter(x=>x!=null):Object.values(v));
+      if(node!=="companies"){
+        gotRef.current[node]=true;
+        const g=gotRef.current;
+        if(g.users&&g.logs&&g.leaves){setDataReady(true);if(firstFullRef.current)firstFullRef.current();}
+      }
+    }));
+  },[]);
+  const stopLive=useCallback(()=>{streamsRef.current.forEach(close=>close());streamsRef.current=[];},[]);
+
   useEffect(()=>{
+    let hideTimer=null;
     (async()=>{
       const fbUrl=getFbUrl();
-      if(fbUrl){_fbUrl=fbUrl;setFbConfigured(true);let r=await loadFromFb();let tries=0;while(!r.full&&tries<6){await new Promise(res=>setTimeout(res,1500));r=await loadFromFb();tries++;}pollRef.current=setInterval(loadFromFb,30000);}
+      if(fbUrl){
+        _fbUrl=fbUrl;setFbConfigured(true);
+        // 첫 전체수신까지 대기(로그인 화면이 기본 직원목록으로 뜨지 않게). 최대 12초.
+        const firstFull=new Promise(res=>{firstFullRef.current=res;});
+        startLive();
+        if(document.hidden)hideTimer=setTimeout(stopLive,60000);
+        await Promise.race([firstFull,new Promise(res=>setTimeout(res,12000))]);
+      }
       else{const u=await legacyGet("wm_users")||SEED_USERS;const l=await legacyGet("wm_logs")||[];const lv=await legacyGet("wm_leaves")||SEED_LEAVES;setUsers(u);setLogs(l);setLeaves(lv);}
       setSession(await sessionGet());setReady(true);
     })();
-    return()=>{if(pollRef.current)clearInterval(pollRef.current);};
+    const onVis=()=>{
+      clearTimeout(hideTimer);
+      if(document.hidden)hideTimer=setTimeout(stopLive,60000);
+      else if(_fbUrl)startLive();
+    };
+    document.addEventListener("visibilitychange",onVis);
+    return()=>{clearTimeout(hideTimer);document.removeEventListener("visibilitychange",onVis);stopLive();};
   },[]);
 
   const saveFb=useCallback(async(u,l,lv,co)=>{const base=_fbUrl||getFbUrl();if(!base)return;if(u)fbSet("users",u);if(l)fbSet("logs",l);if(lv)fbSet("leaves",lv);if(co)fbSet("companies",co);},[]);
@@ -5004,7 +5083,7 @@ function App() {
   const logout=async()=>{await sessionRemove();setSession(null);};
 
   if(!ready)return(<div style={{ minHeight:"100dvh",display:"flex",alignItems:"center",justifyContent:"center",background:"#f4f6fb" }}><div style={{ textAlign:"center" }}><div style={{ fontSize:40,marginBottom:12 }}>📋</div><p style={{ color:"#3b7ff5",fontWeight:700,fontSize:16 }}>WorkLog 로딩 중...</p></div></div>);
-  if(!getFbUrl())return(<FirebaseSetup onDone={async(url)=>{setFbUrl(url);_fbUrl=url;const r=await loadFromFb();if(!r.any){await saveFb(SEED_USERS,[],SEED_LEAVES);}pollRef.current=setInterval(loadFromFb,30000);setFbConfigured(true);}}/>);
+  if(!getFbUrl())return(<FirebaseSetup onDone={async(url)=>{setFbUrl(url);_fbUrl=url;const r=await loadFromFb();if(!r.any){await saveFb(SEED_USERS,[],SEED_LEAVES);}startLive();setFbConfigured(true);}}/>);
   if(!session)return<LoginScreen users={users} onLogin={login}/>;
   // 핵심 데이터(직원·근무일지·연차)가 다 로드되기 전엔 잘못된 수치(연차/미제출 등)가 잠깐 보이므로 로딩 표시
   if(!dataReady)return(<div style={{ minHeight:"100dvh",display:"flex",alignItems:"center",justifyContent:"center",background:"#f4f6fb" }}><div style={{ textAlign:"center" }}><div style={{ fontSize:40,marginBottom:12 }}>📋</div><p style={{ color:"#3b7ff5",fontWeight:700,fontSize:16 }}>데이터 불러오는 중...</p><p style={{ color:"#9aa3b5",fontSize:12,marginTop:4 }}>잠시만 기다려주세요</p></div></div>);
