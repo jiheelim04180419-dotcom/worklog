@@ -19,7 +19,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-10-21-06';
+const APP_BUILD = '2026-10-21-07';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -8290,16 +8290,45 @@ function printInvoiceKM(inv, co, b) {
 }
 
 // ── Builders ──────────────────────────────────────────────────────────────────
+let _bldTermsView = false;  // 빌더 탭: 청구일·입금 기한만 모아 보기
+const CLAIM_DAYS = { '25':'매월 25일', 'EOM':'매월 말일', '20':'매월 20일', '28':'매월 28일' };
+function toggleBldTerms() { _bldTermsView = !_bldTermsView; renderBuilders(); }
+function renderBuilderTerms() {
+  const sorted = [...builders].sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  const withT = sorted.filter(b => b.claimDay || b.payTerm || b.contractNote);
+  const rest = sorted.filter(b => !(b.claimDay || b.payTerm || b.contractNote));
+  const row = b => {
+    const avgPay = avgPaymentDays(b.name);
+    return `<div class="card" onclick="openBM('${b.id}')" style="cursor:pointer;padding:10px 12px">
+      <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline;flex-wrap:wrap">
+        <div style="font-size:14px;font-weight:700;color:#111827">${esc(b.name)}</div>
+        ${avgPay?`<div style="font-size:11px;color:#6B7280">⏱️ 실제 평균 ${avgPay.avg}일</div>`:''}
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;font-size:12px">
+        <span style="background:#EEF2FF;color:#3730A3;border-radius:6px;padding:2px 7px">📤 청구 ${b.claimDay?esc(CLAIM_DAYS[b.claimDay]||b.claimDay):'미정'}</span>
+        <span style="background:${b.payTerm?'#ECFDF5':'#F3F4F6'};color:${b.payTerm?'#065F46':'#6B7280'};border-radius:6px;padding:2px 7px">💰 입금 ${b.payTerm?esc(PAY_TERMS[b.payTerm]||b.payTerm):'미정'}</span>
+      </div>
+      ${b.contractNote?`<div style="font-size:11px;color:#6B7280;margin-top:5px;line-height:1.45">${esc(b.contractNote)}</div>`:''}
+    </div>`;
+  };
+  let h = `<div style="font-size:12px;color:#6B7280;margin-bottom:8px">계약서 기준 청구 마감일·입금 기한 (${withT.length}곳). 누르면 수정할 수 있어요.</div>`;
+  h += withT.map(row).join('') || '<div class="empty"><p>아직 입력된 조건이 없어요</p></div>';
+  if (rest.length) h += `<details style="margin-top:10px"><summary style="cursor:pointer;font-size:12px;color:#6B7280">조건 미입력 빌더 ${rest.length}곳</summary>${rest.map(row).join('')}</details>`;
+  return h;
+}
 function renderBuilders() {
   let h = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:8px;flex-wrap:wrap">
     <div style="font-size:15px;font-weight:800;color:#111827">빌더 목록 (${builders.length})</div>
     <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <button class="${_bldTermsView?'btn-gold':'btn-secondary'}" style="padding:6px 10px;font-size:12px" onclick="toggleBldTerms()" title="빌더별 청구일·입금 기한 한눈에 보기">📅 입금 조건</button>
       <button class="btn-secondary" style="padding:6px 10px;font-size:12px" onclick="dedupeBuilders()" title="같은 이름의 빌더 중복 제거">🧹 중복정리</button>
       <button class="btn-secondary" style="padding:6px 10px;font-size:12px" onclick="importBuilders()" title="K&M 빌더 60개 일괄 가져오기">📥 가져오기</button>
       <button class="btn-gold" onclick="openBM(null)">+ 빌더추가</button>
     </div>
   </div>`;
-  if (!builders.length) {
+  if (_bldTermsView && builders.length) {
+    h += renderBuilderTerms();
+  } else if (!builders.length) {
     h += `<div class="empty"><div style="font-size:44px;margin-bottom:10px">🏗️</div><p style="font-size:14px;margin-bottom:14px">빌더를 추가해보세요</p>
       <button class="btn-primary" style="padding:10px 18px" onclick="importBuilders()">📥 K&M 빌더 60개 가져오기</button>
     </div>`;
