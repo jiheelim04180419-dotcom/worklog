@@ -19,7 +19,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-10-21-04';
+const APP_BUILD = '2026-10-21-05';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -1275,6 +1275,15 @@ body.invoice-readonly::before {
   <div class="mb"><label class="label">Business Address</label><input class="input" id="bf-ba" placeholder="사업장 주소"/></div>
   <div class="mb"><label class="label">Postal Address</label><input class="input" id="bf-pa" placeholder="우편 주소"/></div>
   <div class="mb"><label class="label">ABN</label><input class="input" id="bf-a" placeholder="ABN"/></div>
+  <div class="mb" style="background:var(--card-bg-alt);border:1px solid var(--border);border-radius:10px;padding:10px">
+    <label class="label" style="margin-bottom:6px">📅 계약 청구·입금 조건 (계약서 기준)</label>
+    <div class="row2" style="gap:8px">
+      <div><label style="font-size:11px;color:var(--text-4);display:block;margin-bottom:3px">매월 인보이스 마감일</label><select class="select" id="bf-cd"><option value="">미정</option><option value="25">매월 25일</option><option value="EOM">매월 말일</option><option value="20">매월 20일</option><option value="28">매월 28일</option></select></div>
+      <div><label style="font-size:11px;color:var(--text-4);display:block;margin-bottom:3px">입금 기한</label><select class="select" id="bf-pt"></select></div>
+    </div>
+    <input class="input" id="bf-cn" placeholder="메모 (계약서 출처 등)" style="margin-top:6px;font-size:12px"/>
+    <p style="font-size:10.5px;color:var(--text-4);margin:4px 0 0">입금 기한이 있으면 "미입금" 알림은 한 달과 (기한 + 7일) 중 늦은 날부터 뜸.</p>
+  </div>
   <div class="mb"><label class="label">Statement 법적 이름 (선택)  <span style="font-size:10px;color:var(--text-4);font-weight:400">— Subcontractor Statement 양식에 들어갈 정식 회사명. 비워두면 빌더명 사용.</span></label><input class="input" id="bf-stmt-name" placeholder="예: Stanaway Pty Ltd"/></div>
 
   <!-- Subcontractor Statement 옵션 -->
@@ -2680,8 +2689,33 @@ function _builderUsualPayDays() {
   Object.entries(by).forEach(([b,l]) => { if (l.length >= 3) { l.sort((x,y)=>x-y); out[b] = l[Math.floor(l.length/2)]; } });
   return out;
 }
+// 계약서 입금 기한 (빌더 payTerm). 청구일 = invoiceDate.
+const PAY_TERMS = {
+  EOM_NEXT: '다음 달 마지막 영업일',
+  EOM_30:   '청구 월말 + 30일',
+  EOM_BD20: '청구 월말 + 20영업일',
+  BD20:     '청구일 + 20영업일',
+  D30:      '청구일 + 30일',
+  D14:      '청구일 + 14일',
+};
+function _addBizDays(d, n) { d = new Date(d); while (n > 0) { d.setDate(d.getDate()+1); if (d.getDay()%6) n--; } return d; }
+function contractDueDate(inv, b) {
+  if (!b || !b.payTerm || !inv.invoiceDate) return null;
+  const d = new Date(inv.invoiceDate+'T00:00:00');
+  const eom = new Date(d.getFullYear(), d.getMonth()+1, 0);
+  switch (b.payTerm) {
+    case 'EOM_NEXT': { const x = new Date(d.getFullYear(), d.getMonth()+2, 0); while (!(x.getDay()%6)) x.setDate(x.getDate()-1); return x; }
+    case 'EOM_30':   { eom.setDate(eom.getDate()+30); return eom; }
+    case 'EOM_BD20': return _addBizDays(eom, 20);
+    case 'BD20':     return _addBizDays(d, 20);
+    case 'D30':      { d.setDate(d.getDate()+30); return d; }
+    case 'D14':      { d.setDate(d.getDate()+14); return d; }
+  }
+  return null;
+}
 function getUnpaidMonthInvoices() {
   const usual = _builderUsualPayDays();
+  const bByName = {}; builders.forEach(b => { bByName[b.name] = b; });
   const now = new Date(); now.setHours(0,0,0,0);
   const todayIso = now.toLocaleDateString('en-CA');
   return invoices.filter(inv => {
@@ -2690,6 +2724,8 @@ function getUnpaidMonthInvoices() {
     if (isRetentionHeld(inv)) return false;
     if (Math.round(remaining(inv)*100)/100 <= 0.01) return false;
     if (_addOneMonth(inv.invoiceDate) > todayIso) return false;
+    const due = contractDueDate(inv, bByName[inv.builderName]);
+    if (due) { due.setDate(due.getDate()+7); return now > due; }   // 계약 기한 + 7일 여유
     const u = usual[inv.builderName];
     if (u == null) return true;
     const days = Math.floor((now - new Date(inv.invoiceDate+'T00:00:00')) / 86400000);
@@ -2705,11 +2741,13 @@ function renderUnpaidMonthAlert() {
   const now = new Date(); now.setHours(0,0,0,0);
   const row = inv => {
     const days = Math.floor((now - new Date(inv.invoiceDate+'T00:00:00')) / 86400000);
+    const due = contractDueDate(inv, builders.find(b => b.name === inv.builderName));
+    const dueTxt = due ? ` · 기한 ${isoToAu(due.toLocaleDateString('en-CA'))}` : '';
     return `<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-bottom:1px solid var(--border-3);font-size:12px">
       <span style="width:7px;height:7px;border-radius:50%;background:#C2410C;flex-shrink:0"></span>
       <div style="flex:1;min-width:0">
         <div style="font-weight:700;color:var(--text-1)">${esc(inv.invoiceNum||'')} <span style="font-weight:500;color:var(--text-4)">· ${esc(inv.builderName||'')}</span></div>
-        <div style="font-size:10.5px;color:var(--text-4)">${esc(inv.address||inv.projectName||'')} · 발행 ${isoToAu(inv.invoiceDate)} · <span style="color:#C2410C;font-weight:600">${days}일 경과</span></div>
+        <div style="font-size:10.5px;color:var(--text-4)">${esc(inv.address||inv.projectName||'')} · 발행 ${isoToAu(inv.invoiceDate)} · <span style="color:#C2410C;font-weight:600">${days}일 경과</span>${dueTxt}</div>
       </div>
       <b style="font-size:12px;color:#C2410C;white-space:nowrap">${fA(remaining(inv))}</b>
     </div>`;
@@ -8756,6 +8794,11 @@ function openBM(id) {
   document.getElementById('bf-stmt-name').value = b?.statementName||'';
   document.getElementById('bf-stmt').checked = !!(b?.needsStatement);
   document.getElementById('bf-stmt-tpl').value = b?.statementTemplate||'';
+  const _pt = document.getElementById('bf-pt');
+  if (!_pt.options.length) _pt.innerHTML = '<option value="">미정</option>' + Object.entries(PAY_TERMS).map(([k,v])=>`<option value="${k}">${v}</option>`).join('');
+  document.getElementById('bf-cd').value = b?.claimDay||'';
+  _pt.value = b?.payTerm||'';
+  document.getElementById('bf-cn').value = b?.contractNote||'';
 
   // Custom rates
   customRatesEditing = b?.customRates ? 
@@ -8833,8 +8876,14 @@ async function saveBuilder() {
     statementName: document.getElementById('bf-stmt-name').value.trim(),
     needsStatement: document.getElementById('bf-stmt').checked,
     statementTemplate: document.getElementById('bf-stmt-tpl').value,
+    claimDay: document.getElementById('bf-cd').value,
+    payTerm: document.getElementById('bf-pt').value,
+    contractNote: document.getElementById('bf-cn').value.trim(),
     customRates: cleanCustomRates
   };
+  // 폼에 없는 기존 필드(additionalEmails 등) 보존
+  const _prevB = editBId ? builders.find(x=>x.id===editBId) : null;
+  if (_prevB) ['additionalEmails','needsWorkComp'].forEach(k => { if (_prevB[k] !== undefined) data[k] = _prevB[k]; });
   if (editBId) await fbSet('invoiceBuilders/'+editBId, data);
   else await fbPush('invoiceBuilders', data);
   closeBM();
