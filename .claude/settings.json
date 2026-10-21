@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "git pull --ff-only --quiet 2>&1 || echo 'git pull 실패 — 작업 전에 확인 필요'"
+          }
+        ]
+      }
+    ]
+  }
+}
