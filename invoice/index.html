@@ -19,7 +19,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-10-21-13';
+const APP_BUILD = '2026-10-21-14';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -847,7 +847,6 @@ body[data-active-tab="invoices"] .content,body:not([data-active-tab]) .content{p
 .irow-main:active{background:var(--card-bg-alt)}
 .irow .t{font-weight:600;font-size:14.5px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .irow .m{font-size:12.5px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
-.irow .m .sent{color:var(--km-teal-text);font-weight:600}
 .irow .m .age{color:var(--km-red);font-weight:600}
 .irow .proj{font-size:12px;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;grid-column:1}
 .irow .amt{font-weight:700;font-size:14.5px;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--text)}
@@ -3193,7 +3192,6 @@ function renderInv() {
     const notePrev = (inv.note||'').replace(/\n/g,' ').trim();
     
     // 목록 한 줄 — 누르면 상세(입금·메모·항목)가 아래로 펼쳐짐. 상세는 처음 펼칠 때 만듦.
-    const sentTxt = inv.sentAt ? fD(String(inv.sentAt).slice(0,10)) : '';
     const tags = (inv.type==='PO'?'<span class="tag">PO</span>':'') + (inv.type==='PROGRESS'?'<span class="tag">%</span>':'') + (isRetention?'<span class="tag">🔒</span>':'');
     const sub = inv.projectName ? esc(inv.projectName) : (inv.poNumber ? 'PO #' + esc(inv.poNumber) : '');
     const amtHtml = (isPartial && !isRetention && rem > 0.01)
@@ -3204,7 +3202,7 @@ function renderInv() {
       <div class="irow-main" onclick="toggleD('${inv.id}')">
         <span class="t">${coBadge}<span onclick="event.stopPropagation();filterByBuilder('${esc(inv.builderName||'').replace(/'/g,"\\'")}')">${esc(inv.builderName||'—')}</span>${tags}</span>
         <span class="amt${amt<0?' neg':''}">${amtHtml}</span>
-        <span class="m">${inv.invoiceNum?esc(inv.invoiceNum)+' · ':''}${sentTxt?`<span class="sent" title="메일 보낸 날">${sentTxt}</span> · `:''}${fD(inv.invoiceDate)} · ${esc(inv.address||'—')}</span>
+        <span class="m">${inv.invoiceNum?esc(inv.invoiceNum)+' · ':''}${fD(inv.invoiceDate)} · ${esc(inv.address||'—')}</span>
         <span class="spill ${ss}">${esc(pillTxt)}</span>
         ${sub?`<span class="proj">${sub}</span>`:''}
         ${isRetention?(()=>{const rr=rem>0?rem:amt;return `<span class="m" style="grid-column:1/-1;color:#4338CA">보류 ${fA(rr)} (${fAex(rr)} ex)</span>`;})():''}
