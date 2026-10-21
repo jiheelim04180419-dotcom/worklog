@@ -197,7 +197,7 @@ input,textarea,select{font-family:inherit;font-size:16px}
 <div id="toast" class="toast"></div>
 <datalist id="builder-list"></datalist>
 <script>
-const APP_BUILD='2026-10-21-02';
+const APP_BUILD='2026-10-21-03';
 const RTDB='https://knmtilingptyltd-12520-default-rtdb.firebaseio.com';
 // ── Firebase 로그인 (직원별 계정) ─────────────────────────────────────────────
 // 세 앱(WorkLog·인보이스·SiteLog)이 똑같은 코드를 씀. 직원은 예전 아이디/비밀번호 그대로 로그인하고,
@@ -409,12 +409,30 @@ async function validateSession(){
   if(!S.user)return false;
   if(!_fbAuth||_fbAuth.id!==S.user.id){localStorage.removeItem('photoapp_session');S.user=null;return false;}   // Firebase 로그인 필요
   try{
-    const users=await rtGet('users');const arr=Array.isArray(users)?users:Object.values(users||{});
+    const users=await rtGet('users');
+    if(!users)return true;   // read failed (network/server): don't lock out on a hiccup
+    const arr=Array.isArray(users)?users:Object.values(users||{});
     const u=arr.find(x=>x&&x.id===S.user.id);
-    if(!u||!isActive(u)){localStorage.removeItem('photoapp_session');S.user=null;return false;}
+    if(!u||!isActive(u)){S.blockedName=(u&&u.name)||S.user.name||S.user.id;localStorage.removeItem('photoapp_session');fbSignOut();S.user=null;return false;}
     return true;
   }catch(e){return true;} // network error: don't lock out on a hiccup
 }
+// Access removed (resigned/disabled): nothing but a notice and a way back to sign-in.
+function renderBlocked(){
+  const name=S.blockedName||'';S.blockedName=null;S.pid=null;
+  document.querySelectorAll('.modal').forEach(m=>m.remove());
+  document.getElementById('app').innerHTML=`
+  <div class="login"><div class="box">
+    <div style="font-size:44px;margin-bottom:10px">🚫</div>
+    <h2 style="margin:4px 0 8px;font-size:20px">Access removed</h2>
+    <p style="color:var(--sub);font-size:14px;line-height:1.6;margin:0 0 20px"><b style="color:var(--text)">${esc(name)}</b>, your account has been disabled,<br/>so you can no longer use SiteLog.<br/><span style="font-size:12px">Please contact the admin.</span></p>
+    <button class="btn" id="bk-btn">Back to sign in</button>
+  </div></div>`;
+  $('#bk-btn').onclick=()=>renderLogin();
+}
+function onAccessLost(){if(S.blockedName)renderBlocked();else renderLogin();}
+// While the app is open, re-check every minute so a resigned user is shut out straight away.
+setInterval(async()=>{if(S.user&&!document.hidden&&!(await validateSession()))onAccessLost();},60000);
 function saveSession(u){try{localStorage.setItem('photoapp_session',JSON.stringify(u));}catch(e){}}
 function loadSession(){try{return JSON.parse(localStorage.getItem('photoapp_session')||'null');}catch(e){return null;}}
 
@@ -477,7 +495,7 @@ async function openProjects(){
   $('#h-menu').onclick=()=>appMenu();
   $('#addproj').onclick=()=>projectForm();
   $('#q').oninput=e=>{S.q=e.target.value;renderProjectList();};
-  if(!(await validateSession())){renderLogin();setTimeout(()=>toast('Your access has been removed'),300);return;}
+  if(!(await validateSession())){onAccessLost();return;}
   const data=await rtGet('photoApp/projects')||{};
   S.projects=Object.entries(data).map(([id,v])=>({id,...v})).filter(p=>!p.archived);
   // Load this user's "seen" map for NEW badges. First run sets a baseline so existing sites don't all show NEW.
@@ -1044,7 +1062,7 @@ function openViewer(key){
   document.body.appendChild(v);
 }
 
-(async function(){fbOnAuthLost=()=>{localStorage.removeItem('photoapp_session');S.user=null;renderLogin();};const s=loadSession();if(s){S.user=s;const signed=_fbAuth&&_fbAuth.id===s.id;if(await validateSession())openProjects();else{renderLogin();if(signed)setTimeout(()=>toast('Your access has been removed'),300);}}else renderLogin();})();
+(async function(){fbOnAuthLost=()=>{localStorage.removeItem('photoapp_session');S.user=null;renderLogin();};const s=loadSession();if(s){S.user=s;if(await validateSession())openProjects();else onAccessLost();}else renderLogin();})();
 // Auto-update: compare the running build against ver.txt on the server; if newer, reload with a cache-busting ?v=.
 // ⚠️ 배포 때 APP_BUILD 와 photos/ver.txt 를 같은 값으로 올릴 것.
 async function checkUpdate(){
@@ -1061,7 +1079,7 @@ async function checkUpdate(){
 }
 checkUpdate();
 // Refresh the site list (and NEW badges) when the app is reopened/brought to front while on the home screen.
-document.addEventListener('visibilitychange',()=>{if(!document.hidden){if(S.pid===null)checkUpdate();if(S.user&&S.pid===null&&document.getElementById('plist'))openProjects();}});
+document.addEventListener('visibilitychange',async()=>{if(!document.hidden){if(S.pid===null)checkUpdate();if(S.user&&S.pid===null&&document.getElementById('plist'))openProjects();else if(S.user&&!(await validateSession()))onAccessLost();}});
 
 // Android/Galaxy back button: close the open sheet/viewer or step back to the site list instead of exiting the app.
 function backGuard(){try{history.pushState({sl:1},'');}catch(e){}}
