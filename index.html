@@ -18,7 +18,7 @@
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
 // ℹ️ reload 는 코드만 갱신 — Firebase 주소(wm_fb_url)·로그인 세션(wm_session)은 localStorage 라 유지됨(재로그인 불필요).
-const APP_BUILD = '2026-10-21-05';
+const APP_BUILD = '2026-10-21-06';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출. ?_=타임스탬프 + no-store 로 캐시 우회.
 function _fetchLatestBuild(){
   return fetch(location.pathname + '?_=' + Date.now(), { cache: 'no-store', headers: { 'Range': 'bytes=0-3000' } })
@@ -1115,23 +1115,25 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
 
   const S = {
     chip: (active, color) => ({ display:"flex",alignItems:"center",gap:6, background:active?color:"#fff", color:active?"#fff":"#444", border:"1.5px solid "+(active?color:"#E5E7EB"), borderRadius:20,padding:"6px 12px",fontSize:13,fontWeight:600,cursor:"pointer",transition:"all .15s",fontFamily:"inherit" }),
-    statBox: (color) => ({ background:color+"15",border:"1px solid "+color+"30",borderRadius:12,padding:"12px 14px" }),
+    statBox: (color) => ({ background:"#fff",border:"1px solid #E4E7E4",borderRadius:10,padding:"9px 12px" }),
+    seg: { display:"inline-flex",background:"#F7F8F6",border:"1px solid #E4E7E4",borderRadius:9,padding:2,gap:2,maxWidth:"100%",overflowX:"auto" },
+    segBtn: (on) => ({ border:"none",background:on?"#fff":"transparent",color:on?C.text:"#69737C",padding:"6px 12px",borderRadius:7,fontSize:12.5,fontWeight:600,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap",boxShadow:on?"0 1px 2px rgba(28,36,48,.12)":"none" }),
     sectionTitle: { margin:"0 0 10px",fontSize:11,fontWeight:700,color:C.sub,textTransform:"uppercase",letterSpacing:0.8 },
     row: { display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8 },
-    subTab: (active, color) => ({ flex:1,padding:"9px 0",borderRadius:8,border:"none",cursor:"pointer",fontSize:12,fontWeight:600,fontFamily:"inherit", background:active?color:"transparent",color:active?"#fff":"#888",transition:"all .15s" }),
+    subTab: (active, color) => ({ flex:1,padding:"7px 0",borderRadius:7,border:"none",cursor:"pointer",fontSize:12.5,fontWeight:600,fontFamily:"inherit", background:active?"#fff":"transparent",color:active?C.text:"#69737C",boxShadow:active?"0 1px 2px rgba(28,36,48,.12)":"none" }),
   };
 
   return (
     <div style={styles.page}>
-      <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16 }}>
-        <h2 style={{ ...styles.pageTitle,margin:0 }}>급여 관리</h2>
-        <span style={{ fontSize:11,color:"#fff",background:C.primary,padding:"3px 10px",borderRadius:20,fontWeight:600 }}>격주 정산</span>
+      <div style={{ marginBottom:12 }}>
+        <h2 style={{ ...styles.pageTitle,margin:0 }}>급여</h2>
+        <p style={{ margin:"2px 0 0",fontSize:12,color:C.sub }}>2주 단위 정산</p>
       </div>
 
       {/* Period picker */}
-      <div style={{ background:"#fff",borderRadius:14,padding:"12px 14px",marginBottom:12,boxShadow:"0 1px 4px #0000000a" }}>
-        <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10 }}>
-          <button onClick={prevPeriod} style={{ background:"#F3F4F6",border:"none",borderRadius:8,padding:"6px 14px",cursor:"pointer",fontSize:18,color:"#555",fontFamily:"inherit" }}>‹</button>
+      <div style={{ background:"#fff",borderRadius:12,padding:"8px 10px",marginBottom:12,border:"1px solid #E4E7E4" }}>
+        <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",gap:8 }}>
+          <button onClick={prevPeriod} aria-label="이전 기간" style={{ background:"#fff",border:"1px solid #E4E7E4",borderRadius:8,padding:"4px 12px",cursor:"pointer",fontSize:17,color:"#555",fontFamily:"inherit" }}>‹</button>
           <div style={{ textAlign:"center",cursor:"pointer" }} onClick={()=>{
             const BASE=new Date("2026-04-13T00:00:00");
             const diff=_fnDiff(new Date());
@@ -1144,33 +1146,24 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                 const BASE=new Date("2026-04-13T00:00:00");
                 const diff=_fnDiff(new Date());
                 const curS=new Date(BASE); curS.setDate(curS.getDate()+diff*14);
-                return localDateStr(curS)===periodStart ? "✅ 현재 구간" : "현재 구간 보기";
+                return localDateStr(curS)===periodStart ? "이번 구간" : "이번 구간으로 가기";
               })()}
             </p>
           </div>
-          <button onClick={nextPeriod} style={{ background:"#F3F4F6",border:"none",borderRadius:8,padding:"6px 14px",cursor:"pointer",fontSize:18,color:"#555",fontFamily:"inherit" }}>›</button>
+          <input type="date" value={periodStart} onChange={e => setPeriodStart(e.target.value)} aria-label="기간 시작일"
+            style={{ width:34,height:30,padding:0,border:"1px solid #E4E7E4",borderRadius:8,background:"#fff",color:"transparent",fontSize:12,cursor:"pointer" }} />
+          <button onClick={nextPeriod} aria-label="다음 기간" style={{ background:"#fff",border:"1px solid #E4E7E4",borderRadius:8,padding:"4px 12px",cursor:"pointer",fontSize:17,color:"#555",fontFamily:"inherit" }}>›</button>
         </div>
-        <input type="date" value={periodStart} onChange={e => setPeriodStart(e.target.value)}
-          style={{ ...styles.input, fontSize:12,padding:"6px 10px" }} />
       </div>
 
       {/* Employee chips (admin) */}
       {isAdmin && (
         <div style={{ marginBottom:12 }}>
           {isAdmin && (<>
-          <div style={{ display:"flex",gap:8,marginBottom:12 }}>
-            <button onClick={() => setSubView(subView==="summary" ? "calc" : "summary")}
-              style={{ flex:1,padding:"11px 0",borderRadius:12,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:13,fontWeight:700,
-                background:subView==="summary"?"#111":"#F3F4F6",
-                color:subView==="summary"?"#fff":"#555" }}>
-              📋 정산 요약 {subView==="summary"?"▲":"▼"}
-            </button>
-            <button onClick={() => setSubView(subView==="deduct" ? "calc" : "deduct")}
-              style={{ flex:1,padding:"11px 0",borderRadius:12,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:13,fontWeight:700,
-                background:subView==="deduct"?"#111":"#F3F4F6",
-                color:subView==="deduct"?"#fff":"#555" }}>
-              💳 공제 항목 관리 {subView==="deduct"?"▲":"▼"}
-            </button>
+          <div style={{ ...S.seg,marginBottom:12 }}>
+            <button onClick={() => setSubView("calc")} style={S.segBtn(subView!=="summary"&&subView!=="deduct")}>직원별</button>
+            <button onClick={() => setSubView("summary")} style={S.segBtn(subView==="summary")}>정산 요약</button>
+            <button onClick={() => setSubView("deduct")} style={S.segBtn(subView==="deduct")}>공제 항목</button>
           </div>
           {subView === "summary" && isAdmin && (
             <SummarySection users={users} leaves={leaves} periodStart={periodStart} calcWage={calcWage} getSavedDeductions={getSavedDeductions} getKeepBalance={getKeepBalance} getKeepBalanceAtPeriod={getKeepBalanceAtPeriod} getPeriodDeposits={getPeriodDeposits} EMP_COLORS={EMP_COLORS} fA={fA} C={C} selId={selId} setSelId={setSelId} setSubView={setSubView} companies={companies}/>
@@ -1183,29 +1176,54 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
               getSavedDeductions={getSavedDeductions} />
           )}
         </>)}
-        <p style={{ fontSize:11,fontWeight:700,color:C.sub,margin:"0 0 8px",textTransform:"uppercase",letterSpacing:1 }}>직원 선택</p>
-          <div style={{ display:"flex",gap:6,flexWrap:"wrap" }}>
-            {emps.map((e, i) => {
-              const color = EMP_COLORS[i % EMP_COLORS.length];
-              const pLogs = getPeriodLogs(e.id);
-
+        {subView!=="summary" && subView!=="deduct" && (selEmp ? (
+          <div style={{ display:"flex",gap:6,overflowX:"auto",paddingBottom:2,WebkitOverflowScrolling:"touch" }}>
+            {emps.map((e) => {
+              const on = selId === e.id;
               return (
-                <button key={e.id} onClick={() => { setSelId(e.id); setSubView("calc"); setDeductions([]); setPartialCash(""); setDirectKeep(""); setSkipVariable(false); }} style={S.chip(selId === e.id, color)}>
-                  <span style={{ width:20,height:20,borderRadius:"50%",background:selId===e.id?"rgba(255,255,255,.3)":color,color:"#fff",fontSize:10,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700 }}>{e.name[0]}</span>
+                <button key={e.id} onClick={() => { setSelId(e.id); setSubView("calc"); setDeductions([]); setPartialCash(""); setDirectKeep(""); setSkipVariable(false); }}
+                  style={{ flexShrink:0,border:"1px solid "+(on?C.text:"#E4E7E4"),background:on?C.text:"#fff",color:on?"#fff":C.text,borderRadius:18,padding:"5px 12px",fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit" }}>
                   {e.name}
-                  {getKeepBalance(e.id) !== 0 && (!(leaves[e.id]||{}).noLeave || (leaves[e.id]||{}).hasFlatPay) && <span style={{ fontSize:10,background:"rgba(16,185,129,.25)",color:selId===e.id?"#fff":"#059669",borderRadius:8,padding:"1px 5px" }}>킵{getKeepBalance(e.id)>999?"+":""}</span>}
                 </button>
               );
             })}
           </div>
+        ) : (
+          <div style={{ background:"#fff",border:"1px solid #E4E7E4",borderRadius:12,overflow:"hidden" }}>
+            <div style={{ padding:"10px 14px",borderBottom:"1px solid #EEF0EE",fontSize:13,fontWeight:700,color:C.text }}>직원 <span style={{ fontWeight:500,color:C.sub,fontSize:12 }}>{emps.length}명 · 눌러서 급여 계산</span></div>
+            {emps.map((e, i) => {
+              const w = calcWage(e.id);
+              const kb = getKeepBalance(e.id);
+              const showKeep = kb !== 0 && (!(leaves[e.id]||{}).noLeave || (leaves[e.id]||{}).hasFlatPay);
+              const days = w ? (w.stats.fullDays + (w.stats.partHours ? w.stats.partHours/9 : 0)) : 0;
+              return (
+                <div key={e.id} onClick={() => { setSelId(e.id); setSubView("calc"); setDeductions([]); setPartialCash(""); setDirectKeep(""); setSkipVariable(false); }}
+                  style={{ display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderTop:i?"1px solid #EEF0EE":"none",cursor:"pointer" }}>
+                  <div style={{ flex:1,minWidth:0 }}>
+                    <div style={{ fontSize:14,fontWeight:600,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis" }}>
+                      {e.name}
+                      {w && w.isContractor && <span style={{ marginLeft:6,fontSize:10.5,fontWeight:700,color:"#69737C",border:"1px solid #E4E7E4",borderRadius:5,padding:"0 5px" }}>인보이스</span>}
+                      {showKeep && <span style={{ marginLeft:6,fontSize:10.5,fontWeight:700,color:"#2E7D4F",background:"#E4F2E9",borderRadius:5,padding:"0 5px" }}>킵</span>}
+                    </div>
+                    <div style={{ fontSize:12,color:C.sub,marginTop:1 }}>{days>0 ? `${fmt(Math.round(days*10)/10)}일 근무` : "이번 기간 기록 없음"}{w && w.dailyRate>0 ? ` · ${fA(w.dailyRate)}/일` : ""}</div>
+                  </div>
+                  <div style={{ textAlign:"right",whiteSpace:"nowrap" }}>
+                    <div style={{ fontSize:14,fontWeight:700,color:C.text,fontVariantNumeric:"tabular-nums" }}>{w && w.gross>0 ? fA(w.gross) : "—"}</div>
+                    <div style={{ fontSize:11,color:"#9AA3AB" }}>세전</div>
+                  </div>
+                  <span style={{ color:"#9AA3AB",fontSize:13 }}>›</span>
+                </div>
+              );
+            })}
+          </div>
+        ))}
         </div>
       )}
 
       {/* No selection */}
-      {!selEmp && (
-        <div style={{ background:"#fff",borderRadius:16,padding:40,textAlign:"center",boxShadow:"0 1px 4px #0000000a" }}>
-          <div style={{ fontSize:36,marginBottom:8 }}>👆</div>
-          <p style={{ fontSize:14,margin:0,color:"#aaa",lineHeight:1.6 }}>직원을 선택하면<br/>급여를 계산할 수 있어요</p>
+      {!selEmp && !isAdmin && (
+        <div style={{ background:"#fff",borderRadius:12,padding:28,textAlign:"center",border:"1px solid #E4E7E4" }}>
+          <p style={{ fontSize:14,margin:0,color:"#9AA3AB",lineHeight:1.6 }}>급여 정보가 없어요</p>
         </div>
       )}
 
@@ -1213,10 +1231,10 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
       {selEmp && (<>
 
         {/* Employee card */}
-        <div style={{ background:"#fff",borderRadius:14,padding:"14px 16px",marginBottom:10,borderLeft:"4px solid "+selColor,boxShadow:"0 1px 4px #0000000a" }}>
+        <div style={{ background:"#fff",borderRadius:12,padding:"12px 14px",margin:"10px 0",border:"1px solid #E4E7E4" }}>
           <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center" }}>
             <div style={{ display:"flex",alignItems:"center",gap:10 }}>
-              <div style={{ ...styles.logAvatar,background:selColor }}>{selEmp.name[0]}</div>
+              {isAdmin && <button onClick={() => setSelId(null)} aria-label="직원 목록" style={{ background:"#fff",border:"1px solid #E4E7E4",borderRadius:8,padding:"3px 9px",cursor:"pointer",fontSize:15,color:"#555",fontFamily:"inherit" }}>‹</button>}
               <div>
                 <p style={{ margin:0,fontSize:15,fontWeight:700,color:C.text }}>{selEmp.name}</p>
                 <p style={{ margin:"2px 0 0",fontSize:12,color:C.sub }}>{selEmp.dept}</p>
@@ -1235,8 +1253,8 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
         </div>
 
         {/* Sub-tabs */}
-        <div style={{ display:"flex",background:"#fff",borderRadius:12,padding:4,gap:2,marginBottom:10,boxShadow:"0 1px 4px #0000000a" }}>
-          {[["calc","📊 급여 계산"],["log","📋 근무 내역"],...(isAdmin ? [["settings","⚙️ 설정"]] : [])].map(([v, label]) => (
+        <div style={{ display:"flex",background:"#F7F8F6",border:"1px solid #E4E7E4",borderRadius:9,padding:2,gap:2,marginBottom:10 }}>
+          {[["calc","급여 계산"],["log","근무 내역"],...(isAdmin ? [["settings","설정"]] : [])].map(([v, label]) => (
             <button key={v} onClick={() => setSubView(v)} style={S.subTab(subView===v, selColor)}>{label}</button>
           ))}
         </div>
@@ -1244,16 +1262,16 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
         {/* ── CALC VIEW ── */}
         {subView === "calc" && (<>
           {(!wage || wage.dailyRate === 0) && (
-            <div style={{ background:"#fff",borderRadius:14,padding:24,textAlign:"center",boxShadow:"0 1px 4px #0000000a" }}>
-              <p style={{ fontSize:14,color:"#f77",margin:"0 0 12px" }}>⚠️ 일급이 설정되지 않았어요</p>
-              {isAdmin && <button onClick={() => setSubView("settings")} style={{ ...styles.btnAdd,margin:"0 auto" }}>⚙️ 설정하기</button>}
+            <div style={{ background:"#fff",borderRadius:14,padding:24,textAlign:"center",border:"1px solid #E4E7E4" }}>
+              <p style={{ fontSize:14,color:"#f77",margin:"0 0 12px" }}>일급이 설정되지 않았어요</p>
+              {isAdmin && <button onClick={() => setSubView("settings")} style={{ ...styles.btnAdd,margin:"0 auto" }}>설정하기</button>}
             </div>
           )}
           {wage && (wage.dailyRate > 0 || wage.hasFlatPay) && (<>
 
             {/* Work summary grid */}
-            <div style={{ background:"#fff",borderRadius:14,padding:"14px 16px",marginBottom:10,boxShadow:"0 1px 4px #0000000a" }}>
-              <p style={S.sectionTitle}>📋 근무 요약 ({auD(periodStart)} ~ {auD(periodEnd)})</p>
+            <div style={{ background:"#fff",borderRadius:14,padding:"14px 16px",marginBottom:10,border:"1px solid #E4E7E4" }}>
+              <p style={S.sectionTitle}>근무 요약 · {auD(periodStart)} ~ {auD(periodEnd)}</p>
               <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12 }}>
                 {[
                   ["✅","Full Days", wage.stats.fullDays+"일","#10B981"],
@@ -1263,11 +1281,8 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                   ...(wage.leaveHoursInPeriod > 0 ? [["🏖️","연차", (wage.leaveHoursInPeriod/9).toFixed(1)+"일","#F59E0B"]] : []),
                 ].map(([emoji, label, val, color]) => (
                   <div key={label} style={S.statBox(color)}>
-                    <div style={{ display:"flex",alignItems:"center",gap:5,marginBottom:6 }}>
-                      <span style={{ fontSize:14 }}>{emoji}</span>
-                      <span style={{ fontSize:11,color:C.sub,fontWeight:600 }}>{label}</span>
-                    </div>
-                    <span style={{ fontSize:17,fontWeight:800,color }}>{val}</span>
+                    <div style={{ fontSize:11,color:C.sub,fontWeight:500,marginBottom:2 }}>{label}</div>
+                    <span style={{ fontSize:16,fontWeight:700,color:C.text,fontVariantNumeric:"tabular-nums" }}>{val}</span>
                   </div>
                 ))}
               </div>
@@ -1279,7 +1294,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                 if (!recs2.length) return null;
                 return (
                   <div style={{background:"#FFFBEB",border:"1px solid #FDE68A",borderRadius:10,padding:"10px 14px",marginTop:10}}>
-                    <p style={{margin:"0 0 8px",fontSize:11,fontWeight:700,color:"#92400E"}}>🏖️ 이번 구간 연차 내역</p>
+                    <p style={{margin:"0 0 8px",fontSize:11,fontWeight:700,color:"#92400E"}}>이번 구간 연차 내역</p>
                     {recs2.map(r=>(
                       <div key={r.id||r.date} style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:4}}>
                         <span style={{color:"#555"}}>{auD(r.date)}{r.note?" · "+r.note:""}</span>
@@ -1293,7 +1308,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
               <div style={{ background:"#F9FAFB",borderRadius:10,padding:"10px 12px" }}>
                 {wage.isContractor && (
                 <div style={S.card}>
-                  <p style={S.sectionTitle}>💵 Gross</p>
+                  <p style={S.sectionTitle}>Gross</p>
                   {(() => {
                     const lv0 = leaves[selId]||{};
                     const splitPay = !!(lv0.contractorInfo?.splitPay);
@@ -1311,9 +1326,9 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                       return (
                         <div style={{ background:"#F0FDF4",border:"1px solid #BBF7D0",borderRadius:8,padding:"10px 12px",marginBottom:6 }}>
                           <p style={{ margin:"0 0 8px",fontSize:11,fontWeight:700,color:"#166534" }}>분할 지급 내역</p>
-                          <div style={S.row}><span style={{ fontSize:12,color:"#555" }}>💵 캐시 (풀타임 절반)</span><span style={{ fontSize:13,fontWeight:700,color:"#10B981" }}>{fA(cash)}</span></div>
+                          <div style={S.row}><span style={{ fontSize:12,color:"#555" }}>캐시 (풀타임 절반)</span><span style={{ fontSize:13,fontWeight:700,color:"#10B981" }}>{fA(cash)}</span></div>
                           <div style={{ borderTop:"1px dashed #BBF7D0",margin:"6px 0" }}/>
-                          <p style={{ margin:"0 0 4px",fontSize:11,color:"#888" }}>🧾 ABN 합산</p>
+                          <p style={{ margin:"0 0 4px",fontSize:11,color:"#888" }}>ABN 합산</p>
                           <div style={S.row}><span style={{ fontSize:12,color:"#777" }}>풀타임 절반</span><span style={{ fontSize:12,color:"#3B82F6" }}>{fA(fullAmt/2)}</span></div>
                           {(wage.stats.partHours||0)>0&&<div style={S.row}><span style={{ fontSize:12,color:"#777" }}>파트 ({(wage.stats.partHours||0).toFixed(1)}h)</span><span style={{ fontSize:12,color:"#3B82F6" }}>{fA((wage.stats.partHours||0)*wage.partHourlyRate)}</span></div>}
                           {(wage.stats.otHours||0)>0&&<div style={S.row}><span style={{ fontSize:12,color:"#777" }}>OT ({(wage.stats.otHours||0).toFixed(1)}h)</span><span style={{ fontSize:12,color:"#3B82F6" }}>{fA((wage.stats.otHours||0)*wage.otHourlyRate)}</span></div>}
@@ -1468,7 +1483,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
             return (<>
               {/* 선지급(가불) 잔액 섹션 */}
               <div style={{ background:"#FFF7ED",border:"1px solid #FED7AA",borderRadius:12,padding:"12px 14px",margin:"12px 0" }}>
-                <p style={{ margin:"0 0 8px",fontSize:12,fontWeight:700,color:"#C2410C" }}>💳 선지급(가불) 잔액</p>
+                <p style={{ margin:"0 0 8px",fontSize:12,fontWeight:700,color:"#C2410C" }}>선지급(가불) 잔액</p>
                 <div style={{ display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:4 }}>
                   <span style={{ color:"#555" }}>이전 정산 잔액</span>
                   <span style={{ fontWeight:700,color:startBal<0?"#DC2626":"#059669" }}>{fA(startBal)}</span>
@@ -1532,7 +1547,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                 const empUser = users.find(x => x.id === selId);
                 return empUser ? (
                   <div style={{ marginBottom: 8 }}>
-                    {!isAdmin && <p style={{ margin:"0 0 6px",fontSize:11,color:"#059669",fontWeight:600 }}>📄 이번 기간 정산이 완료됐어요 — 인보이스를 발행할 수 있어요</p>}
+                    {!isAdmin && <p style={{ margin:"0 0 6px",fontSize:11,color:"#059669",fontWeight:600 }}>이번 기간 정산이 완료됐어요 — 인보이스를 발행할 수 있어요</p>}
                     <InvoiceButton u={empUser} s={wage} periodLogs={wage.periodLogs||[]} startDate={wpStart} endDate={wpEnd} leaveData={lv0} companies={companies} />
                   </div>
                 ) : null;
@@ -1540,14 +1555,14 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
               {/* 정산 미완료 안내 (contractor 본인이 자기 화면 봤을 때) */}
               {!isSettled0 && wage.isContractor && !isAdmin && (
                 <div style={{ background:"#FFFBEB",border:"1px solid #FDE68A",borderRadius:10,padding:"10px 14px",margin:"10px 0",fontSize:12,color:"#92400E",lineHeight:1.5 }}>
-                  ⏳ 이번 기간은 아직 <strong>정산 확인 전</strong>이에요. 관리자가 정산을 완료하면 여기서 인보이스 PDF를 받을 수 있어요.
+                  이번 기간은 아직 <strong>정산 확인 전</strong>이에요. 관리자가 정산을 완료하면 여기서 인보이스 PDF를 받을 수 있어요.
                 </div>
               )}
 
               {/* 정산 확인 버튼 */}
               {isSuperAdmin && (isSettled0 ? (
                 <div style={{ textAlign:"center",color:"#10B981",fontSize:13,fontWeight:700,background:"#F0FDF4",border:"1px solid #BBF7D0",borderRadius:10,padding:"10px 12px",marginBottom:8 }}>
-                  ✅ 이 기간 정산 확인 완료
+                  이 기간 정산 확인 완료
                   <button onClick={()=>{
                     const newHist=[...hist0.filter(h=>h.periodStart!==periodStart)];
                     persist(null,null,{...leaves,[selId]:{...lv0,keepBalanceHistory:newHist}});
@@ -1558,7 +1573,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                   const newHist=[...hist0,{periodStart,balance:afterBal,isContractor:true,savedAt:new Date().toISOString()}];
                   persist(null,null,{...leaves,[selId]:{...lv0,keepBalance:afterBal,keepBalanceHistory:newHist}});
                 }} style={{ width:"100%",background:"#0F766E",color:"#fff",border:"none",borderRadius:12,padding:13,fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit",marginBottom:8,display:"block" }}>
-                  ✅ 이 기간 정산 확인 → 잔액 {fA(afterBal)}
+                  이 기간 정산 확인 → 잔액 {fA(afterBal)}
                 </button>
               ))}
             </>);
@@ -1566,9 +1581,9 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
 
           {/* ── 디덕션 섹션 ── (인보이스 포함 항상 표시) */}
           {selId && (<>
-            <div style={{ background:"#fff",borderRadius:14,padding:"14px 16px",marginBottom:10,boxShadow:"0 1px 4px #0000000a" }}>
+            <div style={{ background:"#fff",borderRadius:14,padding:"14px 16px",marginBottom:10,border:"1px solid #E4E7E4" }}>
               <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:deductions.length>0?12:0 }}>
-                <p style={{ margin:0,fontSize:11,fontWeight:700,color:"#EF4444",textTransform:"uppercase",letterSpacing:1 }}>➖ 공제 항목 (Deductions)</p>
+                <p style={{ margin:0,fontSize:11,fontWeight:700,color:"#EF4444",textTransform:"uppercase",letterSpacing:1 }}>공제 항목 (Deductions)</p>
                 {true && <button onClick={addDeduction}
                   style={{ fontSize:12,fontWeight:700,background:"#FEF2F2",color:"#EF4444",border:"1.5px solid #FECACA",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontFamily:"inherit" }}>
                   + 추가
@@ -1625,7 +1640,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                   setDeductions([]);
                   alert(`✅ 공제항목 ${validDeds.length}개 저장됐어요`);
                 }} style={{ width:"100%",background:"#FFF7ED",color:"#C2410C",border:"1.5px solid #FED7AA",borderRadius:8,padding:"8px 12px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",marginBottom:8 }}>
-                  💾 공제항목 저장 ({deductions.filter(d=>d.desc&&d.amount!==''&&d.amount!==null&&d.amount!==undefined&&!isNaN(parseFloat(d.amount))).length}/{deductions.length}개)
+                  공제항목 저장 ({deductions.filter(d=>d.desc&&d.amount!==''&&d.amount!==null&&d.amount!==undefined&&!isNaN(parseFloat(d.amount))).length}/{deductions.length}개)
                 </button>
               )}
 
@@ -1682,16 +1697,16 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
           {wage && (wage.dailyRate > 0 || wage.hasFlatPay) && (<>
             {/* Tax + Super */}
             {(wage.fixedNet > 0 || wage.fixedTax > 0 || wage.fixedSuper > 0) && (
-              <div style={{ background:"#fff",borderRadius:14,padding:"14px 16px",marginBottom:10,boxShadow:"0 1px 4px #0000000a" }}>
+              <div style={{ background:"#fff",borderRadius:14,padding:"14px 16px",marginBottom:10,border:"1px solid #E4E7E4" }}>
                 <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6 }}>
-                  <p style={{ ...S.sectionTitle,margin:0 }}>📌 지급액{(((leaves[selId]||{}).fixedPayOverrides||{})[periodStart])&&<span style={{ marginLeft:6,fontSize:10,color:"#B45309",background:"#FEF3C7",borderRadius:6,padding:"1px 6px",fontWeight:700 }}>이 기간 조정됨</span>}</p>
+                  <p style={{ ...S.sectionTitle,margin:0 }}>지급액{(((leaves[selId]||{}).fixedPayOverrides||{})[periodStart])&&<span style={{ marginLeft:6,fontSize:10,color:"#B45309",background:"#FEF3C7",borderRadius:6,padding:"1px 6px",fontWeight:700 }}>이 기간 조정됨</span>}</p>
                   {isSuperAdmin && <button onClick={()=>setFixOvrEdit(fixOvrEdit?null:{net:String(wage.fixedNet||""),tax:String(wage.fixedTax||""),sup:String(wage.fixedSuper||"")})} style={{ fontSize:11,color:"#3B82F6",background:"none",border:"none",cursor:"pointer",fontFamily:"inherit",fontWeight:600 }}>{fixOvrEdit?"닫기":"✏️ 이 기간만 조정"}</button>}
                 </div>
                 {wage.fixedNet > 0 && <div style={S.row}><span style={{ fontSize:13,color:C.text }}>Net Pay</span><span style={{ fontSize:13,fontWeight:700,color:"#10B981" }}>{fA(wage.fixedNet)}</span></div>}
                 {wage.fixedTax > 0 && <div style={S.row}><span style={{ fontSize:13,color:C.text }}>Tax</span><span style={{ fontSize:13,fontWeight:700,color:"#EF4444" }}>{fA(wage.fixedTax)}</span></div>}
                 {wage.fixedSuper > 0 && <div style={S.row}><span style={{ fontSize:13,color:C.text }}>Super</span><span style={{ fontSize:13,fontWeight:700,color:"#F59E0B" }}>{fA(wage.fixedSuper)}</span></div>}
                 {!wage.fixedNet && !wage.fixedTax && !wage.fixedSuper && (
-                  <p style={{ fontSize:12,color:"#aaa",textAlign:"center",margin:"4px 0" }}>⚙️ 설정 탭에서 지급액을 입력하세요</p>
+                  <p style={{ fontSize:12,color:"#aaa",textAlign:"center",margin:"4px 0" }}>설정 탭에서 지급액을 입력하세요</p>
                 )}
                 {fixOvrEdit && (
                   <div style={{ marginTop:8,padding:"10px 12px",background:"#F8FAFC",border:"1px solid #E2E8F0",borderRadius:10 }}>
@@ -1741,7 +1756,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                 const cashOut = cashAmt * 0.75;
                 const keepAmt = Math.max(0, variable) - cashAmt;
                 return (
-                  <div style={{ background:"#fff",borderRadius:14,padding:"16px",marginBottom:10,boxShadow:"0 1px 4px #0000000a" }}>
+                  <div style={{ background:"#fff",borderRadius:14,padding:"16px",marginBottom:10,border:"1px solid #E4E7E4" }}>
                     {/* 변동분 */}
                     <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10 }}>
                       <div>
@@ -1756,7 +1771,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                         border:`1px solid ${wage.keepBalance>0?"#BBF7D0":"#FECACA"}`,
                         borderRadius:10,padding:"8px 12px",marginBottom:10 }}>
                         <div>
-                          <p style={{ margin:0,fontSize:11,fontWeight:600,color:wage.keepBalance>0?"#166534":"#DC2626" }}>🏦 현재 킵 잔액 (정산 전)</p>
+                          <p style={{ margin:0,fontSize:11,fontWeight:600,color:wage.keepBalance>0?"#166534":"#DC2626" }}>현재 킵 잔액 (정산 전)</p>
                           <p style={{ margin:0,fontSize:10,color:"#555" }}>이번 변동분 반영 전, 지금까지 쌓인 킵 잔액</p>
                         </div>
                         <span style={{ fontSize:16,fontWeight:800,color:wage.keepBalance>0?"#10B981":"#EF4444" }}>{fA(wage.keepBalance)}</span>
@@ -1806,7 +1821,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                       const pos = total >= 0;
                       return (
                       <div style={{ background:pos?"#F0FDF4":"#FEF2F2",border:`1px solid ${pos?"#BBF7D0":"#FECACA"}`,borderRadius:12,padding:"12px 14px",marginBottom:10 }}>
-                        <p style={{ margin:"0 0 8px",fontSize:12,fontWeight:800,color:"#111" }}>🏦 내 킵 잔액</p>
+                        <p style={{ margin:"0 0 8px",fontSize:12,fontWeight:800,color:"#111" }}>내 킵 잔액</p>
                         <div style={{ display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:5 }}>
                           <span style={{ color:"#555" }}>지난 킵 잔액</span>
                           <span style={{ fontWeight:600,color:prevKeep>=0?"#10B981":"#EF4444" }}>{fA(prevKeep)}</span>
@@ -1833,7 +1848,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                     })()}
                     {/* 출금 금액 입력 - 슈퍼관리자만 */}
                     {isSuperAdmin && <p style={{ margin:"0 0 6px",fontSize:12,fontWeight:600,color:"#555" }}>
-                      💵 캐시 출금 금액 (킵 잔액에서 차감)
+                      캐시 출금 금액 (킵 잔액에서 차감)
                     </p>}
                     {isSuperAdmin && (
                       <KeepDepositLog selId={selId} leaves={leaves} persist={persist}
@@ -1861,7 +1876,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                     {cashAmt > 0 && (
                     <div style={{ background:"#F9FAFB",borderRadius:10,padding:"12px 14px" }}>
                         <div style={{ display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:5 }}>
-                          <span style={{ color:"#555" }}>💵 캐시 출금 ({fA(cashAmt)} × 75%)</span>
+                          <span style={{ color:"#555" }}>캐시 출금 ({fA(cashAmt)} × 75%)</span>
                           <span style={{ fontWeight:800,color:"#EF4444" }}>{fA(cashOut)}</span>
                         </div>
                         <div style={{ display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:keepAmt > 0 ? 8 : 0,color:"#aaa" }}>
@@ -1870,7 +1885,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                         </div>
                       {keepAmt > 0 && (
                         <div style={{ display:"flex",justifyContent:"space-between",fontSize:13,borderTop:"1px solid #E5E7EB",paddingTop:8 }}>
-                          <span style={{ color:"#555" }}>🏦 킵으로 남기는 금액</span>
+                          <span style={{ color:"#555" }}>킵으로 남기는 금액</span>
                           <span style={{ fontWeight:800,color:"#10B981" }}>{fA(keepAmt)}</span>
                         </div>
                       )}
@@ -1881,7 +1896,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                       {variable < 0 && (
                         <div style={{ marginTop:12,background:"#F0FDF4",border:"1px solid #BBF7D0",borderRadius:10,padding:"10px 12px" }}>
                           <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6 }}>
-                          <p style={{ margin:0,fontSize:12,fontWeight:600,color:"#166534" }}>🏦 이번 기간 킵으로 추가할 금액</p>
+                          <p style={{ margin:0,fontSize:12,fontWeight:600,color:"#166534" }}>이번 기간 킵으로 추가할 금액</p>
                           <label style={{ display:"flex",alignItems:"center",gap:4,fontSize:11,cursor:"pointer" }}>
                             <input type="checkbox" checked={skipVariable} onChange={e=>{ setSkipVariable(e.target.checked); setDirectKeep(""); }} style={{ accentColor:"#166534" }}/>
                             <span style={{ color:skipVariable?"#166534":"#888",fontWeight:skipVariable?700:400 }}>변동분 제외</span>
@@ -1898,7 +1913,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                       )}
                       <button onClick={() => saveCarryover(selId)}
                         style={{ width:"100%",background:"#111",color:"#fff",border:"none",borderRadius:12,padding:13,fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit",marginTop:12 }}>
-                        💾 정산 완료 {(() => { const tot = Math.round((skipVariable
+                        정산 완료 {(() => { const tot = Math.round((skipVariable
               ? wage.keepBalance + (parseFloat(directKeep)||0)
               : wage.keepBalance + (variable < 0 ? variable + (parseFloat(directKeep)||0) : Math.max(0,variable) - Math.min(parseFloat(partialCash)||0, Math.max(0,variable)))) * 100) / 100; return tot !== Math.round(wage.keepBalance*100)/100 ? `→ 킵 ${fA(tot)}` : ""; })()}{cashAmt > 0 ? ` (캐시 ${fA(cashOut)})` : ""}
                       </button>
@@ -1935,7 +1950,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
               const wtColor = wt==="overtime"?"#F59E0B":wt==="parttime"?"#2A8C86":wt==="dayoff"?"#9CA3AF":wt==="publicholiday"?"#F97316":"#10B981";
               const wtLabel = wt==="fulltime"?"풀타임":wt==="overtime"?"오버타임":wt==="parttime"?"파트타임":wt==="dayoff"?"휴무":wt==="publicholiday"?"공휴일":wt;
               return (
-                <div key={l.id} style={{ background:"#fff",borderRadius:12,padding:"12px 14px",marginBottom:8,borderLeft:"3px solid "+selColor,boxShadow:"0 1px 4px #0000000a" }}>
+                <div key={l.id} style={{ background:"#fff",borderRadius:12,padding:"12px 14px",marginBottom:8,border:"1px solid #E4E7E4" }}>
                   <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start" }}>
                     <div style={{ flex:1,minWidth:0 }}>
                       <div style={{ display:"flex",alignItems:"center",gap:8,marginBottom:4 }}>
@@ -1945,7 +1960,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                       {l.content && <p style={{ margin:"0 0 4px",fontSize:12,color:C.sub,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{l.content}</p>}
                       {l.travel && (l.travel.allowance > 0 || l.travel.hasDinner) && (
                         <p style={{ margin:0,fontSize:11,color:"#3B82F6",fontWeight:600 }}>
-                          🚗 {fA((l.travel.allowance||0)+(l.travel.hasDinner?25:0))}
+                          {fA((l.travel.allowance||0)+(l.travel.hasDinner?25:0))}
                           {(l.travel.stops||[]).filter(Boolean).length > 0 && " · "+(l.travel.stops||[]).filter(Boolean).join(" → ")}
                         </p>
                       )}
@@ -1963,14 +1978,14 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
 
         {/* ── SETTINGS VIEW ── */}
         {subView === "settings" && isSuperAdmin && (
-          <div style={{ background:"#fff",borderRadius:14,padding:"16px",marginBottom:10,boxShadow:"0 1px 4px #0000000a" }}>
-            <p style={{ margin:"0 0 16px",fontSize:15,fontWeight:700,color:C.text }}>⚙️ {selEmp.name} 급여 설정</p>
+          <div style={{ background:"#fff",borderRadius:14,padding:"16px",marginBottom:10,border:"1px solid #E4E7E4" }}>
+            <p style={{ margin:"0 0 16px",fontSize:15,fontWeight:700,color:C.text }}>{selEmp.name} 급여 설정</p>
             {!(leaves[selId] || {}).noLeave && (
               <ReqHistoryEditor selId={selId} leaves={leaves} persist={persist} periodStart={periodStart} isSuperAdmin={isSuperAdmin} />
             )}
             {(leaves[selId] || {}).noLeave && !(leaves[selId] || {}).hasFlatPay && (
               <div style={{ background:"#FEF3C7",borderRadius:10,padding:"10px 12px",marginBottom:14 }}>
-                <p style={{ margin:0,fontSize:12,color:"#92400E" }}>📄 인보이스 직원 — 기준일/고정지급 설정 없음</p>
+                <p style={{ margin:0,fontSize:12,color:"#92400E" }}>인보이스 직원 — 기준일/고정지급 설정 없음</p>
               </div>
             )}
             {(!(leaves[selId] || {}).noLeave || (leaves[selId] || {}).hasFlatPay) && (
@@ -1991,7 +2006,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
             )}
 
             <div style={{ background:"#EFF6FF",border:"1px solid #BFDBFE",borderRadius:10,padding:"10px 12px",marginTop:14 }}>
-              <p style={{ margin:0,fontSize:12,color:"#1D4ED8" }}>💡 일당은 <strong>일급 탭</strong>에서 변경하세요</p>
+              <p style={{ margin:0,fontSize:12,color:"#1D4ED8" }}>일당은 <strong>일급 탭</strong>에서 변경하세요</p>
             </div>
             <FYGrossSummary userId={selId} lv={leaves[selId]||{}} logs={logs} users={users} isAdmin={isAdmin} getDailyRate={getDailyRate} fA={fA}/>
             <TSSMinCalculator userId={selId} lv={leaves[selId]||{}} users={users} getDailyRate={getDailyRate} fA={fA}/>
@@ -1999,7 +2014,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
               <div style={{ background:getKeepBalance(selId)>0?"#F0FDF4":"#FEF2F2",border:`1px solid ${getKeepBalance(selId)>0?"#BBF7D0":"#FECACA"}`,borderRadius:10,padding:"10px 12px",marginTop:10 }}>
                 <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center" }}>
                   <div>
-                    <p style={{ margin:0,fontSize:12,fontWeight:700,color:getKeepBalance(selId)>0?"#166534":"#DC2626" }}>🏦 누적 킵 잔액 (이번 입출금 반영)</p>
+                    <p style={{ margin:0,fontSize:12,fontWeight:700,color:getKeepBalance(selId)>0?"#166534":"#DC2626" }}>누적 킵 잔액 (이번 입출금 반영)</p>
                     <p style={{ margin:"2px 0 0",fontSize:18,fontWeight:800,color:getKeepBalance(selId)>0?"#10B981":"#EF4444" }}>{fA(getKeepBalance(selId))}</p>
                   </div>
                   <button onClick={() => {
@@ -2661,14 +2676,14 @@ function DeductTab({ users, leaves, wpStart, wpEnd, persist, removeSavedDeductio
   return (
     <div style={{ padding:"0 0 20px" }}>
       {/* 기간 표시 */}
-      <div style={{ background:"#EFF6FF",borderRadius:10,padding:"8px 14px",marginBottom:14,fontSize:12,color:"#1D4ED8",fontWeight:600 }}>
-        📅 {auD(wpStart)} ~ {auD(wpEnd)} 구간 공제 항목
+      <div style={{ fontSize:12,color:"#69737C",margin:"0 0 10px" }}>
+        {auD(wpStart)} ~ {auD(wpEnd)} 구간 공제 항목
       </div>
 
       {/* 입력 폼 */}
-      <div style={{ background:"#fff",borderRadius:14,padding:"14px 16px",marginBottom:12,boxShadow:"0 1px 4px #0000000a" }}>
+      <div style={{ background:"#fff",borderRadius:14,padding:"14px 16px",marginBottom:12,border:"1px solid #E4E7E4" }}>
         <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12 }}>
-          <p style={{ margin:0,fontSize:13,fontWeight:700,color:"#111" }}>➕ 공제 항목 입력</p>
+          <p style={{ margin:0,fontSize:13,fontWeight:700,color:"#111" }}>공제 항목 입력</p>
           <button onClick={addRow}
             style={{ fontSize:12,fontWeight:700,background:"#F3F4F6",color:"#555",border:"1px solid #E5E7EB",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontFamily:"inherit" }}>
             + 행 추가
@@ -2709,14 +2724,14 @@ function DeductTab({ users, leaves, wpStart, wpEnd, persist, removeSavedDeductio
 
         <button onClick={saveAll}
           style={{ width:"100%",marginTop:8,background:"#1F6F6B",color:"#fff",border:"none",borderRadius:10,padding:"11px 0",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit" }}>
-          💾 저장
+          저장
         </button>
       </div>
 
       {/* 저장된 항목 목록 */}
       {allSaved.length > 0 && (
-        <div style={{ background:"#fff",borderRadius:14,padding:"14px 16px",boxShadow:"0 1px 4px #0000000a" }}>
-          <p style={{ margin:"0 0 10px",fontSize:13,fontWeight:700,color:"#111" }}>📋 저장된 공제 항목 ({allSaved.length}건)</p>
+        <div style={{ background:"#fff",borderRadius:14,padding:"14px 16px",border:"1px solid #E4E7E4" }}>
+          <p style={{ margin:"0 0 10px",fontSize:13,fontWeight:700,color:"#111" }}>저장된 공제 항목 ({allSaved.length}건)</p>
           {allSaved.map(d => (
             <div key={d.id} style={{ display:"flex",alignItems:"center",gap:8,padding:"8px 0",borderBottom:"1px solid #F3F4F6" }}>
               <div style={{ flex:1 }}>
@@ -2937,21 +2952,21 @@ function MgmtTab({ fbUrl, fA }) {
   if (loading) return <div style={{textAlign:'center',padding:'60px 0',color:'#6B7280'}}>⏳ 로딩 중...</div>;
 
   return (
-    <div style={{paddingBottom:80}}>
+    <div style={{padding:"0 16px 80px"}}>
       {/* 헤더 */}
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'16px 2px 12px'}}>
         <div>
-          <p style={{margin:0,fontSize:16,fontWeight:800,color:'#111827'}}>⭐ 운영진 급여</p>
-          <p style={{margin:'2px 0 0',fontSize:11,color:'#6B7280'}}>호주 시드니 시간 기준</p>
+          <h2 style={{...styles.pageTitle,margin:0}}>운영진</h2>
+          <p style={{margin:'2px 0 0',fontSize:12,color:'#69737C'}}>운영진 급여 · 시드니 시간 기준</p>
         </div>
         <button onClick={()=>{setEditMember(null);setShowForm(true);}}
-          style={{background:'#1F6F6B',color:'#fff',border:'none',borderRadius:9,padding:'8px 14px',fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:'inherit',boxShadow:'0 2px 6px rgba(28,36,48,0.25)'}}>
+          style={{background:'#1F6F6B',color:'#fff',border:'none',borderRadius:9,padding:'7px 13px',fontSize:12.5,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>
           + 멤버
         </button>
       </div>
 
       {/* 기간 네비게이션 */}
-      <div style={{background:'#fff',borderRadius:14,padding:'12px 16px',marginBottom:14,border:'1px solid #E4E7E4',display:'flex',alignItems:'center',justifyContent:'space-between',boxShadow:'0 1px 4px rgba(28,36,48,0.06)'}}>
+      <div style={{background:'#fff',borderRadius:12,padding:'8px 10px',marginBottom:10,border:'1px solid #E4E7E4',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
         <button onClick={()=>setPeriodDiff(d=>d-1)}
           style={{background:'#E3EFEC',border:'none',color:'#1F6F6B',borderRadius:8,width:34,height:34,fontSize:18,cursor:'pointer',fontWeight:700}}>‹</button>
         <div style={{textAlign:'center'}}>
@@ -2963,10 +2978,15 @@ function MgmtTab({ fbUrl, fA }) {
       </div>
 
       {/* 기간 총액 요약 */}
-      <div style={{background:'linear-gradient(135deg,#1F6F6B,#1C2430)',borderRadius:14,padding:'16px',marginBottom:14,color:'#fff'}}>
-        <p style={{margin:'0 0 4px',fontSize:11,fontWeight:600,opacity:0.7,textTransform:'uppercase',letterSpacing:1}}>이번 포트나잇 예상 총액</p>
-        <p style={{margin:0,fontSize:28,fontWeight:900,letterSpacing:'-0.5px'}}>{fA(totalExpected)}</p>
-        <p style={{margin:'4px 0 0',fontSize:11,opacity:0.6}}>{members.length}명</p>
+      <div style={{display:'grid',gridTemplateColumns:'2fr 1fr',background:'#fff',border:'1px solid #E4E7E4',borderRadius:12,marginBottom:12}}>
+        <div style={{padding:'9px 12px'}}>
+          <p style={{margin:0,fontSize:11,color:'#69737C'}}>이번 2주 예상 총액</p>
+          <p style={{margin:0,fontSize:17,fontWeight:700,color:'#1C2430',fontVariantNumeric:'tabular-nums'}}>{fA(totalExpected)}</p>
+        </div>
+        <div style={{padding:'9px 12px',borderLeft:'1px solid #E4E7E4'}}>
+          <p style={{margin:0,fontSize:11,color:'#69737C'}}>인원</p>
+          <p style={{margin:0,fontSize:17,fontWeight:700,color:'#1C2430'}}>{members.length}명</p>
+        </div>
       </div>
 
       {/* 멤버 카드 */}
@@ -2999,7 +3019,7 @@ function MgmtTab({ fbUrl, fA }) {
         const periodTypeLabel = periodType==='monthly' ? '월급' : (periodGstOn ? '인보이스+GST' : '인보이스');
 
         return (
-          <div key={m.id} style={{background:'#fff',borderRadius:16,marginBottom:10,border:'1px solid #E4E7E4',overflow:'hidden',boxShadow:'0 2px 8px rgba(28,36,48,0.07)'}}>
+          <div key={m.id} style={{background:'#fff',borderRadius:12,marginBottom:10,border:'1px solid #E4E7E4',overflow:'hidden'}}>
             <div style={{padding:'16px',cursor:'pointer'}} onClick={()=>setSelMemberId(expanded?null:m.id)}>
               <div style={{display:'flex',alignItems:'center',gap:12}}>
                 <div style={{width:44,height:44,borderRadius:12,background:`${color}15`,border:`2px solid ${color}30`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,fontWeight:900,color,flexShrink:0}}>
@@ -3381,146 +3401,112 @@ function SummarySection({users, leaves, periodStart, calcWage, getSavedDeduction
     setJResult({ total, d20amt, d27amt, net, kyle, sara });
   };
 
+  const unsettled = activeEmps.filter(emp => {
+    if (!empWorkedInPeriod(emp, periodStart)) return false;
+    const hist = (leaves[emp.id]||{}).keepBalanceHistory || [];
+    const settled = Array.isArray(hist) ? hist : Object.values(hist);
+    return !settled.find(h => h.periodStart === periodStart);
+  });
+  const settledCount = activeEmps.filter(emp => {
+    const hist = (leaves[emp.id]||{}).keepBalanceHistory || [];
+    const settled = Array.isArray(hist) ? hist : Object.values(hist);
+    return !!settled.find(h => h.periodStart === periodStart);
+  }).length;
+
+  const rows = activeEmps.filter(emp => empWorkedInPeriod(emp, periodStart)).map(emp => {
+    const lv = leaves[emp.id] || {};
+    const w = calcWage(emp.id);
+    // 기간별 킵잔액 (정산 전 시작잔액 + 당기입금)
+    const keep = getKeepBalanceAtPeriod(emp.id, periodStart) + getPeriodDeposits(emp.id, periodStart);
+    const ci0 = lv.contractorInfo || {};
+    const splitPay0 = !!(ci0.splitPay);
+    const gstReg0 = !!(ci0.gstRegistered);
+    const sd2 = getSavedDeductions(emp.id).reduce((s,d)=>s+(parseFloat(d.amount)||0),0);
+    const netPay   = w ? (w.isContractor && !w.hasFlatPay ? Math.max(0, (parseFloat(w.gross)||0) - sd2) : (parseFloat(w.fixedNet)||0)) : 0;
+    const taxAmt   = w ? (w.isContractor && !w.hasFlatPay ? 0 : (parseFloat(w.fixedTax)||0)) : 0;
+    const superAmt = w ? (w.isContractor && !w.hasFlatPay ? 0 : (parseFloat(w.fixedSuper)||0)) : 0;
+    const splitCash = (splitPay0 && w) ? (w.stats.fullDays * w.dailyRate / 2) : 0;
+    const splitAbnBase = (splitPay0 && w) ? (w.stats.fullDays*w.dailyRate/2 + (w.stats.partHours||0)*w.partHourlyRate + (w.stats.otHours||0)*w.otHourlyRate + (w.travel||0)) : 0;
+    const splitGst  = (splitPay0 && gstReg0) ? splitAbnBase * 0.1 : 0;
+    const isContractor = !!(lv.noLeave);
+    const hasFlatPay   = !!(lv.hasFlatPay);
+    const typeLabel = isContractor ? (hasFlatPay ? "킵관리" : "인보이스") : "연차";
+    const v2 = !w ? 0
+      : (w.isContractor && !w.hasFlatPay) ? 0
+      : (w.hasFlatPay && w.isWHV) ? w.gross-w.fixedTotal-sd2
+      : w.excessPartH*w.partHourlyRate+w.excessOtH*w.otHourlyRate-w.deficitH*w.partHourlyRate+w.travel-sd2;
+    const keepAfter = (w&&w.isContractor&&!w.hasFlatPay) ? (parseFloat(lv.keepBalance)||0) : keep + v2;  // 시작잔액 + 당기입금 + 변동분
+    return { emp, w, netPay, taxAmt, superAmt, splitPay0, splitCash, splitAbn: splitAbnBase+splitGst, typeLabel, keepAfter, keepTot: keep + v2 };
+  });
+  // 합계 (기존 계산식 유지: 인보이스 직원은 Gross, 킵은 시작잔액+입금+변동분)
+  const totNet   = activeEmps.reduce((s,u)=>{const w2=calcWage(u.id);return s+(w2&&w2.isContractor&&!w2.hasFlatPay?(parseFloat(w2.gross)||0):(parseFloat(w2?.fixedNet)||0));},0);
+  const totTax   = activeEmps.reduce((s,u)=>{const w2=calcWage(u.id);return s+(w2&&w2.isContractor&&!w2.hasFlatPay?0:(parseFloat(w2?.fixedTax)||0));},0);
+  const totSuper = activeEmps.reduce((s,u)=>{const w2=calcWage(u.id);return s+(parseFloat(w2?.fixedSuper)||0);},0);
+  const totKeep  = activeEmps.reduce((s,u) => {
+    const keep = getKeepBalanceAtPeriod(u.id, periodStart) + getPeriodDeposits(u.id, periodStart);
+    const sd2 = getSavedDeductions(u.id).reduce((s,d)=>s+(parseFloat(d.amount)||0),0);
+    const w2 = calcWage(u.id);
+    const v2 = !w2 ? 0
+      : (w2.isContractor && !w2.hasFlatPay) ? 0
+      : (w2.hasFlatPay && w2.isWHV) ? w2.gross-w2.fixedTotal-sd2
+      : w2.excessPartH*w2.partHourlyRate+w2.excessOtH*w2.otHourlyRate-w2.deficitH*w2.partHourlyRate+w2.travel-sd2;
+    return s + keep + v2;
+  }, 0);
+  const kpi = (l, v, color) => (
+    <div style={{ padding:"9px 11px",minWidth:0 }}>
+      <div style={{ fontSize:11,color:"#69737C" }}>{l}</div>
+      <div style={{ fontSize:15,fontWeight:700,color:color||"#1C2430",fontVariantNumeric:"tabular-nums",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis" }}>{v?fA(v):"—"}</div>
+    </div>
+  );
+
   return (
     <div>
+      <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",background:"#fff",border:"1px solid #E4E7E4",borderRadius:12,marginBottom:10,overflow:"hidden" }}>
+        <div style={{ borderRight:"1px solid #E4E7E4",borderBottom:"1px solid #E4E7E4" }}>{kpi("Net Pay 합계", totNet)}</div>
+        <div style={{ borderBottom:"1px solid #E4E7E4" }}>{kpi("Tax 합계", totTax)}</div>
+        <div style={{ borderRight:"1px solid #E4E7E4" }}>{kpi("Super 합계", totSuper)}</div>
+        <div>{kpi("정산 후 킵 합계", totKeep, totKeep<0?"#B4232C":undefined)}</div>
+      </div>
 
-      <div style={{ background:"#EFF6FF",borderRadius:10,padding:"8px 14px",marginBottom:8,fontSize:12,color:"#1D4ED8",fontWeight:600 }}>
-        📅 {auD(periodStart)} ~ {auD(fmtD(periodStart))} 정산 요약
-      </div>
-      <div style={{ display:"grid",gridTemplateColumns:"80px repeat(4, minmax(0,1fr))",gap:4,padding:"6px 10px",marginBottom:4 }}>
-        {["이름","Net Pay","Tax","Super","정산후킵"].map(h=>(
-          <p key={h} style={{ margin:0,fontSize:10,fontWeight:700,color:"#888",textAlign:"center" }}>{h}</p>
-        ))}
-      </div>
       {/* 정산 미완료 직원 표시 (입사 전/퇴사 후 직원 제외) */}
-      {activeEmps.filter(emp => {
-        if (!empWorkedInPeriod(emp, periodStart)) return false;
-        const hist = (leaves[emp.id]||{}).keepBalanceHistory || [];
-        const settled = Array.isArray(hist) ? hist : Object.values(hist);
-        return !settled.find(h => h.periodStart === periodStart);
-      }).length > 0 && (
-        <div style={{ background:"#FEF9C3",border:"1px solid #FDE047",borderRadius:10,padding:"10px 12px",marginBottom:12 }}>
-          <p style={{ margin:"0 0 6px",fontSize:12,fontWeight:700,color:"#854D0E" }}>⚠️ 정산 미완료</p>
-          <div style={{ display:"flex",flexWrap:"wrap",gap:6 }}>
-            {activeEmps.filter(emp => {
-              if (!empWorkedInPeriod(emp, periodStart)) return false;
-              const hist = (leaves[emp.id]||{}).keepBalanceHistory || [];
-              const settled = Array.isArray(hist) ? hist : Object.values(hist);
-              return !settled.find(h => h.periodStart === periodStart);
-            }).map(emp => (
+      {unsettled.length > 0 && (
+        <div style={{ background:"#fff",border:"1px solid #E4E7E4",borderRadius:12,padding:"10px 12px",marginBottom:10 }}>
+          <div style={{ display:"flex",alignItems:"center",gap:8,marginBottom:8 }}>
+            <span style={{ minWidth:24,height:24,borderRadius:12,padding:"0 7px",boxSizing:"border-box",display:"inline-flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:12,background:"#FBF0DD",color:"#9A5B0C" }}>{unsettled.length}</span>
+            <span style={{ fontSize:13,fontWeight:600,color:"#1C2430" }}>아직 정산 안 한 직원</span>
+          </div>
+          <div style={{ display:"flex",flexWrap:"wrap",gap:5 }}>
+            {unsettled.map(emp => (
               <span key={emp.id} onClick={()=>{ setSelId(emp.id); setSubView("calc"); }}
-                style={{ background:"#FEF08A",color:"#713F12",borderRadius:6,padding:"3px 8px",fontSize:12,fontWeight:600,cursor:"pointer" }}>
+                style={{ background:"#FBF0DD",color:"#9A5B0C",borderRadius:6,padding:"3px 8px",fontSize:12,fontWeight:600,cursor:"pointer" }}>
                 {coBadge(emp.id,periodStart)}{emp.name}
               </span>
             ))}
           </div>
         </div>
       )}
-
-      {/* 정산 완료 직원만 표시 */}
-      {activeEmps.filter(emp => {
-        const hist = (leaves[emp.id]||{}).keepBalanceHistory || [];
-        const settled = Array.isArray(hist) ? hist : Object.values(hist);
-        return !!settled.find(h => h.periodStart === periodStart);
-      }).length === 0 && (
-        <div style={{ textAlign:"center",padding:"20px 0",color:"#aaa" }}>
-          <p style={{ margin:0,fontSize:13 }}>정산 완료한 직원이 없어요</p>
-          <p style={{ margin:"4px 0 0",fontSize:11 }}>각 직원 급여탭에서 정산 완료 버튼을 눌러주세요</p>
-        </div>
+      {settledCount === 0 && (
+        <p style={{ margin:"0 0 10px",fontSize:12,color:"#9AA3AB",textAlign:"center" }}>정산 완료한 직원이 아직 없어요. 각 직원 급여 계산에서 정산 완료를 눌러주세요.</p>
       )}
 
-      {activeEmps.filter(emp => empWorkedInPeriod(emp, periodStart)).map((emp,ei) => {
-        const lv = leaves[emp.id] || {};
-        const w = calcWage(emp.id);
-        // 기간별 킵잔액 (정산 전 시작잔액 + 당기입금)
-        const keep = getKeepBalanceAtPeriod(emp.id, periodStart) + getPeriodDeposits(emp.id, periodStart);
-        // splitPay 여부 확인
-        const ci0 = lv.contractorInfo || {};
-        const splitPay0 = !!(ci0.splitPay);
-        const gstReg0 = !!(ci0.gstRegistered);
-        const sd2pre = getSavedDeductions(emp.id).reduce((s,d)=>s+(parseFloat(d.amount)||0),0);
-        const netPay   = w ? (w.isContractor && !w.hasFlatPay ? Math.max(0, (parseFloat(w.gross)||0) - sd2pre) : (parseFloat(w.fixedNet)||0)) : 0;
-        const taxAmt   = w ? (w.isContractor && !w.hasFlatPay ? 0 : (parseFloat(w.fixedTax)||0)) : 0;
-        const superAmt = w ? (w.isContractor && !w.hasFlatPay ? 0 : (parseFloat(w.fixedSuper)||0)) : 0;
-        const splitCash = (splitPay0 && w) ? (w.stats.fullDays * w.dailyRate / 2) : 0;
-        const splitAbnBase = (splitPay0 && w) ? (w.stats.fullDays*w.dailyRate/2 + (w.stats.partHours||0)*w.partHourlyRate + (w.stats.otHours||0)*w.otHourlyRate + (w.travel||0)) : 0;
-        const splitGst  = (splitPay0 && gstReg0) ? splitAbnBase * 0.1 : 0;
-        const col = EMP_COLORS[ei % EMP_COLORS.length];
-        const isContractor = !!(lv.noLeave);
-        const hasFlatPay   = !!(lv.hasFlatPay);
-        const typeLabel = isContractor ? (hasFlatPay ? "킵관리" : "인보이스") : "연차";
-        const sd2 = getSavedDeductions(emp.id).reduce((s,d)=>s+(parseFloat(d.amount)||0),0);
-        const v2 = !w ? 0
-          : (w.isContractor && !w.hasFlatPay) ? 0
-          : (w.hasFlatPay && w.isWHV) ? w.gross-w.fixedTotal-sd2
-          : w.excessPartH*w.partHourlyRate+w.excessOtH*w.otHourlyRate-w.deficitH*w.partHourlyRate+w.travel-sd2;
-        const ka = keep + v2;  // 시작잔액 + 당기입금 + 변동분
-        return (
-          <div key={emp.id} onClick={()=>{ setSelId(emp.id); setSubView("calc"); }}
-            style={{ display:"grid",gridTemplateColumns:"80px repeat(4, minmax(0,1fr))",gap:4,
-              background:selId===emp.id?"#EFF6FF":"#fff",borderRadius:10,padding:"10px",
-              marginBottom:6,boxShadow:"0 1px 3px #0000000a",
-              border:`1.5px solid ${selId===emp.id?col:"#F0F0F0"}`,cursor:"pointer",
-              borderLeft:`4px solid ${col}`,alignItems:"center" }}>
-            <div style={{ display:"flex",alignItems:"center",gap:6 }}>
-              <div style={{ width:24,height:24,borderRadius:"50%",background:col,color:"#fff",fontSize:11,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0 }}>{emp.name[0]}</div>
-              <div>
-                <p style={{ margin:0,fontSize:12,fontWeight:700,lineHeight:1.2 }}>{coBadge(emp.id,periodStart)}{emp.name}</p>
-                <p style={{ margin:0,fontSize:9,color:"#aaa" }}>{typeLabel}</p>
+      <div style={{ background:"#fff",border:"1px solid #E4E7E4",borderRadius:12,overflow:"hidden" }}>
+        <div style={{ padding:"10px 14px",borderBottom:"1px solid #EEF0EE",fontSize:13,fontWeight:700,color:"#1C2430" }}>직원별 <span style={{ fontWeight:500,color:"#69737C",fontSize:12 }}>Net Pay · Tax · Super · 정산 후 킵</span></div>
+        {rows.map((r, i) => (
+          <div key={r.emp.id} onClick={()=>{ setSelId(r.emp.id); setSubView("calc"); }}
+            style={{ display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderTop:i?"1px solid #EEF0EE":"none",cursor:"pointer",background:selId===r.emp.id?"#F7F8F6":"#fff" }}>
+            <div style={{ flex:1,minWidth:0 }}>
+              <div style={{ fontSize:14,fontWeight:600,color:"#1C2430",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis" }}>{coBadge(r.emp.id,periodStart)}{r.emp.name} <span style={{ fontSize:11,fontWeight:500,color:"#9AA3AB" }}>{r.typeLabel}</span></div>
+              <div style={{ fontSize:11.5,color:"#69737C",marginTop:1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis" }}>
+                {r.splitPay0
+                  ? <>캐시 {fA(r.splitCash)} · ABN {fA(r.splitAbn)}</>
+                  : <>Tax {r.taxAmt?fA(r.taxAmt):"—"} · Super {r.superAmt?fA(r.superAmt):"—"}</>}
+                {r.keepAfter !== 0 && <> · 킵 <span style={{ color:r.keepAfter<0?"#B4232C":"#2E7D4F",fontWeight:600 }}>{fA(r.keepAfter)}</span></>}
               </div>
             </div>
-            {splitPay0 ? (
-              <div style={{ textAlign:"center" }}>
-                <p style={{ margin:0,fontSize:11,fontWeight:700,color:"#10B981" }}>💵 {fA(splitCash)}</p>
-                <p style={{ margin:0,fontSize:11,fontWeight:700,color:"#3B82F6" }}>🧾 {fA(splitAbnBase+splitGst)}</p>
-              </div>
-            ) : fmt(netPay,"#10B981")}
-            {splitPay0 ? <p style={{ margin:0,fontSize:12,color:"#aaa",textAlign:"center" }}>—</p> : fmt(taxAmt,"#EF4444")}
-            {splitPay0 ? <p style={{ margin:0,fontSize:12,color:"#aaa",textAlign:"center" }}>—</p> : fmt(superAmt,"#2A8C86")}
-            <p style={{ margin:0,fontSize:12,fontWeight:700,
-                color:(w&&w.isContractor&&!w.hasFlatPay)
-                  ? (parseFloat(lv.keepBalance)||0)<0?"#EF4444":(parseFloat(lv.keepBalance)||0)>0?"#10B981":"#ccc"
-                  : ka>0?"#3B82F6":ka<0?"#EF4444":"#ccc",
-                textAlign:"center",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis" }}>
-              {(w&&w.isContractor&&!w.hasFlatPay)
-                ? (parseFloat(lv.keepBalance)||0)!==0 ? fA(parseFloat(lv.keepBalance)) : "—"
-                : ka!==0?fA(ka):"—"}
-            </p>
+            <div style={{ fontSize:14,fontWeight:700,color:"#1C2430",fontVariantNumeric:"tabular-nums",whiteSpace:"nowrap" }}>{r.splitPay0 ? fA(r.splitCash + r.splitAbn) : (r.netPay?fA(r.netPay):"—")}</div>
           </div>
-        );
-      })}
-      {/* 합계 행 */}
-      {activeEmps.length > 0 && (() => {
-        const settledEmps = activeEmps;
-        const totNet   = settledEmps.reduce((s,u)=>{const w2=calcWage(u.id);return s+(w2&&w2.isContractor&&!w2.hasFlatPay?(parseFloat(w2.gross)||0):(parseFloat(w2?.fixedNet)||0));},0);
-        const totTax   = settledEmps.reduce((s,u)=>{const w2=calcWage(u.id);return s+(w2&&w2.isContractor&&!w2.hasFlatPay?0:(parseFloat(w2?.fixedTax)||0));},0);
-        const totSuper = settledEmps.reduce((s,u)=>{const w2=calcWage(u.id);return s+(parseFloat(w2?.fixedSuper)||0);},0);
-        const totKeep  = settledEmps.reduce((s,u,ei) => {
-          const lv = leaves[u.id]||{};
-          const keep = getKeepBalanceAtPeriod(u.id, periodStart) + getPeriodDeposits(u.id, periodStart);
-          const sd2 = getSavedDeductions(u.id).reduce((s,d)=>s+(parseFloat(d.amount)||0),0);
-          const w2 = calcWage(u.id);
-          const isContractor = !!(lv.noLeave);
-          const hasFlatPay = !!(lv.hasFlatPay);
-          const v2 = !w2 ? 0
-            : (w2.isContractor && !w2.hasFlatPay) ? 0
-            : (w2.hasFlatPay && w2.isWHV) ? w2.gross-w2.fixedTotal-sd2
-            : w2.excessPartH*w2.partHourlyRate+w2.excessOtH*w2.otHourlyRate-w2.deficitH*w2.partHourlyRate+w2.travel-sd2;
-          return s + keep + v2;
-        }, 0);
-        const cell = (v, color) => <p style={{ margin:0,fontSize:12,fontWeight:800,color:v?color:"#ccc",textAlign:"center",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis" }}>{v?fA(v):"—"}</p>;
-        return (
-          <div style={{ display:"grid",gridTemplateColumns:"80px repeat(4, minmax(0,1fr))",gap:4,
-            background:"#F8FAFF",borderRadius:10,padding:"10px",marginTop:4,
-            borderTop:"2px solid #E5E7EB",alignItems:"center" }}>
-            <p style={{ margin:0,fontSize:11,fontWeight:700,color:"#555" }}>합계</p>
-            {cell(totNet,"#10B981")}
-            {cell(totTax,"#EF4444")}
-            {cell(totSuper,"#2A8C86")}
-            <p style={{ margin:0,fontSize:12,fontWeight:800,color:totKeep>0?"#3B82F6":totKeep<0?"#EF4444":"#ccc",textAlign:"center",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis" }}>{totKeep!==0?fA(totKeep):"—"}</p>
-          </div>
-        );
-      })()}
+        ))}
+      </div>
     </div>
   );
 }
@@ -4774,7 +4760,7 @@ const styles = {
   leaveNums: { display: "flex", justifyContent: "space-between", fontSize: 12, color: "#8891a8" },
   leaveChips: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 6 },
   chip: { border: "1.5px solid", borderRadius: 10, padding: "8px 6px", display: "flex", flexDirection: "column", alignItems: "center", gap: 2 },
-  empCard: { background: "#fff", borderRadius: 14, padding: "14px 16px", marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: "none", border: "1px solid #E4E7E4" },
+  empCard: { background: "#fff", borderRadius: 12, padding: "11px 14px", marginBottom: 8, display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: "none", border: "1px solid #E4E7E4" },
   empCardLeft: { display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 0 },
   deptBadge: { fontSize: 10, fontWeight: 600, color: "#1F6F6B", background: "#1F6F6B15", borderRadius: 6, padding: "1px 6px", marginLeft: 4 },
   empty: { textAlign: "center", padding: "32px 0", background: "#fff", borderRadius: 12, marginBottom: 8 },
@@ -5072,7 +5058,7 @@ function TeamTab({users,leaves,logs,persist,isSuperAdmin,companies,jumpEmpName,o
     if(leaveData)newLeaves[newId]=leaveData;
     persist(users.map(u=>u.id===oldId?updated:u),newLogs,newLeaves);
     setEditEmp(null);
-  };const moveEmp=(id,dir)=>{const idx=users.findIndex(u=>u.id===id);if(idx<0)return;const newIdx=idx+dir;if(newIdx<0||newIdx>=users.length)return;const newUsers=[...users];[newUsers[idx],newUsers[newIdx]]=[newUsers[newIdx],newUsers[idx]];persist(newUsers,null,null);};const resignEmp=(id)=>{const updated=users.map(u=>u.id===id?{...u,resignedDate:today}:u);persist(updated,null,null);setConfirmId(null);};const reinstateEmp=(id)=>{const updated=users.map(u=>u.id===id?{...u,resignedDate:null}:u);persist(updated,null,null);};return(<div style={styles.page}><div style={styles.pageHeader}><h2 style={styles.pageTitle}>직원 관리</h2><div style={{ display:"flex",gap:6 }}>{isSuperAdmin&&<button style={{ ...styles.btnSecondary,fontSize:12,padding:"6px 10px" }} onClick={()=>setReordering(r=>!r)}>{reordering?"✅ 완료":"↕️ 순서변경"}</button>}{isSuperAdmin&&!reordering&&<button style={styles.btnAdd} onClick={()=>setShowAdd(true)}>{Icon.plus} 추가</button>}</div></div><div style={{ marginBottom:12 }}><input style={{ ...styles.input,width:"100%",boxSizing:"border-box" }} placeholder="🔍 이름 또는 부서로 검색..." value={search} onChange={e=>setSearch(e.target.value)}/></div>{[...adminEmps,...staffEmps].map(u=>{const lv=normLeave(leaves[u.id],u.joinDate);const roleLabel=u.role==="superadmin"?"🔑 슈퍼관리자":u.role==="viewadmin"?"👁️ 관리자":null;return(<div key={u.id} style={{ ...styles.empCard,...(roleLabel?{borderLeft:"3px solid #1F6F6B"}:{}) }}><div style={styles.empCardLeft}><div style={{ ...styles.logAvatar,width:44,height:44,fontSize:18,opacity:u.resignedDate?0.5:1 }}>{u.name[0]}</div><div><p style={styles.logName}>{u.name}<span style={styles.deptBadge}>{u.dept}</span>{u.resignedDate&&<span style={{ marginLeft:5,fontSize:10,background:"#f77",color:"#fff",borderRadius:4,padding:"1px 5px" }}>퇴사</span>}</p><p style={styles.logContent}>ID: <strong>{u.id}</strong> &nbsp;|&nbsp; {u.resignedDate?`퇴사: ${auD(u.resignedDate)}`:`입사: ${auD(u.joinDate)}`}{roleLabel&&<span style={{ marginLeft:6,fontSize:10,color:"#1F6F6B",fontWeight:700 }}>{roleLabel}</span>}</p><div style={{ display:"flex",alignItems:"center",gap:6,marginTop:2 }}>{lv.noLeave&&<span style={styles.noLeaveBadge}>연차 미적용</span>}</div>{u.birthDate&&<p style={{ margin:"2px 0 0",fontSize:10,color:"#7c2d12",fontWeight:600 }}>🎂 생일 {auD(u.birthDate)}{isBirthdayToday(u.birthDate)&&<span style={{ marginLeft:4,background:"#FBBF24",color:"#fff",padding:"1px 5px",borderRadius:4,fontSize:9 }}>오늘!</span>}{(()=>{const d=daysUntilBirthday(u.birthDate);return (d>=1&&d<=10)?<span style={{ marginLeft:4,background:"#FDE68A",color:"#92400E",padding:"1px 5px",borderRadius:4,fontSize:9,fontWeight:700 }}>{d===1?"내일":"D-"+d}</span>:null;})()}</p>}{u.visa&&u.visa.type&&(()=>{const ongoing=!u.visa.to;const expired=u.visa.to&&new Date(u.visa.to+"T00:00:00")<new Date(today+"T00:00:00");const remain=(u.visa.to&&!expired)?Math.max(0,Math.round((new Date(u.visa.to+"T00:00:00")-new Date(today+"T00:00:00"))/86400000)):0;return <p style={{ margin:"2px 0 0",fontSize:10,color:"#1a7a4a",fontWeight:600 }}>🛂 {u.visa.type} {u.visa.from&&`${auD(u.visa.from)} ~`} {auD(u.visa.to)||"현재"}{expired&&<span style={{ color:"#f77" }}> (만료)</span>}{ongoing&&<span style={{ marginLeft:6,color:"#0f766e" }}>📅 진행중</span>}{!ongoing&&!expired&&<span style={{ marginLeft:6,color:remain<=60?"#f77":"#0f766e",fontWeight:700 }}>📅 남은 {remain}일</span>}</p>;})()}{(Array.isArray((leaves[u.id]||{}).workHistory)?(leaves[u.id]||{}).workHistory:Object.values((leaves[u.id]||{}).workHistory||{})).map((wh,wi)=>{const co=companies&&companies.find(c=>c.id===wh.companyId);const days=calcVisaDays(wh.from,wh.to);return <p key={wi} style={{margin:"1px 0",fontSize:10,color:"#555"}}>🏢 {co?co.name:"?"} {auD(wh.from)||""} ~ {auD(wh.to)||"현재"}{wh.from&&<span style={{ marginLeft:6,color:"#0f766e",fontWeight:600 }}>📅 {days}일</span>}</p>;})}{effectiveTaxPeriods(leaves[u.id]).map((th,ti)=>{const days=calcVisaDays(th.from,th.to);const isAbn=(th.type||"")==="ABN";return <p key={"t"+ti} style={{margin:"1px 0",fontSize:10,color:isAbn?"#92400E":"#1e40af",fontWeight:600}}>{isAbn?"📄 ABN":"🧾 TFN"} {auD(th.from)||""} ~ {auD(th.to)||"현재"}{th.from&&<span style={{ marginLeft:6,color:"#0f766e",fontWeight:600 }}>📅 {days}일</span>}{th.auto&&<span style={{ marginLeft:5,fontSize:9,color:"#aaa",fontWeight:500 }}>자동</span>}</p>;})}</div>
+  };const moveEmp=(id,dir)=>{const idx=users.findIndex(u=>u.id===id);if(idx<0)return;const newIdx=idx+dir;if(newIdx<0||newIdx>=users.length)return;const newUsers=[...users];[newUsers[idx],newUsers[newIdx]]=[newUsers[newIdx],newUsers[idx]];persist(newUsers,null,null);};const resignEmp=(id)=>{const updated=users.map(u=>u.id===id?{...u,resignedDate:today}:u);persist(updated,null,null);setConfirmId(null);};const reinstateEmp=(id)=>{const updated=users.map(u=>u.id===id?{...u,resignedDate:null}:u);persist(updated,null,null);};return(<div style={styles.page}><div style={styles.pageHeader}><h2 style={styles.pageTitle}>직원 관리</h2><div style={{ display:"flex",gap:6 }}>{isSuperAdmin&&<button style={{ ...styles.btnSecondary,fontSize:12,padding:"6px 10px" }} onClick={()=>setReordering(r=>!r)}>{reordering?"완료":"순서변경"}</button>}{isSuperAdmin&&!reordering&&<button style={styles.btnAdd} onClick={()=>setShowAdd(true)}>{Icon.plus} 추가</button>}</div></div><div style={{ marginBottom:12 }}><input style={{ ...styles.input,width:"100%",boxSizing:"border-box" }} placeholder="이름 또는 부서 검색" value={search} onChange={e=>setSearch(e.target.value)}/></div>{[...adminEmps,...staffEmps].map(u=>{const lv=normLeave(leaves[u.id],u.joinDate);const roleLabel=u.role==="superadmin"?"슈퍼관리자":u.role==="viewadmin"?"관리자":null;return(<div key={u.id} style={styles.empCard}><div style={{ ...styles.empCardLeft,alignItems:"flex-start" }}><div style={{ minWidth:0 }}><p style={{ margin:0,fontSize:14.5,fontWeight:600,color:"#1C2430",opacity:u.resignedDate?0.55:1 }}>{u.name}<span style={{ marginLeft:6,fontSize:11,fontWeight:500,color:"#69737C" }}>{u.dept}</span>{roleLabel&&<span style={{ marginLeft:6,fontSize:10.5,fontWeight:700,color:"#1F6F6B",background:"#E3EFEC",borderRadius:5,padding:"0 5px" }}>{roleLabel}</span>}{u.resignedDate&&<span style={{ marginLeft:6,fontSize:10.5,fontWeight:700,color:"#B4232C",background:"#FBE9E9",borderRadius:5,padding:"0 5px" }}>퇴사</span>}{lv.noLeave&&<span style={{ marginLeft:6,fontSize:10.5,fontWeight:700,color:"#69737C",border:"1px solid #E4E7E4",borderRadius:5,padding:"0 5px" }}>연차 없음</span>}</p><p style={{ margin:"2px 0 0",fontSize:12,color:"#69737C" }}>ID {u.id} · {u.resignedDate?`퇴사 ${auD(u.resignedDate)}`:`입사 ${auD(u.joinDate)}`}{u.birthDate&&<> · 생일 {auD(u.birthDate).slice(0,5)}</>}{u.birthDate&&isBirthdayToday(u.birthDate)&&<span style={{ marginLeft:4,color:"#9A5B0C",fontWeight:700 }}>오늘</span>}{u.birthDate&&(()=>{const d=daysUntilBirthday(u.birthDate);return (d>=1&&d<=10)?<span style={{ marginLeft:4,color:"#9A5B0C",fontWeight:700 }}>{d===1?"내일":"D-"+d}</span>:null;})()}</p>{(()=>{const facts=[];if(u.visa&&u.visa.type){const ongoing=!u.visa.to;const expired=u.visa.to&&new Date(u.visa.to+"T00:00:00")<new Date(today+"T00:00:00");const remain=(u.visa.to&&!expired)?Math.max(0,Math.round((new Date(u.visa.to+"T00:00:00")-new Date(today+"T00:00:00"))/86400000)):0;facts.push(<span key="v">비자 {u.visa.type} {ongoing?"진행중":expired?<b style={{ color:"#B4232C" }}>만료</b>:<span style={{ color:remain<=60?"#B4232C":undefined,fontWeight:remain<=60?700:400 }}>{remain}일 남음</span>}</span>);}const whs=(Array.isArray((leaves[u.id]||{}).workHistory)?(leaves[u.id]||{}).workHistory:Object.values((leaves[u.id]||{}).workHistory||{}));const curWh=whs.find(w=>!w.to)||null;if(curWh){const co=companies&&companies.find(c=>c.id===curWh.companyId);facts.push(<span key="c">{co?co.name:"?"} {curWh.from?`${calcVisaDays(curWh.from,curWh.to)}일`:""}</span>);}const tps=effectiveTaxPeriods(leaves[u.id]);const curTp=tps.find(t=>!t.to)||tps[tps.length-1];if(curTp){facts.push(<span key="t">{(curTp.type||"")==="ABN"?"ABN":"TFN"}{curTp.to?` ~${auD(curTp.to)}`:` ${calcVisaDays(curTp.from,curTp.to)}일`}</span>);}return facts.length?<p style={{ margin:"2px 0 0",fontSize:11.5,color:"#69737C" }}>{facts.map((f,i)=><React.Fragment key={i}>{i?" · ":""}{f}</React.Fragment>)}</p>:null;})()}</div>
             </div><div style={{ display:"flex",gap:4,flexShrink:0,alignItems:"center" }}>{reordering?<><button style={{ ...styles.iconBtn,fontSize:16 }} onClick={()=>moveEmp(u.id,-1)}>▲</button><button style={{ ...styles.iconBtn,fontSize:16 }} onClick={()=>moveEmp(u.id,1)}>▼</button></>:<>{isSuperAdmin&&!u.resignedDate&&<button style={styles.iconBtn} onClick={()=>{setConfirmId(null);setEditEmp(u);}}>{Icon.edit}</button>}{isSuperAdmin&&(confirmId===`resign_${u.id}`?<div style={styles.confirmInline}><span style={{ fontSize:11,color:"#e67e22" }}>퇴사?</span><button style={styles.confirmYes} onClick={()=>resignEmp(u.id)}>예</button><button style={styles.confirmNo} onClick={()=>setConfirmId(null)}>아니오</button></div>:confirmId===`delete_${u.id}`?<div style={styles.confirmInline}><span style={{ fontSize:11,color:"#f77" }}>삭제?</span><button style={styles.confirmYes} onClick={()=>deleteEmp(u.id)}>예</button><button style={styles.confirmNo} onClick={()=>setConfirmId(null)}>아니오</button></div>:u.resignedDate?<div style={{ display:"flex",gap:4 }}><button style={{ ...styles.btnSecondary,fontSize:11,padding:"4px 8px" }} onClick={()=>reinstateEmp(u.id)}>복직</button><button style={{ ...styles.iconBtn,color:"#f77" }} onClick={()=>{setEditEmp(null);setConfirmId(`delete_${u.id}`);}}>{Icon.trash}</button></div>:<div style={{ display:"flex",gap:4 }}><button style={{ ...styles.iconBtn,color:"#e67e22",fontSize:11,fontWeight:700 }} onClick={()=>{setEditEmp(null);setConfirmId(`resign_${u.id}`);}}>퇴사</button><button style={{ ...styles.iconBtn,color:"#f77" }} onClick={()=>{setEditEmp(null);setConfirmId(`delete_${u.id}`);}}>{Icon.trash}</button></div>)}</>}</div></div>);})} {resignedEmps.length>0&&<div style={{ marginTop:16 }}><button style={{ ...styles.btnSecondary,fontSize:12,width:"100%",marginBottom:showResigned?10:0,background:showResigned?"#fff0f0":undefined,borderColor:"#f77",color:"#c0392b" }} onClick={()=>setShowResigned(v=>!v)}>{showResigned?`▲ 퇴사 직원 숨기기`:`▼ 퇴사 직원 보기 (${resignedEmps.length}명)`}</button>{showResigned&&resignedEmps.map(u=>(<div key={u.id} style={{ ...styles.empCard,opacity:0.7,borderLeft:"3px solid #f77" }}><div style={styles.empCardLeft}><div style={{ ...styles.logAvatar,width:44,height:44,fontSize:18,background:"#eee",color:"#999" }}>{u.name[0]}</div><div><p style={styles.logName}>{u.name}<span style={styles.deptBadge}>{u.dept}</span><span style={{ fontSize:10,background:"#f77",color:"#fff",borderRadius:4,padding:"1px 5px",marginLeft:4 }}>퇴사</span></p><p style={styles.logContent}>퇴사일: {auD(u.resignedDate)} &nbsp;|&nbsp; 입사: {auD(u.joinDate)}</p></div></div><div style={{ display:"flex",gap:4 }}><button style={{ ...styles.btnSecondary,fontSize:11,padding:"4px 8px" }} onClick={()=>reinstateEmp(u.id)}>복직</button>{confirmId===`delete_${u.id}`?<div style={styles.confirmInline}><span style={{ fontSize:11,color:"#f77" }}>삭제?</span><button style={styles.confirmYes} onClick={()=>deleteEmp(u.id)}>예</button><button style={styles.confirmNo} onClick={()=>setConfirmId(null)}>아니오</button></div>:<button style={{ ...styles.iconBtn,color:"#f77" }} onClick={()=>setConfirmId(`delete_${u.id}`)}>{Icon.trash}</button>}</div></div>))}</div>}{showAdd&&<AddEmpForm companies={companies} onSave={(emp,leaveData)=>{persist([...users,emp],null,{...leaves,[emp.id]:leaveData});setShowAdd(false);}} onClose={()=>setShowAdd(false)}/>}{editEmp&&<EditEmpForm emp={editEmp} leaveData={normLeave(leaves[editEmp.id],editEmp.joinDate)} companies={companies} onSave={saveEmp} onClose={()=>setEditEmp(null)}/>}<DataBackup users={users} leaves={leaves} logs={logs} persist={persist}/></div>);}
 
 // ─── App ───────────────────────────────────────────────────────────────────
