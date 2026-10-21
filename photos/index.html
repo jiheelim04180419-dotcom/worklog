@@ -215,7 +215,7 @@ input,textarea,select{font-family:inherit;font-size:16px}
 <div id="toast" class="toast"></div>
 <datalist id="builder-list"></datalist>
 <script>
-const APP_BUILD='2026-10-21-04';
+const APP_BUILD='2026-10-21-05';
 const RTDB='https://knmtilingptyltd-12520-default-rtdb.firebaseio.com';
 // ── Firebase 로그인 (직원별 계정) ─────────────────────────────────────────────
 // 세 앱(WorkLog·인보이스·SiteLog)이 똑같은 코드를 씀. 직원은 예전 아이디/비밀번호 그대로 로그인하고,
@@ -423,11 +423,11 @@ async function tryLogin(id,pw){
   return{user:{id:u.id,name:u.name||u.id}};
 }
 // Re-check the signed-in user still exists & is active. Logs out immediately if not.
-async function validateSession(){
+async function validateSession(pre){
   if(!S.user)return false;
   if(!_fbAuth||_fbAuth.id!==S.user.id){localStorage.removeItem('photoapp_session');S.user=null;return false;}   // Firebase 로그인 필요
   try{
-    const users=await rtGet('users');
+    const users=pre!==undefined?pre:await rtGet('users');
     if(!users)return true;   // read failed (network/server): don't lock out on a hiccup
     const arr=Array.isArray(users)?users:Object.values(users||{});
     const u=arr.find(x=>x&&x.id===S.user.id);
@@ -486,13 +486,13 @@ function appMenu(){
   document.body.appendChild(m);
   m.onclick=e=>{if(e.target===m)m.remove();};
   $('#mn-close',m).onclick=()=>m.remove();
-  $('#mn-out',m).onclick=()=>{if(confirm('Log out?')){localStorage.removeItem('photoapp_session');fbSignOut();S.user=null;m.remove();renderLogin();}};
+  $('#mn-out',m).onclick=()=>{if(confirm('Log out?')){localStorage.removeItem('photoapp_session');localStorage.removeItem('sl_home_cache');fbSignOut();S.user=null;m.remove();renderLogin();}};
 }
 
 // builders (reuse invoice builders + builders used on sites)
-async function loadBuilders(){
+async function loadBuilders(pre){
   let names=[];
-  try{const b=await rtGet('invoiceBuilders');const arr=Array.isArray(b)?b:Object.values(b||{});
+  try{const b=pre!==undefined?pre:await rtGet('invoiceBuilders');const arr=Array.isArray(b)?b:Object.values(b||{});
     names=arr.map(x=>x&&(x.name||x.builderName||x.company)).filter(Boolean);}catch(e){}
   S.projects.forEach(p=>{if(p.builder)names.push(p.builder);});
   S.builders=[...new Set(names)].sort((a,b)=>a.localeCompare(b));
@@ -513,18 +513,27 @@ async function openProjects(){
   $('#h-menu').onclick=()=>appMenu();
   $('#addproj').onclick=()=>projectForm();
   $('#q').oninput=e=>{S.q=e.target.value;renderProjectList();};
-  if(!(await validateSession())){onAccessLost();return;}
-  const data=await rtGet('photoApp/projects')||{};
-  S.projects=Object.entries(data).map(([id,v])=>({id,...v})).filter(p=>!p.archived);
-  // Load this user's "seen" map for NEW badges. First run sets a baseline so existing sites don't all show NEW.
-  S.seen=await rtGet('photoApp/seen/'+S.user.id)||{};
-  if(!S.seen._baseline){S.seen._baseline=Date.now();rtPatch('photoApp/seen/'+S.user.id,{_baseline:S.seen._baseline});}
+  // Show the last-known list straight away, then refresh. All reads go out together instead of one after another.
+  const uid=S.user.id,cached=loadHomeCache(uid);
+  if(cached){S.projects=cached.projects;S.seen=cached.seen;renderFilters();renderProjectList();}
+  const get=p=>rtGet(p).catch(()=>null);
+  const [us,data,seen,bld]=await Promise.all([get('users'),get('photoApp/projects'),get('photoApp/seen/'+uid),get('invoiceBuilders')]);
+  if(!(await validateSession(us))){onAccessLost();return;}
+  if(data)S.projects=Object.entries(data).map(([id,v])=>({id,...v})).filter(p=>!p.archived);
+  else if(!cached)S.projects=[];
+  // This user's "seen" map for NEW badges. First run sets a baseline so existing sites don't all show NEW.
+  S.seen=seen||(cached&&cached.seen)||{};
+  if(!S.seen._baseline){S.seen._baseline=Date.now();rtPatch('photoApp/seen/'+uid,{_baseline:S.seen._baseline});}
   // Staff names for the "worked with" tag picker (current staff; past names can be typed in).
-  try{const us=await rtGet('users');const arr=Array.isArray(us)?us:Object.values(us||{});
+  try{const arr=Array.isArray(us)?us:Object.values(us||{});
     S.staff=arr.filter(u=>u&&u.name&&u.id!=='admin'&&u.name!=='관리자').map(u=>u.name);}catch(e){S.staff=[];}
-  await loadBuilders();
+  await loadBuilders(bld);
+  if(data)saveHomeCache(uid);
+  if(S.pid!==null||!document.getElementById('plist'))return;   // user already opened a site
   renderFilters();renderProjectList();
 }
+function loadHomeCache(uid){try{const c=JSON.parse(localStorage.getItem('sl_home_cache')||'null');return c&&c.uid===uid&&Array.isArray(c.projects)?c:null;}catch(e){return null;}}
+function saveHomeCache(uid){try{localStorage.setItem('sl_home_cache',JSON.stringify({uid,projects:S.projects,seen:S.seen}));}catch(e){}}
 function renderFilters(){
   const builders=[...new Set(S.projects.map(p=>p.builder).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
   $('#filters').innerHTML=`<div class="chip ${!S.bfilter?'on':''}" data-b="">All</div>`+
@@ -1077,7 +1086,7 @@ function openViewer(key){
   document.body.appendChild(v);
 }
 
-(async function(){fbOnAuthLost=()=>{localStorage.removeItem('photoapp_session');S.user=null;renderLogin();};const s=loadSession();if(s){S.user=s;if(await validateSession())openProjects();else onAccessLost();}else renderLogin();})();
+(async function(){fbOnAuthLost=()=>{localStorage.removeItem('photoapp_session');S.user=null;renderLogin();};const s=loadSession();if(s&&_fbAuth&&_fbAuth.id===s.id){S.user=s;openProjects();}else{if(s)localStorage.removeItem('photoapp_session');renderLogin();}})();
 // Auto-update: compare the running build against ver.txt on the server; if newer, reload with a cache-busting ?v=.
 // ⚠️ 배포 때 APP_BUILD 와 photos/ver.txt 를 같은 값으로 올릴 것.
 async function checkUpdate(){
