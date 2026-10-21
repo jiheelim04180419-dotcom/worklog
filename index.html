@@ -18,7 +18,7 @@
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
 // ℹ️ reload 는 코드만 갱신 — Firebase 주소(wm_fb_url)·로그인 세션(wm_session)은 localStorage 라 유지됨(재로그인 불필요).
-const APP_BUILD = '2026-10-21-04';
+const APP_BUILD = '2026-10-21-05';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출. ?_=타임스탬프 + no-store 로 캐시 우회.
 function _fetchLatestBuild(){
   return fetch(location.pathname + '?_=' + Date.now(), { cache: 'no-store', headers: { 'Range': 'bytes=0-3000' } })
@@ -536,7 +536,7 @@ function calcFortnightlyTax(gross, visaType){
   const annual = gross * 26;
   return (isWHV ? calcAnnualTaxWHV(annual) : calcAnnualTaxResident(annual)) / 26;
 }
-const EMP_COLORS=["#3B82F6","#10B981","#F59E0B","#EF4444","#8B5CF6","#EC4899","#06B6D4","#84CC16","#F97316","#6366F1"];
+const EMP_COLORS=["#3B82F6","#10B981","#F59E0B","#EF4444","#2A8C86","#EC4899","#06B6D4","#84CC16","#F97316","#6366F1"];
 
 // ─── Icons (SVG inline) ────────────────────────────────────────────────────
 const Icon = {
@@ -624,8 +624,9 @@ function leaveRemainingByRate(lv){
     grants.forEach(gr=>{const gd=parse(gr.date);if(gd>=ys&&gd<ye)L.push({d:gr.date,rate:rateOn(gr.date),days:+(gr.days)||0});});
     L.sort((a,b)=>(a.d<b.d?-1:1));return L;
   };
-  let carry=[], ys=lsd, guard=0;
+  let carry=[], ys=lsd, guard=0, curStart=lsd;
   while(ys<now&&guard++<80){
+    curStart=ys;
     const ye=addYear(ys,1), completed=ye<=now, cap=completed?ye:now;
     const yl=ylotsFor(ys,ye,cap), sIso=iso(ys), eIso=iso(ye);
     let yused=0; uses.forEach(r=>{if(r.date>=sIso&&r.date<eIso)yused+=(+(r.days)||0);});
@@ -639,8 +640,11 @@ function leaveRemainingByRate(lv){
     }
     ys=ye;
   }
-  const byRate={}; carry.forEach(l=>{if(l.days>1e-9)byRate[l.rate]=(byRate[l.rate]||0)+l.days;});
-  const list=Object.entries(byRate).map(([r,dd])=>({rate:+r,days:Math.round(dd*100)/100})).sort((a,b)=>a.rate-b.rate);
+  // prev = 지난 연차연도(들)에서 넘어온 분, cur = 올해 적립분 (같은 일당이라도 나눠서 보여주기 위함)
+  const cIso=iso(curStart), byRate={};
+  carry.forEach(l=>{if(l.days<=1e-9)return;const b=byRate[l.rate]||(byRate[l.rate]={d:0,prev:0,cur:0});b.d+=l.days;if(l.d<cIso)b.prev+=l.days;else b.cur+=l.days;});
+  const r2=x=>Math.round(x*100)/100;
+  const list=Object.entries(byRate).map(([r,b])=>({rate:+r,days:r2(b.d),prev:r2(b.prev),cur:r2(b.cur)})).sort((a,b)=>a.rate-b.rate);
   const total=Math.round(list.reduce((s,x)=>s+x.days,0)*100)/100;
   return {total,list};
 }
@@ -1120,7 +1124,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
   return (
     <div style={styles.page}>
       <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16 }}>
-        <h2 style={{ ...styles.pageTitle,margin:0 }}>💰 급여 관리</h2>
+        <h2 style={{ ...styles.pageTitle,margin:0 }}>급여 관리</h2>
         <span style={{ fontSize:11,color:"#fff",background:C.primary,padding:"3px 10px",borderRadius:20,fontWeight:600 }}>격주 정산</span>
       </div>
 
@@ -1254,7 +1258,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                 {[
                   ["✅","Full Days", wage.stats.fullDays+"일","#10B981"],
                   ["⏰","Overtime", fmt(wage.stats.otHours)+"h","#F59E0B"],
-                  ["🕐","Part Time", fmt(wage.stats.partHours)+"h","#8B5CF6"],
+                  ["🕐","Part Time", fmt(wage.stats.partHours)+"h","#2A8C86"],
                   ["🚗","Travel", fA(wage.stats.travelTotal),"#3B82F6"],
                   ...(wage.leaveHoursInPeriod > 0 ? [["🏖️","연차", (wage.leaveHoursInPeriod/9).toFixed(1)+"일","#F59E0B"]] : []),
                 ].map(([emoji, label, val, color]) => (
@@ -1928,7 +1932,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
               <EmptyState msg="이 기간 근무일지가 없습니다." />
             ) : wage && wage.periodLogs.map(l => {
               const wt = l.workType || "fulltime";
-              const wtColor = wt==="overtime"?"#F59E0B":wt==="parttime"?"#8B5CF6":wt==="dayoff"?"#9CA3AF":wt==="publicholiday"?"#F97316":"#10B981";
+              const wtColor = wt==="overtime"?"#F59E0B":wt==="parttime"?"#2A8C86":wt==="dayoff"?"#9CA3AF":wt==="publicholiday"?"#F97316":"#10B981";
               const wtLabel = wt==="fulltime"?"풀타임":wt==="overtime"?"오버타임":wt==="parttime"?"파트타임":wt==="dayoff"?"휴무":wt==="publicholiday"?"공휴일":wt;
               return (
                 <div key={l.id} style={{ background:"#fff",borderRadius:12,padding:"12px 14px",marginBottom:8,borderLeft:"3px solid "+selColor,boxShadow:"0 1px 4px #0000000a" }}>
@@ -2341,7 +2345,7 @@ function RateTab({ users, leaves, persist, isSuperAdmin }) {
   };
   return (
     <div style={styles.page}>
-      <div style={styles.pageHeader}><h2 style={styles.pageTitle}>💰 일급 관리</h2></div>
+      <div style={styles.pageHeader}><h2 style={styles.pageTitle}>일급 관리</h2></div>
       <p style={{ fontSize: 12, color: C.sub, marginBottom: 16 }}>직원별 일급 변동 이력을 관리해요. 일급이 바뀌면 그 날짜부터 연차 계산이 따로 나뉘어요.</p>
       <div style={styles.filterRow}>
         <select style={styles.filterInput} value={filterUser} onChange={e => setFilterUser(e.target.value)}>
@@ -2431,7 +2435,7 @@ function CompanyTab({ companies, persist }) {
   const set = (k,v) => setForm(f => ({ ...f,[k]:v }));
   return (
     <div style={styles.page}>
-      <div style={styles.pageHeader}><h2 style={styles.pageTitle}>🏢 회사 정보</h2></div>
+      <div style={styles.pageHeader}><h2 style={styles.pageTitle}>회사 정보</h2></div>
       <p style={{ fontSize:12,color:C.sub,marginBottom:16 }}>인보이스 발행 시 자동으로 청구처(Bill To)에 입력돼요.</p>
       {(!companies || companies.length === 0) && (
         <div style={{ textAlign:"center", padding:40, color:"#aaa" }}>
@@ -2926,7 +2930,7 @@ function MgmtTab({ fbUrl, fA }) {
     return s + calcAmt(m).total;
   }, 0) + kyleFinal + saraFinal;
 
-  const COLORS = ['#1F6F6B','#059669','#D97706','#DC2626','#7C3AED','#0891B2'];
+  const COLORS = ['#1F6F6B','#059669','#D97706','#DC2626','#2A8C86','#0891B2'];
   const typeLabel = {monthly:'월급',invoice:'인보이스',invoice_gst:'인보이스+GST'};
   const periodLabel = periodDiff===curDiff?'현재 기간':periodDiff===curDiff-1?'이전 기간':`${curDiff-periodDiff}기간 전`;
 
@@ -3105,7 +3109,7 @@ function MgmtTab({ fbUrl, fA }) {
         <div style={{background:'#fff',borderRadius:14,border:'1px solid #E4E7E4',overflow:'hidden',marginTop:4,boxShadow:'0 1px 4px rgba(28,36,48,0.06)'}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'14px 16px',cursor:'pointer'}} onClick={()=>setKsEditOpen(!ksEditOpen)}>
             <div>
-              <p style={{margin:0,fontSize:13,fontWeight:700,color:'#7C3AED'}}>📅 날짜별 공제 설정</p>
+              <p style={{margin:0,fontSize:13,fontWeight:700,color:'#2A8C86'}}>📅 날짜별 공제 설정</p>
               <p style={{margin:'2px 0 0',fontSize:11,color:'#9CA3AF'}}>
                 20일: {ksConfig.d20?fA(parseFloat(ksConfig.d20)):'미설정'}
                 {has20&&<span style={{color:'#DC2626',fontWeight:700}}> ← 이번 기간!</span>}
@@ -3114,7 +3118,7 @@ function MgmtTab({ fbUrl, fA }) {
                 {has27&&<span style={{color:'#DC2626',fontWeight:700}}> ← 이번 기간!</span>}
               </p>
             </div>
-            <span style={{color:'#7C3AED',fontSize:16}}>{ksEditOpen?'▲':'▼'}</span>
+            <span style={{color:'#2A8C86',fontSize:16}}>{ksEditOpen?'▲':'▼'}</span>
           </div>
           {ksEditOpen && (
             <div style={{borderTop:'1px solid #F3F4F6',padding:'14px 16px'}}>
@@ -3131,7 +3135,7 @@ function MgmtTab({ fbUrl, fA }) {
                 </div>
               </div>
               <button onClick={saveKsConfig} disabled={ksSaving}
-                style={{width:'100%',background:'#7C3AED',color:'#fff',border:'none',borderRadius:9,padding:'11px',fontSize:14,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>
+                style={{width:'100%',background:'#2A8C86',color:'#fff',border:'none',borderRadius:9,padding:'11px',fontSize:14,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>
                 {ksSaving?'저장 중...':'💾 공제 설정 저장'}
               </button>
             </div>
@@ -3472,7 +3476,7 @@ function SummarySection({users, leaves, periodStart, calcWage, getSavedDeduction
               </div>
             ) : fmt(netPay,"#10B981")}
             {splitPay0 ? <p style={{ margin:0,fontSize:12,color:"#aaa",textAlign:"center" }}>—</p> : fmt(taxAmt,"#EF4444")}
-            {splitPay0 ? <p style={{ margin:0,fontSize:12,color:"#aaa",textAlign:"center" }}>—</p> : fmt(superAmt,"#8B5CF6")}
+            {splitPay0 ? <p style={{ margin:0,fontSize:12,color:"#aaa",textAlign:"center" }}>—</p> : fmt(superAmt,"#2A8C86")}
             <p style={{ margin:0,fontSize:12,fontWeight:700,
                 color:(w&&w.isContractor&&!w.hasFlatPay)
                   ? (parseFloat(lv.keepBalance)||0)<0?"#EF4444":(parseFloat(lv.keepBalance)||0)>0?"#10B981":"#ccc"
@@ -3512,7 +3516,7 @@ function SummarySection({users, leaves, periodStart, calcWage, getSavedDeduction
             <p style={{ margin:0,fontSize:11,fontWeight:700,color:"#555" }}>합계</p>
             {cell(totNet,"#10B981")}
             {cell(totTax,"#EF4444")}
-            {cell(totSuper,"#8B5CF6")}
+            {cell(totSuper,"#2A8C86")}
             <p style={{ margin:0,fontSize:12,fontWeight:800,color:totKeep>0?"#3B82F6":totKeep<0?"#EF4444":"#ccc",textAlign:"center",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis" }}>{totKeep!==0?fA(totKeep):"—"}</p>
           </div>
         );
@@ -4600,7 +4604,7 @@ function HomeTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist, on
             <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10,cursor:"pointer" }}
               onClick={()=>setExpanded(p=>!p)}>
               <div style={{ display:"flex",alignItems:"center",gap:8 }}>
-                <h3 style={{ ...styles.sectionTitle,margin:0 }}>📝 직원 수정 내역</h3>
+                <h3 style={{ ...styles.sectionTitle,margin:0 }}>직원 수정 내역</h3>
                 <span style={{ fontSize:11,fontWeight:700,background:"#EF4444",color:"#fff",borderRadius:10,padding:"1px 8px" }}>{recentChanges.length}</span>
               </div>
               <span style={{ fontSize:12,color:C.sub }}>{expanded?"▲":"▼"}</span>
@@ -4729,7 +4733,7 @@ const styles = {
   modalTitle: { margin: 0, fontSize: 18, fontWeight: 700, color: "#1a1d2e" },
   modalFooter: { display: "flex", gap: 10, marginTop: 8 },
   statsGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 20 },
-  statCard: { background: "#fff", borderRadius: 14, padding: "14px", boxShadow: "0 2px 10px rgba(28,36,48,0.08)", border: "1px solid #E4E7E4" },
+  statCard: { background: "#fff", borderRadius: 14, padding: "14px", boxShadow: "none", border: "1px solid #E4E7E4" },
   statEmoji: { fontSize: 22 },
   statValue: { margin: "8px 0 2px", fontSize: 22, fontWeight: 900, color: "#111827", letterSpacing: "-0.5px" },
   statLabel: { margin: 0, fontSize: 12, color: "#8891a8", fontWeight: 600 },
@@ -4739,7 +4743,7 @@ const styles = {
   greeting: { padding: "20px 18px 8px" },
   greetingText: { margin: 0, fontSize: 22, fontWeight: 800, color: "#111827", letterSpacing: "-0.5px" },
   dateText: { margin: "4px 0 0", fontSize: 13, color: "#8891a8" },
-  logCard: { background: "#fff", borderRadius: 12, padding: "12px 16px", marginBottom: 8, display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: "0 1px 6px rgba(28,36,48,0.07)", border: "1px solid #E4E7E4" },
+  logCard: { background: "#fff", borderRadius: 12, padding: "12px 16px", marginBottom: 8, display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: "none", border: "1px solid #E4E7E4" },
   logCardLeft: { display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 },
   logAvatar: { width: 34, height: 34, borderRadius: "50%", background: "#E3EFEC", color: "#1F6F6B", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, flexShrink: 0 },
   logName: { margin: 0, fontSize: 13, fontWeight: 600, color: "#1a1d2e" },
@@ -4749,19 +4753,19 @@ const styles = {
   filterRow: { display: "flex", gap: 8, marginBottom: 8 },
   filterInput: { flex: 1, border: "1.5px solid #E4E7E4", borderRadius: 10, padding: "8px 12px", fontSize: 13, background: "#fff", color: "#111827", fontFamily: "inherit", outline: "none" },
   logSummary: { fontSize: 12, color: "#8891a8", marginBottom: 10, fontWeight: 500 },
-  logItem: { background: "#fff", borderRadius: 12, padding: "12px 16px", marginBottom: 8, display: "flex", gap: 10, alignItems: "flex-start", boxShadow: "0 1px 6px rgba(28,36,48,0.07)", border: "1px solid #E4E7E4" },
+  logItem: { background: "#fff", borderRadius: 12, padding: "12px 16px", marginBottom: 8, display: "flex", gap: 10, alignItems: "flex-start", boxShadow: "none", border: "1px solid #E4E7E4" },
   logItemDate: { fontSize: 12, fontWeight: 700, color: "#1F6F6B", width: 48, flexShrink: 0, paddingTop: 2 },
   logItemBody: { flex: 1, minWidth: 0 },
-  empName: { fontSize: 11, fontWeight: 700, color: "#fff", background: "#1F6F6B", borderRadius: 6, padding: "1px 7px", marginBottom: 4, display: "inline-block" },
+  empName: { fontSize: 14, fontWeight: 700, color: "#1C2430", background: "none", borderRadius: 0, padding: 0, marginBottom: 2, display: "block" },
   logItemContent: { margin: "0 0 6px", fontSize: 13, color: "#1a1d2e" },
   logItemMeta: { display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#8891a8" },
   statusBadge: { borderRadius: 6, padding: "1px 7px", fontSize: 11, fontWeight: 600, marginLeft: 4 },
-  logActions: { display: "flex", flexDirection: "column", gap: 4, flexShrink: 0 },
-  leaveRow: { background: "#fff", borderRadius: 12, padding: "10px 14px", marginBottom: 8, display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: "0 1px 4px #0000000a" },
+  logActions: { display: "flex", flexDirection: "row", flexWrap: "wrap", justifyContent: "flex-end", alignItems: "center", gap: 2, flexShrink: 0, maxWidth: 132 },
+  leaveRow: { background: "#fff", borderRadius: 12, padding: "10px 14px", marginBottom: 8, display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: "none", border: "1px solid #E4E7E4" },
   leaveRowLeft: { display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 },
   miniBar: { width: 60, height: 6, background: "#eaecf3", borderRadius: 999, overflow: "hidden", flexShrink: 0, marginLeft: 10 },
   miniBarFill: { height: "100%", borderRadius: 999, transition: "width 0.3s" },
-  leaveCard: { background: "#fff", borderRadius: 14, padding: "16px", marginBottom: 12, boxShadow: "0 2px 8px #0000000a" },
+  leaveCard: { background: "#fff", borderRadius: 14, padding: "16px", marginBottom: 12, boxShadow: "none", border: "1px solid #E4E7E4" },
   leaveCardTop: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 },
   leaveCardLeft: { display: "flex", alignItems: "center", gap: 10 },
   leaveBarWrap: { marginBottom: 12 },
@@ -4770,9 +4774,9 @@ const styles = {
   leaveNums: { display: "flex", justifyContent: "space-between", fontSize: 12, color: "#8891a8" },
   leaveChips: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 6 },
   chip: { border: "1.5px solid", borderRadius: 10, padding: "8px 6px", display: "flex", flexDirection: "column", alignItems: "center", gap: 2 },
-  empCard: { background: "#fff", borderRadius: 14, padding: "14px 16px", marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: "0 1px 6px rgba(28,36,48,0.07)", border: "1px solid #E4E7E4" },
+  empCard: { background: "#fff", borderRadius: 14, padding: "14px 16px", marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: "none", border: "1px solid #E4E7E4" },
   empCardLeft: { display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 0 },
-  deptBadge: { fontSize: 10, fontWeight: 600, color: "#7b5ea7", background: "#7b5ea715", borderRadius: 6, padding: "1px 6px", marginLeft: 4 },
+  deptBadge: { fontSize: 10, fontWeight: 600, color: "#1F6F6B", background: "#1F6F6B15", borderRadius: 6, padding: "1px 6px", marginLeft: 4 },
   empty: { textAlign: "center", padding: "32px 0", background: "#fff", borderRadius: 12, marginBottom: 8 },
   typeRow: { display: "flex", gap: 8 },
   typeBtn: { flex: 1, padding: "9px 4px", border: "1.5px solid #eaecf3", borderRadius: 10, background: "#F5F6F4", color: "#8891a8", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s" },
@@ -4880,7 +4884,7 @@ const styles = {
   payPeriodBox: { background: "#f0f5ff", border: "1.5px solid #c5d8ff", borderRadius: 12, padding: "14px", marginBottom: 16 },
   payPeriodRow: { display: "flex", alignItems: "flex-end", gap: 10 },
   payPeriodArrow: { fontSize: 18, color: "#1F6F6B", paddingBottom: 10, flexShrink: 0 },
-  payCard: { background: "#fff", borderRadius: 14, padding: "14px 16px", marginBottom: 12, boxShadow: "0 2px 8px #0000000a" },
+  payCard: { background: "#fff", borderRadius: 14, padding: "14px 16px", marginBottom: 12, boxShadow: "none", border: "1px solid #E4E7E4" },
   payCardHeader: { display: "flex", alignItems: "center", gap: 10, marginBottom: 12 },
   payGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 },
   payStatCell: { background: "#F5F6F4", borderRadius: 10, padding: "10px 12px", display: "flex", flexDirection: "column", gap: 2 },
@@ -4894,7 +4898,7 @@ const styles = {
   periodTitle: { margin: "0 0 10px", fontSize: 12, fontWeight: 700, color: "#5a3e9b" },
   periodRow: { display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: 8, marginBottom: 8, borderBottom: "1px solid #ece5ff" },
   periodLeft: { display: "flex", alignItems: "center", gap: 10 },
-  periodIdx: { width: 20, height: 20, borderRadius: "50%", background: "#7b5ea7", color: "#fff", fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 },
+  periodIdx: { width: 20, height: 20, borderRadius: "50%", background: "#1F6F6B", color: "#fff", fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 },
   periodDates: { margin: 0, fontSize: 11, color: "#1a1d2e", fontWeight: 500 },
   periodDays: { margin: "2px 0 0", fontSize: 12, fontWeight: 700, color: "#5a3e9b" },
   periodRate: { fontSize: 13, fontWeight: 700, color: "#5a3e9b" },
@@ -4942,7 +4946,7 @@ function LogTab({user,users,logs,leaves,isAdmin,isSuperAdmin,isViewAdmin,persist
       if(onJumpConsumed) onJumpConsumed();
     }
   },[]);
-  const[editLog,setEditLog]=useState(null);const[confirmDeleteId,setConfirmDeleteId]=useState(null);const filtered=logs.filter(l=>(filterUser==="all"?true:l.userId===filterUser)).filter(l=>viewMode==="date"?l.date===filterDate:viewMode==="period"?(l.date>=wpStart&&l.date<=wpEnd):true);const deleteLog=(id)=>{persist(null,logs.filter(l=>l.id!==id),null);setConfirmDeleteId(null);};return(<div style={styles.page}><div style={styles.pageHeader}><h2 style={styles.pageTitle}>근무일지</h2><button style={styles.btnAdd} onClick={()=>{setEditLog(null);setShowForm(true);}}>{Icon.plus} 등록</button></div><div style={{ display:"flex",gap:6,marginBottom:10 }}><button onClick={()=>setViewMode("period")} style={{ ...styles.filterInput,cursor:"pointer",background:viewMode==="period"?C.primary:"#fff",color:viewMode==="period"?"#fff":C.text,border:`1.5px solid ${C.primary}`,fontWeight:600,flex:1 }}>📅 구간별</button><button onClick={()=>setViewMode("date")} style={{ ...styles.filterInput,cursor:"pointer",background:viewMode==="date"?C.primary:"#fff",color:viewMode==="date"?"#fff":C.text,border:`1.5px solid ${C.primary}`,fontWeight:600,flex:1 }}>📆 날짜별</button></div><div style={styles.filterRow}>{viewMode==="period"&&<div style={{ display:"flex",alignItems:"center",gap:8,padding:"4px 0" }}>
+  const[editLog,setEditLog]=useState(null);const[confirmDeleteId,setConfirmDeleteId]=useState(null);const filtered=logs.filter(l=>(filterUser==="all"?true:l.userId===filterUser)).filter(l=>viewMode==="date"?l.date===filterDate:viewMode==="period"?(l.date>=wpStart&&l.date<=wpEnd):true);const deleteLog=(id)=>{persist(null,logs.filter(l=>l.id!==id),null);setConfirmDeleteId(null);};return(<div style={styles.page}><div style={styles.pageHeader}><h2 style={styles.pageTitle}>근무일지</h2><button style={styles.btnAdd} onClick={()=>{setEditLog(null);setShowForm(true);}}>{Icon.plus} 등록</button></div><div style={{ display:"flex",gap:6,marginBottom:10 }}><button onClick={()=>setViewMode("period")} style={{ ...styles.filterInput,cursor:"pointer",background:viewMode==="period"?C.primary:"#fff",color:viewMode==="period"?"#fff":C.text,border:`1.5px solid ${C.primary}`,fontWeight:600,flex:1 }}>구간별</button><button onClick={()=>setViewMode("date")} style={{ ...styles.filterInput,cursor:"pointer",background:viewMode==="date"?C.primary:"#fff",color:viewMode==="date"?"#fff":C.text,border:`1.5px solid ${C.primary}`,fontWeight:600,flex:1 }}>날짜별</button></div><div style={styles.filterRow}>{viewMode==="period"&&<div style={{ display:"flex",alignItems:"center",gap:8,padding:"4px 0" }}>
         <button style={styles.navArrow} onClick={()=>setWagePeriodOffset(o=>o-1)}>‹</button>
         <div style={{ flex:1,textAlign:"center" }}>
           <p style={{ margin:0,fontSize:12,fontWeight:700 }}>{auD(wpStart)} ~ {auD(wpEnd)}</p>
@@ -4950,7 +4954,7 @@ function LogTab({user,users,logs,leaves,isAdmin,isSuperAdmin,isViewAdmin,persist
         </div>
         <button style={styles.navArrow} onClick={()=>setWagePeriodOffset(o=>o+1)}>›</button>
       </div>}
-      {viewMode==="date"&&<input type="date" style={styles.filterInput} value={filterDate} onChange={e=>setFilterDate(e.target.value)}/>}{isAdmin&&<select style={styles.filterInput} value={filterUser} onChange={e=>setFilterUser(e.target.value)}><option value="all">전체 직원</option>{users.filter(u=>u.role==="employee").map(u=><option key={u.id} value={u.id}>{u.name}</option>)}</select>}</div><div style={styles.logSummary}><span>총 {filtered.length}건 &nbsp;|&nbsp; {fmt(filtered.reduce((s,l)=>s+(l.hours||0),0))}시간</span></div>{filtered.length===0?<EmptyState msg="해당 기간 근무일지가 없습니다."/>:filtered.map(l=>{const emp=users.find(u=>u.id===l.userId);return(<div key={l.id} style={styles.logItem}><div style={styles.logItemDate}>{l.date.slice(5)} ({["일","월","화","수","목","금","토"][new Date(l.date+"T00:00:00").getDay()]})</div><div style={styles.logItemBody}>{isAdmin&&<span style={styles.empName}>{(emp&&emp.name)||l.userId}</span>}<p style={styles.logItemContent}>{l.content}</p><div style={styles.logItemMeta}>{(()=>{if(l.workType==="dayoff")return<span style={{ color:"#888" }}>🌴 휴무</span>;if(l.workType==="publicholiday")return<span style={{ color:"#e07000" }}>🎉 퍼블릭홀리데이 <strong>{fmt(FULLTIME_HOURS)}h</strong></span>;if(l.workType==="overtime"){const otH=calcHours(l.otStart,l.otEnd);return<><strong>{fmt(FULLTIME_HOURS)}h</strong><span style={{ color:"#f7a440",fontWeight:700 }}>+ {fmt(otH)}h OT</span></>;}return<strong>{fmt(l.hours)}h</strong>;})()}<span style={{ ...styles.statusBadge,background:l.workType==="overtime"?"#f7a44022":l.workType==="parttime"?"#7b5ea722":l.workType==="dayoff"?"#88888822":l.workType==="publicholiday"?"#e0700022":"#2A8C8622",color:l.workType==="overtime"?"#c87800":l.workType==="parttime"?"#7b5ea7":l.workType==="dayoff"?"#888":l.workType==="publicholiday"?"#e07000":"#1F6F6B" }}>{l.workType==="fulltime"?"풀타임":l.workType==="overtime"?"오버타임":l.workType==="parttime"?"파트타임":l.workType==="dayoff"?"휴무":l.workType==="publicholiday"?"퍼블릭홀리데이":l.status}</span></div>{l.needsReview && !l.reviewedByEmp && !isAdmin && (
+      {viewMode==="date"&&<input type="date" style={styles.filterInput} value={filterDate} onChange={e=>setFilterDate(e.target.value)}/>}{isAdmin&&<select style={styles.filterInput} value={filterUser} onChange={e=>setFilterUser(e.target.value)}><option value="all">전체 직원</option>{users.filter(u=>u.role==="employee").map(u=><option key={u.id} value={u.id}>{u.name}</option>)}</select>}</div><div style={styles.logSummary}><span>총 {filtered.length}건 &nbsp;|&nbsp; {fmt(filtered.reduce((s,l)=>s+(l.hours||0),0))}시간</span></div>{filtered.length===0?<EmptyState msg="해당 기간 근무일지가 없습니다."/>:filtered.map((l,li)=>{const emp=users.find(u=>u.id===l.userId);const newDay=li===0||filtered[li-1].date!==l.date;return(<React.Fragment key={l.id}>{newDay&&<div style={{ fontSize:12.5,fontWeight:700,color:C.sub,margin:li===0?"2px 2px 6px":"14px 2px 6px" }}>{l.date.slice(8,10)}/{l.date.slice(5,7)} ({["일","월","화","수","목","금","토"][new Date(l.date+"T00:00:00").getDay()]})</div>}<div style={styles.logItem}><div style={styles.logItemBody}>{isAdmin&&<span style={styles.empName}>{(emp&&emp.name)||l.userId}</span>}<p style={styles.logItemContent}>{l.content}</p><div style={styles.logItemMeta}>{(()=>{if(l.workType==="dayoff")return<span style={{ color:"#888" }}>🌴 휴무</span>;if(l.workType==="publicholiday")return<span style={{ color:"#e07000" }}>🎉 퍼블릭홀리데이 <strong>{fmt(FULLTIME_HOURS)}h</strong></span>;if(l.workType==="overtime"){const otH=calcHours(l.otStart,l.otEnd);return<><strong>{fmt(FULLTIME_HOURS)}h</strong><span style={{ color:"#f7a440",fontWeight:700 }}>+ {fmt(otH)}h OT</span></>;}return<strong>{fmt(l.hours)}h</strong>;})()}<span style={{ ...styles.statusBadge,background:l.workType==="overtime"?"#f7a44022":l.workType==="parttime"?"#1F6F6B22":l.workType==="dayoff"?"#88888822":l.workType==="publicholiday"?"#e0700022":"#2A8C8622",color:l.workType==="overtime"?"#c87800":l.workType==="parttime"?"#1F6F6B":l.workType==="dayoff"?"#888":l.workType==="publicholiday"?"#e07000":"#1F6F6B" }}>{l.workType==="fulltime"?"풀타임":l.workType==="overtime"?"오버타임":l.workType==="parttime"?"파트타임":l.workType==="dayoff"?"휴무":l.workType==="publicholiday"?"퍼블릭홀리데이":l.status}</span></div>{l.needsReview && !l.reviewedByEmp && !isAdmin && (
                   <div style={{ marginTop:6,display:"flex",alignItems:"center",justifyContent:"space-between",background:"#FEF2F2",border:"1px solid #FECACA",borderRadius:8,padding:"6px 10px" }}>
                     <span style={{ fontSize:11,fontWeight:700,color:"#DC2626" }}>📢 관리자 확인 요청</span>
                     <button style={{ fontSize:11,fontWeight:700,background:"#DC2626",color:"#fff",border:"none",borderRadius:6,padding:"3px 10px",cursor:"pointer",fontFamily:"inherit" }}
@@ -4981,16 +4985,16 @@ function LogTab({user,users,logs,leaves,isAdmin,isSuperAdmin,isViewAdmin,persist
               )}
               {isAdmin && !isViewAdmin && (
                 l.needsReview
-                  ?<button style={{ fontSize:10,fontWeight:700,background:"#FEF3C7",color:"#92400E",border:"1px solid #FDE68A",borderRadius:6,padding:"3px 6px",cursor:"pointer",fontFamily:"inherit",marginTop:2 }}
+                  ?<button style={{ fontSize:10,fontWeight:700,background:"#FEF3C7",color:"#92400E",border:"1px solid #FDE68A",borderRadius:6,padding:"3px 8px",cursor:"pointer",fontFamily:"inherit",minHeight:28 }}
                     onClick={()=>{const next=logs.map(x=>x.id===l.id?{...x,needsReview:false}:x);persist(null,next,null);}}>
-                    ⏳ 대기중
+                    확인 대기중
                   </button>
-                  :<button style={{ fontSize:10,fontWeight:700,background:"#F3F4F6",color:"#555",border:"1px solid #E5E7EB",borderRadius:6,padding:"3px 6px",cursor:"pointer",fontFamily:"inherit",marginTop:2 }}
+                  :<button style={{ fontSize:10,fontWeight:700,background:"#F3F4F6",color:"#555",border:"1px solid #E5E7EB",borderRadius:6,padding:"3px 8px",cursor:"pointer",fontFamily:"inherit",minHeight:28 }}
                     onClick={()=>{const next=logs.map(x=>x.id===l.id?{...x,needsReview:true,reviewedByEmp:false}:x);persist(null,next,null);}}>
-                    📢 확인요청
+                    확인요청
                   </button>
               )}
-            </div>);})()}</div>);})}{showForm&&<LogForm log={editLog} userId={editLog?editLog.userId:(isAdmin?(filterUser==="all"?users.find(u=>u.role==="employee")&&users.find(u=>u.role==="employee").id||user.id:filterUser):user.id)} users={users} leaves={leaves} isAdmin={isAdmin} onSave={(newLog)=>{
+            </div>);})()}</div></React.Fragment>);})}{showForm&&<LogForm log={editLog} userId={editLog?editLog.userId:(isAdmin?(filterUser==="all"?users.find(u=>u.role==="employee")&&users.find(u=>u.role==="employee").id||user.id:filterUser):user.id)} users={users} leaves={leaves} isAdmin={isAdmin} onSave={(newLog)=>{
             const stamped={...newLog,modifiedAt:new Date().toISOString(),modifiedBy:user.id,modifiedByName:user.name};
             const next=editLog?logs.map(l=>l.id===editLog.id?stamped:l):[stamped,...logs];
             persist(null,next,null);setShowForm(false);
@@ -5036,8 +5040,7 @@ function LeaveTab({user,users,leaves,isAdmin,isSuperAdmin,isViewAdmin,persist,up
 <div style={{ display:"flex",alignItems:"baseline",justifyContent:"space-between",gap:8 }}><span style={{ fontSize:12.5,color:remDays<0?"#B4232C":C.sub,fontWeight:600 }}>{remDays<0?"초과 사용":"사용 가능"}</span><span style={{ fontVariantNumeric:"tabular-nums" }}><span style={{ fontSize:26,fontWeight:700,color:remDays<0?"#B4232C":C.text }}>{remDays.toFixed(1)}일</span><span style={{ fontSize:13,color:C.sub,marginLeft:6 }}>{Math.abs(Math.round(remDays*HOURS_PER_DAY*10)/10)}h</span></span></div>
 <div style={{ height:6,borderRadius:3,background:C.border,margin:"8px 0 8px",overflow:"hidden" }}><div style={{ height:"100%",width:Math.max(0,pct)+"%",background:remDays<4?"#E9A23B":C.primary }}/></div>
 <p style={{ margin:0,fontSize:12,color:C.sub }}>{carryover>0?`이월 ${carryover.toFixed(1)}일 · `:""}올해 적립 {accDays.toFixed(1)}일{grantDays?` · 추가 ${grantDays.toFixed(1)}일`:""} · 사용 {usedDays.toFixed(1)}일</p>
-{rbr.total>0&&rbr.list.length>1&&<div style={{ marginTop:10,borderTop:"1px solid "+C.border,paddingTop:8 }}><p style={{ margin:"0 0 4px",fontSize:12,color:C.sub }}>일당별로 나누면 (오래된 일당부터 소진)</p>{rbr.list.map(x=><div key={x.rate} style={{ display:"flex",justifyContent:"space-between",fontSize:13,padding:"2px 0",fontVariantNumeric:"tabular-nums" }}><span style={{ color:C.text }}>${x.rate} 일당</span><span><b style={{ color:C.text }}>{x.days.toFixed(2)}일</b><span style={{ color:C.sub,marginLeft:6,fontSize:12 }}>{Math.round(x.days*HOURS_PER_DAY*10)/10}h</span></span></div>)}</div>}
-{rbr.total>0&&rbr.list.length===1&&<p style={{ margin:"4px 0 0",fontSize:12,color:C.sub }}>전부 ${rbr.list[0].rate} 일당 기준</p>}
+{rbr.total>0&&<div style={{ marginTop:10,borderTop:"1px solid "+C.border,paddingTop:8 }}><p style={{ margin:"0 0 4px",fontSize:12,color:C.sub }}>일당별 남은 연차 (오래된 것부터 소진)</p>{rbr.list.map(x=><div key={x.rate} style={{ display:"flex",justifyContent:"space-between",alignItems:"baseline",gap:8,fontSize:13,padding:"3px 0",fontVariantNumeric:"tabular-nums" }}><span style={{ color:C.text,minWidth:0 }}>${x.rate} 일당{x.prev>0.005&&<span style={{ display:"block",fontSize:11.5,color:C.sub }}>지난해 {x.prev.toFixed(2)}일{x.cur>0.005?` · 올해 ${x.cur.toFixed(2)}일`:""}</span>}</span><span style={{ whiteSpace:"nowrap" }}><b style={{ color:C.text }}>{x.days.toFixed(2)}일</b><span style={{ color:C.sub,marginLeft:6,fontSize:12 }}>{Math.round(x.days*HOURS_PER_DAY*10)/10}h</span></span></div>)}</div>}
 <div style={{ height:10 }}/></>}
 {!lv.noLeave&&<LeaveUsageSection records={lv.usageRecords||[]} leaveStartDate={lv.leaveStartDate} isAdmin={isAdmin} onUpdate={isSuperAdmin?(records)=>updateLeaveUsage(u.id,u.joinDate,records):null}/>}</div>);})}{showForm&&isAdmin&&<LeaveEditForm targetId={editTarget} users={users} leaves={leaves} onSave={(id,lv)=>{persist(null,null,{...leaves,[id]:lv});setShowForm(false);}} onClose={()=>setShowForm(false)}/>}</div>);}
 
@@ -5049,7 +5052,7 @@ function AddEmpForm({onSave,onClose,companies}){const[form,setForm]=useState({id
 function EditEmpForm({emp,leaveData,onSave,onClose,companies}){const[form,setForm]=useState({name:emp.name,dept:emp.dept,joinDate:emp.joinDate,pw:emp.pw||"",id:emp.id,nameEn:emp.nameEn||"",birthDate:emp.birthDate||""});const[role,setRole]=useState(emp.role||"employee");const[noLeave,setNoLeave]=useState(!!leaveData.noLeave);const[hasFlatPay,setHasFlatPay]=useState(!!(leaveData.hasFlatPay));const[leaveStartDate,setLeaveStartDate]=useState(leaveData.leaveStartDate||emp.joinDate);const[visa,setVisa]=useState(emp.visa||{type:"",from:"",to:""});const[ci,setCi]=useState(leaveData.contractorInfo||{nameEn:"",address:"",phone:"",abn:"",email:"",dailyRate:"",workDesc:"Wall and Floor Tiling",invoiceNum:10001,selectedCompanyId:(companies&&companies[0])?companies[0].id:"",billToName:"",billToAddress:"",billToEmail:""});const[workHistory,setWorkHistory]=useState(Array.isArray(leaveData.workHistory)?leaveData.workHistory:Object.values(leaveData.workHistory||{}));const[taxHistory,setTaxHistory]=useState(Array.isArray(leaveData.taxHistory)?leaveData.taxHistory:Object.values(leaveData.taxHistory||{}));const addTH=()=>setTaxHistory(h=>{ if(h.length===0){ const seeded=deriveTaxPeriods(leaveData).map(x=>({type:x.type,from:x.from,to:x.to})); if(seeded.length) return seeded; } return [...h,{type:"ABN",from:today,to:""}]; });const setTH=(i,k,v)=>setTaxHistory(h=>h.map((r,idx)=>idx===i?{...r,[k]:v}:r));const delTH=(i)=>setTaxHistory(h=>h.filter((_,idx)=>idx!==i));const set=(k,v)=>setForm(f=>({...f,[k]:v}));const setC=(k,v)=>setCi(c=>({...c,[k]:v}));const selectCompany=(companyId)=>{const co=companies&&companies.find(c=>c.id===companyId);setC("selectedCompanyId",companyId);if(co){setC("billToName",co.name);setC("billToAddress",co.address);setC("billToEmail",co.email);}};const addWorkHistory=()=>setWorkHistory(h=>[...h,{companyId:(companies&&companies[0])?companies[0].id:"",from:today,to:""}]);const setWH=(i,k,v)=>setWorkHistory(h=>h.map((r,idx)=>idx===i?{...r,[k]:v}:r));const delWH=(i)=>setWorkHistory(h=>h.filter((_,idx)=>idx!==i));const submit=()=>{if(!form.name.trim())return;if(!form.id.trim())return;const startDate=noLeave?null:leaveStartDate;const newLeave={...leaveData,leaveStartDate:startDate,noLeave,hasFlatPay:hasFlatPay,contractorInfo:noLeave?{...ci}:undefined,workHistory,taxHistory,rateHistory:noLeave?[]:(leaveData.rateHistory&&leaveData.rateHistory.length>0?leaveData.rateHistory:(startDate?[{from:startDate,dailyRate:0}]:[]))};onSave({...emp,...form,id:form.id.trim()||emp.id,role,visa:(visa.type||visa.from||visa.to)?visa:undefined,birthDate:form.birthDate||undefined},newLeave);};return(<div style={styles.modal}><div style={styles.modalBox}><div style={styles.modalHeader}><h3 style={styles.modalTitle}>직원 정보 수정</h3><button style={styles.iconBtn} onClick={onClose}>{Icon.x}</button></div><div style={styles.row2}><div style={{ ...styles.field,flex:1 }}><label style={styles.label}>이름</label><input style={styles.input} value={form.name} onChange={e=>set("name",e.target.value)}/></div><div style={{ ...styles.field,flex:1 }}><label style={styles.label}>부서</label><input style={styles.input} value={form.dept} onChange={e=>set("dept",e.target.value)}/></div></div><div style={styles.row2}><div style={{ ...styles.field,flex:2 }}><label style={styles.label}>영문 이름 (인보이스용)</label><input style={styles.input} value={form.nameEn} onChange={e=>set("nameEn",e.target.value)} placeholder="예: Roy Kim"/></div><div style={{ ...styles.field,flex:1 }}><label style={styles.label}>🎂 생년월일</label><input type="date" style={styles.input} value={form.birthDate} onChange={e=>set("birthDate",e.target.value)}/></div></div>
         <div style={styles.field}><label style={styles.label}>로그인 아이디</label><input style={styles.input} value={form.id} onChange={e=>set("id",e.target.value)} autoCapitalize="none"/><p style={{ margin:"3px 0 0",fontSize:11,color:C.sub }}>변경 시 다음 로그인부터 새 아이디 사용</p></div>
         <div style={styles.row2}><div style={{ ...styles.field,flex:1 }}><label style={styles.label}>입사일</label><input type="date" style={styles.input} value={form.joinDate} onChange={e=>set("joinDate",e.target.value)}/></div><div style={{ ...styles.field,flex:1 }}><label style={styles.label}>비밀번호 리셋</label><input type="password" style={styles.input} value={form.pw} onChange={e=>set("pw",e.target.value)} placeholder="새 비밀번호 입력"/><p style={{ margin:"3px 0 0",fontSize:11,color:C.sub }}>직원이 이 비밀번호로 로그인 후 변경 가능</p></div></div><div style={styles.field}><label style={styles.label}>역할</label><select style={styles.input} value={role} onChange={e=>setRole(e.target.value)}><option value="employee">직원</option><option value="viewadmin">관리자 (조회만)</option><option value="superadmin">슈퍼 관리자</option></select></div><div style={{ ...styles.field,padding:"10px 12px",background:"#F0FDF4",border:"1px solid #BBF7D0",borderRadius:10 }}><label style={{ ...styles.label,color:"#1a7a4a",fontWeight:700 }}>🛂 비자 상태</label><div style={{ ...styles.row2,marginTop:6 }}><div style={{ ...styles.field,flex:1,marginBottom:0 }}><label style={{ ...styles.label,fontSize:11 }}>비자 종류</label><input style={styles.input} value={visa.type} onChange={e=>setVisa(v=>({...v,type:e.target.value}))} placeholder="예: WHV 417 / 482 / PR / 영주권"/></div></div><div style={{ ...styles.row2,marginTop:6 }}><div style={{ ...styles.field,flex:1,marginBottom:0 }}><label style={{ ...styles.label,fontSize:11 }}>발급일</label><input type="date" style={styles.input} value={visa.from} onChange={e=>setVisa(v=>({...v,from:e.target.value}))}/></div><div style={{ ...styles.field,flex:1,marginBottom:0 }}><label style={{ ...styles.label,fontSize:11 }}>만료일</label><input type="date" style={styles.input} value={visa.to} onChange={e=>setVisa(v=>({...v,to:e.target.value}))}/></div></div>{visa.from&&<p style={{ margin:"6px 0 0",fontSize:11,color:"#1a7a4a",fontWeight:600 }}>📅 총 일수 (주말 포함): <strong>{calcVisaDays(visa.from,visa.to)}일</strong>{!visa.to&&<span style={{ color:"#888",fontWeight:400 }}> (현재 진행중)</span>}</p>}<p style={{ margin:"4px 0 0",fontSize:10,color:"#1a7a4a" }}>WHV / 417 / 462 포함 시 워홀러 세율 자동 적용. 만료 60일전부터 경고.</p></div><LeaveAccrualSettings noLeave={noLeave} setNoLeave={setNoLeave} hasFlatPay={hasFlatPay} setHasFlatPay={setHasFlatPay} leaveStartDate={leaveStartDate} setLeaveStartDate={setLeaveStartDate} joinDate={form.joinDate}/>{noLeave&&<div style={{ ...styles.leaveSettingBox,borderColor:"#c5d8ff",background:"#f0f5ff",marginBottom:14 }}><p style={{ ...styles.leaveSettingTitle,color:C.primary }}>📄 인보이스 정보</p>{companies&&companies.length>0&&<div style={styles.field}><label style={styles.label}>청구 회사 선택</label><select style={styles.input} value={ci.selectedCompanyId||""} onChange={e=>selectCompany(e.target.value)}><option value="">직접 입력</option>{companies.map(co=><option key={co.id} value={co.id}>{co.name||"회사 "+(companies.indexOf(co)+1)}</option>)}</select></div>}{[["nameEn","인보이스 표시 이름 (영문)"],["address","주소"],["phone","전화번호"],["abn","ABN"],["email","본인 이메일"]].map(([k,l])=>(<div key={k} style={styles.field}><label style={styles.label}>{l}</label><input style={styles.input} value={ci[k]||""} onChange={e=>setC(k,e.target.value)}/></div>))}<div style={styles.row2}><div style={{ ...styles.field,flex:1 }}><label style={styles.label}>일당 ($)</label><input type="number" style={styles.input} value={ci.dailyRate||""} onChange={e=>setC("dailyRate",e.target.value)} min={0}/></div><div style={{ ...styles.field,flex:1 }}><label style={styles.label}>인보이스 번호</label><input type="number" style={styles.input} value={ci.invoiceNum||""} onChange={e=>setC("invoiceNum",e.target.value)}/></div></div><div style={styles.field}><label style={styles.label}>업무 내용 (영문)</label><input style={styles.input} value={ci.workDesc||""} onChange={e=>setC("workDesc",e.target.value)}/></div>{[["billToName","회사명"],["billToAddress","주소"],["billToEmail","이메일"]].map(([k,l])=>(<div key={k} style={styles.field}><label style={styles.label}>{l}</label><input style={styles.input} value={ci[k]||""} onChange={e=>setC(k,e.target.value)}/></div>))}<div style={styles.field}><label style={styles.label}>지급 방식</label><div style={{display:"flex",flexDirection:"column",gap:6,marginTop:4}}><label style={{display:"flex",alignItems:"center",gap:8,fontSize:13,cursor:"pointer"}}><input type="checkbox" checked={!!ci.splitPay} onChange={e=>setC("splitPay",e.target.checked)} style={{accentColor:"#3B82F6",width:16,height:16}}/><span style={{fontSize:13}}>💵 분할 지급 (캐시 50% + ABN 50%)</span></label><label style={{display:"flex",alignItems:"center",gap:8,fontSize:13,cursor:"pointer"}}><input type="checkbox" checked={!!ci.gstRegistered} onChange={e=>setC("gstRegistered",e.target.checked)} style={{accentColor:"#F59E0B",width:16,height:16}}/><span style={{fontSize:13}}>🧾 GST 등록됨 (+10%)</span></label></div></div></div>}
-        {/* 회사근무기간 */}<div style={styles.section}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><h3 style={{margin:0,fontSize:13,fontWeight:700}}>🏢 회사 근무기간</h3><button onClick={()=>setWorkHistory(h=>[...h,{companyId:(companies&&companies[0])?companies[0].id:"",from:today,to:""}])} style={{fontSize:11,background:"#EFF6FF",color:"#3B82F6",border:"1px solid #BFDBFE",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontFamily:"inherit"}}>+ 추가</button></div>{workHistory.length===0&&<p style={{fontSize:12,color:"#aaa",textAlign:"center",margin:"8px 0"}}>근무기간 없음</p>}{workHistory.map((wh,i)=>(<div key={i} style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr auto",gap:6,marginBottom:8,alignItems:"flex-end"}}><div><p style={{margin:"0 0 3px",fontSize:10,color:"#888"}}>회사</p><select value={wh.companyId||""} onChange={e=>setWH(i,"companyId",e.target.value)} style={{...styles.input,fontSize:12,padding:"6px 8px"}}><option value="">선택</option>{(companies||[]).map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></div><div><p style={{margin:"0 0 3px",fontSize:10,color:"#888"}}>시작일</p><input type="date" value={wh.from||""} onChange={e=>setWH(i,"from",e.target.value)} style={{...styles.input,fontSize:12,padding:"6px 8px"}}/></div><div><p style={{margin:"0 0 3px",fontSize:10,color:"#888"}}>종료일</p><input type="date" value={wh.to||""} onChange={e=>setWH(i,"to",e.target.value)} style={{...styles.input,fontSize:12,padding:"6px 8px"}}/></div><button onClick={()=>delWH(i)} style={{background:"none",border:"none",color:"#f77",fontSize:18,cursor:"pointer",fontFamily:"inherit",paddingBottom:6}}>×</button></div>))}</div>{/* ABN/TFN 기간 */}<div style={styles.section}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><h3 style={{margin:0,fontSize:13,fontWeight:700}}>📄 ABN / TFN 기간</h3><button onClick={addTH} style={{fontSize:11,background:"#FEF3C7",color:"#92400E",border:"1px solid #FDE68A",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontFamily:"inherit"}}>+ 추가</button></div>{taxHistory.length===0&&(()=>{const dv=deriveTaxPeriods(leaveData);return dv.length?<div style={{margin:"4px 0 8px"}}><p style={{fontSize:10,color:"#aaa",margin:"0 0 4px"}}>고정급여·계약자 기록으로 자동 판별됨 (수정하려면 +추가):</p>{dv.map((th,i)=>{const isAbn=(th.type||"")==="ABN";return <p key={i} style={{margin:"1px 0",fontSize:11,color:isAbn?"#92400E":"#1e40af",fontWeight:600}}>{isAbn?"📄 ABN":"🧾 TFN"} {auD(th.from)||""} ~ {auD(th.to)||"현재"}</p>;})}</div>:<p style={{fontSize:12,color:"#aaa",textAlign:"center",margin:"8px 0"}}>ABN/TFN 기간 없음</p>;})()}{taxHistory.map((th,i)=>(<div key={i} style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr auto",gap:6,marginBottom:8,alignItems:"flex-end"}}><div><p style={{margin:"0 0 3px",fontSize:10,color:"#888"}}>구분</p><select value={th.type||"ABN"} onChange={e=>setTH(i,"type",e.target.value)} style={{...styles.input,fontSize:12,padding:"6px 8px"}}><option value="ABN">ABN</option><option value="TFN">TFN</option></select></div><div><p style={{margin:"0 0 3px",fontSize:10,color:"#888"}}>시작일</p><input type="date" value={th.from||""} onChange={e=>setTH(i,"from",e.target.value)} style={{...styles.input,fontSize:12,padding:"6px 8px"}}/></div><div><p style={{margin:"0 0 3px",fontSize:10,color:"#888"}}>종료일</p><input type="date" value={th.to||""} onChange={e=>setTH(i,"to",e.target.value)} style={{...styles.input,fontSize:12,padding:"6px 8px"}}/></div><button onClick={()=>delTH(i)} style={{background:"none",border:"none",color:"#f77",fontSize:18,cursor:"pointer",fontFamily:"inherit",paddingBottom:6}}>×</button></div>))}</div><div style={styles.modalFooter}><button style={styles.btnSecondary} onClick={onClose}>취소</button><button style={styles.btnPrimary} onClick={submit}>저장</button></div>
+        {/* 회사근무기간 */}<div style={styles.section}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><h3 style={{margin:0,fontSize:13,fontWeight:700}}>회사 근무기간</h3><button onClick={()=>setWorkHistory(h=>[...h,{companyId:(companies&&companies[0])?companies[0].id:"",from:today,to:""}])} style={{fontSize:11,background:"#EFF6FF",color:"#3B82F6",border:"1px solid #BFDBFE",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontFamily:"inherit"}}>+ 추가</button></div>{workHistory.length===0&&<p style={{fontSize:12,color:"#aaa",textAlign:"center",margin:"8px 0"}}>근무기간 없음</p>}{workHistory.map((wh,i)=>(<div key={i} style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr auto",gap:6,marginBottom:8,alignItems:"flex-end"}}><div><p style={{margin:"0 0 3px",fontSize:10,color:"#888"}}>회사</p><select value={wh.companyId||""} onChange={e=>setWH(i,"companyId",e.target.value)} style={{...styles.input,fontSize:12,padding:"6px 8px"}}><option value="">선택</option>{(companies||[]).map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></div><div><p style={{margin:"0 0 3px",fontSize:10,color:"#888"}}>시작일</p><input type="date" value={wh.from||""} onChange={e=>setWH(i,"from",e.target.value)} style={{...styles.input,fontSize:12,padding:"6px 8px"}}/></div><div><p style={{margin:"0 0 3px",fontSize:10,color:"#888"}}>종료일</p><input type="date" value={wh.to||""} onChange={e=>setWH(i,"to",e.target.value)} style={{...styles.input,fontSize:12,padding:"6px 8px"}}/></div><button onClick={()=>delWH(i)} style={{background:"none",border:"none",color:"#f77",fontSize:18,cursor:"pointer",fontFamily:"inherit",paddingBottom:6}}>×</button></div>))}</div>{/* ABN/TFN 기간 */}<div style={styles.section}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><h3 style={{margin:0,fontSize:13,fontWeight:700}}>ABN / TFN 기간</h3><button onClick={addTH} style={{fontSize:11,background:"#FEF3C7",color:"#92400E",border:"1px solid #FDE68A",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontFamily:"inherit"}}>+ 추가</button></div>{taxHistory.length===0&&(()=>{const dv=deriveTaxPeriods(leaveData);return dv.length?<div style={{margin:"4px 0 8px"}}><p style={{fontSize:10,color:"#aaa",margin:"0 0 4px"}}>고정급여·계약자 기록으로 자동 판별됨 (수정하려면 +추가):</p>{dv.map((th,i)=>{const isAbn=(th.type||"")==="ABN";return <p key={i} style={{margin:"1px 0",fontSize:11,color:isAbn?"#92400E":"#1e40af",fontWeight:600}}>{isAbn?"📄 ABN":"🧾 TFN"} {auD(th.from)||""} ~ {auD(th.to)||"현재"}</p>;})}</div>:<p style={{fontSize:12,color:"#aaa",textAlign:"center",margin:"8px 0"}}>ABN/TFN 기간 없음</p>;})()}{taxHistory.map((th,i)=>(<div key={i} style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr auto",gap:6,marginBottom:8,alignItems:"flex-end"}}><div><p style={{margin:"0 0 3px",fontSize:10,color:"#888"}}>구분</p><select value={th.type||"ABN"} onChange={e=>setTH(i,"type",e.target.value)} style={{...styles.input,fontSize:12,padding:"6px 8px"}}><option value="ABN">ABN</option><option value="TFN">TFN</option></select></div><div><p style={{margin:"0 0 3px",fontSize:10,color:"#888"}}>시작일</p><input type="date" value={th.from||""} onChange={e=>setTH(i,"from",e.target.value)} style={{...styles.input,fontSize:12,padding:"6px 8px"}}/></div><div><p style={{margin:"0 0 3px",fontSize:10,color:"#888"}}>종료일</p><input type="date" value={th.to||""} onChange={e=>setTH(i,"to",e.target.value)} style={{...styles.input,fontSize:12,padding:"6px 8px"}}/></div><button onClick={()=>delTH(i)} style={{background:"none",border:"none",color:"#f77",fontSize:18,cursor:"pointer",fontFamily:"inherit",paddingBottom:6}}>×</button></div>))}</div><div style={styles.modalFooter}><button style={styles.btnSecondary} onClick={onClose}>취소</button><button style={styles.btnPrimary} onClick={submit}>저장</button></div>
     </div>
   </div>);}
 
@@ -5403,7 +5406,7 @@ function App() {
         <div style={styles.modal}>
           <div style={styles.modalBox}>
             <div style={styles.modalHeader}>
-              <h3 style={styles.modalTitle}>🔑 비밀번호 변경</h3>
+              <h3 style={styles.modalTitle}>비밀번호 변경</h3>
               <button style={styles.iconBtn} onClick={()=>setShowChangePw(false)}>{Icon.x}</button>
             </div>
             <div style={styles.field}>
