@@ -15,11 +15,14 @@
 <meta http-equiv="Pragma" content="no-cache"/>
 <meta http-equiv="Expires" content="0"/>
 <title>K&M Invoice</title>
+<!-- 첫 요청 전에 미리 연결(DNS·TLS) — 폰 첫 로딩 단축 -->
+<link rel="preconnect" href="https://knmtilingptyltd-12520-default-rtdb.firebaseio.com" crossorigin/>
+<link rel="preconnect" href="https://securetoken.googleapis.com" crossorigin/>
 <script>
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-10-22-1';
+const APP_BUILD = '2026-10-22-2';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -1940,18 +1943,28 @@ const DEFAULT_COMPANIES = [
 ];
 
 // ── Init ──────────────────────────────────────────────────────────────────────
+function _fetchCore() {
+  return Promise.all([
+    fbGet('invoices'), fbGet('invoiceBuilders'), fbGet('invoiceCompanies'), fbGet('invoiceRooms'),
+    fbGet('expenseVendors'), fbGet('monthlyPayments'), fbGet('personalCardEntries'),
+    fbGet('vehicles')
+  ]);
+}
+// 앱 첫 진입 때 PIN 입력하는 동안 미리 받아두기 (폰에서 느린 첫 로딩 단축). 첫 loadAll 이 한 번만 씀.
+let _corePrefetch = null, _corePrefetchAt = 0;
+function prefetchCore() { if (!_corePrefetch && _fbAuth) { _corePrefetch = _fetchCore(); _corePrefetchAt = Date.now(); } }
 async function loadAll() {
   // Show immediate feedback (UI before fetching)
   const invEl = document.getElementById('tab-invoices');
   if (invEl && !invoices.length) {
     invEl.innerHTML = '<div class="empty"><div style="font-size:32px;margin-bottom:10px">⏳</div><p style="font-size:13px;color:#6B7280">데이터 로딩 중...</p></div>';
   }
-  
-  const [inv, bld, co, rms, evRaw, mpRaw, pcRaw, vhRaw] = await Promise.all([
-    fbGet('invoices'), fbGet('invoiceBuilders'), fbGet('invoiceCompanies'), fbGet('invoiceRooms'),
-    fbGet('expenseVendors'), fbGet('monthlyPayments'), fbGet('personalCardEntries'),
-    fbGet('vehicles')
-  ]);
+
+  // 미리 받은 지 2분 넘었으면(PIN 화면에 오래 머묾) 버리고 새로 받음
+  const pre = (_corePrefetch && Date.now() - _corePrefetchAt < 120000) ? _corePrefetch : null; _corePrefetch = null;
+  let core = await (pre || _fetchCore());
+  if (pre && (core[0] == null || core[2] == null)) core = await _fetchCore();   // 미리받기 실패(토큰 갱신 중 등) → 다시
+  const [inv, bld, co, rms, evRaw, mpRaw, pcRaw, vhRaw] = core;
   personalCardEntries = pcRaw ? Object.entries(pcRaw).map(([id,v])=>({...v,id})) : [];
   vehicles = vhRaw ? Object.entries(vhRaw).map(([id,v])=>({
     ...v, id,
@@ -2107,7 +2120,10 @@ function _canInvoiceAccess(user, invoiceUserData) {
 
 // 마이그레이션: 옛 마스터 PIN(appConfig/invoicePin) → 그 등록자의 사용자별 PIN으로 이전
 async function _migrateOldMasterPin() {
+  // 이 기기에서 한 번 확인했으면 다시 안 봄 (매번 첫 화면 전에 요청 1번 아낌)
+  if (localStorage.getItem('invoice_pin_migrated') === '1') return;
   const oldMaster = await fbGet('appConfig/invoicePin');
+  if (!oldMaster && _fbAuth) { try { localStorage.setItem('invoice_pin_migrated', '1'); } catch (e) {} }   // 로그인 상태에서 확인된 경우만
   if (oldMaster && oldMaster.hash && oldMaster.createdBy) {
     const existing = await fbGet('invoiceUsers/' + oldMaster.createdBy);
     if (!existing || !existing.pinHash) {
@@ -2126,6 +2142,8 @@ async function _migrateOldMasterPin() {
 async function initInvoiceAuth() {
   // 토큰이 무효가 되면(비번 리셋·권한 해제) 잠금 해제 풀고 다시 로그인
   fbOnAuthLost = () => { sessionStorage.removeItem('invoice_unlocked'); location.reload(); };
+  // Firebase 로그인이 살아있으면 데이터 받기를 지금 시작 (PIN 입력과 겹치게). 화면에는 잠금 통과 후에만 표시.
+  prefetchCore();
   // 1) 세션 살아있으면 통과 (Firebase 로그인도 같은 사람이어야 함)
   if (sessionStorage.getItem('invoice_unlocked') === 'true' && !_fbSignedInAs(sessionStorage.getItem('invoice_user_id'))) {
     sessionStorage.removeItem('invoice_unlocked');
@@ -2160,8 +2178,7 @@ async function initInvoiceAuth() {
     const showPinScreen = async (userId) => {
       // PIN 은 이 기기에 Firebase 로그인이 남아 있을 때만 (없으면 아이디/비번 다시)
       if (!_fbSignedInAs(userId)) return showFullLogin(userId);
-      const user = await _findUser(userId);
-      const invUserData = await fbGet('invoiceUsers/' + userId);
+      const [user, invUserData] = await Promise.all([_findUser(userId), fbGet('invoiceUsers/' + userId)]);
       if (!user || !invUserData || !invUserData.pinHash) {
         return showFullLogin(userId);
       }
