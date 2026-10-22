@@ -22,7 +22,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-10-22-2';
+const APP_BUILD = '2026-10-22-3';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -2026,7 +2026,7 @@ function checkInsuranceExpiry() {
   companies.forEach(c => {
     if (!c.insuranceDate) return;
     const expires = new Date(c.insuranceDate + 'T00:00:00');
-    const daysLeft = Math.floor((expires - today_d) / (24*60*60*1000));
+    const daysLeft = Math.round((expires - today_d) / (24*60*60*1000));   // round: 서머타임 1시간 차이 보정
     if (daysLeft < 0) warnings.push({co: c.name, expires, daysLeft, status:'expired'});
     else if (daysLeft <= 60) warnings.push({co: c.name, expires, daysLeft, status:'soon'});
   });
@@ -2056,7 +2056,7 @@ function checkVehicleRenewals() {
     (v.renewals||[]).forEach(r => {
       if (!r.expiry) return;
       const exp = new Date(r.expiry + 'T00:00:00');
-      const days = Math.floor((exp - today_d) / (24*60*60*1000));
+      const days = Math.round((exp - today_d) / (24*60*60*1000));
       if (days < 0) warns.push({rego:v.rego, type:r.type, days, status:'expired'});
       else if (days <= 30) warns.push({rego:v.rego, type:r.type, days, status:'soon'});
     });
@@ -9244,7 +9244,10 @@ function getPartnerPeriodStart(dateStr) {
   if (!dateStr) return null;
   const base = new Date(PARTNER_PERIOD_BASE_STR + 'T00:00:00');
   const d = new Date(dateStr + 'T00:00:00');
-  const diffDays = Math.floor((d - base) / (24*60*60*1000));
+  // 날짜(연·월·일)만 UTC 로 빼기 — 로컬 자정끼리 빼면 서머타임(10월~) 1시간 때문에
+  //   구간 첫날(예: 12/10)이 이전 구간으로 밀림 (WorkLog _fnDiff 와 같은 수정)
+  const diffDays = Math.round((Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())
+    - Date.UTC(base.getFullYear(), base.getMonth(), base.getDate())) / (24*60*60*1000));
   const cycles = Math.floor(diffDays / 14);
   const ps = new Date(base);
   ps.setDate(ps.getDate() + cycles * 14);
