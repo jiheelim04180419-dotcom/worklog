@@ -19,7 +19,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-10-21-19';
+const APP_BUILD = '2026-10-22-1';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -10346,7 +10346,10 @@ function _expSubTabBar() {
 // 직원이 개인카드로 회사 물품을 산 내역을 추적. 환급일 기준 호주 회계연도 분기로 묶음.
 // BAS 신고용 CSV (Date / Total amount incl. GST / GST / DESCRIPTIONS / Payment methods) 으로 내보내기.
 function renderPersonalCard() {
-  const allEntries = [...personalCardEntries];
+  // 환급일이 빈 항목 = 아직 환급 안 한 것 (맥 자동 정리가 먼저 넣음) → 위쪽 '환급 대기' 칸에만 표시,
+  // 분기·합계·CSV 에는 환급 완료된 것만 들어감.
+  const pendingEntries = personalCardEntries.filter(e => !e.reimbursementDate);
+  const allEntries = personalCardEntries.filter(e => e.reimbursementDate);
 
   // 환급 날짜 기준 분기 그룹 (필터 옵션용)
   const allQuarters = new Set();
@@ -10418,6 +10421,8 @@ function renderPersonalCard() {
 
       ${(_pcEditId === 'new' || _pcEditId) ? _pcFormHtml(knownNames) : ''}
 
+      ${_pcPendingHtml(pendingEntries, fmtMoney)}
+
       <!-- 합계 카드 -->
       <div class="kpis">
         <div><div class="l">항목 수</div><div class="v">${filtered.length}</div></div>
@@ -10475,6 +10480,54 @@ function renderPersonalCard() {
     </div>
   `;
   document.getElementById('tab-expenses').innerHTML = h;
+}
+
+// 환급 대기 칸: 사람별로 묶고, 송금 후 '환급 완료' 누르면 오늘 날짜가 환급일로 들어감
+function _pcPendingHtml(pending, fmtMoney) {
+  if (!pending.length) return '';
+  const byName = {};
+  pending.forEach(e => { (byName[e.name || '?'] = byName[e.name || '?'] || []).push(e); });
+  const names = Object.keys(byName).sort();
+  const grand = pending.reduce((s,e)=>s+(parseFloat(e.amount)||0), 0);
+  return `
+    <div style="margin-bottom:14px;border:1px solid #F59E0B;border-radius:12px;background:#FFFBEB;padding:12px 14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div style="font-weight:800;color:#92400E">환급 대기 · ${pending.length}건 · ${fmtMoney(grand)}</div>
+      </div>
+      ${names.map(n => {
+        const list = [...byName[n]].sort((a,b)=>(a.paidDate||'').localeCompare(b.paidDate||''));
+        const sum = list.reduce((s,e)=>s+(parseFloat(e.amount)||0), 0);
+        const ids = list.map(e => e.id).join(',');
+        return `<div style="border-top:1px solid #FDE68A;padding:8px 0">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+            <div><strong style="color:var(--text-1)">${esc(n)}</strong> <span style="color:#059669;font-weight:700">${fmtMoney(sum)}</span> <span style="font-size:11px;color:var(--text-3)">${list.length}건</span></div>
+            <button class="kbtn pri" onclick="pcMarkReimbursed('${ids}')">환급 완료</button>
+          </div>
+          ${list.map(e => `<div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--text-2);padding:3px 0 0 4px;gap:6px">
+            <span>${isoToAu(e.paidDate||'')} · ${esc(e.purpose||'')} · ${fmtMoney(e.amount)}${e.notes ? ` <span style="color:var(--text-4)">${esc(e.notes)}</span>` : ''}</span>
+            <span style="white-space:nowrap">
+              <button onclick="pcMarkReimbursed('${e.id}')" style="background:none;border:none;cursor:pointer;color:#059669;font-size:12px" title="이 건만 환급 완료">✓</button>
+              <button onclick="pcEdit('${e.id}')" style="background:none;border:none;cursor:pointer;color:#1F6F6B;font-size:13px" title="수정">✎</button>
+              <button onclick="pcDelete('${e.id}')" style="background:none;border:none;cursor:pointer;color:#DC2626;font-size:13px" title="삭제">✕</button>
+            </span>
+          </div>`).join('')}
+        </div>`;
+      }).join('')}
+    </div>`;
+}
+
+async function pcMarkReimbursed(idCsv) {
+  const ids = idCsv.split(',').filter(Boolean);
+  const list = personalCardEntries.filter(e => ids.includes(e.id) && !e.reimbursementDate);
+  if (!list.length) return;
+  const localToday = new Date().toLocaleDateString('en-CA'); // 기기 시간 기준 YYYY-MM-DD
+  const sum = list.reduce((s,e)=>s+(parseFloat(e.amount)||0), 0);
+  if (!confirm(`${list[0].name} ${list.length}건 $${sum.toFixed(2)} 환급 완료로 표시할까요?\n환급일: ${isoToAu(localToday)}`)) return;
+  for (const e of list) {
+    e.reimbursementDate = localToday;
+    await fbSet('personalCardEntries/' + e.id + '/reimbursementDate', localToday);
+  }
+  renderExpenses();
 }
 
 function _pcFormHtml(knownNames) {
@@ -10651,9 +10704,10 @@ async function pcDelete(id) {
 
 function pcExportCSV() {
   // 현재 필터된 항목들을 CSV 로 내보냄. 환급일 기준으로 정렬.
+  const reimbursed = personalCardEntries.filter(e => e.reimbursementDate); // 환급 대기는 BAS CSV 에서 제외
   const filtered = _pcQuarterFilter === 'all'
-    ? personalCardEntries
-    : personalCardEntries.filter(e => {
+    ? reimbursed
+    : reimbursed.filter(e => {
         const d = e.reimbursementDate || e.paidDate;
         return d && auQuarterOf(d)?.label === _pcQuarterFilter;
       });
