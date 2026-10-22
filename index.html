@@ -18,7 +18,7 @@
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
 // ℹ️ reload 는 코드만 갱신 — Firebase 주소(wm_fb_url)·로그인 세션(wm_session)은 localStorage 라 유지됨(재로그인 불필요).
-const APP_BUILD = '2026-10-22-01';
+const APP_BUILD = '2026-10-22-02';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출. ?_=타임스탬프 + no-store 로 캐시 우회.
 function _fetchLatestBuild(){
   return fetch(location.pathname + '?_=' + Date.now(), { cache: 'no-store', headers: { 'Range': 'bytes=0-3000' } })
@@ -231,7 +231,7 @@ function _forceUpdate(){
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<!-- Babel 은 컴파일 캐시가 없을 때만 아래 부트스트랩이 동적으로 불러옴 (폰 첫 로딩 단축) -->
 </head><body style="margin:0;padding:0;background:#F5F6F4">
 <div id="loading" style="display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:16px;background:#F5F6F4;font-family:sans-serif">
   <div style="font-size:40px">📋</div>
@@ -5479,22 +5479,58 @@ ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(
 
 </script>
 <script>
-var attempts = 0;
-function runApp() {
-  attempts++;
-  if (attempts > 30) { document.getElementById("loadmsg").style.color="red"; document.getElementById("loadmsg").textContent="로딩 실패"; return; }
-  if (typeof Babel === "undefined") { setTimeout(runApp, 1000); return; }
+// 부트스트랩: JSX 소스(#src)를 컴파일해 실행.
+//   폰에서 매번 Babel 다운로드+컴파일이 2~4초 → 컴파일 결과를 Cache API 에 소스 해시로 저장해 두고
+//   다음부터는 Babel 없이 바로 실행. 소스가 바뀌면(배포) 해시가 달라져 1회만 다시 컴파일.
+var WL_BABEL = "https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js";
+var WL_CACHE = "wl-compiled";
+function wlFail(msg, e) {
+  var el = document.getElementById("loadmsg");
+  el.style.color = "red"; el.textContent = msg;
+  if (e) console.error(e);
+}
+function wlHash(s) {
+  var h = 2166136261;
+  for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return (h >>> 0).toString(36) + "_" + s.length;
+}
+function wlStart(code) {
   try {
-    var src = document.getElementById("src").textContent;
-    var out = Babel.transform(src, { presets: ["react"] });
-    eval(out.code);
+    eval(code);
     document.getElementById("loading").style.display = "none";
     document.getElementById("root").style.display = "block";
-  } catch(e) {
-    document.getElementById("loadmsg").style.color = "red";
-    document.getElementById("loadmsg").textContent = "오류: " + e.message;
-    console.error(e);
-  }
+  } catch (e) { wlFail("오류: " + e.message, e); }
 }
-window.onload = function() { setTimeout(runApp, 500); };
+function wlCompileAndRun(src, key) {
+  var s = document.createElement("script");
+  s.src = WL_BABEL;
+  s.onload = function () {
+    var code;
+    try { code = Babel.transform(src, { presets: ["react"] }).code; }
+    catch (e) { wlFail("오류: " + e.message, e); return; }
+    wlStart(code);
+    // 다음 실행용 저장 (옛 버전 컴파일 결과는 지움). 실패해도 무시.
+    try {
+      caches.open(WL_CACHE).then(function (c) {
+        return c.keys().then(function (ks) {
+          return Promise.all(ks.filter(function (r) { return r.url !== key; }).map(function (r) { return c.delete(r); }));
+        }).then(function () {
+          return c.put(key, new Response(code, { headers: { "Content-Type": "text/javascript" } }));
+        });
+      }).catch(function () {});
+    } catch (e) {}
+  };
+  s.onerror = function () { wlFail("로딩 실패 — 인터넷 연결을 확인하고 다시 열어주세요"); };
+  document.head.appendChild(s);
+}
+(function () {
+  var src = document.getElementById("src").textContent;
+  var key = location.origin + "/__wl_compiled/" + wlHash(src);
+  if (!window.caches) { wlCompileAndRun(src, key); return; }
+  caches.open(WL_CACHE)
+    .then(function (c) { return c.match(key); })
+    .then(function (r) { return r ? r.text() : null; })
+    .then(function (code) { if (code) wlStart(code); else wlCompileAndRun(src, key); },
+          function () { wlCompileAndRun(src, key); });
+})();
 </script></body></html>
