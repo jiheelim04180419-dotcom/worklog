@@ -18,7 +18,7 @@
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
 // ℹ️ reload 는 코드만 갱신 — Firebase 주소(wm_fb_url)·로그인 세션(wm_session)은 localStorage 라 유지됨(재로그인 불필요).
-const APP_BUILD = '2026-10-21-09';
+const APP_BUILD = '2026-10-22-01';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출. ?_=타임스탬프 + no-store 로 캐시 우회.
 function _fetchLatestBuild(){
   return fetch(location.pathname + '?_=' + Date.now(), { cache: 'no-store', headers: { 'Range': 'bytes=0-3000' } })
@@ -5155,42 +5155,76 @@ function App() {
   };
 
   // 실시간 동기화: 노드별 스트림. 화면이 60초 이상 안 보이면 끊고, 다시 보이면 재연결(그때 1회 전체수신).
+  // 창(탭)이 여러 개면 한 창(리더)만 스트림을 열고 나머지는 BroadcastChannel 로 받음.
+  //   이유: Firebase REST 는 HTTP/1.1 → 크롬은 같은 서버에 동시 연결 6개까지. 창마다 스트림 4개씩 열면
+  //   창 2개만 넘어도 연결이 꽉 차서 저장(fetch)이 멈춤. 리더 창이 닫히거나 60초 숨겨지면 다른 창이 이어받음.
   const streamsRef=useRef([]);
+  const hubRef=useRef(null);
   const gotRef=useRef({});
   const firstFullRef=useRef(null);
   const liveWantedRef=useRef(false);   // 로그인한 뒤에만 스트리밍
   const usersRef=useRef([]);
   React.useEffect(()=>{ usersRef.current=users; },[users]);
+  const applyNode=useCallback((node,v,full,isLeader)=>{
+    if(!v)return;
+    if(node==="users")setUsers(Array.isArray(v)?v.filter(x=>x!=null):Object.values(v));
+    else if(node==="logs"){
+      setLogs(Array.isArray(v)?v.filter(x=>x!=null):Object.values(v));
+      // 자가치유 마이그레이션: logs 가 아직 배열이면 id-키 객체로 1회 변환 (loadFromFb 와 동일, 리더 창만)
+      if(isLeader&&full&&Array.isArray(v)&&v.length){
+        const obj={}; let ok=true;
+        v.forEach(x=>{ if(x&&x.id!=null) obj[String(x.id)]=x; else if(x) ok=false; });
+        if(ok) fbSet("logs",obj);
+      }
+    }
+    else if(node==="leaves")setLeaves(v);
+    else if(node==="companies")setCompanies(Array.isArray(v)?v.filter(x=>x!=null):Object.values(v));
+    if(node!=="companies"){
+      gotRef.current[node]=true;
+      const g=gotRef.current;
+      if(g.users&&g.logs&&g.leaves){setDataReady(true);if(firstFullRef.current)firstFullRef.current();}
+    }
+  },[]);
   const startLive=useCallback(()=>{
-    if(streamsRef.current.length)return;
+    if(streamsRef.current.length||hubRef.current)return;
     if(!window.EventSource){   // 스트리밍 미지원 브라우저 → 화면 보일 때만 30초 폴링
       loadFromFb().then(r=>{if(r.full&&firstFullRef.current)firstFullRef.current();});
       pollRef.current=setInterval(loadFromFb,30000);
       streamsRef.current=[()=>{clearInterval(pollRef.current);pollRef.current=null;}];
       return;
     }
-    streamsRef.current=["users","logs","leaves","companies"].map(node=>fbStream(node,(v,full)=>{
-      if(!v)return;
-      if(node==="users")setUsers(Array.isArray(v)?v.filter(x=>x!=null):Object.values(v));
-      else if(node==="logs"){
-        setLogs(Array.isArray(v)?v.filter(x=>x!=null):Object.values(v));
-        // 자가치유 마이그레이션: logs 가 아직 배열이면 id-키 객체로 1회 변환 (loadFromFb 와 동일)
-        if(full&&Array.isArray(v)&&v.length){
-          const obj={}; let ok=true;
-          v.forEach(x=>{ if(x&&x.id!=null) obj[String(x.id)]=x; else if(x) ok=false; });
-          if(ok) fbSet("logs",obj);
-        }
-      }
-      else if(node==="leaves")setLeaves(v);
-      else if(node==="companies")setCompanies(Array.isArray(v)?v.filter(x=>x!=null):Object.values(v));
-      if(node!=="companies"){
-        gotRef.current[node]=true;
-        const g=gotRef.current;
-        if(g.users&&g.logs&&g.leaves){setDataReady(true);if(firstFullRef.current)firstFullRef.current();}
-      }
-    }));
+    const openStreams=(onNode)=>["users","logs","leaves","companies"].map(node=>fbStream(node,(v,full)=>onNode(node,v,full)));
+    if(typeof BroadcastChannel==="undefined"||!(navigator.locks&&navigator.locks.request)){
+      streamsRef.current=openStreams((node,v,full)=>applyNode(node,v,full,true));   // 창 공유 미지원 → 예전처럼 창마다
+      return;
+    }
+    const bc=new BroadcastChannel("knm-worklog-live");
+    const hub={bc,ac:new AbortController(),cache:{},leader:false,release:null};
+    hubRef.current=hub;
+    bc.onmessage=(e)=>{
+      const m=e.data||{};
+      if(m.t==="data"&&!hub.leader)applyNode(m.node,m.v,false,false);
+      else if(m.t==="hello"&&hub.leader)Object.keys(hub.cache).forEach(node=>bc.postMessage({t:"data",node,v:hub.cache[node]}));
+    };
+    // 리더 잠금: 먼저 잡은 창이 스트림을 열고, 놓을 때(stopLive·창 닫힘)까지 유지. 나머지 창은 대기 = 팔로워.
+    navigator.locks.request("knm-worklog-live-leader",{signal:hub.ac.signal},()=>{
+      if(hubRef.current!==hub)return;
+      hub.leader=true;
+      streamsRef.current=openStreams((node,v,full)=>{
+        if(!v)return;
+        hub.cache[node]=v;
+        applyNode(node,v,full,true);
+        try{bc.postMessage({t:"data",node,v});}catch{}
+      });
+      return new Promise(res=>{hub.release=res;});
+    }).catch(()=>{});   // 리더가 되기 전에 stopLive → AbortError (정상)
+    bc.postMessage({t:"hello"});   // 이미 리더 창이 있으면 현재 데이터를 받아옴
+  },[applyNode]);
+  const stopLive=useCallback(()=>{
+    streamsRef.current.forEach(close=>close());streamsRef.current=[];
+    const hub=hubRef.current;hubRef.current=null;
+    if(hub){hub.ac.abort();if(hub.release)hub.release();hub.bc.close();}
   },[]);
-  const stopLive=useCallback(()=>{streamsRef.current.forEach(close=>close());streamsRef.current=[];},[]);
 
   useEffect(()=>{
     let hideTimer=null;
