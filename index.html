@@ -1209,10 +1209,6 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
                     </div>
                     <div style={{ fontSize:12,color:C.sub,marginTop:1 }}>{days>0 ? `${fmt(Math.round(days*10)/10)}일 근무` : "이번 기간 기록 없음"}{w && w.dailyRate>0 ? ` · ${fA(w.dailyRate)}/일` : ""}</div>
                   </div>
-                  <div style={{ textAlign:"right",whiteSpace:"nowrap" }}>
-                    <div style={{ fontSize:14,fontWeight:700,color:C.text,fontVariantNumeric:"tabular-nums" }}>{w && w.gross>0 ? fA(w.gross) : "—"}</div>
-                    <div style={{ fontSize:11,color:"#9AA3AB" }}>근무 합계</div>
-                  </div>
                   <span style={{ color:"#9AA3AB",fontSize:13 }}>›</span>
                 </div>
               );
