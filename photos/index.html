@@ -215,7 +215,7 @@ input,textarea,select{font-family:inherit;font-size:16px}
 <div id="toast" class="toast"></div>
 <datalist id="builder-list"></datalist>
 <script>
-const APP_BUILD='2026-10-21-05';
+const APP_BUILD='2026-10-26-01';
 const RTDB='https://knmtilingptyltd-12520-default-rtdb.firebaseio.com';
 // ── Firebase 로그인 (직원별 계정) ─────────────────────────────────────────────
 // 세 앱(WorkLog·인보이스·SiteLog)이 똑같은 코드를 씀. 직원은 예전 아이디/비밀번호 그대로 로그인하고,
@@ -500,6 +500,8 @@ async function loadBuilders(pre){
 }
 
 async function openProjects(){
+  // Coming back from a site: return to where the list was. Refreshing the list in place: keep the current spot.
+  const keepY=document.getElementById('plist')?window.scrollY:(S.listY||0);
   S.pid=null;S.cat=null;S.curProj=null;
   document.getElementById('app').innerHTML=`
    <div class="hdr">
@@ -515,7 +517,8 @@ async function openProjects(){
   $('#q').oninput=e=>{S.q=e.target.value;renderProjectList();};
   // Show the last-known list straight away, then refresh. All reads go out together instead of one after another.
   const uid=S.user.id,cached=loadHomeCache(uid);
-  if(cached){S.projects=cached.projects;S.seen=cached.seen;renderFilters();renderProjectList();}
+  if(cached){S.projects=cached.projects;S.seen=cached.seen;renderFilters();renderProjectList();window.scrollTo(0,keepY);}
+  else window.scrollTo(0,0);
   const get=p=>rtGet(p).catch(()=>null);
   const [us,data,seen,bld]=await Promise.all([get('users'),get('photoApp/projects'),get('photoApp/seen/'+uid),get('invoiceBuilders')]);
   if(!(await validateSession(us))){onAccessLost();return;}
@@ -530,7 +533,7 @@ async function openProjects(){
   await loadBuilders(bld);
   if(data)saveHomeCache(uid);
   if(S.pid!==null||!document.getElementById('plist'))return;   // user already opened a site
-  renderFilters();renderProjectList();
+  renderFilters();renderProjectList();window.scrollTo(0,keepY);
 }
 function loadHomeCache(uid){try{const c=JSON.parse(localStorage.getItem('sl_home_cache')||'null');return c&&c.uid===uid&&Array.isArray(c.projects)?c:null;}catch(e){return null;}}
 function saveHomeCache(uid){try{localStorage.setItem('sl_home_cache',JSON.stringify({uid,projects:S.projects,seen:S.seen}));}catch(e){}}
@@ -592,6 +595,7 @@ function projectForm(edit){
 }
 
 async function openProject(pid){
+  if(document.getElementById('plist'))S.listY=window.scrollY;   // remember the list position for the back button
   S.pid=pid;const p=S.projects.find(x=>x.id===pid)||await rtGet('photoApp/projects/'+pid);p.id=pid;
   S.curProj=p;S.cat='__all__';
   // Mark this site as seen up to its latest activity, clearing its NEW badge for this user.
@@ -607,6 +611,7 @@ async function openProject(pid){
   $('#h-back').onclick=openProjects;
   $('#h-edit').onclick=()=>projectForm(S.curProj);
   $('#addentry').onclick=()=>entryForm(pid,S.cat==='__all__'?null:S.cat);
+  window.scrollTo(0,0);   // a site page always opens at the top
   renderCatbar();loadEntries(pid);
 }
 // Always show the standard work categories, plus any extra ones this project has (e.g. 이전자료).
@@ -1106,6 +1111,7 @@ checkUpdate();
 document.addEventListener('visibilitychange',async()=>{if(!document.hidden){if(S.pid===null)checkUpdate();if(S.user&&S.pid===null&&document.getElementById('plist'))openProjects();else if(S.user&&!(await validateSession()))onAccessLost();}});
 
 // Android/Galaxy back button: close the open sheet/viewer or step back to the site list instead of exiting the app.
+try{history.scrollRestoration='manual';}catch(e){}   // we restore the list position ourselves
 function backGuard(){try{history.pushState({sl:1},'');}catch(e){}}
 window.addEventListener('popstate',function(){
   const ov=document.querySelectorAll('.modal,.viewer');
