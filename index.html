@@ -18,7 +18,7 @@
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
 // ℹ️ reload 는 코드만 갱신 — Firebase 주소(wm_fb_url)·로그인 세션(wm_session)은 localStorage 라 유지됨(재로그인 불필요).
-const APP_BUILD = '2026-10-25-01';
+const APP_BUILD = '2026-10-26-01';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출. ?_=타임스탬프 + no-store 로 캐시 우회.
 function _fetchLatestBuild(){
   return fetch(location.pathname + '?_=' + Date.now(), { cache: 'no-store', headers: { 'Range': 'bytes=0-3000' } })
@@ -4677,7 +4677,7 @@ const C = {
 
 const styles = {
   app: { fontFamily: "'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif", background: C.bg, backgroundColor: "#F5F6F4", minHeight: "100vh", minHeight: "100dvh", display: "flex", flexDirection: "column", maxWidth: 480, margin: "0 auto", position: "relative", width: "100%" },
-  content: { flex: 1, overflowY: "auto", paddingBottom: 72, minHeight: 0, WebkitOverflowScrolling: "touch", overscrollBehaviorY: "contain" }, contentDesktop: { flex: 1, overflowY: "auto", paddingBottom: 20 },
+  content: { flex: 1, overflowY: "auto", paddingBottom: 72, minHeight: 0, WebkitOverflowScrolling: "touch", overscrollBehaviorY: "contain" }, contentDesktop: { paddingBottom: 20 } /* 데스크탑은 페이지(body) 자체가 스크롤 — 안쪽 스크롤 박스를 만들면 휠이 막힘 */,
   page: { padding: "16px 18px 0" },
   pageHeader: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 },
   pageTitle: { margin: 0, fontSize: 20, fontWeight: 800, color: C.text, letterSpacing: "-0.5px" },
@@ -5411,7 +5411,7 @@ function App() {
       )}
       <div className={isDesktop?'dt-content-area':''} style={isDesktop?undefined:{flex:1,display:'flex',flexDirection:'column',minHeight:0}}>
       <Header user={currentUser} onLogout={logout} onChangePw={()=>{setPwForm({cur:"",next:"",confirm:""});setPwErr("");setShowChangePw(true);}}/>
-      <div style={styles.content}>
+      <div style={isDesktop?styles.contentDesktop:styles.content}>
         {tab==="home"&&<HomeTab user={currentUser} users={users} logs={logs} leaves={leaves} isAdmin={isAdmin} isSuperAdmin={isSuperAdmin} persist={persist}
           onJumpToLog={(date,userId,periodOffset)=>{setJumpInfo({date,userId,periodOffset});setTab("log");}}
           onJumpToEmp={(userId)=>{const u=users.find(x=>x.id===userId);setJumpInfo({jumpEmpName:u?u.name:""});setTab("team");}}
