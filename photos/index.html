@@ -216,7 +216,7 @@ input,textarea,select{font-family:inherit;font-size:16px}
 <div id="toast" class="toast"></div>
 <datalist id="builder-list"></datalist>
 <script>
-const APP_BUILD='2026-10-26-02';
+const APP_BUILD='2026-10-26-03';
 const RTDB='https://knmtilingptyltd-12520-default-rtdb.firebaseio.com';
 // ── Firebase 로그인 (직원별 계정) ─────────────────────────────────────────────
 // 세 앱(WorkLog·인보이스·SiteLog)이 똑같은 코드를 씀. 직원은 예전 아이디/비밀번호 그대로 로그인하고,
@@ -508,7 +508,7 @@ async function openProjects(){
    <div class="hdr">
      <div class="r1"><div class="mono">K<b>&amp;</b>M</div><div style="flex:1;min-width:0"><h1>SiteLog</h1><div class="sub" id="pcount">Loading…</div></div>
        <button class="icn" id="h-menu" title="Menu">⋯</button></div>
-     <div class="search"><span class="s-ic">🔍</span><input id="q" placeholder="Search builder or address" value="${esc(S.q)}"/></div>
+     <div class="search"><span class="s-ic">🔍</span><input id="q" placeholder="Search builder, address or person" value="${esc(S.q)}"/></div>
    </div>
    <div class="filters" id="filters"></div>
    <div class="wrap" id="plist"><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>
@@ -535,6 +535,20 @@ async function openProjects(){
   if(data)saveHomeCache(uid);
   if(S.pid!==null||!document.getElementById('plist'))return;   // user already opened a site
   renderFilters();renderProjectList();window.scrollTo(0,keepY);
+  if(isAdmin())backfillAuthors();
+}
+// One-time fill of p.authors for sites nobody has opened since person search was added (admin's phone does it in the background).
+async function backfillAuthors(){
+  if(S._bf)return;S._bf=true;
+  let done={};try{done=JSON.parse(localStorage.getItem('sl_authors_bf')||'{}');}catch(e){}
+  for(const p of S.projects.filter(p=>!p.authors&&(p.photoCount||0)>0&&!done[p.id])){
+    const data=await rtGet('photoApp/entries/'+p.id).catch(()=>null);if(!data)continue;
+    const auth=authorsOf(Object.values(data));
+    if(auth.length){p.authors=auth;await rtPatch('photoApp/projects/'+p.id,{authors:auth}).catch(()=>{});}
+    done[p.id]=1;try{localStorage.setItem('sl_authors_bf',JSON.stringify(done));}catch(e){}
+  }
+  S._bf=false;saveHomeCache(S.user.id);
+  if(S.pid===null&&document.getElementById('plist')&&S.q.trim())renderProjectList();
 }
 function loadHomeCache(uid){try{const c=JSON.parse(localStorage.getItem('sl_home_cache')||'null');return c&&c.uid===uid&&Array.isArray(c.projects)?c:null;}catch(e){return null;}}
 function saveHomeCache(uid){try{localStorage.setItem('sl_home_cache',JSON.stringify({uid,projects:S.projects,seen:S.seen}));}catch(e){}}
@@ -550,7 +564,9 @@ function renderProjectList(){
   const q=S.q.trim().toLowerCase();
   let list=S.projects.slice();
   if(S.bfilter)list=list.filter(p=>p.builder===S.bfilter);
-  if(q)list=list.filter(p=>(`${title(p)} ${p.address||''}`).toLowerCase().includes(q));
+  // Also matches anyone who posted or replied on the site (p.authors, kept in sync when a site is opened).
+  if(q)list=list.filter(p=>(`${title(p)} ${p.address||''} ${(p.authors||[]).join(' ')}`).toLowerCase().includes(q));
+  const whoHit=p=>q&&!(`${title(p)} ${p.address||''}`).toLowerCase().includes(q)?(p.authors||[]).filter(n=>n.toLowerCase().includes(q)):[];
   list.sort((a,b)=>(b.lastActivity||b.updatedAt||b.createdAt||0)-(a.lastActivity||a.updatedAt||a.createdAt||0));
   const el=$('#plist');
   const newCount=S.projects.filter(isNew).length;
@@ -562,6 +578,7 @@ function renderProjectList(){
     return `<div class="pcard" data-id="${p.id}">
       <div class="body"><div class="bld">${esc(title(p))}${nw?'<span class="ndot" title="New photos"></span>':''}</div>
         ${p.address?`<div class="adr">${esc(p.address)}</div>`:''}
+        ${whoHit(p).length?`<div class="adr">👤 ${esc(whoHit(p).join(', '))}</div>`:''}
       </div><div class="pr"><b>${plural(cnt,'photo')}</b>${last}</div></div>`;}).join('')+'</div>';
   el.querySelectorAll('.pcard').forEach(d=>d.onclick=()=>openProject(d.dataset.id));
 }
@@ -692,6 +709,7 @@ async function loadEntries(pid){
   if((cur.photoCount||0)!==total)patch.photoCount=total;
   if(latest){const cov=(latest.photos||[])[0]&&latest.photos[0].url;if(cov&&cur.coverUrl!==cov)patch.coverUrl=cov;
     const la=latest.date||latest.createdAt;if(la&&cur.lastActivity!==la)patch.lastActivity=la;}
+  const auth=authorsOf(all);if(auth.join('|')!==(cur.authors||[]).join('|'))patch.authors=auth;
   if(Object.keys(patch).length){Object.assign(cur,patch);rtPatch('photoApp/projects/'+pid,patch);}
 }
 function entryCardHtml(e){
