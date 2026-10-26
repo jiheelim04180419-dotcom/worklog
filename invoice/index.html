@@ -22,7 +22,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-10-27-2';
+const APP_BUILD = '2026-10-27-3';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -2936,10 +2936,12 @@ function closeKpiList() { document.getElementById('kpi-modal').classList.remove(
 
 // ── Aging helpers ─────────────────────────────────────────────────────────────
 // Default invoice term: 14 days. Aging starts after dueDate (or invoiceDate+14d).
+// 빌더에 계약 입금 조건(payTerm)이 있으면 그 기한 기준 (예: Renascent 다음 달 마지막 영업일).
 function getDaysPastDue(inv) {
   if (!inv) return 0;
   if (!['INVOICE','OVERDUE'].includes(inv.status)) return 0;
-  let due = inv.dueDate;
+  const cd = contractDueDate(inv, builders.find(b => b.name === inv.builderName));
+  let due = cd ? cd.toLocaleDateString('en-CA') : inv.dueDate;
   if (!due && inv.invoiceDate) {
     const d = new Date(inv.invoiceDate + 'T00:00:00');
     d.setDate(d.getDate() + 14);
