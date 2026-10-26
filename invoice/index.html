@@ -22,7 +22,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-10-22-3';
+const APP_BUILD = '2026-10-26-1';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -11048,14 +11048,17 @@ function ordRemitViewHtml(){
   const money = v=>'$'+Number(v||0).toLocaleString('en-AU',{minimumFractionDigits:2,maximumFractionDigits:2});
   const row = g=>{
     const on = !!remitSel[g.no];
-    const paidB = g.allPaid ? '<span style="background:#DBEAFE;color:#1E40AF;font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px">결제완료</span>'
-                            : (g.anyPaid ? '<span style="background:#FEF3C7;color:#92400E;font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px">부분결제</span>' : '');
+    // 입금(결제)일: 유효 라인의 paid 중 가장 최근 날짜
+    const paidD = g.lines.filter(l=>!ordIsCancelled(l)).map(l=>(l.paid||'').trim()).filter(Boolean).sort().pop()||'';
+    const paidDTxt = paidD ? ' · 입금 '+esc(/^\d{4}-\d{2}-\d{2}$/.test(paidD)?ordAuDate(paidD):paidD) : '';
+    const paidB = g.allPaid ? '<span style="background:#DBEAFE;color:#1E40AF;font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px">결제완료'+paidDTxt+'</span>'
+                            : (g.anyPaid ? '<span style="background:#FEF3C7;color:#92400E;font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px">부분결제'+paidDTxt+'</span>' : '');
     const invNoVal = remitInvNo[g.no]!=null ? remitInvNo[g.no] : ordRemitDefaultInvNo(g);
     return `<div style="border:1px solid ${on?'#1F6F6B':'var(--border-2)'};background:${on?'rgba(31,111,107,0.06)':'var(--card-bg)'};border-radius:9px;padding:9px 11px;margin-bottom:7px">
       <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
         <input type="checkbox" ${on?'checked':''} onchange="remitSel['${esc(g.no)}']=this.checked;renderOrders()" style="width:17px;height:17px;flex-shrink:0"/>
         <div style="flex:1;min-width:0">
-          <div style="font-size:12.5px;font-weight:800;color:var(--text-1)">${esc(g.no)} <span style="font-weight:500;color:var(--text-4);font-size:10.5px">· ${ordAuDate(g.date)}</span> ${paidB}</div>
+          <div style="font-size:12.5px;font-weight:800;color:var(--text-1)">${esc(g.no)} ${paidB}</div>
           <div style="font-size:10.5px;color:var(--text-3);margin-top:1px">${g.sups.map(esc).join(', ')}</div>
         </div>
         <div style="font-size:13px;font-weight:800;color:#059669;white-space:nowrap">${money(g.invTotal)}</div>
