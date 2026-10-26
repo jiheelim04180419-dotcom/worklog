@@ -18,7 +18,7 @@
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
 // ℹ️ reload 는 코드만 갱신 — Firebase 주소(wm_fb_url)·로그인 세션(wm_session)은 localStorage 라 유지됨(재로그인 불필요).
-const APP_BUILD = '2026-10-26-02';
+const APP_BUILD = '2026-10-26-03';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출. ?_=타임스탬프 + no-store 로 캐시 우회.
 function _fetchLatestBuild(){
   return fetch(location.pathname + '?_=' + Date.now(), { cache: 'no-store', headers: { 'Range': 'bytes=0-3000' } })
@@ -2934,20 +2934,25 @@ function MgmtTab({ fbUrl, fA }) {
   };
   const ksCount = (_ksActive(kyleMember)?1:0) + (_ksActive(saraMember)?1:0);
   const deductEach = ksCount > 0 ? totalDeduct / ksCount : 0;
-  const ksFinal = (mem) => {
-    if (!mem) return 0;
+  // 카일/사라 금액 분리: inv = 인보이스(공제·GST 반영)만, net = 같은 기간 TFN 급여(Net Pay)
+  // 인보이스 금액과 통장 송금 합계를 섞어 보여주면 급여가 이중 송금될 수 있어 따로 둠
+  const ksParts = (mem) => {
+    if (!mem) return { inv: 0, net: 0 };
     const hist = Array.isArray(mem.history) ? mem.history : Object.values(mem.history||{});
     const entry = hist.length > 0 ? getHistoryEntry(hist, periodStart) : null;
     const base = parseFloat((entry||mem).invoiceAmount)||0;
     // monthly 타입 기간이면 급여(net)도 합산 (급여 + 인보이스 하이브리드)
     const net = (effectiveType(mem, entry) === 'monthly') ? (parseFloat((entry||mem).salary)||0) : 0;
-    if (base <= 0 && net <= 0) return 0;  // 이 구간에 금액 없는 멤버(예: 통합 후 사라) → 0, 공제 미부담
+    if (base <= 0 && net <= 0) return { inv: 0, net: 0 };  // 이 구간에 금액 없는 멤버(예: 통합 후 사라) → 0, 공제 미부담
     const afterDeduct = base - deductEach;
     const invTotal = gstAppliesFor(mem, entry) ? afterDeduct * 1.1 : afterDeduct;
-    return invTotal + net;
+    return { inv: invTotal, net };
   };
-  const kyleFinal = ksFinal(kyleMember);
-  const saraFinal = ksFinal(saraMember);
+  const kyleParts = ksParts(kyleMember);
+  const saraParts = ksParts(saraMember);
+  // 송금 합계(인보이스 + Net Pay) — 기간 총액 계산용
+  const kyleFinal = kyleParts.inv + kyleParts.net;
+  const saraFinal = saraParts.inv + saraParts.net;
 
   const isKyleOrSara = (m) => m.id === kyleMember?.id || m.id === saraMember?.id;
 
@@ -3018,6 +3023,7 @@ function MgmtTab({ fbUrl, fA }) {
 
         // 카일/사라 최종 금액
         const ksFinal = isKyle ? kyleFinal : isSara ? saraFinal : null;
+        const ksP = isKyle ? kyleParts : isSara ? saraParts : null;
         // KS 멤버가 이 구간에 금액 0(예: 통합 후 사라)이면 카드 자체를 숨김
         if (isKS && (ksFinal || 0) <= 0) return null;
         // 기간별 GST/금액 상태 (Kyle/Sara 표시용)
@@ -3045,9 +3051,15 @@ function MgmtTab({ fbUrl, fA }) {
                 </div>
                 <div style={{textAlign:'right',flexShrink:0}}>
                   <p style={{margin:0,fontSize:16,fontWeight:900,color:'#111827'}}>
-                    {fA(isKS ? (ksFinal??c.total) : c.total)}
+                    {fA(isKS ? ksP.inv : c.total)}
+                    {isKS && <span style={{fontSize:9,fontWeight:600,color:'#6B7280',marginLeft:4}}>인보이스</span>}
                     {!isKS && c.invGst>0 && <span style={{fontSize:9,fontWeight:600,color:'#6B7280',marginLeft:4}}>inc.GST</span>}
                   </p>
+                  {isKS && ksP.net>0 && (
+                    <p style={{margin:'2px 0 0',fontSize:11,color:'#6B7280',fontWeight:600}}>
+                      + Net Pay {fA(ksP.net)} <span style={{fontSize:9,fontWeight:500}}>별도 송금</span>
+                    </p>
+                  )}
                   {!isKS && c.invGst>0 && (
                     <p style={{margin:'2px 0 0',fontSize:11,color:'#6B7280',fontWeight:600}}>
                       {fA(c.total - c.invGst)} <span style={{fontSize:9,fontWeight:500}}>ex.GST</span>
@@ -3068,7 +3080,7 @@ function MgmtTab({ fbUrl, fA }) {
                     <span style={{color:'#6B7280'}}>Net Pay <strong style={{color:'#059669'}}>{fA(c.net)}</strong></span>
                     {c.tax>0&&<span style={{color:'#6B7280'}}>Tax <strong style={{color:'#DC2626'}}>{fA(c.tax)}</strong></span>}
                     {c.sup>0&&<span style={{color:'#6B7280'}}>Super <strong style={{color:'#D97706'}}>{fA(c.sup)}</strong></span>}
-                    {c.invTotal>0 && (c.invGst>0 ? (<>
+                    {!isKS && c.invTotal>0 && (c.invGst>0 ? (<>
                       <span style={{color:'#6B7280'}}>인보이스(ex.GST) <strong style={{color:'#6B7280'}}>{fA(c.inv)}</strong></span>
                       <span style={{color:'#6B7280'}}>GST +10% <strong style={{color:'#D97706'}}>{fA(c.invGst)}</strong></span>
                       <span style={{color:'#6B7280'}}>인보이스(inc.GST) <strong style={{color:'#1F6F6B'}}>{fA(c.invTotal)}</strong></span>
@@ -3098,9 +3110,19 @@ function MgmtTab({ fbUrl, fA }) {
                       <span style={{fontWeight:600,color:'#D97706'}}>+{fA(((periodBase-deductEach)*0.1))}</span>
                     </div>}
                     <div style={{borderTop:'1px solid #E4E7E4',marginTop:4,paddingTop:6,display:'flex',justifyContent:'space-between'}}>
-                      <span style={{fontWeight:700,color:'#111827'}}>최종 인보이스</span>
-                      <span style={{fontWeight:800,color:'#1F6F6B',fontSize:14}}>{fA(ksFinal)}</span>
+                      <span style={{fontWeight:700,color:'#111827'}}>최종 인보이스{periodGstOn?' (inc.GST)':''}</span>
+                      <span style={{fontWeight:800,color:'#1F6F6B',fontSize:14}}>{fA(ksP.inv)}</span>
                     </div>
+                    {ksP.net>0 && <>
+                      <div style={{display:'flex',justifyContent:'space-between',marginTop:6}}>
+                        <span style={{color:'#6B7280'}}>TFN 급여 Net Pay (별도 송금)</span>
+                        <span style={{fontWeight:600,color:'#059669'}}>{fA(ksP.net)}</span>
+                      </div>
+                      <div style={{display:'flex',justifyContent:'space-between',marginTop:4}}>
+                        <span style={{color:'#6B7280'}}>통장 송금 합계 (인보이스 + Net Pay)</span>
+                        <span style={{fontWeight:600,color:'#111827'}}>{fA(ksFinal)}</span>
+                      </div>
+                    </>}
                   </div>
                 )}
 
