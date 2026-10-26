@@ -22,7 +22,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-10-26-1';
+const APP_BUILD = '2026-10-27-1';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -184,6 +184,7 @@ body[data-active-tab="calendar"] .bbar { display: none }
 body[data-active-tab="partners"] .content,
 body[data-active-tab="calendar"] .content { padding-bottom: 20px }
 .bstat{text-align:center;min-width:0;flex:1}
+.bstat.click{cursor:pointer;border-radius:8px}.bstat.click:active{background:rgba(255,255,255,0.08)}
 .bstat-l{font-size:10px;color:rgba(255,255,255,0.4);white-space:nowrap}
 .bstat-v{font-size:14px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bstat-ex{display:inline;font-size:9px;color:#9CA3AF;font-weight:400;margin-left:4px}
@@ -989,10 +990,13 @@ body[data-active-tab="invoices"] .content,body:not([data-active-tab]) .content{p
   <div id="tab-letters" style="display:none"></div>
 </div>
 <div class="bbar">
-  <div class="bstat"><div class="bstat-l">미수금</div><div class="bstat-v" id="bs-out" style="color:#5FB8B0">$0</div></div>
-  <div class="bstat"><div class="bstat-l">연체</div><div class="bstat-v" id="bs-ov" style="color:#f87171">$0</div></div>
-  <div class="bstat"><div class="bstat-l">이번달 입금</div><div class="bstat-v" id="bs-mo" style="color:#34d399">$0</div></div>
+  <div class="bstat click" onclick="openKpiList('out')"><div class="bstat-l">미수금</div><div class="bstat-v" id="bs-out" style="color:#5FB8B0">$0</div></div>
+  <div class="bstat click" onclick="openKpiList('ov')"><div class="bstat-l">연체</div><div class="bstat-v" id="bs-ov" style="color:#f87171">$0</div></div>
+  <div class="bstat click" onclick="openKpiList('mo')"><div class="bstat-l">이번달 입금</div><div class="bstat-v" id="bs-mo" style="color:#34d399">$0</div></div>
 </div>
+
+<!-- 요약 카드(미수금/연체/이번달 입금) 눌렀을 때 그 숫자에 들어간 인보이스 목록 -->
+<div class="modal" id="kpi-modal" onclick="if(event.target===this)closeKpiList()"><div class="mbox" id="kpi-box"></div></div>
 
 <!-- Invoice Modal -->
 <div class="modal" id="inv-modal">
@@ -2831,6 +2835,7 @@ document.addEventListener('keydown', e => {
     else if (anyModalOpen.id === 'b-modal') closeBM();
     else if (anyModalOpen.id === 's-modal') closeSet();
     else if (anyModalOpen.id === 'print-modal') closePrint();
+    else if (anyModalOpen.id === 'kpi-modal') closeKpiList();
   }
 });
 
@@ -2854,8 +2859,50 @@ function updateBar() {
   document.getElementById('bs-ov').innerHTML  = `${fA(ov)}<span class="bstat-ex">${fAex(ov)} ex</span>`;
   document.getElementById('bs-mo').innerHTML  = `${fA(mo)}<span class="bstat-ex">${fAex(mo)} ex</span>`;
   const k = document.getElementById('inv-kpis');
-  if (k) k.innerHTML = `<div><div class="l">미수금</div><div class="v">${fA(out)}</div></div><div><div class="l">연체</div><div class="v red">${fA(ov)}</div></div><div><div class="l">이번달 입금</div><div class="v green">${fA(mo)}</div></div>`;
+  if (k) k.innerHTML = `<div class="click" onclick="openKpiList('out')"><div class="l">미수금 ›</div><div class="v">${fA(out)}</div></div><div class="click" onclick="openKpiList('ov')"><div class="l">연체 ›</div><div class="v red">${fA(ov)}</div></div><div class="click" onclick="openKpiList('mo')"><div class="l">이번달 입금 ›</div><div class="v green">${fA(mo)}</div></div>`;
 }
+
+// 요약 카드 목록: updateBar() 와 같은 조건으로 골라서 합계가 카드 숫자와 똑같이 맞게 함.
+function openKpiList(kind) {
+  const ym = today.slice(0,7);
+  let title, rows = [];
+  if (kind === 'mo') {
+    title = '이번달 입금';
+    invoices.forEach(i => getPayments(i).forEach(p => {
+      if ((p.date||'').startsWith(ym)) rows.push({inv:i, amt:parseFloat(p.amount)||0, date:p.date, note:p.note||''});
+    }));
+    rows.sort((a,b) => (b.date||'').localeCompare(a.date||''));
+  } else if (kind === 'ov') {
+    title = '연체';
+    rows = invoices.filter(isOverdue).map(i => ({inv:i, amt:Math.max(0,remaining(i)), days:getDaysPastDue(i)}));
+    rows.sort((a,b) => b.days - a.days);
+  } else {
+    title = '미수금';
+    rows = invoices.filter(i => i.status==='INVOICE' || i.status==='ONGOING').map(i => ({inv:i, amt:Math.max(0,remaining(i))})).filter(r => r.amt > 0.005);
+    rows.sort((a,b) => (a.inv.invoiceDate||'').localeCompare(b.inv.invoiceDate||''));
+  }
+  const total = rows.reduce((s,r) => s + r.amt, 0);
+  const list = rows.map(r => {
+    const i = r.inv;
+    let right = '';
+    if (kind === 'mo') right = `${fD(r.date)} 입금`;
+    else if (kind === 'ov') right = `${fmtAging(r.days)} 연체`;
+    else right = isOverdue(i) ? `${fmtAging(getDaysPastDue(i))} 연체` : (i.status === 'ONGOING' ? '진행중' : `발행 ${fD(i.invoiceDate)}`);
+    const sub = [i.invoiceNum, i.address || i.projectName].filter(Boolean).map(esc).join(' · ');
+    return `<div class="lrow click" onclick="closeKpiList();openIM('${i.id}')">
+      <div class="main"><div class="nm">${esc(i.builderName||'—')}</div><div class="sub">${sub||'—'}</div></div>
+      <div class="amt">${fA(r.amt)}<div style="font-size:11px;font-weight:500;color:${kind==='ov'||(kind==='out'&&isOverdue(i))?'var(--km-red)':'var(--text-3)'}">${right}</div></div>
+    </div>`;
+  }).join('');
+  document.getElementById('kpi-box').innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div><div style="font-size:17px;font-weight:800">${title}</div><div style="font-size:12px;color:var(--text-3);margin-top:2px">${rows.length}건 · 합계 ${fA(total)} (${fAex(total)} ex)</div></div>
+      <button onclick="closeKpiList()" style="border:0;background:var(--card-bg-alt);color:var(--text);width:34px;height:34px;border-radius:50%;font-size:18px;cursor:pointer">✕</button>
+    </div>
+    <div style="border-bottom:1px solid var(--border-3);margin:0 -20px">${list || '<div style="padding:24px;text-align:center;color:var(--text-3);font-size:13px">해당 인보이스가 없어요</div>'}</div>`;
+  document.getElementById('kpi-modal').classList.add('open');
+}
+function closeKpiList() { document.getElementById('kpi-modal').classList.remove('open'); }
 
 // ── Aging helpers ─────────────────────────────────────────────────────────────
 // Default invoice term: 14 days. Aging starts after dueDate (or invoiceDate+14d).
@@ -9918,13 +9965,13 @@ function renderStats() {
   </div>
   <div class="kpis wrap">
     ${[
-      ['미수금', out, '', 'INVOICE', ''],
-      ['연체', ov, 'red', 'OVERDUE', ''],
+      ['미수금', out, '', 'INVOICE', '', 'out'],
+      ['연체', ov, 'red', 'OVERDUE', '', 'ov'],
       ['보류금', ret, 'amber', 'RETENTION', ''],
       ['총입금', pd, '', 'PAID', ''],
-      ['이번달 입금', mo, 'green', 'ALL', today.slice(0,7)],
-    ].map(([l,v,c,filter,search])=>`
-      <div class="click" onclick="curFilter='${filter}';searchQ='${search}';invLimit=INV_PAGE;showTab('invoices');renderInv()" title="${l} 인보이스 보기">
+      ['이번달 입금', mo, 'green', 'ALL', today.slice(0,7), 'mo'],
+    ].map(([l,v,c,filter,search,kpi])=>`
+      <div class="click" onclick="${kpi?`openKpiList('${kpi}')`:`curFilter='${filter}';searchQ='${search}';invLimit=INV_PAGE;showTab('invoices');renderInv()`}" title="${l} 인보이스 보기">
         <div class="l">${l}</div>
         <div class="v ${c}">${fA(v)}</div>
         <div class="s">${fAex(v)} ex</div>
