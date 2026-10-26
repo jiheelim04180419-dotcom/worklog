@@ -76,6 +76,7 @@ input,textarea,select{font-family:inherit;font-size:16px}
   box-shadow:var(--shadow);padding:11px 38px 11px 15px;font-size:14px;font-weight:700;color:var(--text);
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23747890' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
   background-repeat:no-repeat;background-position:right 14px center}
+#whosel{flex:0 1 auto;max-width:36%}
 .catbar .mini{background:#fff;color:var(--pri);box-shadow:var(--shadow);border-radius:12px;padding:11px 13px;font-weight:800;font-size:13px;white-space:nowrap}
 /* section heads */
 .sec-head{display:flex;align-items:center;margin:6px 4px 10px}
@@ -215,7 +216,7 @@ input,textarea,select{font-family:inherit;font-size:16px}
 <div id="toast" class="toast"></div>
 <datalist id="builder-list"></datalist>
 <script>
-const APP_BUILD='2026-10-26-01';
+const APP_BUILD='2026-10-26-02';
 const RTDB='https://knmtilingptyltd-12520-default-rtdb.firebaseio.com';
 // ── Firebase 로그인 (직원별 계정) ─────────────────────────────────────────────
 // 세 앱(WorkLog·인보이스·SiteLog)이 똑같은 코드를 씀. 직원은 예전 아이디/비밀번호 그대로 로그인하고,
@@ -597,7 +598,7 @@ function projectForm(edit){
 async function openProject(pid){
   if(document.getElementById('plist'))S.listY=window.scrollY;   // remember the list position for the back button
   S.pid=pid;const p=S.projects.find(x=>x.id===pid)||await rtGet('photoApp/projects/'+pid);p.id=pid;
-  S.curProj=p;S.cat='__all__';
+  S.curProj=p;S.cat='__all__';S.who='';
   // Mark this site as seen up to its latest activity, clearing its NEW badge for this user.
   const seenTs=Math.max(p.lastActivity||0,Date.now());S.seen[pid]=seenTs;rtPatch('photoApp/seen/'+S.user.id,{[pid]:seenTs});
   document.getElementById('app').innerHTML=`
@@ -648,9 +649,27 @@ function renderCatbar(){
       <option value="__all__" ${S.cat==='__all__'?'selected':''}>All photos</option>
       ${cats.map(c=>`<option value="${esc(c)}" ${c===S.cat?'selected':''}>${esc(c)}</option>`).join('')}
     </select>
+    <select class="catsel" id="whosel" title="Posted by">
+      <option value="">👤 All</option>
+      ${authorsOf(S.entries[S.pid]).map(n=>`<option value="${esc(n)}" ${n===S.who?'selected':''}>${esc(n)}</option>`).join('')}
+    </select>
     <button class="mini" id="cat-add">＋ Category</button>`;
   $('#catsel').onchange=e=>{S.cat=e.target.value;renderEntries();};
+  $('#whosel').onchange=e=>{S.who=e.target.value;renderEntries();};
   $('#cat-add').onclick=()=>addCategory(S.pid);
+}
+// Everyone who posted or replied on this site, for the "posted by" filter.
+function authorsOf(list){
+  const names=new Set();
+  (list||[]).forEach(e=>{const w=(e.authorName||'').trim();if(w)names.add(w);
+    Object.values(e.comments||{}).forEach(c=>{const cw=(c&&c.authorName||'').trim();if(cw)names.add(cw);});});
+  return [...names].sort((a,b)=>a.localeCompare(b));
+}
+// A post matches a person if they wrote it or replied to it.
+function byWho(e,who){
+  if(!who)return true;
+  if((e.authorName||'').trim()===who)return true;
+  return Object.values(e.comments||{}).some(c=>c&&(c.authorName||'').trim()===who);
 }
 async function addCategory(pid){
   const nm=prompt('New category name');if(!nm||!nm.trim())return;
@@ -663,7 +682,8 @@ async function loadEntries(pid){
   $('#entries').innerHTML='<div class="skel"></div><div class="skel"></div>';
   const data=await rtGet('photoApp/entries/'+pid)||{};
   S.entries[pid]=Object.entries(data).map(([id,v])=>({id,...v}));
-  renderEntries();
+  if(S.pid!==pid)return;
+  renderCatbar();renderEntries();
   // auto-correct photoCount / cover / lastActivity (fix legacy drift)
   const all=S.entries[pid];
   const total=all.reduce((s,e)=>s+((e.photos||[]).length)+commentPhotoCount(e),0);
@@ -708,8 +728,8 @@ function renderEntries(){
   const el=$('#entries');
   const all=(S.entries[S.pid]||[]);
   const notes=all.filter(e=>e.category==='__notes__').sort((a,b)=>(b.date||b.createdAt||0)-(a.date||a.createdAt||0));
-  const cat=S.cat||'__all__';
-  const phots=all.filter(e=>inCat(e,cat)).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+  const cat=S.cat||'__all__';const who=S.who||'';
+  const phots=all.filter(e=>inCat(e,cat)&&byWho(e,S.who)).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
   // Pinned section — most recent shown, the rest collapsed
   let html=`<div class="sec-head"><span class="t">📌 Pinned</span><button class="miniadd" id="note-add">＋ Add</button></div>`;
   if(notes.length){
@@ -723,8 +743,9 @@ function renderEntries(){
   }
   html+=`<div class="sec-div"></div>`;
   // Photos section
-  html+=`<div class="sec-head"><span class="t">${cat==='__all__'?'All photos':esc(cat)}</span></div>`;
-  if(!phots.length){html+=`<div class="empty"><div class="big">📷</div>No photos ${cat==='__all__'?'yet':('in '+esc(cat))}.<br>Tap ＋ to upload.</div>`;}
+  html+=`<div class="sec-head"><span class="t">${cat==='__all__'?'All photos':esc(cat)}${who?' · 👤 '+esc(who):''}</span></div>`;
+  if(!phots.length){html+=who?`<div class="empty"><div class="big">👤</div>No posts by ${esc(who)}${cat==='__all__'?'':(' in '+esc(cat))}.</div>`
+    :`<div class="empty"><div class="big">📷</div>No photos ${cat==='__all__'?'yet':('in '+esc(cat))}.<br>Tap ＋ to upload.</div>`;}
   else{
     const groups={};phots.forEach(e=>{const k=dayKey(e.date||e.createdAt);(groups[k]=groups[k]||[]).push(e);});
     const keys=Object.keys(groups).sort((a,b)=>b.localeCompare(a));
@@ -1044,7 +1065,7 @@ function commentForm(entryId){
 // Flat list of every photo in the current view (same filter/order as the grid), incl. comment photos.
 function currentPhotoList(){
   const all=(S.entries[S.pid]||[]);const cat=S.cat||'__all__';
-  const phots=all.filter(e=>inCat(e,cat)).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+  const phots=all.filter(e=>inCat(e,cat)&&byWho(e,S.who)).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
   const groups={};phots.forEach(e=>{const k=dayKey(e.date||e.createdAt);(groups[k]=groups[k]||[]).push(e);});
   const keys=Object.keys(groups).sort((a,b)=>b.localeCompare(a));
   const list=[];keys.forEach(k=>groups[k].forEach(e=>photosOfEntry(e).forEach(it=>list.push(it))));
