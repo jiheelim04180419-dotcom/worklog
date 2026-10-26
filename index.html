@@ -18,7 +18,7 @@
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
 // ℹ️ reload 는 코드만 갱신 — Firebase 주소(wm_fb_url)·로그인 세션(wm_session)은 localStorage 라 유지됨(재로그인 불필요).
-const APP_BUILD = '2026-10-26-01';
+const APP_BUILD = '2026-10-26-02';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출. ?_=타임스탬프 + no-store 로 캐시 우회.
 function _fetchLatestBuild(){
   return fetch(location.pathname + '?_=' + Date.now(), { cache: 'no-store', headers: { 'Range': 'bytes=0-3000' } })
@@ -711,6 +711,17 @@ function effectiveTaxPeriods(lv){
   const manual = Array.isArray(lv.taxHistory) ? lv.taxHistory : Object.values(lv.taxHistory||{});
   return manual.length ? manual : deriveTaxPeriods(lv);
 }
+// 격주 정기(periodStart~+13일)의 수동 ABN/TFN 구분. 정기 마지막 날 기준 (정기 중간 전환은 전환 후 구분으로).
+//   수동 입력(taxHistory)이 없거나 해당 기간이 없으면 null → 기존 고정급여/계약자 판별 그대로.
+function manualTaxTypeForPeriod(lv, periodStart){
+  lv = lv || {};
+  const manual = (Array.isArray(lv.taxHistory) ? lv.taxHistory : Object.values(lv.taxHistory||{})).filter(e => e && e.from);
+  if (!manual.length || !periodStart) return null;
+  const d = new Date(periodStart + "T00:00:00"); d.setDate(d.getDate() + 13);
+  const ref = d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+  const hit = manual.filter(e => e.from <= ref && (!e.to || ref <= e.to)).sort((a,b) => b.from.localeCompare(a.from))[0];
+  return hit ? ((hit.type||"ABN") === "TFN" ? "TFN" : "ABN") : null;
+}
 
 function isLogLocked(userId, date, leaves) {
   if (!userId || !date || !leaves) return null;
@@ -855,7 +866,9 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
     // 계약자→직원 전환자: noLeave=false 라도 전환일(leaveStartDate) 이전 기간은 계약자로 판정.
     // (계약자 이력이 있는 직원만 해당 — 일반 직원/계약자는 영향 없음. 과거 지급기간 소급 방지)
     const _crhLen = (Array.isArray(lv.contractorRateHistory) ? lv.contractorRateHistory : Object.values(lv.contractorRateHistory||{})).length;
-    const isContractor = !!lv.noLeave || (_crhLen > 0 && !!lv.leaveStartDate && periodStart < lv.leaveStartDate);
+    // 수동 ABN/TFN 기간에서 이 정기가 ABN 이면 계약자 + 고정급 미적용 (TFN→ABN 전환 반영)
+    const _isAbnPeriod = manualTaxTypeForPeriod(lv, periodStart) === "ABN";
+    const isContractor = _isAbnPeriod || !!lv.noLeave || (_crhLen > 0 && !!lv.leaveStartDate && periodStart < lv.leaveStartDate);
     // fixedPay 기간별 조회 — 이력(fixedPayHistory)이 있으면 그 기간에 해당하는 이력만 적용.
     // ⚠️ 첫 이력일(from) 이전 기간엔 고정급여 미적용(0) — 날짜지정한 고정급여가 지난 기간에 소급되던 버그 방지.
     const _fph = Array.isArray(lv.fixedPayHistory) ? lv.fixedPayHistory : Object.values(lv.fixedPayHistory||{});
@@ -864,7 +877,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
       : null;
     // 이 기간에 고정급여 적용 여부: 이력 있으면 해당 기간 이력 존재 여부, 이력 없으면 hasFlatPay 플래그
     //   단, 이력 항목에 end:true(고정급 종료 마커)면 그 시점부터 고정급 미적용(TFN→ABN 전환 등).
-    const hasFlatPay = _fph.length ? (!!_fpEntry && !_fpEntry.end) : !!lv.hasFlatPay;
+    const hasFlatPay = _isAbnPeriod ? false : _fph.length ? (!!_fpEntry && !_fpEntry.end) : !!lv.hasFlatPay;
     const getFixedPayForPeriod = () => {
       // 기간별 고정급 오버라이드(부분근무 기간 등) 우선 적용
       const _ovr = (lv.fixedPayOverrides || {})[periodStart];
@@ -3426,8 +3439,9 @@ function SummarySection({users, leaves, periodStart, calcWage, getSavedDeduction
     const splitCash = (splitPay0 && w) ? (w.stats.fullDays * w.dailyRate / 2) : 0;
     const splitAbnBase = (splitPay0 && w) ? (w.stats.fullDays*w.dailyRate/2 + (w.stats.partHours||0)*w.partHourlyRate + (w.stats.otHours||0)*w.otHourlyRate + (w.travel||0)) : 0;
     const splitGst  = (splitPay0 && gstReg0) ? splitAbnBase * 0.1 : 0;
-    const isContractor = !!(lv.noLeave);
-    const hasFlatPay   = !!(lv.hasFlatPay);
+    // 정기별 판정(calcWage) 우선 — ABN 전환 등 기간별 구분 반영
+    const isContractor = w ? !!w.isContractor : !!(lv.noLeave);
+    const hasFlatPay   = w ? !!w.hasFlatPay : !!(lv.hasFlatPay);
     const typeLabel = isContractor ? (hasFlatPay ? "킵관리" : "인보이스") : "연차";
     const v2 = !w ? 0
       : (w.isContractor && !w.hasFlatPay) ? 0
@@ -3548,12 +3562,13 @@ function FYGrossSummary({ userId, lv, logs, users, isAdmin, getDailyRate, fA }) 
   // 정기 시점 fixedPay 조회
   const fixedPayAt = (ps) => {
     if (!lv) return { net: 0, tax: 0, sup: 0 };
+    if (manualTaxTypeForPeriod(lv, ps) === "ABN") return { net: 0, tax: 0, sup: 0 };  // ABN 기간 — 고정급여 없음
     const hist = (lv.fixedPayHistory || []).slice().sort((a,b) => (b.from||"").localeCompare(a.from||""));
     if (hist.length === 0) {
       return { net: parseFloat(lv.fixedNet)||0, tax: parseFloat(lv.fixedTax)||0, sup: parseFloat(lv.fixedSuper)||0 };
     }
     const entry = hist.find(h => h.from <= ps);
-    if (!entry) return { net: 0, tax: 0, sup: 0 };  // 첫 이력일 이전 기간 — 고정급여 미적용(소급 방지)
+    if (!entry || entry.end) return { net: 0, tax: 0, sup: 0 };  // 첫 이력일 이전 기간·고정급 종료 — 미적용(소급 방지)
     return { net: parseFloat(entry.net)||0, tax: parseFloat(entry.tax)||0, sup: parseFloat(entry.sup)||0 };
   };
 
@@ -3657,10 +3672,11 @@ function computeTaxShortfall(user, lv, logs) {
     return `${ps.getFullYear()}-${String(ps.getMonth()+1).padStart(2,"0")}-${String(ps.getDate()).padStart(2,"0")}`;
   };
   const fixedPayAt = (ps) => {
+    if (manualTaxTypeForPeriod(lv, ps) === "ABN") return { net: 0, tax: 0 };  // ABN 기간 — 고정급여 없음
     const h = (lv.fixedPayHistory || []).slice().sort((a,b)=>(b.from||"").localeCompare(a.from||""));
     if (h.length === 0) return { net: parseFloat(lv.fixedNet)||0, tax: parseFloat(lv.fixedTax)||0 };
     const e = h.find(x => x.from <= ps);
-    if (!e) return { net: 0, tax: 0 };  // 첫 이력일 이전 기간 — 고정급여 미적용(소급 방지)
+    if (!e || e.end) return { net: 0, tax: 0 };  // 첫 이력일 이전 기간·고정급 종료 — 미적용(소급 방지)
     return { net: parseFloat(e.net)||0, tax: parseFloat(e.tax)||0 };
   };
   const curFy = fyKeyFor(today);
@@ -3712,7 +3728,8 @@ function TSSMinCalculator({ userId, lv, users, getDailyRate, fA }) {
   const fixedSum = ((parseFloat((lv||{}).fixedNet)||0) + (parseFloat((lv||{}).fixedTax)||0));
   // 연차적립(정직원)이면 고정급여 없어도 TSS 계산기 표시. 계약자(noLeave)는 flat/fixed pay 있을 때만.
   const hasFixedPay = (fixedSum > 0 || hasHist || !!(lv && lv.hasFlatPay));
-  const eligibleForTss = !isContractor || hasFixedPay;
+  // 현재 정기가 수동 ABN 기간이면 계약자 — TSS 계산기 숨김
+  const eligibleForTss = manualTaxTypeForPeriod(lv, getPeriodStartForDate(today)) !== "ABN" && (!isContractor || hasFixedPay);
 
   // ⚠️ hook 은 early-return 보다 위에 (직원 전환 시 hook 순서 보장)
   const currentDaily = getDailyRate(userId, today) || 0;
