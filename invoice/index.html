@@ -22,7 +22,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-10-27-11';
+const APP_BUILD = '2026-10-27-12';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -3462,56 +3462,18 @@ function buildDetailHTML(inv) {
     ${inv.startDate?`<div style="font-size:11px;color:#9CA3AF;margin-top:4px">🚀 Start: ${fD(inv.startDate)}${inv.dueDate?`  ⏰ Due: ${fD(inv.dueDate)}`:''}</div>`:''}
     ${inv.poNumber?`<div style="font-size:12px;color:#2A8C86;margin-top:4px">PO #${esc(inv.poNumber)}</div>`:''}
     ${inv.note && (inv.note.length > 40 || inv.note.includes('\n'))?`<div style="font-size:12px;color:var(--text-2);margin-top:8px;white-space:pre-wrap">${esc(inv.note)}</div>`:''}
-    ${inv.lineItems && Object.keys(inv.lineItems).length ? (() => {
-      const items = Array.isArray(inv.lineItems) ? inv.lineItems : Object.values(inv.lineItems);
-      if (!items.length) return '';
-      const bt = inv.buildType || 'NEW';
-      let h = `<div style="margin-top:10px;padding-top:8px;border-top:1px dashed var(--border-2)">
-        <div style="font-size:10px;color:var(--text-4);font-weight:700;margin-bottom:6px">📋 작업 항목 <span style="background:${bt==='NEW'?'#DBEAFE':'#FEF3C7'};color:${bt==='NEW'?'#1E40AF':'#92400E'};padding:1px 6px;border-radius:4px;margin-left:4px">${bt}</span></div>`;
-      let prevRoom = null;
-      let materialsHeaderShown = false;
-      let itemNum = 0;
-      items.forEach((it) => {
-        const lineEx = round2((parseFloat(it.qty)||0) * (parseFloat(it.unitPrice)||0));
-        let desc;
-        if (it.isMaterials) {
-          desc = it.desc || '';
-        } else {
-          desc = it.desc || '';
-          if (it.placement && !desc.toLowerCase().startsWith(it.placement.toLowerCase())) {
-            desc = `${it.placement} ${desc}`;
-          }
-        }
-        
-        // Room header (for non-materials) OR Materials header (once, before first materials line)
-        if (it.isMaterials) {
-          if (!materialsHeaderShown) {
-            h += `<div style="font-size:11px;font-weight:700;color:#92400E;margin-top:6px;margin-bottom:2px;padding-left:4px;border-left:2px solid #92400E">📦 Materials</div>`;
-            materialsHeaderShown = true;
-          }
-        } else {
-          const curRoom = it.room || '';
-          if (curRoom && curRoom !== prevRoom) {
-            h += `<div style="font-size:11px;font-weight:700;color:#1F6F6B;margin-top:6px;margin-bottom:2px;padding-left:4px;border-left:2px solid #1F6F6B">🚪 ${esc(curRoom)}</div>`;
-          }
-          prevRoom = curRoom;
-        }
-        itemNum++;
-        
-        const isMat = it.isMaterials;
-        h += `<div style="font-size:12px;color:var(--text-2);padding:4px 0;border-bottom:1px dotted var(--border-2);${isMat?'background:#FFFBEB;padding-left:6px;border-radius:4px;margin:4px 0':''}">
-          <div style="display:flex;justify-content:space-between;gap:8px">
-            <span style="flex:1">${isMat?'•':itemNum+'.'} ${esc(desc)}${it.pct?` <span style="color:#92400E;font-weight:700">(${esc(String(it.pct))}%)</span>`:''}</span>
-            <span style="font-weight:700;white-space:nowrap">${fA(lineEx)} <span style="font-size:9px;color:var(--text-4);font-weight:400">ex</span></span>
-          </div>
-          ${!isMat?`<div style="font-size:10px;color:var(--text-4);margin-left:14px">${it.qty} × $${parseFloat(it.unitPrice).toFixed(2)} ex GST ${it.cat?` · ${esc(it.cat)}`:''}</div>`:''}
-        </div>`;
-      });
-      h += `</div>`;
-      return h;
-    })() : ''}
-    ${!inv.lineItems && inv.type==='PO' && inv.items ? (Array.isArray(inv.items)?inv.items:Object.values(inv.items)).map(it=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;color:#555;margin-top:4px"><span>${esc(it.desc)}</span><span style="font-weight:700">${fA(it.amount)}</span></div>`).join(''):''}
-    ${!inv.lineItems && inv.type==='PROGRESS' && inv.progressItems ? (Array.isArray(inv.progressItems)?inv.progressItems:Object.values(inv.progressItems)).map(it=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;color:#555;gap:8px;margin-top:4px"><span style="flex:1">${esc(it.desc)}${it.pct?` <span style="color:#92400E;font-weight:700">(${esc(String(it.pct))}%)</span>`:''}</span><span style="font-weight:700">${parseFloat(it.amount)>0?fA(it.amount):'—'}</span></div>`).join(''):''}
+    ${(() => {
+      // 작업 항목은 목록 대신 한 줄 — 누르면 인쇄용 미리보기(PDF 모양)로 봄 (폰에서 항목 목록이 보기 어려워서)
+      const _arr = x => x ? (Array.isArray(x) ? x : Object.values(x)) : [];
+      const n = _arr(inv.lineItems).length || (inv.type==='PO' ? _arr(inv.items).length : 0) || (inv.type==='PROGRESS' ? _arr(inv.progressItems).length : 0);
+      if (!n) return '';
+      const bt = inv.lineItems ? (inv.buildType || 'NEW') : '';
+      return `<div onclick="printInvoice('${inv.id}')" style="margin-top:10px;padding:10px 12px;border:1px solid var(--border-2);border-radius:10px;background:var(--card-bg-alt);display:flex;align-items:center;gap:8px;cursor:pointer">
+        <span style="font-size:13px;font-weight:700;color:var(--text-2)">📋 작업 항목 ${n}개</span>
+        ${bt?`<span style="background:${bt==='NEW'?'#DBEAFE':'#FEF3C7'};color:${bt==='NEW'?'#1E40AF':'#92400E'};padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700">${bt}</span>`:''}
+        <span style="margin-left:auto;font-size:12px;font-weight:700;color:var(--km-teal-text)">PDF로 보기 ›</span>
+      </div>`;
+    })()}
     <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
       ${inv.status === 'DRAFT' ? `<button class="btn-primary" style="flex:1;min-width:90px;padding:8px;font-size:12px" onclick="publishDraft('${inv.id}', false)" title="기존 날짜 그대로 발행">🚀 발행</button>
       <button class="btn-primary" style="flex:1.3;min-width:120px;padding:8px;font-size:12px;background:#F59E0B" onclick="publishDraft('${inv.id}', true)" title="오늘 날짜로 변경 후 발행 (만기일도 오늘+14일로 재계산)">📅 오늘날짜로 발행</button>
