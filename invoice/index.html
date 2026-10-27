@@ -22,7 +22,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-10-27-6';
+const APP_BUILD = '2026-10-27-7';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -1845,6 +1845,8 @@ let curBuildType = 'NEW'; // NEW or RENO
 let useLegacyAmount = false; // Use simple amount field instead of line items
 const today = new Date().toISOString().split('T')[0];
 const fA = n => new Intl.NumberFormat('en-AU',{style:'currency',currency:'AUD'}).format(n||0);
+// 요약 카드용: $100,000 이상이면 센트 생략 (폰 3칸 카드에서 잘리지 않게). 정확한 금액은 눌렀을 때 목록에.
+const fAk = n => Math.abs(n||0) >= 100000 ? new Intl.NumberFormat('en-AU',{style:'currency',currency:'AUD',maximumFractionDigits:0}).format(n) : fA(n);
 // 호주식 날짜 (dd/mm/yyyy). 빈 값은 '—'.
 const fD = d => {
   if (!d) return '—';
@@ -2860,7 +2862,7 @@ function updateBar() {
   document.getElementById('bs-mo').innerHTML  = `${fA(mo)}<span class="bstat-ex">${fAex(mo)} ex</span>`;
   const k = document.getElementById('inv-kpis');
   const exp = k ? getExpectedThisMonth() : null;
-  if (k) k.innerHTML = `<div class="click" onclick="openKpiList('out')"><div class="l">미수금 ›</div><div class="v">${fA(out)}</div></div><div class="click" onclick="openKpiList('ov')"><div class="l">연체 ›</div><div class="v red">${fA(ov)}</div></div><div class="click" onclick="openKpiList('mo')"><div class="l">이번달 입금 ›</div><div class="v green">${fA(mo)}</div>${exp.total>0?`<div class="s">+ 예정 ${fA(exp.total)}</div>`:''}</div>`;
+  if (k) k.innerHTML = `<div class="click" onclick="openKpiList('out')"><div class="l">미수금 ›</div><div class="v">${fAk(out)}</div></div><div class="click" onclick="openKpiList('ov')"><div class="l">연체 ›</div><div class="v red">${fAk(ov)}</div></div><div class="click" onclick="openKpiList('mo')"><div class="l">이번달 입금 ›</div><div class="v green">${fAk(mo)}</div>${exp.total>0?`<div class="s">+ 예정 ${fAk(exp.total)}</div>`:''}</div>`;
 }
 
 // 요약 카드 목록: updateBar() 와 같은 조건으로 골라서 합계가 카드 숫자와 똑같이 맞게 함.
@@ -10005,8 +10007,8 @@ function renderStats() {
     ].map(([l,v,c,filter,search,kpi])=>`
       <div class="click" onclick="${kpi?`openKpiList('${kpi}')`:`curFilter='${filter}';searchQ='${search}';invLimit=INV_PAGE;showTab('invoices');renderInv()`}" title="${l} 인보이스 보기">
         <div class="l">${l}</div>
-        <div class="v ${c}">${fA(v)}</div>
-        <div class="s">${fAex(v)} ex</div>
+        <div class="v ${c}">${fAk(v)}</div>
+        <div class="s">${fAk(exGST(v))} ex</div>
       </div>`).join('')}
     <div class="click" onclick="curFilter='DRAFT';searchQ='';invLimit=INV_PAGE;showTab('invoices');renderInv()" title="DRAFT 인보이스 보기">
       <div class="l">임시저장</div>
