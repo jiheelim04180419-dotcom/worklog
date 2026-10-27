@@ -22,7 +22,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-10-27-16';
+const APP_BUILD = '2026-10-27-17';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -922,9 +922,10 @@ body[data-active-tab="invoices"] .content,body:not([data-active-tab]) .content{p
 .irow-actions{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
 .irow-actions button{border:1px solid var(--border);background:var(--card-bg);color:var(--text);border-radius:8px;padding:5px 10px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer}
 /* 펼친 인보이스 하단 작은 버튼 줄 */
-.irow-mini{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}
+.irow-mini{display:flex;align-items:flex-start;margin-top:8px}
+.irow-mini .grp{display:flex;gap:5px;flex-wrap:wrap;flex:1;min-width:0}
 .irow-mini button{border:1px solid var(--border);background:var(--card-bg);color:var(--text-2);border-radius:7px;padding:5px 9px;font-size:11.5px;font-weight:600;font-family:inherit;cursor:pointer;white-space:nowrap}
-.irow-mini button.del{color:#DC2626;border-color:#FECACA;background:#FEF2F2}
+.irow-mini button.del{color:#DC2626;border-color:#FECACA;background:#FEF2F2;margin-left:18px;flex-shrink:0}   /* 실수로 누르지 않게 수정 버튼과 떨어뜨림 */
 .irow-actions button.pay{background:var(--km-teal);border-color:var(--km-teal);color:#fff}
 .btn-gold{background:var(--km-teal)}
 .fbtn.active{background:var(--text)!important;color:var(--card-bg)!important;border-color:var(--text)!important}
@@ -1487,15 +1488,13 @@ body[data-active-tab="invoices"] .content,body:not([data-active-tab]) .content{p
 <!-- Print Modal: shows printable invoice -->
 <div class="modal" id="print-modal">
 <div class="mbox" style="max-width:900px;background:#fff;color:#111827">
-  <div class="no-print" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;border-bottom:1px solid #E5E7EB;padding-bottom:12px">
-    <h3 style="font-size:16px;font-weight:800">인쇄용 인보이스 <span class="app-build-label" style="font-size:10px;font-weight:600;color:#9CA3AF;margin-left:4px" title="현재 앱 빌드 버전 (최신과 다르면 🔄 로 갱신)"></span></h3>
-    <div style="display:flex;gap:8px;align-items:center">
-      <button onclick="_forceUpdate()" title="최신 버전 강제로 받기 (캐시 무시하고 새로고침)" style="background:#F3F4F6;color:#374151;border:1px solid #E5E7EB;border-radius:8px;padding:7px 11px;font-size:14px;cursor:pointer">🔄</button>
-      <button class="btn-primary" style="background:#1F6F6B" onclick="downloadInvoicePDF(this)" title="URL·날짜·페이지번호 없는 깨끗한 PDF 파일로 저장 (모바일은 공유시트로 저장/첨부)">📄 PDF 저장</button>
-      <button id="pkg-pdf-btn" class="btn-primary" style="display:none;background:#0891B2" onclick="downloadPackagePDF(this)" title="인보이스 + Subcontractor Statement + Work Comp 를 한 PDF로 병합 다운로드">📦 패키지 PDF</button>
-      <button class="btn-primary" style="background:#10B981" onclick="doPrint()">🖨️ 인쇄</button>
-      <button onclick="closePrint()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#9CA3AF">×</button>
-    </div>
+  <div class="no-print" style="display:flex;align-items:center;gap:6px;margin-bottom:12px;border-bottom:1px solid #E5E7EB;padding-bottom:10px">
+    <h3 style="font-size:15px;font-weight:800;margin-right:auto;white-space:nowrap">미리보기 <span class="app-build-label" style="font-size:10px;font-weight:600;color:#9CA3AF;margin-left:2px" title="현재 앱 빌드 버전 (최신과 다르면 🔄 로 갱신)"></span></h3>
+    <button onclick="_forceUpdate()" title="최신 버전 강제로 받기 (캐시 무시하고 새로고침)" style="background:#F3F4F6;color:#374151;border:1px solid #E5E7EB;border-radius:7px;padding:5px 7px;font-size:12px;cursor:pointer">🔄</button>
+    <button onclick="downloadInvoicePDF(this)" title="URL·날짜·페이지번호 없는 깨끗한 PDF 파일로 저장 (모바일은 공유시트로 저장/첨부)" style="background:#1F6F6B;color:#fff;border:0;border-radius:7px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">📄 PDF</button>
+    <button id="pkg-pdf-btn" onclick="downloadPackagePDF(this)" title="인보이스 + Subcontractor Statement + Work Comp 를 한 PDF로 병합 다운로드" style="display:none;background:#0891B2;color:#fff;border:0;border-radius:7px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">📦 패키지</button>
+    <button onclick="doPrint()" style="background:#10B981;color:#fff;border:0;border-radius:7px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">🖨️ 인쇄</button>
+    <button onclick="closePrint()" aria-label="닫기" style="margin-left:14px;width:38px;height:38px;flex-shrink:0;border-radius:50%;background:#F3F4F6;border:1px solid #E5E7EB;font-size:20px;line-height:1;cursor:pointer;color:#374151">✕</button>
   </div>
   <div id="print-scroll"><div id="print-area"></div></div>
 </div>
@@ -3454,7 +3453,7 @@ function buildDetailHTML(inv) {
         ${n?`<span style="margin-left:auto;font-size:11.5px;font-weight:600;opacity:.85">작업 항목 ${n}개 ›</span>`:'<span style="margin-left:auto;font-size:13px;font-weight:700">›</span>'}
       </button>`;
     })()}
-    <div class="irow-mini">
+    <div class="irow-mini"><div class="grp">
       ${inv.status === 'DRAFT' ? `<button onclick="publishDraft('${inv.id}', false)" title="기존 날짜 그대로 발행">🚀 발행</button>
       <button onclick="publishDraft('${inv.id}', true)" title="오늘 날짜로 변경 후 발행 (만기일도 오늘+14일로 재계산)">📅 오늘날짜로 발행</button>
       <button onclick="publishDraft('${inv.id}', true, true)" title="오늘 날짜로 발행 + 이메일 모달 열기">📧 발행+이메일</button>` : ''}
@@ -3467,6 +3466,7 @@ function buildDetailHTML(inv) {
       })()}
       <button onclick="openIM('${inv.id}')">✏️ 수정</button>
       ${inv.status === 'INVOICE' ? `<button onclick="revertToDraft('${inv.id}')" title="실수로 발행했을 때 DRAFT로 복구">↩️ Draft로</button>` : ''}
+      </div>
       <button class="del" onclick="delInv('${inv.id}')" aria-label="삭제">🗑</button>
     </div>
     <!-- 상태 수동 변경 (탭 이동) -->
