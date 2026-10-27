@@ -22,7 +22,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-10-27-4';
+const APP_BUILD = '2026-10-27-5';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -3003,7 +3003,6 @@ function setupInvTab() {
   document.getElementById('tab-invoices').innerHTML = `
     <div class="kpis" id="inv-kpis"></div>
     <div id="uninvoiced-alert"></div>
-    <div id="unpaid-month-alert"></div>
     <div class="search-row">
       <button id="search-scope-btn" onclick="toggleSearchScope()" title="ON: 전체 인보이스에서 검색 / OFF: 현재 탭에서만 검색" style="padding:10px 14px;border:1.5px solid;border-radius:10px;font-weight:700;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0">🌐 전체</button>
       <input class="input" id="inv-search" aria-label="인보이스 검색" placeholder="🔍 빌더 / 주소 / 번호 / 메모  (단축키: /)"/>
@@ -3076,16 +3075,7 @@ async function dismissUninvoiced(id) {
   renderUninvoicedAlert();
 }
 
-// ── 인보이스 낸 지(invoiceDate) 한 달 지났는데 아직 다 안 받은 것 (invoices 로 바로 계산) ──
-let _unpaidMonthOpen = false;
-function _addOneMonth(iso) {
-  const [y,m,d] = iso.split('-').map(Number);
-  const last = new Date(y, m+1, 0).getDate();          // 다음 달 말일 (1/31 → 2/28)
-  const nm = m === 12 ? 1 : m+1, ny = m === 12 ? y+1 : y;
-  return `${ny}-${String(nm).padStart(2,'0')}-${String(Math.min(d,last)).padStart(2,'0')}`;
-}
-// 빌더별 평소 입금 일수(중앙값, 기록 3건 이상) — Renascent·Hines 처럼 원래 늦게 주는 곳은
-// 한 달 대신 "평소 + 14일" 지나야 알림.
+// 빌더별 평소 입금 일수(중앙값, 기록 3건 이상) — 입금 조건 없는 빌더의 입금 예정일 추정에 씀.
 function _builderUsualPayDays() {
   const by = {};
   invoices.forEach(i => {
@@ -3165,57 +3155,6 @@ function getExpectedThisMonth() {
   rows.sort((a,b) => a.date.localeCompare(b.date) || (a.inv.builderName||'').localeCompare(b.inv.builderName||''));
   return {rows, unknown, total: rows.reduce((s,r)=>s+r.amt,0)};
 }
-function getUnpaidMonthInvoices() {
-  const usual = _builderUsualPayDays();
-  const bByName = {}; builders.forEach(b => { bByName[b.name] = b; });
-  const now = new Date(); now.setHours(0,0,0,0);
-  const todayIso = now.toLocaleDateString('en-CA');
-  return invoices.filter(inv => {
-    if (!inv || !inv.invoiceDate) return false;
-    if (!['INVOICE','ONGOING','OVERDUE'].includes(inv.status)) return false;
-    if (isRetentionHeld(inv)) return false;
-    if (Math.round(remaining(inv)*100)/100 <= 0.01) return false;
-    if (_addOneMonth(inv.invoiceDate) > todayIso) return false;
-    const due = contractDueDate(inv, bByName[inv.builderName]);
-    if (due) { due.setDate(due.getDate()+7); return now > due; }   // 계약 기한 + 7일 여유
-    const u = usual[inv.builderName];
-    if (u == null) return true;
-    const days = Math.floor((now - new Date(inv.invoiceDate+'T00:00:00')) / 86400000);
-    return days > u + 14;
-  }).sort((a,b) => (a.invoiceDate||'').localeCompare(b.invoiceDate||'')
-    || (a.invoiceNum||'').localeCompare(b.invoiceNum||'', undefined, {numeric:true}));  // 발행일 오래된 순, 같은 날은 번호순
-}
-function renderUnpaidMonthAlert() {
-  const el = document.getElementById('unpaid-month-alert');
-  if (!el) return;
-  const items = getUnpaidMonthInvoices();
-  if (!items.length) { el.innerHTML = ''; return; }
-  const total = items.reduce((s,i) => s + remaining(i), 0);
-  const now = new Date(); now.setHours(0,0,0,0);
-  const row = inv => {
-    const days = Math.floor((now - new Date(inv.invoiceDate+'T00:00:00')) / 86400000);
-    const due = contractDueDate(inv, builders.find(b => b.name === inv.builderName));
-    const dueTxt = due ? ` · 기한 ${isoToAu(due.toLocaleDateString('en-CA'))}` : '';
-    return `<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-bottom:1px solid var(--border-3);font-size:12px">
-      <span style="width:7px;height:7px;border-radius:50%;background:#C2410C;flex-shrink:0"></span>
-      <div style="flex:1;min-width:0">
-        <div style="font-weight:700;color:var(--text-1)">${esc(inv.invoiceNum||'')} <span style="font-weight:500;color:var(--text-4)">· ${esc(inv.builderName||'')}</span></div>
-        <div style="font-size:10.5px;color:var(--text-4)">${esc(inv.address||inv.projectName||'')} · 발행 ${isoToAu(inv.invoiceDate)} · <span style="color:#C2410C;font-weight:600">${days}일 경과</span>${dueTxt}</div>
-      </div>
-      <b style="font-size:12px;color:#C2410C;white-space:nowrap">${fA(remaining(inv))}</b>
-    </div>`;
-  };
-  el.innerHTML = `<div class="km-alert a">
-    <div class="km-alert-h" onclick="_unpaidMonthOpen=!_unpaidMonthOpen;renderUnpaidMonthAlert()">
-      <span class="n">${items.length}</span>
-      <span class="t">발행 한 달 지난 미입금</span>
-      <span class="amt">${fA(total)}</span>
-      <span class="chev">${_unpaidMonthOpen?'▲':'▼'}</span>
-    </div>
-    ${_unpaidMonthOpen?`<div style="background:var(--card-bg)">${items.map(row).join('')}</div>`:''}
-  </div>`;
-}
-
 function toggleSearchScope() {
   searchScope = searchScope === 'all' ? 'tab' : 'all';
   updateSearchScopeBtn();
@@ -3241,7 +3180,6 @@ function updateSearchScopeBtn() {
 // ── Invoice List ──────────────────────────────────────────────────────────────
 function renderInv() {
   setupInvTab();
-  renderUnpaidMonthAlert();
   const sts = ['INVOICE','ONGOING','DRAFT','OVERDUE','PAID','RETENTION','CREDIT','SUSPEND','NO_PAYMENT','ALL'];
 
   // Pretty labels
