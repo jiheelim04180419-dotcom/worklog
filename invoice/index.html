@@ -22,7 +22,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-10-27-15';
+const APP_BUILD = '2026-10-27-16';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -920,7 +920,11 @@ body[data-active-tab="invoices"] .content,body:not([data-active-tab]) .content{p
 .spill.RETENTION{background:#E3EFEC;color:#185A57;border-color:transparent}
 .spill.DRAFT{border-style:dashed}
 .irow-actions{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
-.irow-actions button{border:1px solid var(--border);background:var(--card-bg);color:var(--text);border-radius:8px;padding:7px 12px;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer}
+.irow-actions button{border:1px solid var(--border);background:var(--card-bg);color:var(--text);border-radius:8px;padding:5px 10px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer}
+/* 펼친 인보이스 하단 작은 버튼 줄 */
+.irow-mini{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}
+.irow-mini button{border:1px solid var(--border);background:var(--card-bg);color:var(--text-2);border-radius:7px;padding:5px 9px;font-size:11.5px;font-weight:600;font-family:inherit;cursor:pointer;white-space:nowrap}
+.irow-mini button.del{color:#DC2626;border-color:#FECACA;background:#FEF2F2}
 .irow-actions button.pay{background:var(--km-teal);border-color:var(--km-teal);color:#fff}
 .btn-gold{background:var(--km-teal)}
 .fbtn.active{background:var(--text)!important;color:var(--card-bg)!important;border-color:var(--text)!important}
@@ -3442,32 +3446,28 @@ function buildDetailHTML(inv) {
     ${inv.poNumber?`<div style="font-size:12px;color:#2A8C86;margin-top:4px">PO #${esc(inv.poNumber)}</div>`:''}
     ${inv.note && (inv.note.length > 40 || inv.note.includes('\n'))?`<div style="font-size:12px;color:var(--text-2);margin-top:8px;white-space:pre-wrap">${esc(inv.note)}</div>`:''}
     ${(() => {
-      // 작업 항목은 목록 대신 한 줄 — 누르면 인쇄용 미리보기(PDF 모양)로 봄 (폰에서 항목 목록이 보기 어려워서)
+      // 📄 PDF로 보기 = 이 인보이스의 주 버튼 (작업 항목은 PDF 에서 봄). 인쇄/PDF 저장은 미리보기 안에서.
       const _arr = x => x ? (Array.isArray(x) ? x : Object.values(x)) : [];
       const n = _arr(inv.lineItems).length || (inv.type==='PO' ? _arr(inv.items).length : 0) || (inv.type==='PROGRESS' ? _arr(inv.progressItems).length : 0);
-      if (!n) return '';
-      const bt = inv.lineItems ? (inv.buildType || 'NEW') : '';
-      return `<div onclick="printInvoice('${inv.id}')" style="margin-top:10px;padding:10px 12px;border:1px solid var(--border-2);border-radius:10px;background:var(--card-bg-alt);display:flex;align-items:center;gap:8px;cursor:pointer">
-        <span style="font-size:13px;font-weight:700;color:var(--text-2)">📋 작업 항목 ${n}개</span>
-        ${bt?`<span style="background:${bt==='NEW'?'#DBEAFE':'#FEF3C7'};color:${bt==='NEW'?'#1E40AF':'#92400E'};padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700">${bt}</span>`:''}
-        <span style="margin-left:auto;font-size:12px;font-weight:700;color:var(--km-teal-text)">PDF로 보기 ›</span>
-      </div>`;
+      return `<button onclick="printInvoice('${inv.id}')" style="margin-top:4px;width:100%;padding:12px 14px;border:0;border-radius:10px;background:var(--km-teal);color:#fff;display:flex;align-items:center;gap:8px;cursor:pointer;font-family:inherit">
+        <span style="font-size:15px;font-weight:800">📄 PDF로 보기</span>
+        ${n?`<span style="margin-left:auto;font-size:11.5px;font-weight:600;opacity:.85">작업 항목 ${n}개 ›</span>`:'<span style="margin-left:auto;font-size:13px;font-weight:700">›</span>'}
+      </button>`;
     })()}
-    <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
-      ${inv.status === 'DRAFT' ? `<button class="btn-primary" style="flex:1;min-width:90px;padding:8px;font-size:12px" onclick="publishDraft('${inv.id}', false)" title="기존 날짜 그대로 발행">🚀 발행</button>
-      <button class="btn-primary" style="flex:1.3;min-width:120px;padding:8px;font-size:12px;background:#F59E0B" onclick="publishDraft('${inv.id}', true)" title="오늘 날짜로 변경 후 발행 (만기일도 오늘+14일로 재계산)">📅 오늘날짜로 발행</button>
-      <button class="btn-primary" style="flex:1.3;min-width:130px;padding:8px;font-size:12px;background:#2A8C86" onclick="publishDraft('${inv.id}', true, true)" title="오늘 날짜로 발행 + 이메일 모달 열기">📧 발행+이메일</button>` : ''}
-      ${inv.status === 'INVOICE' ? `<button style="flex:1;min-width:100px;padding:8px;font-size:11px;background:#FEF3C7;color:#92400E;border:1px solid #FDE68A;border-radius:9px;cursor:pointer" onclick="revertToDraft('${inv.id}')" title="실수로 발행했을 때 DRAFT로 복구">↩️ Draft로 되돌리기</button>` : ''}
-      ${inv.status && inv.status !== 'DRAFT' ? `<button class="btn-primary" style="flex:1;min-width:100px;padding:8px;font-size:12px;background:var(--km-teal);box-shadow:none" onclick="composeEmailById('${inv.id}')" title="이메일 발송/재발송">📧 이메일</button>` : ''}
-      <button class="btn-primary" style="flex:1;min-width:90px;padding:8px;font-size:12px;background:var(--header-bg);box-shadow:none" onclick="printInvoice('${inv.id}')" title="인쇄용 인보이스 생성">🖨️ 인쇄 / PDF</button>
+    <div class="irow-mini">
+      ${inv.status === 'DRAFT' ? `<button onclick="publishDraft('${inv.id}', false)" title="기존 날짜 그대로 발행">🚀 발행</button>
+      <button onclick="publishDraft('${inv.id}', true)" title="오늘 날짜로 변경 후 발행 (만기일도 오늘+14일로 재계산)">📅 오늘날짜로 발행</button>
+      <button onclick="publishDraft('${inv.id}', true, true)" title="오늘 날짜로 발행 + 이메일 모달 열기">📧 발행+이메일</button>` : ''}
+      ${inv.status && inv.status !== 'DRAFT' ? `<button onclick="composeEmailById('${inv.id}')" title="이메일 발송/재발송">📧 이메일</button>` : ''}
       ${(() => {
         const _b = builders.find(x => x.name === inv.builderName);
         return _b && (_b.needsStatement || _b.statementTemplate)
-          ? `<button class="btn-secondary" style="flex:1;min-width:120px;padding:8px;font-size:12px;background:#FFFBEB;color:#92400E;border-color:#FDE68A" onclick="openSubcontractorStatement('${inv.id}')" title="Subcontractor Statement PDF 생성">📄 Statement</button>`
+          ? `<button onclick="openSubcontractorStatement('${inv.id}')" title="Subcontractor Statement PDF 생성">📄 Statement</button>`
           : '';
       })()}
-      <button class="btn-secondary" style="flex:1;min-width:70px;padding:8px;font-size:12px" onclick="openIM('${inv.id}')">✏️ 수정</button>
-      <button style="background:#FEF2F2;color:#DC2626;border:1px solid #FECACA;border-radius:9px;padding:8px 14px;font-size:12px;cursor:pointer" onclick="delInv('${inv.id}')" aria-label="삭제">🗑</button>
+      <button onclick="openIM('${inv.id}')">✏️ 수정</button>
+      ${inv.status === 'INVOICE' ? `<button onclick="revertToDraft('${inv.id}')" title="실수로 발행했을 때 DRAFT로 복구">↩️ Draft로</button>` : ''}
+      <button class="del" onclick="delInv('${inv.id}')" aria-label="삭제">🗑</button>
     </div>
     <!-- 상태 수동 변경 (탭 이동) -->
     <div style="margin-top:8px;padding:8px 10px;background:#F9FAFB;border:1px dashed var(--border-2);border-radius:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
