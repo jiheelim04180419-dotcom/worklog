@@ -22,7 +22,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-10-27-12';
+const APP_BUILD = '2026-10-27-13';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -480,6 +480,9 @@ body.invoice-readonly::before {
   }
   #print-area {
     transform: none !important; margin: 0 !important;   /* 화면용 폭 맞춤 축소는 인쇄에 적용 안 함 */
+  }
+  #print-scroll {
+    overflow: visible !important;
     width: 100% !important;
     max-width: 100% !important;
     overflow: hidden !important;
@@ -680,10 +683,10 @@ body.invoice-readonly::before {
   #print-modal .mbox {
     padding: 12px 8px !important;
   }
-  #print-area {
-    overflow-x: auto;
-    overflow-y: visible;
+  #print-scroll {
+    overflow: auto;
     -webkit-overflow-scrolling: touch;
+    touch-action: pan-x pan-y;   /* 두 손가락 확대는 아래 JS 가 처리 (페이지 전체 확대 대신 인보이스만) */
   }
   #print-area .print-invoice {
     min-width: 760px;  /* keep desktop layout, scrollable */
@@ -1487,11 +1490,10 @@ body[data-active-tab="invoices"] .content,body:not([data-active-tab]) .content{p
       <button class="btn-primary" style="background:#1F6F6B" onclick="downloadInvoicePDF(this)" title="URL·날짜·페이지번호 없는 깨끗한 PDF 파일로 저장 (모바일은 공유시트로 저장/첨부)">📄 PDF 저장</button>
       <button id="pkg-pdf-btn" class="btn-primary" style="display:none;background:#0891B2" onclick="downloadPackagePDF(this)" title="인보이스 + Subcontractor Statement + Work Comp 를 한 PDF로 병합 다운로드">📦 패키지 PDF</button>
       <button class="btn-primary" style="background:#10B981" onclick="doPrint()">🖨️ 인쇄</button>
-      <button id="pv-fit-btn" onclick="_pvFit=!_pvFit;fitPrintPreview()" title="화면에 맞춤 / 실제 크기" style="display:none;background:#F3F4F6;color:#374151;border:1px solid #E5E7EB;border-radius:8px;padding:7px 8px;font-size:13px;cursor:pointer;white-space:nowrap">🔍</button>
       <button onclick="closePrint()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#9CA3AF">×</button>
     </div>
   </div>
-  <div id="print-area"></div>
+  <div id="print-scroll"><div id="print-area"></div></div>
 </div>
 </div>
 
@@ -7025,34 +7027,66 @@ function previewInv() {
 
 
 // ── Print Invoice (router: K&M template vs BXBT template) ────────────────────
-// 폰에서 미리보기: A4 페이지 전체가 화면 폭에 맞게 축소 (손가락으로 벌려 확대). 🔍 로 실제 크기/맞춤 전환.
+// 폰에서 미리보기: A4 페이지 전체가 화면 폭에 맞게 축소되고, 두 손가락으로 벌리고 오므려 확대·축소 (맞춤 ~ 3배).
 // transform 은 #print-area 컨테이너에만 걸어서 PDF 저장(innerHTML 복사)·인쇄에는 영향 없음.
 // (CSS zoom 은 iPhone 에서 1px 표 선이 0.5px 로 줄어 사라져서 transform:scale 로 — 선은 1px 그대로 그린 뒤 축소)
-let _pvFit = true;
-function fitPrintPreview() {
+// 레이아웃 크기는 margin 으로 보정해서 #print-scroll 이 확대된 크기만큼 스크롤됨.
+let _pvK = 1, _pvFitK = 1;
+function _pvApply(k) {
   const area = document.getElementById('print-area');
-  const btn = document.getElementById('pv-fit-btn');
-  if (!area) return;
-  area.style.transform = area.style.transformOrigin = area.style.width = area.style.marginBottom = '';
-  const mobile = window.innerWidth <= 768;
-  if (btn) btn.style.display = mobile ? '' : 'none';
-  const page = area.firstElementChild;
-  if (!mobile || !page) return;
-  if (btn) btn.textContent = _pvFit ? '🔍+' : '🔍−';
-  if (!_pvFit) return;
-  const avail = area.clientWidth, w = page.scrollWidth;
-  if (w <= avail + 2) return;
-  const k = Math.floor(avail / w * 1000) / 1000;
+  const page = area && area.firstElementChild;
+  if (!page) return;
+  const w = page.scrollWidth;
   area.style.width = w + 'px';
   area.style.transformOrigin = 'top left';
   area.style.transform = `scale(${k})`;
-  area.style.marginBottom = `-${Math.round(area.offsetHeight * (1 - k))}px`;   // 축소된 만큼 아래 빈 공간 제거
+  area.style.marginBottom = area.style.marginRight = '0px';
+  const h = area.offsetHeight;
+  area.style.marginRight = Math.round(w * k - w) + 'px';
+  area.style.marginBottom = Math.round(h * k - h) + 'px';
+  _pvK = k;
+}
+function fitPrintPreview() {
+  const area = document.getElementById('print-area');
+  const sc = document.getElementById('print-scroll');
+  if (!area || !sc) return;
+  area.style.transform = area.style.transformOrigin = area.style.width = area.style.marginBottom = area.style.marginRight = '';
+  const page = area.firstElementChild;
+  if (window.innerWidth > 768 || !page) return;
+  const w = page.scrollWidth, avail = sc.clientWidth;
+  _pvFitK = w > avail + 2 ? Math.floor(avail / w * 1000) / 1000 : 1;
+  _pvApply(_pvFitK);
+  sc.scrollLeft = 0;
 }
 function _initPvFit() {
   const area = document.getElementById('print-area');
+  const sc = document.getElementById('print-scroll');
   // 내용이 바뀐 뒤 모달이 열리고 레이아웃이 잡힌 다음 프레임에 맞춤
-  if (area) new MutationObserver(() => { _pvFit = true; requestAnimationFrame(fitPrintPreview); }).observe(area, {childList: true});
+  if (area) new MutationObserver(() => requestAnimationFrame(fitPrintPreview)).observe(area, {childList: true});
   window.addEventListener('resize', () => { if (document.getElementById('print-modal').classList.contains('open')) fitPrintPreview(); });
+  if (!sc) return;
+  let d0 = 0, k0 = 1;
+  const dist = t => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+  sc.addEventListener('touchstart', e => { if (e.touches.length === 2) { d0 = dist(e.touches); k0 = _pvK; } }, {passive: true});
+  sc.addEventListener('touchmove', e => {
+    if (e.touches.length !== 2 || !d0) return;
+    e.preventDefault();
+    const k = Math.min(3, Math.max(_pvFitK, k0 * dist(e.touches) / d0));
+    // 두 손가락 가운데 지점이 그대로 있도록 스크롤 보정
+    const r = sc.getBoundingClientRect();
+    const mx = (e.touches[0].clientX + e.touches[1].clientX) / 2 - r.left;
+    const my = (e.touches[0].clientY + e.touches[1].clientY) / 2 - r.top;   // 인보이스 영역 기준
+    const px = (sc.scrollLeft + mx) / _pvK;
+    // 세로 스크롤은 .mbox 가 담당
+    const box = sc.closest('.mbox');
+    const ay = box ? r.top - box.getBoundingClientRect().top + box.scrollTop : 0;   // box 안에서 인보이스 시작 위치
+    const myb = box ? my + r.top - box.getBoundingClientRect().top : 0;
+    const py = box ? (box.scrollTop + myb - ay) / _pvK : 0;
+    _pvApply(k);
+    sc.scrollLeft = px * k - mx;
+    if (box) box.scrollTop = ay + py * k - myb;
+  }, {passive: false});
+  sc.addEventListener('touchend', e => { if (e.touches.length < 2) d0 = 0; }, {passive: true});
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _initPvFit); else _initPvFit();
 function closePrint() {
