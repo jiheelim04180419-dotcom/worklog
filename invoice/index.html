@@ -22,7 +22,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-10-27-5';
+const APP_BUILD = '2026-10-27-6';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -2864,15 +2864,19 @@ function updateBar() {
 }
 
 // 요약 카드 목록: updateBar() 와 같은 조건으로 골라서 합계가 카드 숫자와 똑같이 맞게 함.
+// 호주 회계연도 시작일 (7월 1일)
+function fyStart() { const y = parseInt(today.slice(0,4)), m = parseInt(today.slice(5,7)); return `${m >= 7 ? y : y-1}-07-01`; }
 // 이번달 입금(mo): tab='in' 들어온 입금 / 'exp' 입금 예정 — 탭으로 나눠 한 번에 하나만 보여줌
 function openKpiList(kind, tab) {
   tab = tab || 'in';
   const ym = today.slice(0,7);
   let title, rows = [];
-  if (kind === 'mo') {
-    title = '이번달 입금';
-    invoices.forEach(i => getPayments(i).forEach(p => {
-      if ((p.date||'').startsWith(ym)) rows.push({inv:i, amt:parseFloat(p.amount)||0, date:p.date, note:p.note||''});
+  if (kind === 'mo' || kind === 'fy') {
+    const fyS = fyStart();
+    title = kind === 'fy' ? `FY${String(parseInt(fyS.slice(0,4))+1).slice(2)} 입금 (${fD(fyS)}~)` : '이번달 입금';
+    invoices.forEach(i => (kind !== 'fy' || i.status !== 'DRAFT') && getPayments(i).forEach(p => {
+      const d = p.date || '';
+      if (kind === 'fy' ? (d >= fyS && d <= today) : d.startsWith(ym)) rows.push({inv:i, amt:parseFloat(p.amount)||0, date:p.date, note:p.note||''});
     }));
     rows.sort((a,b) => (b.date||'').localeCompare(a.date||''));
   } else if (kind === 'ov') {
@@ -2918,7 +2922,7 @@ function openKpiList(kind, tab) {
   const list = rows.map(r => {
     const i = r.inv;
     let right = '';
-    if (kind === 'mo') return row(i, r.amt, `${fD(r.date)} 입금`, false, '', 'var(--km-green)');
+    if (kind === 'mo' || kind === 'fy') return row(i, r.amt, `${fD(r.date)} 입금`, false, '', 'var(--km-green)');
     else if (kind === 'ov') right = `${fmtAging(r.days)} 연체`;
     else right = isOverdue(i) ? `${fmtAging(getDaysPastDue(i))} 연체` : (i.status === 'ONGOING' ? '진행중' : `발행 ${fD(i.invoiceDate)}`);
     return row(i, r.amt, right, kind==='ov' || (kind==='out' && isOverdue(i)));
@@ -9923,7 +9927,9 @@ function renderStats() {
   const out = invoices.filter(i => i.status==='INVOICE' || i.status==='ONGOING').reduce((s,i)=>s+Math.max(0,remaining(i)),0);
   const ov = invoices.filter(isOverdue).reduce((s,i)=>s+Math.max(0,remaining(i)),0);
   const ret = invoices.filter(i=>i.status==='RETENTION').reduce((s,i)=>s+Math.max(0,remaining(i)),0);
-  const pd = invoices.filter(i=>i.status!=='DRAFT').reduce((s,i)=>s+totalPaid(i),0);
+  // 이번 회계연도(7/1~) 입금 합계 — 입금일 기준
+  const fyS = fyStart();
+  const pd = invoices.filter(i=>i.status!=='DRAFT').reduce((s,i)=>s+getPayments(i).filter(p=>(p.date||'')>=fyS && (p.date||'')<=today).reduce((a,p)=>a+(parseFloat(p.amount)||0),0),0);
   // 이번달 = 이번 달에 들어온 입금 합계 (청구 날짜 X)
   const _curMoStr = today.slice(0,7);
   let mo = 0;
@@ -9994,7 +10000,7 @@ function renderStats() {
       ['미수금', out, '', 'INVOICE', '', 'out'],
       ['연체', ov, 'red', 'OVERDUE', '', 'ov'],
       ['보류금', ret, 'amber', 'RETENTION', ''],
-      ['총입금', pd, '', 'PAID', ''],
+      [`FY${String(parseInt(fyS.slice(0,4))+1).slice(2)} 입금`, pd, '', 'PAID', '', 'fy'],
       ['이번달 입금', mo, 'green', 'ALL', today.slice(0,7), 'mo'],
     ].map(([l,v,c,filter,search,kpi])=>`
       <div class="click" onclick="${kpi?`openKpiList('${kpi}')`:`curFilter='${filter}';searchQ='${search}';invLimit=INV_PAGE;showTab('invoices');renderInv()`}" title="${l} 인보이스 보기">
