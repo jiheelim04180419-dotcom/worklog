@@ -22,7 +22,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-10-27-17';
+const APP_BUILD = '2026-10-27-18';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -244,6 +244,8 @@ body[data-theme="dark"] .icard.age-6 { background: var(--card-bg) }
 .fbtn{padding:6px 12px;border-radius:20px;border:none;cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap;background:var(--card-bg);color:var(--text-3);box-shadow:0 1px 4px var(--shadow);font-family:inherit}
 .fbtn.active{background:var(--accent);color:#fff}
 .mbox{background:var(--card-bg);border-radius:20px 20px 0 0;width:100%;max-width:600px;max-height:92vh;overflow-y:auto;padding:22px 20px;box-shadow:0 -4px 30px var(--shadow-strong);color:var(--text)}
+.mhead{position:sticky;top:-22px;z-index:20;background:inherit;margin:-22px -20px 14px!important;padding:14px 20px 10px!important;border-bottom:1px solid var(--border)}
+.mhead button[onclick^="close"]{width:38px;height:38px;border-radius:50%;background:#F3F4F6!important;font-size:20px!important;line-height:1}
 .search-row{display:flex;gap:8px;margin-bottom:10px}
 .search-row input{flex:1}
 .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
@@ -1010,7 +1012,7 @@ body[data-active-tab="invoices"] .content,body:not([data-active-tab]) .content{p
 <!-- Invoice Modal -->
 <div class="modal" id="inv-modal">
 <div class="mbox">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+  <div class="mhead" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
     <h3 id="im-title" style="font-size:16px;font-weight:800;color:var(--text)">새 인보이스</h3>
     <button onclick="closeIM()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#9CA3AF">×</button>
   </div>
@@ -1405,7 +1407,7 @@ body[data-active-tab="invoices"] .content,body:not([data-active-tab]) .content{p
 <!-- Builder Modal -->
 <div class="modal" id="b-modal">
 <div class="mbox">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+  <div class="mhead" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
     <h3 id="bm-title" style="font-size:16px;font-weight:800;color:#111827">새 빌더</h3>
     <button onclick="closeBM()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#9CA3AF">×</button>
   </div>
@@ -1468,7 +1470,7 @@ body[data-active-tab="invoices"] .content,body:not([data-active-tab]) .content{p
 <!-- Settings Modal (Companies) -->
 <div class="modal" id="s-modal">
 <div class="mbox">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+  <div class="mhead" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
     <h3 style="font-size:16px;font-weight:800;color:#111827">회사 설정</h3>
     <button onclick="closeSet()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#9CA3AF">×</button>
   </div>
@@ -1506,7 +1508,7 @@ body[data-active-tab="invoices"] .content,body:not([data-active-tab]) .content{p
 <!-- 일괄 입금 등록 모달 -->
 <div class="modal" id="bulkpay-modal">
 <div class="mbox" style="max-width:680px;background:#fff;color:#111827">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;border-bottom:1px solid #E5E7EB;padding-bottom:12px">
+  <div class="mhead" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;border-bottom:1px solid #E5E7EB;padding-bottom:12px">
     <h3 style="font-size:16px;font-weight:800">일괄 입금 등록</h3>
     <button onclick="closeBulkPay()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#9CA3AF">×</button>
   </div>
@@ -1548,7 +1550,7 @@ body[data-active-tab="invoices"] .content,body:not([data-active-tab]) .content{p
 <!-- Permission Management Modal (관리자만) -->
 <div class="modal" id="perm-modal">
 <div class="mbox" style="max-width:520px;background:#fff;color:#111827">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;border-bottom:1px solid #E5E7EB;padding-bottom:12px">
+  <div class="mhead" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;border-bottom:1px solid #E5E7EB;padding-bottom:12px">
     <h3 style="font-size:16px;font-weight:800">인보이스 앱 권한 관리</h3>
     <button onclick="closePermModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#9CA3AF">×</button>
   </div>
@@ -1579,7 +1581,7 @@ body[data-active-tab="invoices"] .content,body:not([data-active-tab]) .content{p
 <!-- Email Compose Modal -->
 <div class="modal" id="email-modal">
 <div class="mbox" style="max-width:560px;background:#fff;color:#111827">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;border-bottom:1px solid #E5E7EB;padding-bottom:12px">
+  <div class="mhead" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;border-bottom:1px solid #E5E7EB;padding-bottom:12px">
     <h3 style="font-size:16px;font-weight:800">이메일 보내기</h3>
     <button onclick="closeEmailModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#9CA3AF">×</button>
   </div>
