@@ -22,7 +22,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-10-27-8';
+const APP_BUILD = '2026-10-27-9';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -479,6 +479,7 @@ body.invoice-readonly::before {
     color: #000 !important;
   }
   #print-area {
+    zoom: 1 !important;   /* 화면용 폭 맞춤 축소는 인쇄에 적용 안 함 */
     width: 100% !important;
     max-width: 100% !important;
     overflow: hidden !important;
@@ -1486,6 +1487,7 @@ body[data-active-tab="invoices"] .content,body:not([data-active-tab]) .content{p
       <button class="btn-primary" style="background:#1F6F6B" onclick="downloadInvoicePDF(this)" title="URL·날짜·페이지번호 없는 깨끗한 PDF 파일로 저장 (모바일은 공유시트로 저장/첨부)">📄 PDF 저장</button>
       <button id="pkg-pdf-btn" class="btn-primary" style="display:none;background:#0891B2" onclick="downloadPackagePDF(this)" title="인보이스 + Subcontractor Statement + Work Comp 를 한 PDF로 병합 다운로드">📦 패키지 PDF</button>
       <button class="btn-primary" style="background:#10B981" onclick="doPrint()">🖨️ 인쇄</button>
+      <button id="pv-fit-btn" onclick="_pvFit=!_pvFit;fitPrintPreview()" title="화면에 맞춤 / 실제 크기" style="display:none;background:#F3F4F6;color:#374151;border:1px solid #E5E7EB;border-radius:8px;padding:7px 8px;font-size:13px;cursor:pointer;white-space:nowrap">🔍</button>
       <button onclick="closePrint()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#9CA3AF">×</button>
     </div>
   </div>
@@ -7064,6 +7066,30 @@ function previewInv() {
 
 
 // ── Print Invoice (router: K&M template vs BXBT template) ────────────────────
+// 폰에서 미리보기: A4 페이지 전체가 화면 폭에 맞게 축소 (손가락으로 벌려 확대). 🔍 로 실제 크기/맞춤 전환.
+// zoom 은 #print-area 컨테이너에만 걸어서 PDF 저장(innerHTML 복사)·인쇄에는 영향 없음.
+let _pvFit = true;
+function fitPrintPreview() {
+  const area = document.getElementById('print-area');
+  const btn = document.getElementById('pv-fit-btn');
+  if (!area) return;
+  area.style.zoom = '';
+  const mobile = window.innerWidth <= 768;
+  if (btn) btn.style.display = mobile ? '' : 'none';
+  const page = area.firstElementChild;
+  if (!mobile || !page) return;
+  if (btn) btn.textContent = _pvFit ? '🔍+' : '🔍−';
+  if (!_pvFit) return;
+  const avail = area.clientWidth, w = page.scrollWidth;
+  if (w > avail + 2) area.style.zoom = String(Math.floor(avail / w * 1000) / 1000);
+}
+function _initPvFit() {
+  const area = document.getElementById('print-area');
+  // 내용이 바뀐 뒤 모달이 열리고 레이아웃이 잡힌 다음 프레임에 맞춤
+  if (area) new MutationObserver(() => { _pvFit = true; requestAnimationFrame(fitPrintPreview); }).observe(area, {childList: true});
+  window.addEventListener('resize', () => { if (document.getElementById('print-modal').classList.contains('open')) fitPrintPreview(); });
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _initPvFit); else _initPvFit();
 function closePrint() {
   document.getElementById('print-modal').classList.remove('open');
   restoreDocTitle();
