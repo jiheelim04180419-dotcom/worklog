@@ -22,7 +22,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-10-27-7';
+const APP_BUILD = '2026-10-27-8';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -2833,7 +2833,8 @@ document.addEventListener('keydown', e => {
     e.preventDefault();
     toggleTheme();
   } else if (e.key === 'Escape' && anyModalOpen) {
-    if (anyModalOpen.id === 'inv-modal') closeIM();
+    if (document.getElementById('print-modal').classList.contains('open')) closePrint();   // 목록 위에 뜬 미리보기 먼저
+    else if (anyModalOpen.id === 'inv-modal') closeIM();
     else if (anyModalOpen.id === 'b-modal') closeBM();
     else if (anyModalOpen.id === 's-modal') closeSet();
     else if (anyModalOpen.id === 'print-modal') closePrint();
@@ -2881,6 +2882,10 @@ function openKpiList(kind, tab) {
       if (kind === 'fy' ? (d >= fyS && d <= today) : d.startsWith(ym)) rows.push({inv:i, amt:parseFloat(p.amount)||0, date:p.date, note:p.note||''});
     }));
     rows.sort((a,b) => (b.date||'').localeCompare(a.date||''));
+  } else if (kind === 'ret') {
+    title = '보류금 (리텐션)';
+    rows = invoices.filter(i => i.status==='RETENTION').map(i => ({inv:i, amt:Math.max(0,remaining(i))})).filter(r => r.amt > 0.005);
+    rows.sort((a,b) => (a.inv.invoiceDate||'').localeCompare(b.inv.invoiceDate||''));
   } else if (kind === 'ov') {
     title = '연체';
     rows = invoices.filter(isOverdue).map(i => ({inv:i, amt:Math.max(0,remaining(i)), days:getDaysPastDue(i)}));
@@ -2893,7 +2898,9 @@ function openKpiList(kind, tab) {
   const total = rows.reduce((s,r) => s + r.amt, 0);
   const row = (i, amt, right, red, extra, amtColor) => {
     const sub = [i.invoiceNum, i.address || i.projectName].filter(Boolean).map(esc).join(' · ');
-    return `<div class="lrow click" onclick="closeKpiList();openIM('${i.id}')">
+    // 누르면 PDF 미리보기 (목록은 뒤에 그대로 — 닫으면 목록으로 돌아옴), ✏️ 는 수정 화면
+    return `<div class="lrow click" onclick="printInvoice('${i.id}')">
+      <button onclick="event.stopPropagation();closeKpiList();openIM('${i.id}')" title="수정" style="border:0;background:var(--card-bg-alt);border-radius:8px;width:30px;height:30px;flex-shrink:0;cursor:pointer;font-size:13px">✏️</button>
       <div class="main"><div class="nm">${esc(i.builderName||'—')}</div><div class="sub">${sub||'—'}</div></div>
       <div class="amt"${amtColor?` style="color:${amtColor}"`:''}>${fA(amt)}<div style="font-size:11px;font-weight:500;color:${red?'var(--km-red)':'var(--text-3)'}">${right}</div>${extra||''}</div>
     </div>`;
@@ -2926,6 +2933,7 @@ function openKpiList(kind, tab) {
     let right = '';
     if (kind === 'mo' || kind === 'fy') return row(i, r.amt, `${fD(r.date)} 입금`, false, '', 'var(--km-green)');
     else if (kind === 'ov') right = `${fmtAging(r.days)} 연체`;
+    else if (kind === 'ret') right = `발행 ${fD(i.invoiceDate)}`;
     else right = isOverdue(i) ? `${fmtAging(getDaysPastDue(i))} 연체` : (i.status === 'ONGOING' ? '진행중' : `발행 ${fD(i.invoiceDate)}`);
     return row(i, r.amt, right, kind==='ov' || (kind==='out' && isOverdue(i)));
   }).join('');
@@ -10001,7 +10009,7 @@ function renderStats() {
     ${[
       ['미수금', out, '', 'INVOICE', '', 'out'],
       ['연체', ov, 'red', 'OVERDUE', '', 'ov'],
-      ['보류금', ret, 'amber', 'RETENTION', ''],
+      ['보류금', ret, 'amber', 'RETENTION', '', 'ret'],
       [`FY${String(parseInt(fyS.slice(0,4))+1).slice(2)} 입금`, pd, '', 'PAID', '', 'fy'],
       ['이번달 입금', mo, 'green', 'ALL', today.slice(0,7), 'mo'],
     ].map(([l,v,c,filter,search,kpi])=>`
