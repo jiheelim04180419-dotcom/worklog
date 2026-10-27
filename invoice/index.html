@@ -22,7 +22,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-10-27-14';
+const APP_BUILD = '2026-10-27-15';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -3436,31 +3436,8 @@ function buildDetailHTML(inv) {
       ${_canPay?`<button class="pay" onclick="event.stopPropagation();quickPay('${inv.id}')">입금 등록</button>`:''}
       <button onclick="event.stopPropagation();const n=document.getElementById('np-${inv.id}');if(n)n.classList.remove('empty');startMemoEdit('${inv.id}')">메모</button>
     </div>
-    <div style="background:var(--card-bg-alt);border-radius:8px;padding:8px;margin-bottom:8px">
-      ${_discRows}
-      <div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0${_discRows?';border-top:1px solid #E5E7EB;margin-top:4px;padding-top:6px':''}">
-        <span style="color:#6B7280">청구금액 (inc.GST)</span>
-        <span style="font-weight:700">${fA(amt)}</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0">
-        <span style="color:#6B7280">청구금액 (ex.GST)</span>
-        <span>${fAex(amt)}</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0">
-        <span style="color:#6B7280">GST</span>
-        <span>${fA(amt - exGST(amt))}</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0;border-top:1px solid #E5E7EB;margin-top:4px;padding-top:6px">
-        <span style="color:#059669">총 입금</span>
-        <span style="color:#059669;font-weight:700">${fA(paid)}</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0">
-        <span style="color:${rem>0.01?'#DC2626':'#059669'}">${isRetention?'보류금':'잔액'}</span>
-        <span style="color:${rem>0.01?'#DC2626':'#059669'};font-weight:700">${fA(rem)}${isRetention?` <span style="font-weight:500;color:#6B7280;font-size:11px">(${fAex(rem)} ex)</span>`:''}</span>
-      </div>
-    </div>
+    ${_discRows?`<div style="background:var(--card-bg-alt);border-radius:8px;padding:8px;margin-bottom:8px">${_discRows}</div>`:''}
     ${pays.length?`<div style="font-size:11px;color:#6B7280;font-weight:600;margin-bottom:4px">입금 내역</div>${pays.map(p=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0;color:#555">✓ ${fD(p.date)}<span style="font-weight:600">${fA(p.amount)}</span></div>`).join('')}`:''}
-    ${inv.projectName?`<div style="font-size:12px;color:#2A8C86;margin-top:8px">📁 ${esc(inv.projectName)}</div>`:''}
     ${inv.startDate?`<div style="font-size:11px;color:#9CA3AF;margin-top:4px">🚀 Start: ${fD(inv.startDate)}${inv.dueDate?`  ⏰ Due: ${fD(inv.dueDate)}`:''}</div>`:''}
     ${inv.poNumber?`<div style="font-size:12px;color:#2A8C86;margin-top:4px">PO #${esc(inv.poNumber)}</div>`:''}
     ${inv.note && (inv.note.length > 40 || inv.note.includes('\n'))?`<div style="font-size:12px;color:var(--text-2);margin-top:8px;white-space:pre-wrap">${esc(inv.note)}</div>`:''}
