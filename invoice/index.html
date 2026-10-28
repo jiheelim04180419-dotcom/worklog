@@ -22,7 +22,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-10-27-20';
+const APP_BUILD = '2026-10-29-01';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -2993,9 +2993,16 @@ function closeKpiList() { document.getElementById('kpi-modal').classList.remove(
 // ── Aging helpers ─────────────────────────────────────────────────────────────
 // Default invoice term: 14 days. Aging starts after dueDate (or invoiceDate+14d).
 // 빌더에 계약 입금 조건(payTerm)이 있으면 그 기한 기준 (예: Renascent 다음 달 마지막 영업일).
+// 연체 대상: INVOICE/OVERDUE, 또는 % 청구라 ONGOING 으로 남아 있지만 이번 회차 잔액이 남은 것(리텐션 보류 제외).
+function _isAgingOpen(inv) {
+  if (!inv) return false;
+  if (inv.status === 'INVOICE' || inv.status === 'OVERDUE') return true;
+  return inv.status === 'ONGOING' && inv.type === 'PROGRESS'
+    && Math.round(remaining(inv) * 100) / 100 > 0.01 && !isRetentionHeld(inv);
+}
 function getDaysPastDue(inv) {
   if (!inv) return 0;
-  if (!['INVOICE','OVERDUE'].includes(inv.status)) return 0;
+  if (!_isAgingOpen(inv)) return 0;
   const cd = contractDueDate(inv, builders.find(b => b.name === inv.builderName));
   let due = cd ? cd.toLocaleDateString('en-CA') : inv.dueDate;
   if (!due && inv.invoiceDate) {
@@ -3023,7 +3030,7 @@ function fmtAging(days) {
   return w > 0 ? `${w}w ${d}d` : `${d}d`;
 }
 function isOverdue(inv) {
-  return inv.status === 'INVOICE' && getDaysPastDue(inv) > 0;
+  return (inv.status === 'INVOICE' || inv.status === 'ONGOING') && getDaysPastDue(inv) > 0;
 }
 function isUnpaid(inv) {
   return inv.status === 'INVOICE' || inv.status === 'ONGOING';
