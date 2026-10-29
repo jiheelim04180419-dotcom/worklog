@@ -127,6 +127,7 @@ input,textarea,select{font-family:inherit;font-size:16px}
 .fld{margin-bottom:14px}
 .fld label{display:block;font-size:12.5px;font-weight:800;color:var(--sub);margin-bottom:6px}
 .fld input,.fld textarea,.fld select{width:100%;padding:12px 13px;border:1.5px solid var(--line);border-radius:12px;background:#FAFBFA;outline:none}
+.fld textarea{min-height:140px;resize:vertical;line-height:1.45}
 .fld input:focus,.fld textarea:focus,.fld select:focus{border-color:var(--pri);background:#fff}
 .btn{width:100%;padding:14px;border-radius:14px;background:linear-gradient(135deg,#1F6F6B,#2A8C86);color:#fff;font-weight:800;font-size:15px;box-shadow:0 4px 14px #1F6F6B44}
 .btn:active{transform:scale(.98)}
@@ -216,7 +217,11 @@ input,textarea,select{font-family:inherit;font-size:16px}
 <div id="toast" class="toast"></div>
 <datalist id="builder-list"></datalist>
 <script>
-const APP_BUILD='2026-10-26-03';
+const APP_BUILD='2026-10-29-01';
+// 글 작성칸(textarea) 내용에 맞춰 자동으로 늘어남 (최대 화면 60%)
+function autoGrowTA(t){t.style.height='auto';t.style.height=Math.min(t.scrollHeight+3,window.innerHeight*0.6)+'px';}
+document.addEventListener('input',function(ev){if(ev.target&&ev.target.tagName==='TEXTAREA')autoGrowTA(ev.target);});
+document.addEventListener('focusin',function(ev){if(ev.target&&ev.target.tagName==='TEXTAREA')autoGrowTA(ev.target);});
 const RTDB='https://knmtilingptyltd-12520-default-rtdb.firebaseio.com';
 // ── Firebase 로그인 (직원별 계정) ─────────────────────────────────────────────
 // 세 앱(WorkLog·인보이스·SiteLog)이 똑같은 코드를 씀. 직원은 예전 아이디/비밀번호 그대로 로그인하고,
@@ -791,7 +796,7 @@ function entryForm(pid,cat){
     <h2>Upload photos</h2>
     <div class="fld"><label>Category</label>${catChipHtml('e-cats',cats,[defCat])}</div>
     <div class="fld"><label>Date</label><input id="e-date" type="date"/></div>
-    <div class="fld"><label>Note (사진 없이 글만 올려도 됩니다)</label><textarea id="e-note" rows="2" placeholder="e.g. First waterproof coat done"></textarea></div>
+    <div class="fld"><label>Note (사진 없이 글만 올려도 됩니다)</label><textarea id="e-note" rows="6" placeholder="e.g. First waterproof coat done"></textarea></div>
     ${tagPickerHtml('e-tag',[])}
     <div class="fld"><label>Photos (optional)</label>
       <input id="e-file" type="file" accept="image/*" multiple style="display:none"/>
@@ -920,7 +925,7 @@ function editEntry(entryId){
       ${others.map(o=>`<option value="${o.id}" ${o.id===pid?'selected':''}>${esc(title(o))}${o.address?' · '+esc(o.address):''}</option>`).join('')}
     </select></div>
     <div class="fld"><label>Date</label><input id="ed-date" type="date" value="${dIso}"/></div>
-    <div class="fld"><label>Note</label><textarea id="ed-note" rows="2">${esc(e.note||'')}</textarea></div>
+    <div class="fld"><label>Note</label><textarea id="ed-note" rows="6">${esc(e.note||'')}</textarea></div>
     ${tagPickerHtml('ed-tag',e.tags||[])}
     <div class="fld"><label>Photos (× 삭제 · ＋ 추가)</label>
       <input id="ed-file" type="file" accept="image/*" multiple style="display:none"/>
@@ -1039,7 +1044,7 @@ function commentForm(entryId){
   const m=document.createElement('div');m.className='modal';
   m.innerHTML=`<div class="sheet"><div class="grab"></div>
     <h2>💬 Reply</h2>
-    <div class="fld"><label>Comment (optional if adding photos)</label><textarea id="c-note" rows="2" placeholder="e.g. Photos of the finished area"></textarea></div>
+    <div class="fld"><label>Comment (optional if adding photos)</label><textarea id="c-note" rows="6" placeholder="e.g. Photos of the finished area"></textarea></div>
     <div class="fld"><label>Photos (optional)</label>
       <input id="c-file" type="file" accept="image/*" multiple style="display:none"/>
       <div class="thumbadd" id="c-thumbs"><div class="pick" id="c-pick">＋</div></div></div>
