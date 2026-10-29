@@ -22,7 +22,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-10-29-01';
+const APP_BUILD = '2026-10-29-02';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -6311,6 +6311,9 @@ async function saveInv(asDraft, sendEmail) {
   // 인보이스 번호 충돌 검사 + 자동 재할당 (발행될 때만 / DRAFT 저장은 제외)
   // - 드라프트를 모달에서 수정 후 발행하는 경우, 또는 새 인보이스를 바로 발행하는 경우 모두 적용
   if (status !== 'DRAFT' && coId) {
+    // 앱을 오래 열어두면 목록이 옛날 것일 수 있음 → 발행 직전에 서버 최신 목록으로 번호 확인 (2026-10-29 INV-1668 중복 사례)
+    const fresh = await fbGet('invoices');
+    if (fresh) invoices = Object.entries(fresh).map(([id,v])=>({...v,id}));
     const co = companies.find(c => c.id === coId);
     if (co) {
       const nextN = computeNextInvNum(co);
