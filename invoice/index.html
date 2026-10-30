@@ -22,7 +22,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-10-29-02';
+const APP_BUILD = '2026-10-30-01';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -2963,7 +2963,8 @@ function openKpiList(kind, tab) {
     else if (kind === 'ov') right = `${fmtAging(r.days)} 연체`;
     else if (kind === 'ret') right = `발행 ${fD(i.invoiceDate)}`;
     else right = isOverdue(i) ? `${fmtAging(getDaysPastDue(i))} 연체` : (i.status === 'ONGOING' ? '진행중' : `발행 ${fD(i.invoiceDate)}`);
-    return row(i, r.amt, right, kind==='ov' || (kind==='out' && isOverdue(i)));
+    const od = kind==='ov' || (kind==='out' && isOverdue(i));
+    return row(i, r.amt, right, od, od ? chaseBadge(i, kind) : '');
   }).join('');
   // mo: 두 개의 큰 탭 버튼 (들어온 = 초록, 예정 = 청록). 선택된 쪽만 아래에 표시.
   let tabs = '';
@@ -2989,6 +2990,66 @@ function openKpiList(kind, tab) {
   document.getElementById('kpi-modal').classList.add('open');
 }
 function closeKpiList() { document.getElementById('kpi-modal').classList.remove('open'); }
+
+// ── 독촉(체이스업) 기록 ──────────────────────────────────────────────────────
+// inv.chases = [{date:'YYYY-MM-DD', note}] — 독촉 메일을 보내면 클라우드 작업이 자동 기록하고,
+// 전화·문자 등은 연체 목록의 독촉 배지를 눌러 직접 추가/삭제.
+function getChases(i) {
+  return (Array.isArray(i.chases) ? i.chases : Object.values(i.chases || {}))
+    .filter(c => c && c.date).sort((a,b) => a.date.localeCompare(b.date));
+}
+const _dm = d => d ? `${d.slice(8,10)}/${d.slice(5,7)}` : '';
+function chaseBadge(i, back) {
+  const cs = getChases(i), last = cs[cs.length-1];
+  const txt = last ? `📨 독촉 ${_dm(last.date)}${cs.length>1?` · ${cs.length}회`:''}` : '독촉 안 함';
+  const sty = last ? 'background:var(--km-green-soft);color:var(--km-green)' : 'background:var(--km-amber-soft);color:var(--km-amber)';
+  return `<div onclick="event.stopPropagation();openChaseLog('${i.id}','${back||'ov'}')" style="margin-top:4px;display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;cursor:pointer;white-space:nowrap;${sty}">${txt}</div>`;
+}
+function openChaseLog(id, back) {
+  const i = invoices.find(x => x.id === id);
+  if (!i) return;
+  const cs = getChases(i);
+  const list = cs.slice().reverse().map(c => `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--border-3)">
+      <div style="font-weight:700;min-width:84px">${fD(c.date)}</div>
+      <div style="flex:1;min-width:0;font-size:12.5px;color:var(--text-3)">${esc(c.note||'')}</div>
+      <button onclick="delChase('${id}','${c.date}','${back}')" style="border:0;background:transparent;color:var(--text-4);font-size:16px;cursor:pointer" title="삭제">🗑</button>
+    </div>`).join('');
+  const t = new Date(), loc = `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+  document.getElementById('kpi-box').innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div><div style="font-size:17px;font-weight:800">📨 독촉 기록</div><div style="font-size:12px;color:var(--text-3);margin-top:2px">${esc(i.builderName||'—')} · ${esc(i.invoiceNum||'')} · ${fA(Math.max(0,remaining(i)))}</div></div>
+      <button onclick="openKpiList('${back}')" style="border:0;background:var(--card-bg-alt);color:var(--text);height:34px;padding:0 12px;border-radius:17px;font-size:13px;cursor:pointer">‹ 목록</button>
+    </div>
+    ${list || '<div style="padding:18px 0;text-align:center;color:var(--text-3);font-size:13px">아직 독촉한 기록이 없어요</div>'}
+    <div style="display:flex;gap:8px;margin-top:14px;border-top:1px solid var(--border-3);padding-top:14px">
+      <input id="chase-d" type="date" value="${loc}" style="flex:0 0 140px;padding:8px;border:1px solid var(--border);border-radius:10px;background:var(--card-bg);color:var(--text);font-family:inherit">
+      <input id="chase-n" placeholder="메모 (예: 전화)" style="flex:1;min-width:0;padding:8px;border:1px solid var(--border);border-radius:10px;background:var(--card-bg);color:var(--text);font-family:inherit">
+    </div>
+    <button onclick="addChase('${id}','${back}')" style="width:100%;margin-top:8px;border:0;background:var(--km-teal);color:#fff;font-weight:700;padding:11px;border-radius:12px;cursor:pointer;font-family:inherit">+ 독촉함으로 기록</button>`;
+}
+async function _saveChases(i, cs) {
+  i.chases = cs;
+  await fbSet('invoices/' + i.id + '/chases', cs.length ? cs : null);
+}
+async function addChase(id, back) {
+  const i = invoices.find(x => x.id === id);
+  const d = (document.getElementById('chase-d') || {}).value;
+  if (!i || !/^\d{4}-\d{2}-\d{2}$/.test(d || '')) return;
+  const note = ((document.getElementById('chase-n') || {}).value || '').trim();
+  const cs = getChases(i).filter(c => !(c.date === d && !note && !c.note));
+  cs.push({date: d, note, by: 'app'});
+  cs.sort((a,b) => a.date.localeCompare(b.date));
+  await _saveChases(i, cs);
+  openChaseLog(id, back);
+}
+async function delChase(id, date, back) {
+  const i = invoices.find(x => x.id === id);
+  if (!i || !confirm(`${fD(date)} 독촉 기록을 지울까요?`)) return;
+  const cs = getChases(i), k = cs.findIndex(c => c.date === date);
+  if (k >= 0) cs.splice(k, 1);
+  await _saveChases(i, cs);
+  openChaseLog(id, back);
+}
 
 // ── Aging helpers ─────────────────────────────────────────────────────────────
 // Default invoice term: 14 days. Aging starts after dueDate (or invoiceDate+14d).
@@ -6424,6 +6485,9 @@ async function saveInv(asDraft, sendEmail) {
   let savedNewId = null;
   try {
     if (editId) {
+      // 편집 폼에 없는 독촉 기록은 그대로 유지 (전체 덮어쓰기로 지워지지 않게)
+      const prevInv = invoices.find(x => x.id === editId);
+      if (prevInv && prevInv.chases) data.chases = prevInv.chases;
       await fbSet('invoices/'+editId, data);
     } else {
       savedNewId = await fbPush('invoices', data);
