@@ -22,7 +22,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-10-30-01';
+const APP_BUILD = '2026-11-02-01';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -2555,6 +2555,43 @@ const LETTER_TEMPLATES = {
     body: f => `To Whom It May Concern<br><br>`
       + `This letter is to certify that <b>${esc(f.name||'')}</b> has been our employee in this company as ${esc(f.role||'tiler')} from <b>${esc(f.startDate||'')}</b>.<br><br>`
       + `This certification is being issued upon ${esc(f.pronoun||'his')} request for whatever purpose it may serve.`
+  },
+  // 아직 출근 전인 신입 직원용 (쉐어하우스·렌트 신청 등). 입사 후엔 위 근무 확인서 사용.
+  offer: {
+    label: '채용 확인서 — 입사 예정 (Confirmation of Employment)',
+    title: 'CONFIRMATION OF EMPLOYMENT',
+    closing: 'Yours faithfully,',
+    signerName: 'Seungchan (Max) Yang',
+    signerTitle: 'Director',
+    signImgField: 'signature2Img',
+    contactLine: true,
+    fields: [
+      { id:'name', label:'직원 이름 (영문)', ph:'JEONG CHAEWON' },
+      { id:'role', label:'직무', ph:'Tiler / Labourer', def:'Tiler / Labourer' },
+      { id:'empType', label:'고용 형태', type:'select', options:['Casual','Full-time','Part-time'], def:'Casual' },
+      { id:'startDate', label:'출근 시작일 (예: 6 November 2026)', ph:'6 November 2026' },
+      { id:'hours', label:'근무 시간 (선택)', ph:'approximately 38 hours per week' },
+      { id:'pay', label:'시급/급여 (선택)', ph:'$30.00 per hour (before tax)' },
+      { id:'purpose', label:'용도 (선택)', ph:'a rental (share house) application', def:'a rental (share house) application' },
+    ],
+    body: f => {
+      const name = esc(f.name||'');
+      const rows = [
+        ['Employee', name],
+        ['Position', esc(f.role||'')],
+        ['Employment type', esc(f.empType||'')],
+        ['Commencement date', esc(f.startDate||'')],
+        ['Work location', 'Bathurst and the Central West region, NSW'],
+      ];
+      if (f.hours) rows.push(['Expected hours', esc(f.hours)]);
+      if (f.pay) rows.push(['Rate of pay', esc(f.pay)]);
+      return `To Whom It May Concern,<br><br>`
+        + `This letter confirms that <b>${name}</b> has been offered, and has accepted, employment with K&amp;M Tiling Bathurst Pty Ltd, and will commence work with us on <b>${esc(f.startDate||'')}</b>.<br><br>`
+        + `<table style="border-collapse:collapse;margin:2px 0 4px">${rows.map(r=>`<tr><td style="padding:2px 28px 2px 0;color:#555;white-space:nowrap">${r[0]}</td><td style="padding:2px 0;font-weight:600">${r[1]}</td></tr>`).join('')}</table><br>`
+        + `${name} will be working with us in Bathurst from the commencement date above. `
+        + `This letter is provided at the employee's request${f.purpose?` in support of ${esc(f.purpose)}`:''}.<br><br>`
+        + `Please feel free to contact me using the details below should you need to verify this information.`;
+    }
   },
   charref: {
     label: '인성 진술서 — Kyle본 (Character Reference)',
