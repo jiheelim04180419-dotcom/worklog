@@ -217,7 +217,7 @@ input,textarea,select{font-family:inherit;font-size:16px}
 <div id="toast" class="toast"></div>
 <datalist id="builder-list"></datalist>
 <script>
-const APP_BUILD='2026-10-29-01';
+const APP_BUILD='2026-11-08-01';
 // 글 작성칸(textarea) 내용에 맞춰 자동으로 늘어남 (최대 화면 60%)
 function autoGrowTA(t){t.style.height='auto';t.style.height=Math.min(t.scrollHeight+3,window.innerHeight*0.6)+'px';}
 document.addEventListener('input',function(ev){if(ev.target&&ev.target.tagName==='TEXTAREA')autoGrowTA(ev.target);});
@@ -311,12 +311,23 @@ async function fbIdToken(force) {
 }
 function _fbWithAuth(url, t) { return t ? url + (url.includes('?') ? '&' : '?') + 'auth=' + encodeURIComponent(t) : url; }
 async function fbAuthUrl(url, force) { return _fbWithAuth(url, await fbIdToken(force)); }
-// DB 요청용 fetch — 토큰을 붙이고, 401 이면 토큰을 새로 받아 한 번 재시도. 그래도 401 이면 로그아웃 처리.
+// 401 이 '로그인 무효(퇴사·차단)'인지 '이 데이터만 권한 없음'인지 구분 — 내 authMap 이 살아 있으면 권한 문제라 로그인 유지
+async function _fbLoginAlive() {
+  if (!_fbAuth || !_fbAuth.uid) return false;
+  try {
+    const r = await fetch(await fbAuthUrl(FB_DB + '/authMap/' + _fbAuth.uid + '.json'));
+    if (r.status === 401) return false;
+    if (!r.ok) return true;   // 네트워크·서버 오류는 판단 보류 → 로그인 유지
+    const m = await r.json();
+    return !!(m && m.id === _fbAuth.id && !m.off);
+  } catch (e) { return true; }
+}
+// DB 요청용 fetch — 토큰을 붙이고, 401 이면 토큰을 새로 받아 한 번 재시도. 그래도 401 이고 계정이 무효면 로그아웃 처리.
 async function fbFetch(url, opts) {
   let r = await fetch(await fbAuthUrl(url), opts);
   if (r.status === 401 && _fbAuth) {
     r = await fetch(await fbAuthUrl(url, true), opts);
-    if (r.status === 401 && _fbAuth) { _fbAuthSave(null); if (fbOnAuthLost) fbOnAuthLost(); }
+    if (r.status === 401 && _fbAuth && !(await _fbLoginAlive())) { _fbAuthSave(null); if (fbOnAuthLost) fbOnAuthLost(); }
   }
   return r;
 }
