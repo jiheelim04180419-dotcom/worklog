@@ -22,7 +22,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-11-02-02';
+const APP_BUILD = '2026-11-07-01';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -3512,6 +3512,13 @@ function renderInv() {
         <span class="spill ${ss}">${esc(pillTxt)}</span>
         ${sub?`<span class="proj">${sub}</span>`:''}
         ${isRetention?(()=>{const rr=rem>0?rem:amt;return `<span class="m" style="grid-column:1/-1;color:#185A57">보류 ${fA(rr)} (${fAex(rr)} ex)</span>`;})():''}
+        ${(inv.status==='ONGOING' && !isRetention)?(()=>{
+          // 진행중(%) 인보이스는 입금 여부가 한눈에 안 보여서, 이번 회차 입금 상태를 한 줄로 표시
+          if (paid > 0.01 && rem <= 0.01) { const ps=getPayments(inv).map(x=>x.date||'').filter(Boolean).sort(); const last=ps[ps.length-1];
+            return `<span class="m" style="grid-column:1/-1;color:#15803D;font-weight:700">✅ 이번 회차 입금 완료${last?' · '+fD(last):''}</span>`; }
+          if (paid <= 0.01) return `<span class="m" style="grid-column:1/-1;color:#B45309;font-weight:700">⏳ 이번 회차 미입금</span>`;
+          return '';
+        })():''}
         <div class="note-preview${notePrev?'':' empty'}" id="np-${inv.id}" onclick="event.stopPropagation();startMemoEdit('${inv.id}')" title="눌러서 메모 수정">${esc(notePrev)}</div>
       </div>
       <div id="d-${inv.id}" style="display:none;padding:0 13px 12px" data-built="0"></div>
