@@ -18,7 +18,7 @@
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
 // ℹ️ reload 는 코드만 갱신 — Firebase 주소(wm_fb_url)·로그인 세션(wm_session)은 localStorage 라 유지됨(재로그인 불필요).
-const APP_BUILD = '2026-11-08-04';
+const APP_BUILD = '2026-11-08-05';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출. ?_=타임스탬프 + no-store 로 캐시 우회.
 function _fetchLatestBuild(){
   return fetch(location.pathname + '?_=' + Date.now(), { cache: 'no-store', headers: { 'Range': 'bytes=0-3000' } })
@@ -447,6 +447,16 @@ function _wlMergeDir(self, dir) {
   const out = self ? [self] : [];
   Object.keys(dir || {}).forEach(id => { if (self && id === self.id) return; const d = dir[id] || {}; out.push({ id, name: d.name || "", birthDate: d.birthDate || "" }); });
   return out;
+}
+// 정산 잠금 날짜(payLocks/{직원}) — 마지막 정산완료 구간(keepBalanceHistory)의 끝 날짜. 보안 규칙이 이 날짜까지의
+//   근무일지를 직원이 못 바꾸게 막음. 정산완료/취소로 이력이 바뀔 때 관리자 저장에서 같이 갱신.
+function _wlLockEnd(lv) {
+  const h = lv && lv.keepBalanceHistory;
+  const ps = (Array.isArray(h) ? h : Object.values(h || {})).map(x => x && x.periodStart).filter(Boolean).sort();
+  if (!ps.length) return null;
+  const [y, m, d] = ps[ps.length - 1].split("-").map(Number);
+  const e = new Date(Date.UTC(y, m - 1, d + 13));
+  return e.getUTCFullYear() + "-" + String(e.getUTCMonth() + 1).padStart(2, "0") + "-" + String(e.getUTCDate()).padStart(2, "0");
 }
 // leaves 저장 — 노드 통째(PUT) 대신 바뀐 직원·항목만 PATCH (다른 직원 데이터를 덮어쓰지 않게)
 function _wlLeavesDiff(prev, next) {
@@ -5436,6 +5446,12 @@ function App() {
       const upd=_wlLeavesDiff(leavesRef.current,lv);
       setLeaves(lv); leavesRef.current=lv;
       if(Object.keys(upd).length)fbUpdate("leaves",upd);
+      // 정산완료 이력이 바뀐 직원은 잠금 날짜도 갱신 (관리자만 쓸 수 있음)
+      if(_fbAuth&&_fbAuth.admin){
+        const ids=new Set(Object.keys(upd).filter(k=>!k.includes("/")||k.endsWith("/keepBalanceHistory")).map(k=>k.split("/")[0]));
+        const locks={}; ids.forEach(id=>{ locks[id]=lv[id]?_wlLockEnd(lv[id]):null; });
+        if(Object.keys(locks).length)fbUpdate("payLocks",locks);
+      }
     }
     if(co){setCompanies(co);saveFb(null,null,null,co);}
   },[saveFb]);
