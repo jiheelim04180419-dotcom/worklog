@@ -22,7 +22,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-11-08-01';
+const APP_BUILD = '2026-11-08-02';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -1798,9 +1798,9 @@ async function fbAdminSyncFlags(users) {
   if (Object.keys(upd).length) await _fbJson('PATCH', 'authMap', upd);
 }
 
-async function fbGet(path) {
+async function fbGet(path, query) {
   try {
-    const r = await fbFetch(FB_BASE + '/' + path + '.json');
+    const r = await fbFetch(FB_BASE + '/' + path + '.json' + (query || ''));
     return r.ok ? r.json() : null;
   } catch(e) { return null; }
 }
@@ -2149,7 +2149,8 @@ function _hideLockScreen() {
 
 // 사용자 데이터 (Firebase users 노드)에서 ID로 사용자 찾기
 async function _findUser(id) {
-  const usersRaw = await fbGet('users');
+  // 직원 전체가 아니라 해당 아이디 레코드만 조회 (users/.indexOn id)
+  const usersRaw = await fbGet('users', '?orderBy=' + encodeURIComponent('"id"') + '&equalTo=' + encodeURIComponent(JSON.stringify(id)));
   const usersList = Array.isArray(usersRaw) ? usersRaw : (usersRaw ? Object.values(usersRaw) : []);
   return usersList.find(u => u && u.id === id) || null;
 }
@@ -2187,13 +2188,13 @@ async function _migrateOldMasterPin() {
 async function initInvoiceAuth() {
   // 토큰이 무효가 되면(비번 리셋·권한 해제) 잠금 해제 풀고 다시 로그인
   fbOnAuthLost = () => { sessionStorage.removeItem('invoice_unlocked'); location.reload(); };
-  // Firebase 로그인이 살아있으면 데이터 받기를 지금 시작 (PIN 입력과 겹치게). 화면에는 잠금 통과 후에만 표시.
-  prefetchCore();
+  // 데이터 미리받기는 접근 권한이 확인된 뒤에만 (권한 없는 직원 로그인으로는 돈 관련 데이터를 받지 않음)
   // 1) 세션 살아있으면 통과 (Firebase 로그인도 같은 사람이어야 함)
   if (sessionStorage.getItem('invoice_unlocked') === 'true' && !_fbSignedInAs(sessionStorage.getItem('invoice_user_id'))) {
     sessionStorage.removeItem('invoice_unlocked');
   }
   if (sessionStorage.getItem('invoice_unlocked') === 'true') {
+    prefetchCore();   // 이 탭에서 이미 권한·PIN 통과한 세션
     // role 이 누락된 옛 세션(역할 추적 추가 전에 unlock된 세션)이면 Firebase 에서 보충
     if (!sessionStorage.getItem('invoice_user_role')) {
       const uid = sessionStorage.getItem('invoice_user_id');
@@ -2232,6 +2233,8 @@ async function initInvoiceAuth() {
         localStorage.removeItem('invoice_last_user_id');
         return showFullLogin('');
       }
+      // 권한 확인됨 → PIN 입력하는 동안 데이터 미리 받기 (화면에는 잠금 통과 후에만 표시)
+      prefetchCore();
       _showLockScreen(`
         <div style="text-align:center;margin-bottom:14px"><div style="font-size:38px">🔒</div></div>
         <h2 style="margin:0 0 4px;font-size:18px;font-weight:800;text-align:center;color:#1C2430">K&amp;M 인보이스</h2>
@@ -2346,12 +2349,15 @@ async function initInvoiceAuth() {
         if (!/^\d{4}$/.test(pin)) { err.textContent = 'PIN은 숫자 4자리'; return; }
         if (pin !== pin2) { err.textContent = 'PIN이 일치하지 않아요'; return; }
         const hash = await _sha256(pin);
-        await fbSet('invoiceUsers/' + user.id, {
-          ...invUserData,
-          pinHash: hash,
-          canInvoice: invUserData.canInvoice === true || user.role === 'admin' || user.role === 'superadmin',
-          registeredAt: new Date().toISOString()
-        });
+        // 본인 PIN 만 저장 (권한 canInvoice 는 건드리지 않음). 읽기 전용 계정도 자기 PIN 은 등록해야 해서
+        //   쓰기 가드(_guardWrite)를 거치지 않고 직접 PATCH — 예전엔 새 탭에서 역할 정보가 없어 PIN 저장이 막혔음
+        try {
+          const r = await fbFetch(FB_BASE + '/invoiceUsers/' + encodeURIComponent(user.id) + '.json', {
+            method: 'PATCH', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ pinHash: hash, registeredAt: new Date().toISOString() })
+          });
+          if (!r.ok) { err.textContent = '❌ PIN 저장 실패 (' + r.status + ')'; return; }
+        } catch (e) { err.textContent = '❌ PIN 저장 실패 — 인터넷 연결을 확인하세요'; return; }
         sessionStorage.setItem('invoice_unlocked', 'true');
         sessionStorage.setItem('invoice_user_id', user.id);
         sessionStorage.setItem('invoice_user_role', user.role || '');
