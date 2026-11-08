@@ -217,7 +217,7 @@ input,textarea,select{font-family:inherit;font-size:16px}
 <div id="toast" class="toast"></div>
 <datalist id="builder-list"></datalist>
 <script>
-const APP_BUILD='2026-11-08-02';
+const APP_BUILD='2026-11-08-03';
 // 글 작성칸(textarea) 내용에 맞춰 자동으로 늘어남 (최대 화면 60%)
 function autoGrowTA(t){t.style.height='auto';t.style.height=Math.min(t.scrollHeight+3,window.innerHeight*0.6)+'px';}
 document.addEventListener('input',function(ev){if(ev.target&&ev.target.tagName==='TEXTAREA')autoGrowTA(ev.target);});
@@ -347,6 +347,7 @@ async function fbChangeOwnPw(cur, next) {
 }
 function fbUserFlags(u) {
   return { admin: !!u && (u.role === 'admin' || u.role === 'superadmin' || u.id === 'admin'),
+    view: !!u && u.role === 'viewadmin',   // 준관리자(카일·맥스): 전부 읽기만
     off: !u || !!u.resignedDate || u.active === false || u.disabled === true || u.left === true || u.resigned === true };
 }
 // 관리자: 직원 계정 만들기 / 비밀번호 리셋 (새 버전 계정 생성 → 연결 교체)
@@ -362,7 +363,7 @@ async function fbAdminSetPw(id, pw, flags) {
   const map = (await _fbJson('GET', 'authMap')) || {};
   const upd = {};
   Object.keys(map).forEach(u => { if (map[u] && map[u].id === id && u !== (_fbAuth && _fbAuth.uid)) upd[u] = null; });
-  upd[d.localId] = { id, admin: !!flags.admin, off: !!flags.off };
+  upd[d.localId] = { id, admin: !!flags.admin, view: !!flags.view, off: !!flags.off };
   await _fbJson('PATCH', 'authMap', upd);
   await _fbJson('PUT', 'loginIndex/' + key, { v });
   if (_fbAuth && _fbAuth.id === id) {   // 내 비밀번호를 리셋한 경우: 새 계정으로 갈아타고 예전 연결 정리
@@ -383,6 +384,7 @@ async function fbAdminSyncFlags(users) {
     if (!m || uid === _fbAuth.uid) return;   // 내 계정은 건드리지 않음(실수로 잠기지 않게)
     const w = fbUserFlags(byId[m.id]);
     if (!!m.admin !== w.admin) upd[uid + '/admin'] = w.admin;
+    if (!!m.view !== w.view) upd[uid + '/view'] = w.view;
     if (!!m.off !== w.off) upd[uid + '/off'] = w.off;
   });
   if (Object.keys(upd).length) await _fbJson('PATCH', 'authMap', upd);
