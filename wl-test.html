@@ -18,7 +18,7 @@
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
 // ℹ️ reload 는 코드만 갱신 — Firebase 주소(wm_fb_url)·로그인 세션(wm_session)은 localStorage 라 유지됨(재로그인 불필요).
-const APP_BUILD = '2026-11-08-02';
+const APP_BUILD = '2026-11-08-03';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출. ?_=타임스탬프 + no-store 로 캐시 우회.
 function _fetchLatestBuild(){
   return fetch(location.pathname + '?_=' + Date.now(), { cache: 'no-store', headers: { 'Range': 'bytes=0-3000' } })
@@ -434,6 +434,12 @@ function _wlDirFrom(users) {
   const dir = {};
   (users || []).forEach(u => { if (u && u.id && !u.resignedDate) dir[u.id] = { name: u.name || "", birthDate: u.birthDate && u.birthDate.length >= 10 ? "2000" + u.birthDate.slice(4, 10) : "" }; });
   return dir;
+}
+// Firebase·JSON 객체 키 순서와 같게: 작은 정수 키는 숫자순 먼저, 나머지는 문자열순
+function _wlKeyCmp(a, b) {
+  const ia = /^\d{1,10}$/.test(a) && +a <= 4294967294, ib = /^\d{1,10}$/.test(b) && +b <= 4294967294;
+  if (ia && ib) return a - b; if (ia) return -1; if (ib) return 1;
+  return a < b ? -1 : a > b ? 1 : 0;
 }
 function _wlMergeDir(self, dir) {
   const out = self ? [self] : [];
@@ -5254,7 +5260,8 @@ function App() {
     }
     else if(node==="dir"){ dirRef.current=v||{}; if(own)setUsers(_wlMergeDir(selfRef.current,dirRef.current)); return; }
     else if(node==="logs"){
-      setLogs(arr(v));
+      // 직원 모드(조회 결과)는 키 순서가 섞여 옴 → 전체를 받을 때와 같은 키 순서로 정렬(화면 목록 순서 유지)
+      setLogs(own&&v&&!Array.isArray(v)?Object.keys(v).sort(_wlKeyCmp).map(k=>v[k]).filter(y=>y!=null):arr(v));
       // 자가치유 마이그레이션: logs 가 아직 배열이면 id-키 객체로 1회 변환 (전체 데이터를 받는 관리자 리더 창만)
       if(!own&&isLeader&&full&&Array.isArray(v)&&v.length){
         const obj={}; let ok=true;
