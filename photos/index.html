@@ -231,7 +231,7 @@ input,textarea,select{font-family:inherit;font-size:16px}
 <div id="toast" class="toast"></div>
 <datalist id="builder-list"></datalist>
 <script>
-const APP_BUILD='2026-11-08-04';
+const APP_BUILD='2026-11-09-01';
 // 글 작성칸(textarea) 내용에 맞춰 자동으로 늘어남 (최대 화면 60%)
 function autoGrowTA(t){t.style.height='auto';t.style.height=Math.min(t.scrollHeight+3,window.innerHeight*0.6)+'px';}
 document.addEventListener('input',function(ev){if(ev.target&&ev.target.tagName==='TEXTAREA')autoGrowTA(ev.target);});
@@ -708,8 +708,8 @@ function renderBoard(pid,b){
   </div>`;
   if(!adm)return;
   const stEl=$('#sb-st');if(stEl)stEl.onclick=()=>{const ks=Object.keys(SB_LBL);const nx=ks[(ks.indexOf(st)+1)%ks.length];sbWrite(pid,o=>{o.status=nx;return o;});};
-  el.querySelectorAll('[data-del]').forEach(bn=>bn.onclick=()=>{const [k,id]=bn.dataset.del.split('|');sbWrite(pid,o=>{if(o[k])delete o[k][id];return o;});});
-  el.querySelectorAll('[data-tick]').forEach(cb=>cb.onchange=()=>{const id=cb.dataset.tick;sbWrite(pid,o=>{const t=(o.todo||{})[id];if(t){t.done=cb.checked;t.doneAt=cb.checked?Date.now():null;}return o;});});
+  el.querySelectorAll('[data-del]').forEach(bn=>bn.onclick=()=>{if(!confirm('Delete this item?'))return;const [k,id]=bn.dataset.del.split('|');sbWrite(pid,o=>{if(o[k])delete o[k][id];return o;});});
+  el.querySelectorAll('[data-tick]').forEach(cb=>cb.onchange=()=>{const id=cb.dataset.tick;sbWrite(pid,o=>{const t=(o.todo||{})[id];if(t){t.done=cb.checked;t.doneAt=cb.checked?Date.now():null;t.manualDone=true;}return o;});});
   el.querySelectorAll('[data-add]').forEach(bn=>bn.onclick=()=>{
     const k=bn.dataset.add;let it=null;
     if(k==='schedule'){const d=prompt('Date (e.g. 12/11 or 12/11-14/11)');if(!d)return;
