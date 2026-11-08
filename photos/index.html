@@ -113,6 +113,20 @@ input,textarea,select{font-family:inherit;font-size:16px}
   box-shadow:0 10px 26px #1F6F6B66;z-index:30;display:flex;align-items:center;justify-content:center}
 .fab:active{transform:scale(.94)}
 
+.sbc{background:var(--card);border-radius:17px;box-shadow:var(--shadow);padding:13px 15px;margin-bottom:4px}
+.sbc .hd{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px}
+.sbc .st{font-size:11.5px;font-weight:800;border-radius:20px;padding:3px 10px;background:#E3EFEC;color:var(--pri-d)}
+.sbc .st.planned{background:#EEF0EE;color:var(--sub)}.sbc .st.finishing{background:#FCEFD6;color:#92400E}.sbc .st.done{background:#DDF3E8;color:#065F46}
+.sbc .lb{font-size:11px;font-weight:800;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;margin:10px 0 3px;display:flex;justify-content:space-between;align-items:center}
+.sbc .it{display:flex;gap:8px;align-items:flex-start;font-size:13.5px;padding:5px 0;border-bottom:1px solid var(--line)}
+.sbc .it:last-child{border-bottom:none}
+.sbc .dt{font-weight:800;min-width:78px}
+.sbc .none{font-size:12.5px;color:var(--sub);padding:3px 0}
+.sbc .add{font-size:11px;color:var(--pri);font-weight:800;background:none;padding:0}
+.sbc .x{color:var(--sub);background:none;font-size:15px;padding:0 2px;margin-left:auto}
+.sbc input[type=checkbox]{width:18px;height:18px;margin:1px 0 0;flex-shrink:0}
+.pcard .sbs{display:inline-block;font-size:10.5px;font-weight:800;border-radius:10px;padding:1px 7px;margin-right:3px;vertical-align:1px;background:#E3EFEC;color:var(--pri-d)}
+.pcard .sbs.finishing{background:#FCEFD6;color:#92400E}.pcard .sbs.planned{background:#EEF0EE;color:var(--sub)}
 .empty{text-align:center;color:var(--sub);padding:60px 24px;font-size:14px;line-height:1.6}
 .empty .big{font-size:46px;margin-bottom:10px;opacity:.85}
 
@@ -217,7 +231,7 @@ input,textarea,select{font-family:inherit;font-size:16px}
 <div id="toast" class="toast"></div>
 <datalist id="builder-list"></datalist>
 <script>
-const APP_BUILD='2026-11-08-03';
+const APP_BUILD='2026-11-08-04';
 // 글 작성칸(textarea) 내용에 맞춰 자동으로 늘어남 (최대 화면 60%)
 function autoGrowTA(t){t.style.height='auto';t.style.height=Math.min(t.scrollHeight+3,window.innerHeight*0.6)+'px';}
 document.addEventListener('input',function(ev){if(ev.target&&ev.target.tagName==='TEXTAREA')autoGrowTA(ev.target);});
@@ -541,7 +555,8 @@ async function openProjects(){
   if(cached){S.projects=cached.projects;S.seen=cached.seen;renderFilters();renderProjectList();window.scrollTo(0,keepY);}
   else window.scrollTo(0,0);
   const get=(p,q)=>rtGet(p,q).catch(()=>null);
-  const [us,data,seen,bld,dir]=await Promise.all([get('users',_myUserQ(uid)),get('photoApp/projects'),get('photoApp/seen/'+uid),get('builderNames'),get('staffDirectory')]);
+  const [us,data,seen,bld,dir,board]=await Promise.all([get('users',_myUserQ(uid)),get('photoApp/projects'),get('photoApp/seen/'+uid),get('builderNames'),get('staffDirectory'),get('siteBoard')]);
+  S.board=board||S.board||{};
   if(!(await validateSession(us))){onAccessLost();return;}
   if(data)S.projects=Object.entries(data).map(([id,v])=>({id,...v})).filter(p=>!p.archived);
   else if(!cached)S.projects=[];
@@ -573,7 +588,8 @@ function loadHomeCache(uid){try{const c=JSON.parse(localStorage.getItem('sl_home
 function saveHomeCache(uid){try{localStorage.setItem('sl_home_cache',JSON.stringify({uid,projects:S.projects,seen:S.seen}));}catch(e){}}
 function renderFilters(){
   const builders=[...new Set(S.projects.map(p=>p.builder).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
-  $('#filters').innerHTML=`<div class="chip ${!S.bfilter?'on':''}" data-b="">All</div>`+
+  const onBoard=S.projects.some(sbOpenOn);
+  $('#filters').innerHTML=`<div class="chip ${!S.bfilter?'on':''}" data-b="">All</div>`+(onBoard?`<div class="chip ${S.bfilter==='__board__'?'on':''}" data-b="__board__">📋 Current jobs</div>`:'')+
     builders.map(b=>`<div class="chip ${S.bfilter===b?'on':''}" data-b="${esc(b)}">${esc(b)}</div>`).join('');
   $('#filters').querySelectorAll('.chip').forEach(c=>c.onclick=()=>{S.bfilter=c.dataset.b;renderFilters();renderProjectList();});
 }
@@ -582,7 +598,8 @@ function isNew(p){const base=S.seen._baseline||0;const seen=Math.max(S.seen[p.id
 function renderProjectList(){
   const q=S.q.trim().toLowerCase();
   let list=S.projects.slice();
-  if(S.bfilter)list=list.filter(p=>p.builder===S.bfilter);
+  if(S.bfilter==='__board__')list=list.filter(sbOpenOn);
+  else if(S.bfilter)list=list.filter(p=>p.builder===S.bfilter);
   // Also matches anyone who posted or replied on the site (p.authors, kept in sync when a site is opened).
   if(q)list=list.filter(p=>(`${title(p)} ${p.address||''} ${(p.authors||[]).join(' ')}`).toLowerCase().includes(q));
   const whoHit=p=>q&&!(`${title(p)} ${p.address||''}`).toLowerCase().includes(q)?(p.authors||[]).filter(n=>n.toLowerCase().includes(q)):[];
@@ -596,7 +613,7 @@ function renderProjectList(){
     const cnt=p.photoCount||0;const last=p.lastActivity?fmtD(p.lastActivity).slice(0,5):'';const nw=isNew(p);
     return `<div class="pcard" data-id="${p.id}">
       <div class="body"><div class="bld">${esc(title(p))}${nw?'<span class="ndot" title="New photos"></span>':''}</div>
-        ${p.address?`<div class="adr">${esc(p.address)}</div>`:''}
+        ${p.address||sbOpenOn(p)?`<div class="adr">${sbOpenOn(p)?`<span class="sbs ${esc(S.board[p.id].status||'planned')}">${SB_LBL[S.board[p.id].status||'planned']}</span> `:''}${esc(p.address||'')}</div>`:''}
         ${whoHit(p).length?`<div class="adr">👤 ${esc(whoHit(p).join(', '))}</div>`:''}
       </div><div class="pr"><b>${plural(cnt,'photo')}</b>${last}</div></div>`;}).join('')+'</div>';
   el.querySelectorAll('.pcard').forEach(d=>d.onclick=()=>openProject(d.dataset.id));
@@ -642,6 +659,7 @@ async function openProject(pid){
      <button class="icn" id="h-back">‹</button>
      <div style="flex:1;min-width:0"><h1>${esc(title(p))}</h1>${p.address?`<div class="sub">📍 ${esc(p.address)}</div>`:''}</div>
      <button class="icn" id="h-edit" title="Edit site">✎</button></div></div>
+   <div class="wrap" id="sbcard" style="padding-bottom:0;display:none"></div>
    <div class="catbar" id="catbar"></div>
    <div class="wrap" id="entries"></div>
    <button class="fab" id="addentry">＋</button>`;
@@ -649,7 +667,70 @@ async function openProject(pid){
   $('#h-edit').onclick=()=>projectForm(S.curProj);
   $('#addentry').onclick=()=>entryForm(pid,S.cat==='__all__'?null:S.cat);
   window.scrollTo(0,0);   // a site page always opens at the top
-  renderCatbar();loadEntries(pid);
+  renderCatbar();loadEntries(pid);loadBoard(pid);
+}
+
+// ── Site board card (현장 현황판): schedule, grout/silicone colours, what's left. No money here —
+//    quotes/invoices live in siteBoardMoney, which staff can't read. Staff read only; admin can edit.
+const SB_LBL={planned:'Planned',active:'Active',finishing:'Finishing',done:'Done'};
+const sbOpenOn=p=>{const b=S.board&&S.board[p.id];return !!b&&(b.status||'planned')!=='done';};
+const sbItems=o=>Object.entries(o||{}).map(([id,v])=>({...v,id}));
+const sbToday=()=>{const d=new Date();return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;};
+const sbFmt=iso=>{const p=String(iso||'').split('-');return p.length===3?`${p[2]}/${p[1]}`:esc(iso||'');};
+async function loadBoard(pid){
+  const cached=S.board&&S.board[pid];if(cached)renderBoard(pid,cached);
+  const b=await rtGet('siteBoard/'+pid).catch(()=>null);
+  if(S.pid!==pid)return;
+  S.board=S.board||{};if(b)S.board[pid]=b;else delete S.board[pid];
+  renderBoard(pid,b);
+}
+function renderBoard(pid,b){
+  const el=$('#sbcard');if(!el)return;
+  if(!b){el.style.display=isAdmin()?'':'none';el.innerHTML=isAdmin()?`<div class="sbc"><div class="hd"><b style="font-size:14px">Site board</b><button class="add" id="sb-start">＋ Add to board</button></div><div class="none">Not on the board yet.</div></div>`:'';
+    const st=$('#sb-start');if(st)st.onclick=()=>sbWrite(pid,()=>({status:'active',createdAt:Date.now()}));return;}
+  el.style.display='';
+  const adm=isAdmin(),td=sbToday();
+  const sched=sbItems(b.schedule).filter(s=>(s.end||s.date||'')>=td).sort((a,c)=>(a.date||'').localeCompare(c.date||''));
+  const cols=sbItems(b.colours);
+  const todo=sbItems(b.todo).sort((a,c)=>(a.done?1:0)-(c.done?1:0)||(a.createdAt||0)-(c.createdAt||0));
+  const x=(k,id)=>adm?`<button class="x" data-del="${k}|${id}">×</button>`:'';
+  const add=k=>adm?`<button class="add" data-add="${k}">＋ Add</button>`:'';
+  const st=b.status||'planned';
+  el.innerHTML=`<div class="sbc">
+    <div class="hd"><b style="font-size:14px">Site board</b><span class="st ${esc(st)}" ${adm?'id="sb-st" style="cursor:pointer"':''}>${SB_LBL[st]||esc(st)}</span></div>
+    <div class="lb">Schedule ${add('schedule')}</div>
+    ${sched.map(s=>`<div class="it"><span class="dt">${sbFmt(s.date)}${s.end&&s.end!==s.date?'–'+sbFmt(s.end):''}</span><span style="flex:1">${esc(s.work||'')}${s.crew?` <span style="color:var(--sub)">· ${esc(s.crew)}</span>`:''}</span>${x('schedule',s.id)}</div>`).join('')||'<div class="none">Nothing scheduled</div>'}
+    <div class="lb">Grout &amp; silicone ${add('colours')}</div>
+    ${cols.map(c=>`<div class="it"><span style="flex:1"><b>${esc(c.area||'All')}</b> · Grout ${esc(c.grout||'—')} · Silicone ${esc(c.silicone||'—')}</span>${x('colours',c.id)}</div>`).join('')||'<div class="none">No colours yet</div>'}
+    <div class="lb">To do ${add('todo')}</div>
+    ${todo.map(t=>`<div class="it"><input type="checkbox" ${t.done?'checked':''} ${adm?`data-tick="${t.id}"`:'disabled'}><span style="flex:1;${t.done?'text-decoration:line-through;color:var(--sub)':''}">${esc(t.text||'')}</span>${x('todo',t.id)}</div>`).join('')||'<div class="none">Nothing left</div>'}
+    ${b.note?`<div class="lb">Note</div><div style="font-size:13.5px;white-space:pre-wrap">${esc(b.note)}</div>`:''}
+  </div>`;
+  if(!adm)return;
+  const stEl=$('#sb-st');if(stEl)stEl.onclick=()=>{const ks=Object.keys(SB_LBL);const nx=ks[(ks.indexOf(st)+1)%ks.length];sbWrite(pid,o=>{o.status=nx;return o;});};
+  el.querySelectorAll('[data-del]').forEach(bn=>bn.onclick=()=>{const [k,id]=bn.dataset.del.split('|');sbWrite(pid,o=>{if(o[k])delete o[k][id];return o;});});
+  el.querySelectorAll('[data-tick]').forEach(cb=>cb.onchange=()=>{const id=cb.dataset.tick;sbWrite(pid,o=>{const t=(o.todo||{})[id];if(t){t.done=cb.checked;t.doneAt=cb.checked?Date.now():null;}return o;});});
+  el.querySelectorAll('[data-add]').forEach(bn=>bn.onclick=()=>{
+    const k=bn.dataset.add;let it=null;
+    if(k==='schedule'){const d=prompt('Date (e.g. 12/11 or 12/11-14/11)');if(!d)return;
+      const prs=v=>{const m=(v||'').trim().match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?$/);if(!m)return null;const y=m[3]?(m[3].length===2?'20'+m[3]:m[3]):String(new Date().getFullYear());return `${y}-${pad2(+m[2])}-${pad2(+m[1])}`;};
+      const [a,c]=d.split(/\s*[-~]\s*/);const date=prs(a),end=c?prs(c):'';if(!date||(c&&!end)){toast('Check the date format');return;}
+      const work=prompt('Work (e.g. waterproofing, floor tiles)')||'';const crew=prompt('Who (optional)')||'';it={date,end,work:work.trim(),crew:crew.trim()};}
+    else if(k==='colours'){const area=prompt('Area (e.g. bathroom, laundry, all)');if(area==null)return;const g=prompt('Grout colour');if(g==null)return;const si=prompt('Silicone colour')||'';it={area:area.trim(),grout:g.trim(),silicone:si.trim()};}
+    else{const t=prompt('What is left to do?');if(!t||!t.trim())return;it={text:t.trim(),done:false};}
+    it.createdAt=Date.now();const key='k'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+    sbWrite(pid,o=>{o[k]=o[k]||{};o[k][key]=it;return o;});
+  });
+}
+// Read-modify-write the whole site record so admin edits from SiteLog and the invoice app don't drop each other's items.
+async function sbWrite(pid,fn){
+  try{
+    const cur=(await rtGet('siteBoard/'+pid))||{};
+    const next=fn(JSON.parse(JSON.stringify(cur)));next.updatedAt=Date.now();next.updatedBy=S.user.name||S.user.id;
+    const r=await fbFetch(`${RTDB}/siteBoard/${pid}.json`,{method:'PUT',body:JSON.stringify(next)});
+    if(!r.ok)throw new Error(r.status);
+    S.board=S.board||{};S.board[pid]=next;if(S.pid===pid)renderBoard(pid,next);
+  }catch(e){toast('Could not save: '+e.message);}
 }
 // Always show the standard work categories, plus any extra ones this project has (e.g. 이전자료).
 function catsOf(p){

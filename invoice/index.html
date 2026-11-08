@@ -22,7 +22,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-11-08-04';
+const APP_BUILD = '2026-11-08-05';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -180,8 +180,10 @@ body{background:var(--bg);color:var(--text);min-height:100vh;transition:backgrou
 .bbar{position:fixed;bottom:0;left:0;right:0;background:rgba(30,27,75,0.97);backdrop-filter:blur(10px);padding:8px 12px;display:flex;justify-content:space-around;z-index:100;gap:8px}
 /* 인보이스/빌더/통계 외 탭에선 하단 미수금 바 숨김 — 정산/캘린더 페이지에선 무관한 정보 */
 body[data-active-tab="partners"] .bbar,
+body[data-active-tab="sites"] .bbar,
 body[data-active-tab="calendar"] .bbar { display: none }
 body[data-active-tab="partners"] .content,
+body[data-active-tab="sites"] .content,
 body[data-active-tab="calendar"] .content { padding-bottom: 20px }
 .bstat{text-align:center;min-width:0;flex:1}
 .bstat.click{cursor:pointer;border-radius:8px}.bstat.click:active{background:rgba(255,255,255,0.08)}
@@ -987,6 +989,7 @@ body[data-active-tab="invoices"] .content,body:not([data-active-tab]) .content{p
   <div class="nav">
     <!-- 주 탭 -->
     <button class="active" onclick="showTab('invoices')"><span class="nav-emoji"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h7l4 4v14H7z"/><path d="M10 12h5M10 16h5"/></svg></span><span class="nav-label">인보이스</span></button>
+    <button onclick="showTab('sites')"><span class="nav-emoji"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V10l7-5 7 5v11"/><path d="M10 21v-6h4v6"/></svg></span><span class="nav-label">현장</span></button>
     <button onclick="showTab('partners')" id="hd-partners-btn" style="display:none"><span class="nav-emoji"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M16 4.6a3.2 3.2 0 0 1 0 6.3M21 20c0-2.8-1.8-5.1-4.3-5.8"/></svg></span><span class="nav-label">정산</span></button>
     <button onclick="showTab('stats')"><span class="nav-emoji"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20V11M12 20V5M19 20v-7"/></svg></span><span class="nav-label">통계</span></button>
     <button onclick="showTab('expenses')" id="hd-expenses-btn" style="display:none"><span class="nav-emoji"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18M7 15h4"/></svg></span><span class="nav-label">지출</span></button>
@@ -1013,6 +1016,7 @@ body[data-active-tab="invoices"] .content,body:not([data-active-tab]) .content{p
 </div>
 <div class="content">
   <div id="tab-invoices"></div>
+  <div id="tab-sites" style="display:none"></div>
   <div id="tab-builders" style="display:none"></div>
   <div id="tab-stats" style="display:none"></div>
   <div id="tab-calendar" style="display:none"></div>
@@ -2557,7 +2561,7 @@ function filterByBuilder(name) {
 }
 
 function showTab(t) {
-  ['invoices','builders','stats','calendar','partners','expenses','vehicles','orders','letters'].forEach(id => {
+  ['invoices','sites','builders','stats','calendar','partners','expenses','vehicles','orders','letters'].forEach(id => {
     const el = document.getElementById('tab-'+id); if (el) el.style.display = id===t?'block':'none';
   });
   document.querySelectorAll('.nav button').forEach(b => {
@@ -2567,6 +2571,7 @@ function showTab(t) {
   });
   // body 에 현재 탭 표시 — 정산 탭에서는 인보이스 통계 하단바를 숨기기 위해 CSS 가 사용
   document.body.dataset.activeTab = t;
+  if (t==='sites') renderSites();
   if (t==='stats') renderStats();
   if (t==='calendar') renderCalendar();
   if (t==='partners') renderPartners();
@@ -10917,6 +10922,348 @@ function _vhStatus(daysLeft) {
   if (daysLeft <= 30)    return { color:'#B45309', bg:'#FEF3C7', label:`${daysLeft}일 남음`, icon:'⚠️' };
   if (daysLeft <= 90)    return { color:'#92400E', bg:'#FFFBEB', label:`${daysLeft}일`, icon:'🟡' };
   return                       { color:'#065F46', bg:'#D1FAE5', label:`${daysLeft}일`, icon:'✅' };
+}
+
+// ═══════════════════════ 🏗️ 현장 현황판 (Site Board) ═══════════════════════
+// 현장 기준 = SiteLog 현장(photoApp/projects) id.
+//   siteBoard/<pid>      : 직원도 보는 부분(돈 없음) — status, schedule{}, colours{}, todo{}, note
+//   siteBoardMoney/<pid> : 관리자만 — quoteTotal(ex GST), quoteNo, quoteFile, invoiceNums[], orderNos[], note
+//   각 항목의 auto:true = 매일 정리 작업(Claude)이 넣은 것. 손으로 넣은 항목은 작업이 덮어쓰지 않음.
+//   청구%·입금·미수·연체·발주 미결제는 저장하지 않고 여기서 바로 계산.
+const SB_STATUS = [
+  {k:'planned',   l:'예정',   cls:''},
+  {k:'active',    l:'진행 중', cls:'teal'},
+  {k:'finishing', l:'마무리', cls:'amber'},
+  {k:'done',      l:'완료',   cls:'green'},
+];
+let sbLoaded = false, sbProjects = {}, sbBoard = {}, sbMoney = {}, sbFilter = 'open', sbSearch = '', sbOpenPid = null;
+const sbStatusOf = k => SB_STATUS.find(s=>s.k===k) || SB_STATUS[0];
+const sbKey = () => 'k' + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+const sbList = o => Object.entries(o||{}).map(([id,v])=>({...v, id}));
+const sbArr = a => Array.isArray(a) ? a.filter(Boolean) : Object.values(a||{}).filter(Boolean);
+function sbTitle(pid){
+  const p = sbProjects[pid] || {};
+  return p.name || p.address || p.builder || '(이름 없음)';
+}
+// 제목 아래 줄: 빌더 · 주소 (제목과 같은 건 빼고)
+function sbSub(pid){
+  const p = sbProjects[pid] || {}, t = sbTitle(pid);
+  return [p.builder, p.address].filter(x => x && x !== t).join(' · ');
+}
+const sbA0 = n => (n < 0 ? '-$' : '$') + Math.round(Math.abs(n||0)).toLocaleString('en-AU');
+async function sbLoad(force){
+  if (sbLoaded && !force) return;
+  const [pr, bd, mo] = await Promise.all([fbGet('photoApp/projects'), fbGet('siteBoard'), fbGet('siteBoardMoney')]);
+  sbProjects = pr || {}; sbBoard = bd || {}; sbMoney = mo || {};
+  if (!ordersLoaded) await ordLoad();
+  sbLoaded = true;
+}
+// 연결된 인보이스 → 청구/입금/미수 계산 (금액은 ex GST 로 맞춤: 견적이 ex GST)
+function sbMoneyCalc(pid){
+  const m = sbMoney[pid] || {};
+  const nums = sbArr(m.invoiceNums);
+  const invs = invoices.filter(i => i.invoiceNum && nums.includes(i.invoiceNum) && i.status !== 'DRAFT');
+  const billedEx = invs.reduce((s,i)=>s+exGST(i.amount),0);
+  const paid = invs.reduce((s,i)=>s+totalPaid(i),0);
+  const out = invs.filter(isUnpaid).reduce((s,i)=>s+Math.max(0,remaining(i)),0);
+  const overdue = invs.filter(isOverdue).length;
+  const retention = invs.filter(i => i.status==='RETENTION' || isRetentionHeld(i)).reduce((s,i)=>s+Math.max(0,remaining(i)),0);
+  const quote = parseFloat(m.quoteTotal) || 0;
+  const pct = quote > 0 ? Math.round(billedEx / quote * 100) : null;
+  const ordNos = sbArr(m.orderNos);
+  const ordLines = orders.filter(o => ordNos.includes(o.orderNo));
+  const ordUnpaid = ordLines.filter(ordIsUnpaid).length;
+  const ordUndeliv = ordLines.filter(o => !ordIsCancelled(o) && !ordDelivered(o)).length;
+  return {invs, billedEx, paid, out, overdue, retention, quote, pct, ordNos, ordUnpaid, ordUndeliv};
+}
+function sbNextSched(b){
+  const items = sbList(b && b.schedule).filter(s=>s.date).sort((a,c)=>a.date.localeCompare(c.date));
+  return items.find(s => (s.end||s.date) >= today) || null;
+}
+function sbDaysAgo(ts){
+  if (!ts) return '';
+  const d = Math.floor((Date.now() - ts) / 86400000);
+  return d <= 0 ? '오늘' : d + '일 전';
+}
+function renderSites(){
+  const el = document.getElementById('tab-sites');
+  if (!el) return;
+  if (!sbLoaded){ el.innerHTML = '<div class="empty"><div style="font-size:30px;margin-bottom:8px">⏳</div>현장 데이터 로딩 중…</div>'; sbLoad().then(renderSites); return; }
+  const pids = Object.keys(sbBoard).filter(pid => sbProjects[pid]);
+  const cnt = k => pids.filter(pid => (sbBoard[pid].status||'planned') === k).length;
+  let shown = pids.filter(pid => {
+    const st = sbBoard[pid].status || 'planned';
+    if (sbFilter === 'open' && st === 'done') return false;
+    if (sbFilter !== 'open' && sbFilter !== 'all' && st !== sbFilter) return false;
+    if (sbSearch){ const p = sbProjects[pid]; const q = sbSearch.toLowerCase();
+      if (!(sbTitle(pid)+' '+(p.address||'')+' '+(p.builder||'')).toLowerCase().includes(q)) return false; }
+    return true;
+  });
+  const ord = {active:0, finishing:1, planned:2, done:3};
+  shown.sort((a,b) => (ord[sbBoard[a].status||'planned']-ord[sbBoard[b].status||'planned']) ||
+    ((sbNextSched(sbBoard[a])||{date:'9'}).date.localeCompare((sbNextSched(sbBoard[b])||{date:'9'}).date)));
+  const fbtn = (k,l,n) => `<button class="fbtn${sbFilter===k?' active':''}" onclick="sbFilter='${k}';renderSites()">${l}${n!=null?` <b>${n}</b>`:''}</button>`;
+  el.innerHTML = `
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+      <input class="input" id="sb-search" placeholder="현장·빌더 검색" value="${esc(sbSearch)}" style="flex:1">
+      <button class="btn-gold" onclick="sbAddPicker()" style="white-space:nowrap">＋ 현장</button>
+    </div>
+    <div class="filter-bar">
+      ${fbtn('open','진행 전체',pids.length-cnt('done'))}${fbtn('active','진행 중',cnt('active'))}${fbtn('finishing','마무리',cnt('finishing'))}${fbtn('planned','예정',cnt('planned'))}${fbtn('done','완료',cnt('done'))}${fbtn('all','전체')}
+    </div>
+    ${shown.length ? shown.map(sbCardHtml).join('') : `<div class="empty"><p style="font-size:13px">${pids.length ? '해당하는 현장이 없어요' : '아직 현황판에 올린 현장이 없어요.<br>＋ 현장 버튼으로 SiteLog 현장을 추가하세요.'}</p></div>`}`;
+  const s = document.getElementById('sb-search');
+  s.oninput = e => { sbSearch = e.target.value; clearTimeout(s._t); s._t = setTimeout(()=>{ renderSites(); const n=document.getElementById('sb-search'); n.focus(); n.setSelectionRange(n.value.length,n.value.length); }, 250); };
+}
+function sbCardHtml(pid){
+  const b = sbBoard[pid] || {}, p = sbProjects[pid] || {}, st = sbStatusOf(b.status), mc = sbMoneyCalc(pid);
+  const nx = sbNextSched(b);
+  const todoOpen = sbList(b.todo).filter(t=>!t.done).length;
+  const chips = [];
+  if (mc.quote) chips.push(`<span class="chip">견적 ${fA(mc.quote)}</span>`);
+  if (mc.pct != null) chips.push(`<span class="chip ${mc.pct>=100?'green':'teal'}">청구 ${mc.pct}%</span>`);
+  else if (mc.invs.length) chips.push(`<span class="chip teal">청구 ${fA(mc.billedEx*(1+GST))}</span>`);
+  if (mc.out > 0.5) chips.push(`<span class="chip ${mc.overdue?'red':'amber'}">미수 ${fA(mc.out)}${mc.overdue?' · 연체':''}</span>`);
+  if (mc.retention > 0.5) chips.push(`<span class="chip">리텐션 ${fA(mc.retention)}</span>`);
+  if (mc.ordNos.length) chips.push(`<span class="chip${mc.ordUnpaid?' amber':''}">발주 ${mc.ordNos.length}건${mc.ordUnpaid?` · 미결제 ${mc.ordUnpaid}`:''}${mc.ordUndeliv?` · 미배송 ${mc.ordUndeliv}`:''}</span>`);
+  if (!mc.quote && !mc.invs.length && b.status !== 'planned') chips.push(`<span class="chip red">견적·인보이스 연결 없음</span>`);
+  return `<div class="card" style="cursor:pointer" onclick="sbOpen('${pid}')">
+    <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start">
+      <div style="min-width:0">
+        <div style="font-weight:800;font-size:14px;color:var(--text)">${esc(sbTitle(pid))}</div>
+        <div style="font-size:11.5px;color:var(--text-3);margin-top:2px">${esc(sbSub(pid))}</div>
+      </div>
+      <span class="chip ${st.cls}" style="flex-shrink:0">${st.l}</span>
+    </div>
+    <div style="font-size:12px;color:var(--text-2);margin-top:8px">
+      ${nx ? `📅 ${fD(nx.date)}${nx.end&&nx.end!==nx.date?'~'+fD(nx.end):''} ${esc(nx.work||'')}${nx.crew?` <span style="color:var(--text-4)">(${esc(nx.crew)})</span>`:''}` : '<span style="color:var(--text-4)">📅 다음 일정 없음</span>'}
+      ${todoOpen ? ` · 남은 일 ${todoOpen}` : ''}
+      ${p.lastActivity ? ` · <span style="color:var(--text-4)">SiteLog ${sbDaysAgo(p.lastActivity)}</span>` : ''}
+    </div>
+    ${chips.length ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:8px">${chips.join('')}</div>` : ''}
+  </div>`;
+}
+// ── 현장 추가: SiteLog 현장 중 아직 현황판에 없는 것 ─────────────────────────
+function sbAddPicker(){
+  if (!_guardWrite()) return;
+  const box = document.getElementById('kpi-box');
+  const draw = q => {
+    q = (q||'').toLowerCase();
+    const list = Object.entries(sbProjects).filter(([pid,p]) => !sbBoard[pid] && !p.archived &&
+      (!q || (sbTitle(pid)+' '+(p.address||'')+' '+(p.builder||'')).toLowerCase().includes(q)))
+      .sort((a,b)=>(b[1].lastActivity||0)-(a[1].lastActivity||0)).slice(0,40);
+    document.getElementById('sb-pick-list').innerHTML = list.map(([pid,p]) =>
+      `<div class="irow" style="cursor:pointer;padding:9px 4px;border-bottom:1px solid var(--border)" onclick="sbAddSite('${pid}')">
+        <div style="font-weight:700;font-size:13px">${esc(sbTitle(pid))}</div>
+        <div style="font-size:11px;color:var(--text-4)">${esc(p.address||'')}${p.lastActivity?' · 최근 글 '+sbDaysAgo(p.lastActivity):''}</div></div>`).join('')
+      || '<div class="empty" style="padding:20px">없어요</div>';
+  };
+  box.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <h3 style="font-size:16px;font-weight:800">현황판에 현장 추가</h3>
+      <button onclick="closeKpiList()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#9CA3AF">×</button></div>
+    <input class="input" id="sb-pick-q" placeholder="SiteLog 현장 검색" style="margin-bottom:8px">
+    <div style="font-size:11px;color:var(--text-4);margin-bottom:6px">SiteLog에 없는 현장은 SiteLog에서 먼저 만들어 주세요.</div>
+    <div id="sb-pick-list"></div>`;
+  document.getElementById('kpi-modal').classList.add('open');
+  document.getElementById('sb-pick-q').oninput = e => draw(e.target.value);
+  draw('');
+}
+async function sbAddSite(pid){
+  if (!_guardWrite()) return;
+  await sbMutate(pid, b => { b.status = b.status || 'active'; b.createdAt = b.createdAt || Date.now(); return b; });
+  // 주소로 인보이스 자동 제안해서 바로 상세 열기
+  closeKpiList(); renderSites(); sbOpen(pid);
+}
+// 저장은 항상 서버의 최신 값을 받아서 고친 뒤 통째로 저장 — SiteLog(관리자)·매일 정리 작업이 넣은 항목을 날리지 않게.
+async function sbMutate(pid, fn){
+  if (!_guardWrite()) return;
+  const cur = (await fbGet('siteBoard/'+pid)) || {};
+  const next = fn(cur) || cur;
+  next.updatedAt = Date.now();
+  next.updatedBy = sessionStorage.getItem('invoice_user_name') || sessionStorage.getItem('invoice_user_id') || '';
+  await fbSet('siteBoard/'+pid, next);
+  sbBoard[pid] = next;
+}
+async function sbMutateMoney(pid, fn){
+  if (!_guardWrite()) return;
+  const cur = (await fbGet('siteBoardMoney/'+pid)) || {};
+  const next = fn(cur) || cur;
+  next.updatedAt = Date.now();
+  await fbSet('siteBoardMoney/'+pid, next);
+  sbMoney[pid] = next;
+}
+// 주소 단어로 인보이스 후보 찾기: 번지(숫자) + 거리 이름 단어가 같이 들어간 인보이스
+const SB_STOP = new Set(['street','st','road','rd','drive','dr','court','ct','crescent','cres','place','pl','avenue','ave','close','cl','lane','ln','way','lot','unit','orange','bathurst','dubbo','mudgee','kelso','nsw','the','and','pty','ltd']);
+function sbAddrTokens(s){
+  return (s||'').toLowerCase().replace(/[^a-z0-9가-힣\s]/g,' ').split(/\s+/).filter(w => w && !SB_STOP.has(w) && (/^\d+[a-z]?$/.test(w) || w.length >= 4));
+}
+function sbSuggestInvoices(pid){
+  const p = sbProjects[pid] || {};
+  const toks = sbAddrTokens((p.address||'') + ' ' + (p.name||''));
+  const nums = toks.filter(t=>/^\d/.test(t)), words = toks.filter(t=>!/^\d/.test(t));
+  if (!words.length) return [];
+  const linked = sbArr((sbMoney[pid]||{}).invoiceNums);
+  return invoices.filter(i => i.invoiceNum && !linked.includes(i.invoiceNum) && i.status !== 'DRAFT').filter(i => {
+    const a = sbAddrTokens(i.address);
+    const wHit = words.some(w => a.includes(w));
+    const nHit = !nums.length || nums.some(n => a.includes(n));
+    return wHit && nHit;
+  }).sort((a,b)=>(b.invoiceDate||'').localeCompare(a.invoiceDate||'')).slice(0,8);
+}
+// ── 상세 ────────────────────────────────────────────────────────────────────
+function sbOpen(pid){
+  sbOpenPid = pid;
+  const b = sbBoard[pid] || {}, m = sbMoney[pid] || {}, p = sbProjects[pid] || {}, mc = sbMoneyCalc(pid);
+  const ro = !isInvoiceEditor();
+  const autoTag = x => x.auto ? ' <span class="chip" title="매일 정리 작업이 넣은 항목">자동</span>' : '';
+  const del = (kind,id) => ro ? '' : `<button onclick="sbDelItem('${kind}','${id}')" style="background:none;border:none;color:var(--text-4);cursor:pointer;font-size:15px;padding:0 4px">×</button>`;
+  const sec = (t, body, add) => `<div style="margin-top:16px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <div class="label" style="margin:0">${t}</div>${add && !ro ? `<button class="chip teal" style="cursor:pointer" onclick="${add}">＋ 추가</button>` : ''}</div>${body}</div>`;
+  const sched = sbList(b.schedule).sort((a,c)=>(a.date||'').localeCompare(c.date||''));
+  const cols = sbList(b.colours);
+  const todo = sbList(b.todo).sort((a,c)=>(a.done?1:0)-(c.done?1:0) || (a.createdAt||0)-(c.createdAt||0));
+  const row = inner => `<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px">${inner}</div>`;
+  const invRows = mc.invs.sort((a,c)=>(a.invoiceDate||'').localeCompare(c.invoiceDate||'')).map(i => row(
+    `<div style="flex:1;min-width:0"><b>${esc(i.invoiceNum)}</b> <span style="color:var(--text-4);font-size:11px">${fD(i.invoiceDate)} · ${esc(i.status)}</span></div>
+     <div style="text-align:right">${fA(i.amount)}${remaining(i)>0.5&&isUnpaid(i)?`<div style="font-size:11px;color:${isOverdue(i)?'var(--km-red)':'var(--km-warn)'}">남음 ${fA(remaining(i))}</div>`:''}</div>
+     ${ro?'':`<button onclick="sbUnlink('invoiceNums','${esc(i.invoiceNum)}')" style="background:none;border:none;color:var(--text-4);cursor:pointer;font-size:15px">×</button>`}`)).join('');
+  const sugg = ro ? [] : sbSuggestInvoices(pid);
+  const ordRows = mc.ordNos.map(no => {
+    const lines = orders.filter(o=>o.orderNo===no);
+    const tot = lines.find(l=>l.invTotal!=null);
+    const unpaid = lines.filter(ordIsUnpaid).length;
+    return row(`<div style="flex:1;min-width:0"><b>${esc(no)}</b> <span style="color:var(--text-4);font-size:11px">${lines.length}줄 · ${esc([...new Set(lines.map(l=>l.supplier).filter(Boolean))].join(', '))}</span></div>
+      <div style="text-align:right">${tot?fA(tot.invTotal):''}${unpaid?`<div style="font-size:11px;color:var(--km-warn)">미결제 ${unpaid}</div>`:''}</div>
+      ${ro?'':`<button onclick="sbUnlink('orderNos','${esc(no)}')" style="background:none;border:none;color:var(--text-4);cursor:pointer;font-size:15px">×</button>`}`);
+  }).join('');
+  const kv = (l,v,c) => `<div style="background:var(--card-bg-alt);border-radius:9px;padding:8px 10px;min-width:0"><div style="font-size:10px;color:var(--text-4);font-weight:700">${l}</div><div style="font-size:15px;font-weight:800;color:${c||'var(--text)'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${v}</div></div>`;
+  const box = document.getElementById('kpi-box');
+  box.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+      <div style="min-width:0"><h3 style="font-size:16px;font-weight:800">${esc(sbTitle(pid))}</h3>
+        <div style="font-size:12px;color:var(--text-3)">${esc(sbSub(pid))}${p.photoCount?` · 사진 ${p.photoCount}`:''}${p.lastActivity?` · 최근 글 ${sbDaysAgo(p.lastActivity)}`:''}</div></div>
+      <button onclick="closeKpiList()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#9CA3AF">×</button>
+    </div>
+    <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:12px">
+      ${SB_STATUS.map(s=>`<button class="fbtn${(b.status||'planned')===s.k?' active':''}" ${ro?'disabled':''} onclick="sbSetStatus('${s.k}')">${s.l}</button>`).join('')}
+    </div>
+
+    <div style="margin-top:16px;padding:12px;border:1px solid var(--border);border-radius:12px">
+      <div class="label">돈 (관리자만 보임)</div>
+      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px">
+        ${kv('견적 ex GST', mc.quote?sbA0(mc.quote):'—')}
+        ${kv('청구 ex GST', sbA0(mc.billedEx) + (mc.pct!=null?` <span style="font-size:11px">${mc.pct}%</span>`:''), 'var(--km-teal-text)')}
+        ${kv('남은 견적', mc.quote?sbA0(Math.max(0,mc.quote-mc.billedEx)):'—')}
+        ${kv('입금', sbA0(mc.paid), 'var(--km-green)')}
+        ${kv('미수', sbA0(mc.out), mc.overdue?'var(--km-red)':mc.out>0.5?'var(--km-warn)':null)}
+        ${kv('리텐션', sbA0(mc.retention))}
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px">
+        <div><label class="label">견적 금액 (ex GST)</label><input class="input" id="sb-q-total" inputmode="decimal" value="${m.quoteTotal!=null?esc(String(m.quoteTotal)):''}" ${ro?'disabled':''}></div>
+        <div><label class="label">견적 번호</label><input class="input" id="sb-q-no" value="${esc(m.quoteNo||'')}" ${ro?'disabled':''}></div>
+      </div>
+      <div style="margin-top:6px"><label class="label">견적 파일 (OneDrive 이름·링크)${m.quoteAuto?' <span class="chip">자동</span>':''}</label><input class="input" id="sb-q-file" value="${esc(m.quoteFile||'')}" ${ro?'disabled':''}></div>
+      ${ro?'':`<button class="btn-secondary" style="margin-top:8px;width:100%;padding:8px" onclick="sbSaveQuote()">견적 저장</button>`}
+      ${sec('인보이스', invRows || '<div style="font-size:12px;color:var(--text-4)">연결된 인보이스 없음</div>', 'sbLinkPrompt(\'invoiceNums\')')}
+      ${sugg.length ? `<div style="font-size:11px;color:var(--text-4);margin-top:6px">주소가 비슷한 인보이스 — 눌러서 연결</div><div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">${sugg.map(i=>`<button class="chip teal" style="cursor:pointer" onclick="sbLink('invoiceNums','${esc(i.invoiceNum)}')">＋ ${esc(i.invoiceNum)} · ${esc((i.address||'').slice(0,28))} · ${fA(i.amount)}</button>`).join('')}</div>` : ''}
+      ${sec('발주 (Astro)', ordRows || '<div style="font-size:12px;color:var(--text-4)">연결된 발주 없음</div>', 'sbLinkPrompt(\'orderNos\')')}
+      <div style="margin-top:10px"><label class="label">돈 메모 (관리자만)</label><textarea class="input" id="sb-m-note" rows="2" ${ro?'disabled':''} onchange="sbSaveMoneyNote()">${esc(m.note||'')}</textarea></div>
+    </div>
+
+    <div style="font-size:11px;color:var(--text-4);margin-top:14px">아래는 SiteLog에서 직원들도 보는 부분이에요 (돈 없음).</div>
+    ${sec('일정', sched.map(s=>row(`<div style="width:92px;flex-shrink:0;font-weight:700">${fD(s.date)}${s.end&&s.end!==s.date?'<br><span style="font-weight:400;font-size:11px">~'+fD(s.end)+'</span>':''}</div><div style="flex:1;min-width:0">${esc(s.work||'')}${s.crew?` <span style="color:var(--text-4)">(${esc(s.crew)})</span>`:''}${autoTag(s)}</div>${del('schedule',s.id)}`)).join('') || '<div style="font-size:12px;color:var(--text-4)">일정 없음</div>', 'sbAddSched()')}
+    ${sec('그라우트·실리콘 색상', cols.map(c=>row(`<div style="flex:1;min-width:0"><b>${esc(c.area||'전체')}</b> · 그라우트 ${esc(c.grout||'—')} · 실리콘 ${esc(c.silicone||'—')}${autoTag(c)}</div>${del('colours',c.id)}`)).join('') || '<div style="font-size:12px;color:var(--text-4)">색상 정보 없음</div>', 'sbAddColour()')}
+    ${sec('남은 일', todo.map(t=>row(`<input type="checkbox" ${t.done?'checked':''} ${ro?'disabled':''} onchange="sbToggleTodo('${t.id}',this.checked)" style="width:18px;height:18px"><div style="flex:1;min-width:0;${t.done?'text-decoration:line-through;color:var(--text-4)':''}">${esc(t.text||'')}${autoTag(t)}</div>${del('todo',t.id)}`)).join('') || '<div style="font-size:12px;color:var(--text-4)">남은 일 없음</div>', 'sbAddTodo()')}
+    <div style="margin-top:16px"><label class="label">현장 메모 (직원도 보임)</label><textarea class="input" id="sb-note" rows="2" ${ro?'disabled':''} onchange="sbSaveNote()">${esc(b.note||'')}</textarea></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;font-size:11px;color:var(--text-4)">
+      <span>${b.updatedAt?`수정 ${new Date(b.updatedAt).toLocaleString('en-AU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}${b.updatedBy?' · '+esc(b.updatedBy):''}`:''}${b.autoAt?` · 자동 정리 ${sbDaysAgo(b.autoAt)}`:''}</span>
+      ${ro?'':`<button onclick="sbRemoveSite()" style="background:none;border:none;color:var(--km-red);cursor:pointer;font-size:11px">현황판에서 빼기</button>`}
+    </div>`;
+  document.getElementById('kpi-modal').classList.add('open');
+}
+function sbRefresh(){ if (sbOpenPid) sbOpen(sbOpenPid); renderSites(); }
+async function sbSetStatus(k){ await sbMutate(sbOpenPid, b => { b.status = k; return b; }); sbRefresh(); }
+async function sbSaveNote(){ const v = document.getElementById('sb-note').value.trim(); await sbMutate(sbOpenPid, b => { b.note = v; return b; }); renderSites(); }
+async function sbSaveMoneyNote(){ const v = document.getElementById('sb-m-note').value.trim(); await sbMutateMoney(sbOpenPid, m => { m.note = v; return m; }); }
+async function sbSaveQuote(){
+  if(!_guardWrite())return;
+  const t = document.getElementById('sb-q-total').value.replace(/[$,\s]/g,'');
+  if (t && isNaN(parseFloat(t))) { alert('견적 금액은 숫자로 입력하세요'); return; }
+  const qt = t ? Math.round(parseFloat(t)*100)/100 : null;
+  const qn = document.getElementById('sb-q-no').value.trim(), qf = document.getElementById('sb-q-file').value.trim();
+  await sbMutateMoney(sbOpenPid, m => {
+    const prev = [m.quoteTotal, m.quoteNo||'', m.quoteFile||''].join('|');
+    m.quoteTotal = qt; m.quoteNo = qn; m.quoteFile = qf;
+    if ([m.quoteTotal, m.quoteNo, m.quoteFile].join('|') !== prev) m.quoteAuto = false;   // 손으로 고치면 자동 작업이 안 덮어씀
+    return m;
+  });
+  sbRefresh();
+}
+async function sbLink(kind, val){
+  val = (val||'').trim(); if (!val) return;
+  await sbMutateMoney(sbOpenPid, m => { const arr = sbArr(m[kind]); if (!arr.includes(val)) arr.push(val); m[kind] = arr; return m; });
+  sbRefresh();
+}
+async function sbUnlink(kind, val){
+  await sbMutateMoney(sbOpenPid, m => { m[kind] = sbArr(m[kind]).filter(x => x !== val); return m; });
+  sbRefresh();
+}
+function sbLinkPrompt(kind){
+  if(!_guardWrite())return;
+  if (kind === 'invoiceNums'){
+    const v = prompt('연결할 인보이스 번호 (예: INV-1670)'); if (!v) return;
+    const n = v.trim().toUpperCase().replace(/^(\d+)$/, 'INV-$1');
+    if (!invoices.some(i => (i.invoiceNum||'').toUpperCase() === n)) { alert(n + ' 인보이스를 찾을 수 없어요'); return; }
+    sbLink(kind, invoices.find(i => (i.invoiceNum||'').toUpperCase() === n).invoiceNum);
+  } else {
+    const recent = [...new Set(orders.map(o=>o.orderNo).filter(Boolean))].slice(0,12);
+    const v = prompt('연결할 발주 번호 (예: 375. 031126)\n최근: ' + recent.join(', ')); if (!v) return;
+    const n = v.trim(); const hit = orders.find(o => (o.orderNo||'') === n) || orders.find(o => (o.orderNo||'').startsWith(n.replace(/\.$/,'') + '.'));
+    if (!hit) { alert(n + ' 발주를 찾을 수 없어요'); return; }
+    sbLink(kind, hit.orderNo);
+  }
+}
+async function sbAddItem(kind, item){
+  const key = sbKey();
+  await sbMutate(sbOpenPid, b => { b[kind] = b[kind] || {}; b[kind][key] = {...item, createdAt: Date.now()}; return b; });
+  sbRefresh();
+}
+async function sbDelItem(kind, id){
+  await sbMutate(sbOpenPid, b => { if (b[kind]) delete b[kind][id]; return b; });
+  sbRefresh();
+}
+async function sbToggleTodo(id, done){
+  await sbMutate(sbOpenPid, b => { const t = (b.todo||{})[id]; if (t) { t.done = !!done; t.doneAt = done ? Date.now() : null; } return b; });
+  sbRefresh();
+}
+function sbAddSched(){
+  const d = prompt('날짜 (예: 12/11 또는 2026-11-12, 기간은 12/11-14/11)'); if (!d) return;
+  const parse = s => { s = s.trim(); let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/); if (m) return `${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`;
+    m = s.match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?$/); if (!m) return null; const y = m[3] ? (m[3].length===2?'20'+m[3]:m[3]) : today.slice(0,4); return `${y}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`; };
+  const parts = d.split(/\s*[-~]\s*(?=\d{1,2}\/)/);
+  const date = parse(parts[0]), end = parts[1] ? parse(parts[1]) : null;
+  if (!date || (parts[1] && !end)) { alert('날짜 형식을 확인하세요'); return; }
+  const work = prompt('할 일 (예: 방수, 바닥 타일)') || '';
+  const crew = prompt('누가 (비워도 돼요)') || '';
+  sbAddItem('schedule', {date, end: end||'', work: work.trim(), crew: crew.trim()});
+}
+function sbAddColour(){
+  const area = prompt('구역 (예: 욕실, 세탁실, 전체)'); if (area == null) return;
+  const grout = prompt('그라우트 색'); if (grout == null) return;
+  const silicone = prompt('실리콘 색') || '';
+  sbAddItem('colours', {area: area.trim(), grout: grout.trim(), silicone: silicone.trim()});
+}
+function sbAddTodo(){
+  const t = prompt('남은 일'); if (!t || !t.trim()) return;
+  sbAddItem('todo', {text: t.trim(), done: false});
+}
+async function sbRemoveSite(){
+  if(!_guardWrite())return;
+  if (!confirm('이 현장을 현황판에서 뺄까요? (SiteLog 사진·글은 그대로 남아요. 일정·색상·남은 일·견적 연결은 지워져요)')) return;
+  const pid = sbOpenPid;
+  await fbSet('siteBoard/'+pid, null); await fbSet('siteBoardMoney/'+pid, null);
+  delete sbBoard[pid]; delete sbMoney[pid]; sbOpenPid = null;
+  closeKpiList(); renderSites();
 }
 
 // ═══════════════════════ 📦 발주 (Astro Orders) ═══════════════════════
