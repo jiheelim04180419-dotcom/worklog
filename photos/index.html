@@ -217,7 +217,7 @@ input,textarea,select{font-family:inherit;font-size:16px}
 <div id="toast" class="toast"></div>
 <datalist id="builder-list"></datalist>
 <script>
-const APP_BUILD='2026-11-08-01';
+const APP_BUILD='2026-11-08-02';
 // 글 작성칸(textarea) 내용에 맞춰 자동으로 늘어남 (최대 화면 60%)
 function autoGrowTA(t){t.style.height='auto';t.style.height=Math.min(t.scrollHeight+3,window.innerHeight*0.6)+'px';}
 document.addEventListener('input',function(ev){if(ev.target&&ev.target.tagName==='TEXTAREA')autoGrowTA(ev.target);});
@@ -395,7 +395,7 @@ const isAdmin=()=>!!(S.user&&(S.user.role==='admin'||S.user.id==='admin'));
 const canEditEntry=e=>!!(S.user&&(isAdmin()||(e&&e.authorId&&e.authorId===S.user.id)));
 const COLORS=['#6d5efc','#ef4444','#f59e0b','#10b981','#0891b2','#8b5cf6','#ec4899','#334155'];
 
-async function rtGet(p){const r=await fbFetch(`${RTDB}/${p}.json`);return r.ok?r.json():null;}
+async function rtGet(p,q){const r=await fbFetch(`${RTDB}/${p}.json${q||''}`);return r.ok?r.json():null;}
 async function rtPost(p,v){const r=await fbFetch(`${RTDB}/${p}.json`,{method:'POST',body:JSON.stringify(v)});return r.json();}
 async function rtPut(p,v){const r=await fbFetch(`${RTDB}/${p}.json`,{method:'PUT',body:JSON.stringify(v)});return r.json();}
 async function rtPatch(p,v){const r=await fbFetch(`${RTDB}/${p}.json`,{method:'PATCH',body:JSON.stringify(v)});return r.json();}
@@ -433,18 +433,20 @@ async function tryLogin(id,pw){
   id=id.trim();
   try{await fbSignIn(id,pw);}
   catch(e){const m=e.message;return{err:m==='WRONG'?'Wrong username or password':m==='OFF'?'This account is disabled':m==='UNMAPPED'?'Account not set up yet — ask the admin':/TOO_MANY/.test(m)?'Too many attempts — try again later':'Connection failed: '+m};}
-  const users=await rtGet('users');const arr=Array.isArray(users)?users:Object.values(users||{});
+  const users=await rtGet('users',_myUserQ(id));const arr=Array.isArray(users)?users:Object.values(users||{});
   const u=arr.find(x=>x&&x.id===id);
   if(!u){fbSignOut();return{err:'User not found'};}
   if(!isActive(u)){fbSignOut();return{err:'This account is disabled'};}
   return{user:{id:u.id,name:u.name||u.id}};
 }
+// Only the signed-in person's own record (users/.indexOn id) — not the whole staff list (DOB, visa).
+const _myUserQ=id=>'?orderBy='+encodeURIComponent('"id"')+'&equalTo='+encodeURIComponent(JSON.stringify(id));
 // Re-check the signed-in user still exists & is active. Logs out immediately if not.
 async function validateSession(pre){
   if(!S.user)return false;
   if(!_fbAuth||_fbAuth.id!==S.user.id){localStorage.removeItem('photoapp_session');S.user=null;return false;}   // Firebase 로그인 필요
   try{
-    const users=pre!==undefined?pre:await rtGet('users');
+    const users=pre!==undefined?pre:await rtGet('users',_myUserQ(S.user.id));
     if(!users)return true;   // read failed (network/server): don't lock out on a hiccup
     const arr=Array.isArray(users)?users:Object.values(users||{});
     const u=arr.find(x=>x&&x.id===S.user.id);
@@ -509,8 +511,8 @@ function appMenu(){
 // builders (reuse invoice builders + builders used on sites)
 async function loadBuilders(pre){
   let names=[];
-  try{const b=pre!==undefined?pre:await rtGet('invoiceBuilders');const arr=Array.isArray(b)?b:Object.values(b||{});
-    names=arr.map(x=>x&&(x.name||x.builderName||x.company)).filter(Boolean);}catch(e){}
+  try{const b=pre!==undefined?pre:await rtGet('builderNames');   // names only (kept in sync by the Invoice app)
+    names=(Array.isArray(b)?b:Object.values(b||{})).filter(x=>typeof x==='string'&&x);}catch(e){}
   S.projects.forEach(p=>{if(p.builder)names.push(p.builder);});
   S.builders=[...new Set(names)].sort((a,b)=>a.localeCompare(b));
   $('#builder-list').innerHTML=S.builders.map(n=>`<option value="${esc(n)}">`).join('');
@@ -536,8 +538,8 @@ async function openProjects(){
   const uid=S.user.id,cached=loadHomeCache(uid);
   if(cached){S.projects=cached.projects;S.seen=cached.seen;renderFilters();renderProjectList();window.scrollTo(0,keepY);}
   else window.scrollTo(0,0);
-  const get=p=>rtGet(p).catch(()=>null);
-  const [us,data,seen,bld]=await Promise.all([get('users'),get('photoApp/projects'),get('photoApp/seen/'+uid),get('invoiceBuilders')]);
+  const get=(p,q)=>rtGet(p,q).catch(()=>null);
+  const [us,data,seen,bld,dir]=await Promise.all([get('users',_myUserQ(uid)),get('photoApp/projects'),get('photoApp/seen/'+uid),get('builderNames'),get('staffDirectory')]);
   if(!(await validateSession(us))){onAccessLost();return;}
   if(data)S.projects=Object.entries(data).map(([id,v])=>({id,...v})).filter(p=>!p.archived);
   else if(!cached)S.projects=[];
@@ -545,8 +547,7 @@ async function openProjects(){
   S.seen=seen||(cached&&cached.seen)||{};
   if(!S.seen._baseline){S.seen._baseline=Date.now();rtPatch('photoApp/seen/'+uid,{_baseline:S.seen._baseline});}
   // Staff names for the "worked with" tag picker (current staff; past names can be typed in).
-  try{const arr=Array.isArray(us)?us:Object.values(us||{});
-    S.staff=arr.filter(u=>u&&u.name&&u.id!=='admin'&&u.name!=='관리자').map(u=>u.name);}catch(e){S.staff=[];}
+  try{S.staff=Object.entries(dir||{}).filter(([id,u])=>u&&u.name&&id!=='admin'&&u.name!=='관리자').map(([id,u])=>u.name);}catch(e){S.staff=[];}
   await loadBuilders(bld);
   if(data)saveHomeCache(uid);
   if(S.pid!==null||!document.getElementById('plist'))return;   // user already opened a site
