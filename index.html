@@ -18,7 +18,7 @@
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
 // ℹ️ reload 는 코드만 갱신 — Firebase 주소(wm_fb_url)·로그인 세션(wm_session)은 localStorage 라 유지됨(재로그인 불필요).
-const APP_BUILD = '2026-11-08-01';
+const APP_BUILD = '2026-11-08-03';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출. ?_=타임스탬프 + no-store 로 캐시 우회.
 function _fetchLatestBuild(){
   return fetch(location.pathname + '?_=' + Date.now(), { cache: 'no-store', headers: { 'Range': 'bytes=0-3000' } })
@@ -417,9 +417,48 @@ async function fbAdminSyncFlags(users) {
   });
   if (Object.keys(upd).length) await _fbJson('PATCH', 'authMap', upd);
 }
-async function fbGet(path) {
+async function fbGet(path, query) {
   const base = _fbUrl || getFbUrl(); if (!base) return null;
-  try { const r = await fbFetch(base + "/" + path + ".json"); if (!r.ok) return null; return await r.json(); } catch { return null; }
+  try { const r = await fbFetch(base + "/" + path + ".json" + (query || "")); if (!r.ok) return null; return await r.json(); } catch { return null; }
+}
+// 직원 범위 — 직원(employee)은 본인 데이터만 받고, 관리자·준관리자는 전체를 받음
+function _wlScope(sess) { return { me: sess && sess.id, full: !sess || sess.role !== "employee" }; }
+function _wlQ(key, val) { return '?orderBy=' + encodeURIComponent('"' + key + '"') + '&equalTo=' + encodeURIComponent(JSON.stringify(val)); }
+function _wlStreams(sc) {
+  if (!sc || sc.full) return [{ node: "users", path: "users" }, { node: "logs", path: "logs" }, { node: "leaves", path: "leaves" }, { node: "companies", path: "companies" }];
+  return [{ node: "users", path: "users", q: _wlQ("id", sc.me) }, { node: "logs", path: "logs", q: _wlQ("userId", sc.me) },
+          { node: "leaves", path: "leaves/" + sc.me }, { node: "companies", path: "companies" }];
+}
+// 직원 화면용 이름 목록(staffDirectory) — 이름과 생일(월·일)만. 생년·비자 등은 관리자만 봄
+function _wlDirFrom(users) {
+  const dir = {};
+  (users || []).forEach(u => { if (u && u.id && !u.resignedDate) dir[u.id] = { name: u.name || "", birthDate: u.birthDate && u.birthDate.length >= 10 ? "2000" + u.birthDate.slice(4, 10) : "" }; });
+  return dir;
+}
+// Firebase·JSON 객체 키 순서와 같게: 작은 정수 키는 숫자순 먼저, 나머지는 문자열순
+function _wlKeyCmp(a, b) {
+  const ia = /^\d{1,10}$/.test(a) && +a <= 4294967294, ib = /^\d{1,10}$/.test(b) && +b <= 4294967294;
+  if (ia && ib) return a - b; if (ia) return -1; if (ib) return 1;
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+function _wlMergeDir(self, dir) {
+  const out = self ? [self] : [];
+  Object.keys(dir || {}).forEach(id => { if (self && id === self.id) return; const d = dir[id] || {}; out.push({ id, name: d.name || "", birthDate: d.birthDate || "" }); });
+  return out;
+}
+// leaves 저장 — 노드 통째(PUT) 대신 바뀐 직원·항목만 PATCH (다른 직원 데이터를 덮어쓰지 않게)
+function _wlLeavesDiff(prev, next) {
+  prev = prev || {}; next = next || {};
+  const upd = {};
+  Object.keys(prev).forEach(id => { if (!(id in next)) upd[id] = null; });
+  Object.keys(next).forEach(id => {
+    const a = prev[id], b = next[id];
+    if (!a || typeof a !== "object" || !b || typeof b !== "object") { if (JSON.stringify(a) !== JSON.stringify(b)) upd[id] = b === undefined ? null : b; return; }
+    new Set([...Object.keys(a), ...Object.keys(b)]).forEach(f => {
+      if (JSON.stringify(a[f]) !== JSON.stringify(b[f])) upd[id + "/" + f] = b[f] === undefined ? null : b[f];
+    });
+  });
+  return upd;
 }
 async function fbSet(path, value) {
   const base = _fbUrl || getFbUrl(); if (!base) return false;
@@ -443,7 +482,7 @@ function _fbApplyAt(root, segs, val) {
   if (val === null) delete o[k]; else o[k] = val;
   return root;
 }
-function fbStream(path, onData) {
+function fbStream(path, onData, query) {
   const base = _fbUrl || getFbUrl(); if (!base) return () => {};
   let raw = null, es = null, closed = false, retry = null;
   const handle = (isPatch) => (e) => {
@@ -457,7 +496,7 @@ function fbStream(path, onData) {
   };
   // 토큰은 1시간마다 만료 → 서버가 auth_revoked 를 보내면 새 토큰으로 다시 연결(연결 시 전체 1회 재수신)
   const open = async (force) => {
-    const u = await fbAuthUrl(base + "/" + path + ".json", force);
+    const u = await fbAuthUrl(base + "/" + path + ".json" + (query || ""), force);
     if (closed) return;
     es = new EventSource(u);
     es.addEventListener("put", handle(false));
@@ -5081,7 +5120,7 @@ function LeaveTab({user,users,leaves,isAdmin,isSuperAdmin,isViewAdmin,persist,up
 <p style={{ margin:0,fontSize:12,color:C.sub }}>{carryover>0?`이월 ${carryover.toFixed(1)}일 · `:""}올해 적립 {accDays.toFixed(1)}일{grantDays?` · 추가 ${grantDays.toFixed(1)}일`:""} · 사용 {usedDays.toFixed(1)}일</p>
 </>);})()}
 <div style={{ height:10 }}/></>}
-{!lv.noLeave&&<LeaveUsageSection records={lv.usageRecords||[]} leaveStartDate={lv.leaveStartDate} isAdmin={isAdmin} onUpdate={isSuperAdmin?(records)=>updateLeaveUsage(u.id,u.joinDate,records):null}/>}</div>);})}{showForm&&isAdmin&&<LeaveEditForm targetId={editTarget} users={users} leaves={leaves} onSave={(id,lv)=>{persist(null,null,{...leaves,[id]:lv});setShowForm(false);}} onClose={()=>setShowForm(false)}/>}</div>);}
+{!lv.noLeave&&<LeaveUsageSection records={lv.usageRecords||[]} leaveStartDate={lv.leaveStartDate} isAdmin={isAdmin} onUpdate={isSuperAdmin?(records)=>updateLeaveUsage(u.id,u.joinDate,records):null}/>}</div>);})}{showForm&&isAdmin&&<LeaveEditForm targetId={editTarget} users={users} leaves={leaves} onSave={(id,lv)=>{persist(null,null,{...leaves,[id]:{...(leaves[id]||{}),...lv}});setShowForm(false);}} onClose={()=>setShowForm(false)}/>}</div>);}
 
 function LeaveEditForm({targetId,users,leaves,onSave,onClose}){const emps=users.filter(u=>u.role==="employee");const firstId=targetId||emps[0]?.id||"";const buildState=(id)=>{const u=users.find(u=>u.id===id);const lv=normLeave(leaves[id],(u&&u.joinDate));return{selId:id,leaveStartDate:lv.leaveStartDate||(u&&u.joinDate)||today,usedDays:+(lv.usedDays)||0,rateHistory:lv.rateHistory&&lv.rateHistory.length?lv.rateHistory:[{from:lv.leaveStartDate||(u&&u.joinDate)||today,dailyRate:0}]};};const[state,setState]=useState(()=>buildState(firstId));const set=(k,v)=>setState(s=>({...s,[k]:v}));const changeEmp=(id)=>setState(buildState(id));const setRate=(i,field,val)=>setState(s=>{const rh=[...s.rateHistory];rh[i]={...rh[i],[field]:val};return{...s,rateHistory:rh};});const addRate=()=>setState(s=>({...s,rateHistory:[...s.rateHistory,{from:today,dailyRate:s.rateHistory.at(-1)?.dailyRate||0}]}));const removeRate=(i)=>setState(s=>({...s,rateHistory:s.rateHistory.filter((_,j)=>j!==i)}));const accDays=calcAccruedDays(state.leaveStartDate);const remDays=Math.max(0,accDays-state.usedDays);const save=()=>{if(!state.leaveStartDate)return;onSave(state.selId,{leaveStartDate:state.leaveStartDate,usedDays:+(state.usedDays)||0,rateHistory:state.rateHistory});};return(<ModalPortal><div style={styles.modal}><div style={styles.modalBox}><div style={styles.modalHeader}><h3 style={styles.modalTitle}>연차 수정 (관리자)</h3><button style={styles.iconBtn} onClick={onClose}>{Icon.x}</button></div><div style={styles.field}><label style={styles.label}>직원</label><select style={styles.input} value={state.selId} onChange={e=>changeEmp(e.target.value)}>{emps.map(u=><option key={u.id} value={u.id}>{u.name} ({u.dept})</option>)}</select></div><div style={styles.row2}><div style={{ ...styles.field,flex:1 }}><label style={styles.label}>적립 시작일</label><input type="date" style={styles.input} value={state.leaveStartDate} onChange={e=>set("leaveStartDate",e.target.value)}/></div><div style={{ ...styles.field,flex:1 }}><label style={styles.label}>사용 일수</label><input type="number" style={styles.input} value={state.usedDays} min={0} max={ANNUAL_LEAVE_DAYS} step={0.5} onChange={e=>set("usedDays",parseFloat(e.target.value)||0)}/></div></div><div style={styles.hoursDisplay}>적립 <strong>{accDays.toFixed(1)}일</strong> &nbsp;·&nbsp; 사용 <strong>{state.usedDays.toFixed(1)}일</strong> &nbsp;·&nbsp; 잔여 <strong style={{ color:"#34c98b" }}>{remDays.toFixed(1)}일</strong></div><div style={styles.field}><div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8 }}><label style={{ ...styles.label,margin:0 }}>일당 변경 이력</label><button style={styles.addViaBtn2} onClick={addRate}>+ 추가</button></div>{state.rateHistory.map((r,i)=>(<div key={i} style={styles.rateRow}><div style={{ flex:1 }}><label style={{ ...styles.label,fontSize:10 }}>적용 시작일</label><input type="date" style={styles.input} value={r.from} onChange={e=>setRate(i,"from",e.target.value)}/></div><div style={{ width:90 }}><label style={{ ...styles.label,fontSize:10 }}>일당 ($)</label><input type="number" style={styles.input} value={r.dailyRate} min={0} onChange={e=>setRate(i,"dailyRate",parseFloat(e.target.value)||0)}/></div>{state.rateHistory.length>1&&<button style={{ ...styles.iconBtn,color:"#f77",alignSelf:"flex-end",marginBottom:2 }} onClick={()=>removeRate(i)}>{Icon.trash}</button>}</div>))}</div><div style={styles.modalFooter}><button style={styles.btnSecondary} onClick={onClose}>취소</button><button style={styles.btnPrimary} onClick={save}>저장</button></div></div></div></ModalPortal>);}
 
@@ -5182,25 +5221,21 @@ function App() {
   const pollRef=useRef(null);
   const logsRef=useRef([]);   // 최신 logs 스냅샷(개별저장 diff용)
   React.useEffect(()=>{ logsRef.current=logs; },[logs]);
+  const leavesRef=useRef({});   // 최신 leaves 스냅샷(바뀐 항목만 저장하는 diff용)
+  React.useEffect(()=>{ leavesRef.current=leaves; },[leaves]);
+  const scopeRef=useRef(null);   // 로그인한 사람 기준 데이터 범위(_wlScope)
+  const selfRef=useRef(null);    // 직원 모드: 본인 users 레코드
+  const dirRef=useRef({});       // 직원 모드: staffDirectory(이름·생일)
 
+  // 스트리밍 미지원 브라우저용 1회 전체 로드 — 스트림과 같은 범위·같은 처리(applyNode)
   const loadFromFb=async()=>{
-    const[u,l,lv,co]=await Promise.all([fbGet("users"),fbGet("logs"),fbGet("leaves"),fbGet("companies")]);
-    if(u)setUsers(Array.isArray(u)?u:Object.values(u));
-    if(l){
-      setLogs(Array.isArray(l)?l:Object.values(l));
-      // 자가치유 마이그레이션: logs 가 아직 배열이면 id-키 객체로 1회 변환.
-      //   (id별 개별저장이 배열 위에서 동작하면 중복이 생기므로, 객체 형태를 강제)
-      if(Array.isArray(l) && l.length){
-        const obj={}; let ok=true;
-        l.forEach(x=>{ if(x&&x.id!=null) obj[String(x.id)]=x; else if(x) ok=false; });
-        if(ok) fbSet("logs",obj);   // 모든 항목에 id 있을 때만(현재 100% 보유)
-      }
-    }
-    if(lv)setLeaves(lv);
-    if(co)setCompanies(Array.isArray(co)?co:Object.values(co));
-    const full=!!(u&&l&&lv);   // 핵심 데이터 전부 로드 성공
-    if(full)setDataReady(true);
-    return{any:!!(u||l||lv),full};
+    const sc=scopeRef.current; const own=!!(sc&&!sc.full);
+    const specs=_wlStreams(sc);
+    const vals=await Promise.all(specs.map(s=>fbGet(s.path,s.q)));
+    if(own)applyNode("dir",(await fbGet("staffDirectory"))||{},true,true);
+    specs.forEach((s,i)=>applyNode(s.node,vals[i],true,true));
+    const g=gotRef.current;
+    return{any:vals.some(Boolean),full:!!(g.users&&g.logs&&g.leaves)};
   };
 
   // 실시간 동기화: 노드별 스트림. 화면이 60초 이상 안 보이면 끊고, 다시 보이면 재연결(그때 1회 전체수신).
@@ -5215,19 +5250,27 @@ function App() {
   const usersRef=useRef([]);
   React.useEffect(()=>{ usersRef.current=users; },[users]);
   const applyNode=useCallback((node,v,full,isLeader)=>{
-    if(!v)return;
-    if(node==="users")setUsers(Array.isArray(v)?v.filter(x=>x!=null):Object.values(v));
+    const sc=scopeRef.current; const own=!!(sc&&!sc.full);
+    // 직원 모드에선 빈 값(일지 0건·연차 기록 없음)도 '받음'으로 처리 — 안 그러면 로딩 화면에 멈춤
+    if(!v&&!(own&&node!=="companies"))return;
+    const arr=x=>!x?[]:(Array.isArray(x)?x:Object.values(x)).filter(y=>y!=null);
+    if(node==="users"){
+      if(own){ selfRef.current=arr(v).find(x=>x.id===sc.me)||null; setUsers(_wlMergeDir(selfRef.current,dirRef.current)); }
+      else setUsers(arr(v));
+    }
+    else if(node==="dir"){ dirRef.current=v||{}; if(own)setUsers(_wlMergeDir(selfRef.current,dirRef.current)); return; }
     else if(node==="logs"){
-      setLogs(Array.isArray(v)?v.filter(x=>x!=null):Object.values(v));
-      // 자가치유 마이그레이션: logs 가 아직 배열이면 id-키 객체로 1회 변환 (loadFromFb 와 동일, 리더 창만)
-      if(isLeader&&full&&Array.isArray(v)&&v.length){
+      // 직원 모드(조회 결과)는 키 순서가 섞여 옴 → 전체를 받을 때와 같은 키 순서로 정렬(화면 목록 순서 유지)
+      setLogs(own&&v&&!Array.isArray(v)?Object.keys(v).sort(_wlKeyCmp).map(k=>v[k]).filter(y=>y!=null):arr(v));
+      // 자가치유 마이그레이션: logs 가 아직 배열이면 id-키 객체로 1회 변환 (전체 데이터를 받는 관리자 리더 창만)
+      if(!own&&isLeader&&full&&Array.isArray(v)&&v.length){
         const obj={}; let ok=true;
         v.forEach(x=>{ if(x&&x.id!=null) obj[String(x.id)]=x; else if(x) ok=false; });
         if(ok) fbSet("logs",obj);
       }
     }
-    else if(node==="leaves")setLeaves(v);
-    else if(node==="companies")setCompanies(Array.isArray(v)?v.filter(x=>x!=null):Object.values(v));
+    else if(node==="leaves"){ const lv=own?{[sc.me]:v||{}}:v; leavesRef.current=lv; setLeaves(lv); }
+    else if(node==="companies")setCompanies(arr(v));
     if(node!=="companies"){
       gotRef.current[node]=true;
       const g=gotRef.current;
@@ -5242,12 +5285,20 @@ function App() {
       streamsRef.current=[()=>{clearInterval(pollRef.current);pollRef.current=null;}];
       return;
     }
-    const openStreams=(onNode)=>["users","logs","leaves","companies"].map(node=>fbStream(node,(v,full)=>onNode(node,v,full)));
+    const sc=scopeRef.current; const own=!!(sc&&!sc.full);
+    // 스트림은 4개 유지(크롬 동시연결 6개 한도). 직원 이름 목록은 실시간 필요 없어 1회만 받음
+    const openStreams=(onNode)=>{
+      const closers=_wlStreams(sc).map(s=>fbStream(s.path,(v,full)=>onNode(s.node,v,full),s.q));
+      if(own){ let dead=false; fbGet("staffDirectory").then(v=>{ if(!dead)onNode("dir",v||{},true); }); closers.push(()=>{dead=true;}); }
+      return closers;
+    };
     if(typeof BroadcastChannel==="undefined"||!(navigator.locks&&navigator.locks.request)){
       streamsRef.current=openStreams((node,v,full)=>applyNode(node,v,full,true));   // 창 공유 미지원 → 예전처럼 창마다
       return;
     }
-    const bc=new BroadcastChannel("knm-worklog-live");
+    // 창 공유 채널·리더 잠금은 사람별로 분리 — 다른 계정 창의 데이터가 섞이지 않게
+    const chan=(sc&&sc.me)||"";
+    const bc=new BroadcastChannel("knm-worklog-live:"+chan);
     const hub={bc,ac:new AbortController(),cache:{},leader:false,release:null};
     hubRef.current=hub;
     bc.onmessage=(e)=>{
@@ -5256,11 +5307,11 @@ function App() {
       else if(m.t==="hello"&&hub.leader)Object.keys(hub.cache).forEach(node=>bc.postMessage({t:"data",node,v:hub.cache[node]}));
     };
     // 리더 잠금: 먼저 잡은 창이 스트림을 열고, 놓을 때(stopLive·창 닫힘)까지 유지. 나머지 창은 대기 = 팔로워.
-    navigator.locks.request("knm-worklog-live-leader",{signal:hub.ac.signal},()=>{
+    navigator.locks.request("knm-worklog-live-leader:"+chan,{signal:hub.ac.signal},()=>{
       if(hubRef.current!==hub)return;
       hub.leader=true;
       streamsRef.current=openStreams((node,v,full)=>{
-        if(!v)return;
+        if(!v&&!(own&&node!=="companies"))return;
         hub.cache[node]=v;
         applyNode(node,v,full,true);
         try{bc.postMessage({t:"data",node,v});}catch{}
@@ -5289,6 +5340,7 @@ function App() {
         if(s&&_fbAuth&&_fbAuth.id===s.id&&s.pw!=null){const{pw,...rest}=s;s=rest;sessionSave(s);}
         if(s&&s.pw==null&&(!_fbAuth||_fbAuth.id!==s.id))s=null;   // Firebase 로그인 없는 세션 → 다시 로그인
         if(!s)sessionRemove();
+        scopeRef.current=s?_wlScope(s):null;
         setSession(s);
         if(s){
           liveWantedRef.current=true;
@@ -5303,7 +5355,7 @@ function App() {
       setReady(true);
     })();
     // 토큰이 무효가 되면(비번 리셋·퇴사·규칙 거부) 로그인 화면으로
-    fbOnAuthLost=()=>{liveWantedRef.current=false;stopLive();sessionRemove();setSession(null);};
+    fbOnAuthLost=()=>{liveWantedRef.current=false;stopLive();clearData();sessionRemove();setSession(null);};
     const onVis=()=>{
       clearTimeout(hideTimer);
       if(document.hidden)hideTimer=setTimeout(stopLive,60000);
@@ -5320,7 +5372,8 @@ function App() {
   useEffect(()=>{
     if(!ready||!session||recurRanRef.current)return;
     const cu=users.find(u=>u.id===session.id)||session;
-    if(!cu||!(cu.role==="admin"||cu.role==="superadmin"||cu.role==="viewadmin"))return;
+    // 관리자(쓰기 권한)만 — 준관리자(viewadmin)는 읽기 전용이라 실행 안 함
+    if(!cu||!(cu.role==="admin"||cu.role==="superadmin"))return;
     recurRanRef.current=true;
     (async()=>{
       const base=_fbUrl||getFbUrl(); if(!base)return;
@@ -5330,7 +5383,11 @@ function App() {
         configs=Array.isArray(configs)?configs:(configs?Object.values(configs):[]);
         if(!configs.length||!lv)return;
         const merged=computeRecurringDeductions(configs,lv,today);
-        if(merged)persist(null,null,merged);
+        if(!merged)return;
+        // 새 회차가 붙은 직원의 공제 목록만 저장 (leaves 전체를 덮어쓰지 않음). 화면은 스트림으로 갱신됨
+        const upd={};
+        Object.keys(merged).forEach(id=>{ if(merged[id]!==lv[id])upd[id+"/savedDeductions"]=merged[id].savedDeductions; });
+        if(Object.keys(upd).length)fbUpdate("leaves",upd);
       }catch(e){}
     })();
   },[ready,session,users]);
@@ -5342,6 +5399,7 @@ function App() {
       const newPw=u.filter(x=>x&&x.pw&&(!prevById[x.id]||prevById[x.id].pw!==x.pw));
       u=u.map(x=>{ if(!x||!("pw" in x))return x; const{pw,...r}=x; return r; });
       setUsers(u);usersRef.current=u;saveFb(u,null,null,null);
+      if(_fbAuth&&_fbAuth.admin)fbSet("staffDirectory",_wlDirFrom(u));   // 직원 화면용 이름 목록도 같이 갱신
       if(_fbAuth&&_fbAuth.admin)(async()=>{
         for(const x of newPw){ try{await fbAdminSetPw(x.id,x.pw,fbUserFlags(x));}catch(e){alert("⚠️ "+(x.name||x.id)+" 비밀번호 저장 실패: "+e.message);} }
         try{await fbAdminSyncFlags(u);}catch(e){}
@@ -5363,31 +5421,41 @@ function App() {
         delete prevById[k];
       });
       Object.keys(prevById).forEach(k=>{ updates[k]=null; });  // 남은 건 삭제된 일지
-      if(!allHaveId){ saveFb(null,l,null,null); }             // id 없는 항목 있으면 안전하게 전체저장(폴백)
+      const sc=scopeRef.current;
+      // id 없는 항목 있으면 전체저장(폴백) — 전체 일지를 가진 관리자만. 직원은 본인 일지만 있어서 전체저장하면 남의 일지가 지워짐
+      if(!allHaveId){ if(!(sc&&!sc.full))saveFb(null,l,null,null); else if(Object.keys(updates).length)fbUpdate("logs",updates); }
       else if(Object.keys(updates).length){ fbUpdate("logs",updates); }
     }
-    if(lv){setLeaves(lv);saveFb(null,null,lv,null);}
+    if(lv){
+      // 연차·급여: 바뀐 직원의 바뀐 항목만 PATCH (통째 PUT 하면 다른 기기·다른 직원 저장분이 덮여 사라짐)
+      const upd=_wlLeavesDiff(leavesRef.current,lv);
+      setLeaves(lv); leavesRef.current=lv;
+      if(Object.keys(upd).length)fbUpdate("leaves",upd);
+    }
     if(co){setCompanies(co);saveFb(null,null,null,co);}
   },[saveFb]);
 
   const updateLeaveUsage=useCallback((userId,joinDate,records)=>{
-    setLeaves(prev=>{const lv=normLeave(prev[userId]||{},joinDate);const usedDays=Math.round(records.reduce((s,r)=>s+(+(r.days)||0),0)*100)/100;const next={...prev,[userId]:{...lv,usageRecords:records,usedDays}};saveFb(null,null,next);return next;});
-  },[saveFb]);
+    setLeaves(prev=>{const lv=normLeave(prev[userId]||{},joinDate);const usedDays=Math.round(records.reduce((s,r)=>s+(+(r.days)||0),0)*100)/100;const next={...prev,[userId]:{...lv,usageRecords:records,usedDays}};const upd=_wlLeavesDiff(prev,next);if(Object.keys(upd).length)fbUpdate("leaves",upd);leavesRef.current=next;return next;});
+  },[]);
 
   // 로그인: Firebase 계정으로 확인 → 데이터 연결 → 직원 정보 확인
   const login=async(id,pw)=>{
     try{await fbSignIn(id,pw);}catch(e){return fbLoginErrText(e);}
-    const raw=await fbGet("users");
+    const raw=await fbGet("users",_wlQ("id",id));   // 본인 레코드만 조회
     const list=Array.isArray(raw)?raw:Object.values(raw||{});
     const user=list.find(u=>u&&u.id===id);
     if(!user){fbSignOut();return "직원 정보를 찾을 수 없어요. 관리자에게 문의하세요.";}
     if(user.resignedDate){fbSignOut();return "🚫 퇴사 처리된 계정이에요. 앱 접근이 제한됩니다. 관리자에게 문의하세요.";}
     const{pw:_p,...su}=user;
+    stopLive();clearData();scopeRef.current=_wlScope(su);
     await sessionSave(su);setSession(su);setTab("home");
     liveWantedRef.current=true;startLive();
     return null;
   };
-  const logout=async()=>{liveWantedRef.current=false;stopLive();fbSignOut();await sessionRemove();setSession(null);};
+  // 계정이 바뀌면 이전 사람 데이터가 남지 않게 비움
+  const clearData=()=>{gotRef.current={};selfRef.current=null;dirRef.current={};scopeRef.current=null;leavesRef.current={};logsRef.current=[];setDataReady(false);setUsers([]);setLogs([]);setLeaves({});};
+  const logout=async()=>{liveWantedRef.current=false;stopLive();clearData();fbSignOut();await sessionRemove();setSession(null);};
 
   if(!ready)return(<div style={{ minHeight:"100dvh",display:"flex",alignItems:"center",justifyContent:"center",background:"#F5F6F4" }}><div style={{ textAlign:"center" }}><div style={{ fontSize:40,marginBottom:12 }}>📋</div><p style={{ color:"#1F6F6B",fontWeight:700,fontSize:16 }}>WorkLog 로딩 중...</p></div></div>);
   if(!getFbUrl())return(<FirebaseSetup onDone={async(url)=>{setFbUrl(url);_fbUrl=url;const r=await loadFromFb();if(!r.any){await saveFb(SEED_USERS,[],SEED_LEAVES);}startLive();setFbConfigured(true);}}/>);
