@@ -22,7 +22,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-11-09-05';
+const APP_BUILD = '2026-11-09-06';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -10968,13 +10968,31 @@ function sbMoneyCalc(pid){
   const out = invs.filter(isUnpaid).reduce((s,i)=>s+Math.max(0,remaining(i)),0);
   const overdue = invs.filter(isOverdue).length;
   const retention = invs.filter(i => i.status==='RETENTION' || isRetentionHeld(i)).reduce((s,i)=>s+Math.max(0,remaining(i)),0);
+  // 베리에이션은 견적에 없으므로 견적 대비 청구·남은 견적 계산에서 뺀다 (Kathleen 2026-11-09)
+  const varEx = invs.reduce((s,i)=>s+sbVariationEx(i),0);
+  const baseEx = Math.max(0, billedEx - varEx);
   const quote = parseFloat(m.quoteTotal) || 0;
-  const pct = quote > 0 ? Math.round(billedEx / quote * 100) : null;
+  const pct = quote > 0 ? Math.round(baseEx / quote * 100) : null;
   const ordNos = sbArr(m.orderNos);
   const ordLines = orders.filter(o => ordNos.includes(o.orderNo));
   const ordUnpaid = ordLines.filter(ordIsUnpaid).length;
   const ordUndeliv = ordLines.filter(o => !ordIsCancelled(o) && !ordDelivered(o)).length;
-  return {invs, billedEx, paid, out, overdue, retention, quote, pct, ordNos, ordUnpaid, ordUndeliv};
+  return {invs, billedEx, varEx, baseEx, paid, out, overdue, retention, quote, pct, ordNos, ordUnpaid, ordUndeliv};
+}
+// 인보이스 한 장 안의 베리에이션 금액 (ex GST). 줄의 room/section/desc 에 Variation 또는 V9 같은 번호가 있으면 베리에이션.
+// 줄이 없는 일반 인보이스는 항목 설명(simpleDesc)이 Variation 이면 전체를 베리에이션으로 본다.
+const SB_VAR_RE = /variation|베리에이션|^\s*V\d+\b/i;
+function sbVariationEx(i){
+  const total = exGST(i.amount);
+  const lines = Array.isArray(i.lineItems) ? i.lineItems : (i.lineItems ? Object.values(i.lineItems) : []);
+  let v = 0;
+  lines.forEach(li => {
+    if (!li) return;
+    if (SB_VAR_RE.test(li.room||'') || SB_VAR_RE.test(li.section||'') || SB_VAR_RE.test(li.desc||''))
+      v += (parseFloat(li.qty)||0) * (parseFloat(li.unitPrice)||0);
+  });
+  if (!v && SB_VAR_RE.test(i.simpleDesc||'')) v = total;
+  return Math.max(0, Math.min(total, v));
 }
 function sbNextSched(b){
   const items = sbList(b && b.schedule).filter(s=>s.date).sort((a,c)=>a.date.localeCompare(c.date));
@@ -11153,8 +11171,9 @@ function sbOpen(pid){
       <div class="label">돈 (관리자만 보임)</div>
       <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px">
         ${kv('견적 ex GST', mc.quote?sbA0(mc.quote):'—')}
-        ${kv('청구 ex GST', sbA0(mc.billedEx) + (mc.pct!=null?` <span style="font-size:11px">${mc.pct}%</span>`:''), 'var(--km-teal-text)')}
-        ${kv('남은 견적', mc.quote?sbA0(Math.max(0,mc.quote-mc.billedEx)):'—')}
+        ${kv('청구 ex GST', sbA0(mc.billedEx), 'var(--km-teal-text)')}
+        ${kv('남은 견적' + (mc.pct!=null?' ('+mc.pct+'%)':''), mc.quote?sbA0(Math.max(0,mc.quote-mc.baseEx)):'—')}
+        ${kv('베리에이션', sbA0(mc.varEx))}
         ${kv('입금', sbA0(mc.paid), 'var(--km-green)')}
         ${kv('미수', sbA0(mc.out), mc.overdue?'var(--km-red)':mc.out>0.5?'var(--km-warn)':null)}
         ${kv('리텐션', sbA0(mc.retention))}
