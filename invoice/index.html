@@ -22,7 +22,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-11-09-06';
+const APP_BUILD = '2026-11-09-07';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -11178,12 +11178,8 @@ function sbOpen(pid){
         ${kv('미수', sbA0(mc.out), mc.overdue?'var(--km-red)':mc.out>0.5?'var(--km-warn)':null)}
         ${kv('리텐션', sbA0(mc.retention))}
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px">
-        <div><label class="label">견적 금액 (ex GST)</label><input class="input" id="sb-q-total" inputmode="decimal" value="${m.quoteTotal!=null?esc(String(m.quoteTotal)):''}" ${ro?'disabled':''}></div>
-        <div><label class="label">견적 번호</label><input class="input" id="sb-q-no" value="${esc(m.quoteNo||'')}" ${ro?'disabled':''}></div>
-      </div>
-      <div style="margin-top:6px"><label class="label">견적 파일 (OneDrive 이름·링크)${m.quoteAuto?' <span class="chip">자동</span>':''}</label><input class="input" id="sb-q-file" value="${esc(m.quoteFile||'')}" ${ro?'disabled':''}></div>
-      ${ro?'':`<button class="btn-secondary" style="margin-top:8px;width:100%;padding:8px" onclick="sbSaveQuote()">견적 저장</button>`}
+      <div style="margin-top:10px;font-size:12px;color:var(--text-3)">견적 ${m.quoteNo?esc('#'+m.quoteNo):'—'}${m.quoteFile?` · <span style="word-break:break-all">${esc(String(m.quoteFile).split('/').pop())}</span>`:''}${m.quoteAuto?' <span class="chip">자동</span>':''}</div>
+      ${sbQuoteUrl(m)?`<a class="btn-secondary" style="display:block;text-align:center;margin-top:6px;padding:8px;text-decoration:none" href="${esc(sbQuoteUrl(m))}" target="_blank" rel="noopener">📄 견적 파일 열기 (OneDrive)</a>`:''}
       ${sec('인보이스', invRows || '<div style="font-size:12px;color:var(--text-4)">연결된 인보이스 없음</div>', 'sbLinkPrompt(\'invoiceNums\')')}
       ${sugg.length ? `<div style="font-size:11px;color:var(--text-4);margin-top:6px">주소가 비슷한 인보이스 — 눌러서 연결</div><div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">${sugg.map(i=>`<button class="chip teal" style="cursor:pointer" onclick="sbLink('invoiceNums','${esc(i.invoiceNum)}')">＋ ${esc(i.invoiceNum)} · ${esc((i.address||'').slice(0,28))} · ${fA(i.amount)}</button>`).join('')}</div>` : ''}
       ${sec('발주 (Astro)', ordRows || '<div style="font-size:12px;color:var(--text-4)">연결된 발주 없음</div>', 'sbLinkPrompt(\'orderNos\')')}
@@ -11204,19 +11200,14 @@ function sbRefresh(){ if (sbOpenPid) sbOpen(sbOpenPid); renderSites(); }
 async function sbSetStatus(k){ const cur = (sbBoard[sbOpenPid]||{}).status||'planned'; if (k===cur) return; if (!confirm(`상태를 "${sbStatusOf(k).l}"(으)로 바꿀까요?`)) return; await sbMutate(sbOpenPid, b => { b.status = k; return b; }); sbRefresh(); }
 async function sbSaveNote(){ const v = document.getElementById('sb-note').value.trim(); await sbMutate(sbOpenPid, b => { b.note = v; return b; }); renderSites(); }
 async function sbSaveMoneyNote(){ const v = document.getElementById('sb-m-note').value.trim(); await sbMutateMoney(sbOpenPid, m => { m.note = v; return m; }); }
-async function sbSaveQuote(){
-  if(!_guardWrite())return;
-  const t = document.getElementById('sb-q-total').value.replace(/[$,\s]/g,'');
-  if (t && isNaN(parseFloat(t))) { alert('견적 금액은 숫자로 입력하세요'); return; }
-  const qt = t ? Math.round(parseFloat(t)*100)/100 : null;
-  const qn = document.getElementById('sb-q-no').value.trim(), qf = document.getElementById('sb-q-file').value.trim();
-  await sbMutateMoney(sbOpenPid, m => {
-    const prev = [m.quoteTotal, m.quoteNo||'', m.quoteFile||''].join('|');
-    m.quoteTotal = qt; m.quoteNo = qn; m.quoteFile = qf;
-    if ([m.quoteTotal, m.quoteNo, m.quoteFile].join('|') !== prev) m.quoteAuto = false;   // 손으로 고치면 자동 작업이 안 덮어씀
-    return m;
-  });
-  sbRefresh();
+// OneDrive 견적 파일 링크 — 자동 작업이 quoteId(OneDrive item id) 를 넣어 둠. 링크 그대로 넣은 경우(quoteFile 이 http)도 지원.
+function sbQuoteUrl(m){
+  if (!m) return '';
+  if (/^https?:\/\//.test(m.quoteFile||'')) return m.quoteFile;
+  const id = String(m.quoteId||'');
+  if (!id) return '';
+  const cid = id.split('!')[0];
+  return 'https://onedrive.live.com/?cid=' + encodeURIComponent(cid) + '&id=' + encodeURIComponent(id);
 }
 async function sbLink(kind, val){
   val = (val||'').trim(); if (!val) return;
