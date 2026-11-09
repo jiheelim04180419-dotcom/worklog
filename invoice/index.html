@@ -22,7 +22,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-11-09-04';
+const APP_BUILD = '2026-11-09-05';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -11093,7 +11093,8 @@ async function sbMutateMoney(pid, fn){
   sbMoney[pid] = next;
 }
 // 주소 단어로 인보이스 후보 찾기: 번지(숫자) + 거리 이름 단어가 같이 들어간 인보이스
-const SB_STOP = new Set(['street','st','road','rd','drive','dr','court','ct','crescent','cres','place','pl','avenue','ave','close','cl','lane','ln','way','lot','unit','orange','bathurst','dubbo','mudgee','kelso','nsw','the','and','pty','ltd']);
+const SB_STOP = new Set(['street','st','road','rd','drive','dr','court','ct','crescent','cres','place','pl','avenue','ave','close','cl','lane','ln','way','lot','unit','orange','bathurst','dubbo','mudgee','kelso','nsw','the','and','pty','ltd',
+  'village','retirement','school','college','catholic','centre','center','house','units','street','road','corner','project','stage','renovation','refurbishment']);   // 흔한 단어는 제안 기준에서 뺌 (예: Village → 엉뚱한 Retirement Village)
 function sbAddrTokens(s){
   return (s||'').toLowerCase().replace(/[^a-z0-9가-힣\s]/g,' ').split(/\s+/).filter(w => w && !SB_STOP.has(w) && (/^\d+[a-z]?$/.test(w) || w.length >= 4));
 }
@@ -11124,7 +11125,7 @@ function sbOpen(pid){
   const todo = sbList(b.todo).sort((a,c)=>(a.done?1:0)-(c.done?1:0) || (a.createdAt||0)-(c.createdAt||0));
   const row = inner => `<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px">${inner}</div>`;
   const invRows = mc.invs.sort((a,c)=>(a.invoiceDate||'').localeCompare(c.invoiceDate||'')).map(i => row(
-    `<div style="flex:1;min-width:0"><b>${esc(i.invoiceNum)}</b> <span style="color:var(--text-4);font-size:11px">${fD(i.invoiceDate)} · ${esc(i.status)}</span></div>
+    `<div style="flex:1;min-width:0;cursor:pointer" onclick="printInvoice('${i.id}')" title="인보이스 보기"><b style="color:var(--km-teal-text);text-decoration:underline;text-underline-offset:2px">${esc(i.invoiceNum)}</b> <span style="color:var(--text-4);font-size:11px">${fD(i.invoiceDate)} · ${esc(i.status)}</span></div>
      <div style="text-align:right">${fA(i.amount)}${remaining(i)>0.5&&isUnpaid(i)?`<div style="font-size:11px;color:${isOverdue(i)?'var(--km-red)':'var(--km-warn)'}">남음 ${fA(remaining(i))}</div>`:''}</div>
      ${ro?'':`<button onclick="sbUnlink('invoiceNums','${esc(i.invoiceNum)}')" style="background:none;border:none;color:var(--text-4);cursor:pointer;font-size:15px">×</button>`}`)).join('');
   const sugg = ro ? [] : sbSuggestInvoices(pid);
