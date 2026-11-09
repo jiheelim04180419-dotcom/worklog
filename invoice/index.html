@@ -22,7 +22,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-11-09-02';
+const APP_BUILD = '2026-11-09-03';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -11037,7 +11037,7 @@ function sbCardHtml(pid){
     </div>
     <div style="font-size:12px;color:var(--text-2);margin-top:8px">
       ${nx ? `📅 ${fD(nx.date)}${nx.end&&nx.end!==nx.date?'~'+fD(nx.end):''} ${esc(nx.work||'')}${nx.crew?` <span style="color:var(--text-4)">(${esc(nx.crew)})</span>`:''}` : '<span style="color:var(--text-4)">📅 다음 일정 없음</span>'}
-      ${todoOpen ? ` · 남은 일 ${todoOpen}` : ''}
+      
       ${p.lastActivity ? ` · <span style="color:var(--text-4)">SiteLog ${sbDaysAgo(p.lastActivity)}</span>` : ''}
     </div>
     ${chips.length ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:8px">${chips.join('')}</div>` : ''}
@@ -11170,10 +11170,9 @@ function sbOpen(pid){
       <div style="margin-top:10px"><label class="label">돈 메모 (관리자만)</label><textarea class="input" id="sb-m-note" rows="2" ${ro?'disabled':''} onchange="sbSaveMoneyNote()">${esc(m.note||'')}</textarea></div>
     </div>
 
-    <div style="font-size:11px;color:var(--text-4);margin-top:14px">아래는 SiteLog에서 직원들도 보는 부분이에요 (돈 없음).</div>
+    <div style="font-size:11px;color:var(--text-4);margin-top:14px">아래 일정·메모는 SiteLog에서 직원들도 봐요. 색상·남은 일은 SiteLog 현장 페이지에서 보세요.</div>
     ${sec('일정', sched.map(s=>row(`<div style="width:92px;flex-shrink:0;font-weight:700">${fD(s.date)}${s.end&&s.end!==s.date?'<br><span style="font-weight:400;font-size:11px">~'+fD(s.end)+'</span>':''}</div><div style="flex:1;min-width:0">${esc(s.work||'')}${s.crew?` <span style="color:var(--text-4)">(${esc(s.crew)})</span>`:''}${autoTag(s)}</div>${del('schedule',s.id)}`)).join('') || '<div style="font-size:12px;color:var(--text-4)">일정 없음</div>', 'sbAddSched()')}
-    ${sec('그라우트·실리콘 색상', cols.map(c=>row(`<div style="flex:1;min-width:0"><b>${esc(c.area||'전체')}</b> · 그라우트 ${esc(c.grout||'—')} · 실리콘 ${esc(c.silicone||'—')}${autoTag(c)}</div>${del('colours',c.id)}`)).join('') || '<div style="font-size:12px;color:var(--text-4)">색상 정보 없음</div>', 'sbAddColour()')}
-    ${sec('남은 일', todo.map(t=>row(`<input type="checkbox" ${t.done?'checked':''} ${ro?'disabled':''} onchange="sbToggleTodo('${t.id}',this.checked)" style="width:18px;height:18px"><div style="flex:1;min-width:0;${t.done?'text-decoration:line-through;color:var(--text-4)':''}">${esc(t.text||'')}${autoTag(t)}</div>${del('todo',t.id)}`)).join('') || '<div style="font-size:12px;color:var(--text-4)">남은 일 없음</div>', 'sbAddTodo()')}
+    <!-- 그라우트·실리콘 색상, 남은 일은 SiteLog에서만 보여줌 (Kathleen 2026-11-09: 인보이스 앱에선 필요 없음) -->
     <div style="margin-top:16px"><label class="label">현장 메모 (직원도 보임)</label><textarea class="input" id="sb-note" rows="2" ${ro?'disabled':''} onchange="sbSaveNote()">${esc(b.note||'')}</textarea></div>
     <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;font-size:11px;color:var(--text-4)">
       <span>${b.updatedAt?`수정 ${new Date(b.updatedAt).toLocaleString('en-AU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}${b.updatedBy?' · '+esc(b.updatedBy):''}`:''}${b.autoAt?` · 자동 정리 ${sbDaysAgo(b.autoAt)}`:''}</span>
