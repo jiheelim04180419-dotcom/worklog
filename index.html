@@ -18,7 +18,7 @@
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
 // ℹ️ reload 는 코드만 갱신 — Firebase 주소(wm_fb_url)·로그인 세션(wm_session)은 localStorage 라 유지됨(재로그인 불필요).
-const APP_BUILD = '2026-11-08-05';
+const APP_BUILD = '2026-11-10-01';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출. ?_=타임스탬프 + no-store 로 캐시 우회.
 function _fetchLatestBuild(){
   return fetch(location.pathname + '?_=' + Date.now(), { cache: 'no-store', headers: { 'Range': 'bytes=0-3000' } })
@@ -828,7 +828,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
   })();
 
   const emps = isAdmin
-    ? users.filter(u => u.role === "employee" && !u.resignedDate
+    ? users.filter(u => u.role === "employee" && (!u.resignedDate || u.resignedDate >= periodStart)   // 퇴사자는 퇴사일이 든 기간까지 표시
         && (!u.joinDate || u.joinDate <= periodEnd))   // 입사일이 기간종료일 이후면 그 기간엔 미표시
     : users.filter(u => u.id === user.id);
 
@@ -1248,7 +1248,7 @@ function PayrollTab({ user, users, logs, leaves, isAdmin, isSuperAdmin, persist,
             <SummarySection users={users} leaves={leaves} periodStart={periodStart} calcWage={calcWage} getSavedDeductions={getSavedDeductions} getKeepBalance={getKeepBalance} getKeepBalanceAtPeriod={getKeepBalanceAtPeriod} getPeriodDeposits={getPeriodDeposits} EMP_COLORS={EMP_COLORS} fA={fA} C={C} selId={selId} setSelId={setSelId} setSubView={setSubView} companies={companies}/>
           )}
           {subView === "deduct" && (
-            <DeductTab users={users.filter(u=>!u.resignedDate&&u.role==="employee")}
+            <DeductTab users={users.filter(u=>(!u.resignedDate||u.resignedDate>=wpStart)&&u.role==="employee")}
               leaves={leaves} wpStart={wpStart} wpEnd={wpEnd}
               persist={persist}
               removeSavedDeduction={removeSavedDeduction}
@@ -2670,7 +2670,7 @@ function getMissingLogs(users, logs, periodStart, periodEnd) {
 
   // 활성 직원만
   const activeEmps = users.filter(u =>
-    !u.resignedDate &&
+    (!u.resignedDate || u.resignedDate >= periodStart) &&
     u.role === "employee" &&
     u.joinDate && new Date(u.joinDate + "T00:00:00") <= end
   );
@@ -2682,6 +2682,7 @@ function getMissingLogs(users, logs, periodStart, periodEnd) {
       const dow = d.getDay();
       if (dow === 0 || dow === 6) continue; // 주말 제외
       const ds = d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+      if (emp.resignedDate && ds > emp.resignedDate) break; // 퇴사일 이후는 제외
       const hasLog = logs.some(l => l.userId === emp.id && l.date === ds);
       if (!hasLog) missing.push(ds);
     }
@@ -3457,7 +3458,8 @@ function MgmtMemberForm({ member, currentPeriodStart, onSave, onClose }) {
 
 
 function SummarySection({users, leaves, periodStart, calcWage, getSavedDeductions, getKeepBalance, getKeepBalanceAtPeriod, getPeriodDeposits, EMP_COLORS, fA, C, selId, setSelId, setSubView, companies}) {
-  const activeEmps = users.filter(u => !u.resignedDate && u.role === "employee");
+  // 퇴사자는 퇴사일이 든 기간까지 목록·총액에 포함
+  const activeEmps = users.filter(u => (!u.resignedDate || u.resignedDate >= periodStart) && u.role === "employee");
   // 소속 회사 첫 글자 뱃지 (K&M→K, Bathurst→B). 해당 기간의 workHistory 소속 기준.
   const coBadge = (empId, ps) => {
     const lv = leaves[empId] || {};
