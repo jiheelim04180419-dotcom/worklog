@@ -22,7 +22,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-11-09-07';
+const APP_BUILD = '2026-11-09-08';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -11179,7 +11179,8 @@ function sbOpen(pid){
         ${kv('리텐션', sbA0(mc.retention))}
       </div>
       <div style="margin-top:10px;font-size:12px;color:var(--text-3)">견적 ${m.quoteNo?esc('#'+m.quoteNo):'—'}${m.quoteFile?` · <span style="word-break:break-all">${esc(String(m.quoteFile).split('/').pop())}</span>`:''}${m.quoteAuto?' <span class="chip">자동</span>':''}</div>
-      ${sbQuoteUrl(m)?`<a class="btn-secondary" style="display:block;text-align:center;margin-top:6px;padding:8px;text-decoration:none" href="${esc(sbQuoteUrl(m))}" target="_blank" rel="noopener">📄 견적 파일 열기 (OneDrive)</a>`:''}
+      ${m.quotePdfAt?`<button class="btn-secondary" style="display:block;width:100%;margin-top:6px;padding:8px" onclick="sbShowQuotePdf('${pid}')">📄 견적 PDF 보기</button>`:''}
+      ${!m.quotePdfAt&&sbQuoteUrl(m)?`<a class="btn-secondary" style="display:block;text-align:center;margin-top:6px;padding:8px;text-decoration:none" href="${esc(sbQuoteUrl(m))}" target="_blank" rel="noopener">📄 견적 파일 열기 (OneDrive)</a>`:''}
       ${sec('인보이스', invRows || '<div style="font-size:12px;color:var(--text-4)">연결된 인보이스 없음</div>', 'sbLinkPrompt(\'invoiceNums\')')}
       ${sugg.length ? `<div style="font-size:11px;color:var(--text-4);margin-top:6px">주소가 비슷한 인보이스 — 눌러서 연결</div><div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">${sugg.map(i=>`<button class="chip teal" style="cursor:pointer" onclick="sbLink('invoiceNums','${esc(i.invoiceNum)}')">＋ ${esc(i.invoiceNum)} · ${esc((i.address||'').slice(0,28))} · ${fA(i.amount)}</button>`).join('')}</div>` : ''}
       ${sec('발주 (Astro)', ordRows || '<div style="font-size:12px;color:var(--text-4)">연결된 발주 없음</div>', 'sbLinkPrompt(\'orderNos\')')}
@@ -11208,6 +11209,58 @@ function sbQuoteUrl(m){
   if (!id) return '';
   const cid = id.split('!')[0];
   return 'https://onedrive.live.com/?cid=' + encodeURIComponent(cid) + '&id=' + encodeURIComponent(id);
+}
+// 견적 PDF 보기 — 매일 밤 작업이 OneDrive 견적 PDF를 siteBoardQuotePdf/<pid> (관리자·준관리자만 읽기) 에 올려 둠.
+// 로그인 없이 앱 안에서 pdf.js 로 모든 페이지를 그려 보여줌 (아이폰 PWA 에서도 됨).
+let _pdfjsP = null;
+function _loadPdfJs(){
+  if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+  if (_pdfjsP) return _pdfjsP;
+  _pdfjsP = new Promise((ok, bad) => {
+    const sc = document.createElement('script');
+    sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+    sc.onload = () => { window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; ok(window.pdfjsLib); };
+    sc.onerror = () => { _pdfjsP = null; bad(new Error('PDF 보기 도구를 불러오지 못했어요 (인터넷 확인)')); };
+    document.head.appendChild(sc);
+  });
+  return _pdfjsP;
+}
+async function sbShowQuotePdf(pid){
+  const ov = document.createElement('div');
+  ov.id = 'sb-pdf-ov';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:10000;background:#1f2328;display:flex;flex-direction:column';
+  ov.innerHTML = `<div style="display:flex;align-items:center;gap:8px;padding:calc(env(safe-area-inset-top) + 8px) 12px 8px;color:#fff">
+      <div id="sb-pdf-title" style="flex:1;font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">견적 PDF 불러오는 중…</div>
+      <a id="sb-pdf-dl" style="display:none;color:#fff;font-size:13px;text-decoration:underline">저장</a>
+      <button onclick="document.getElementById('sb-pdf-ov').remove()" style="background:#fff;color:#111;border:0;border-radius:8px;padding:6px 12px;font-weight:700">닫기</button>
+    </div>
+    <div id="sb-pdf-pages" style="flex:1;overflow:auto;-webkit-overflow-scrolling:touch;padding:8px"></div>`;
+  document.body.appendChild(ov);
+  const title = ov.querySelector('#sb-pdf-title'), box = ov.querySelector('#sb-pdf-pages');
+  try {
+    const [rec, lib] = await Promise.all([fbGet('siteBoardQuotePdf/' + pid), _loadPdfJs()]);
+    if (!rec || !rec.b64) throw new Error('아직 올라온 견적 PDF가 없어요');
+    title.textContent = rec.name || '견적 PDF';
+    const bin = atob(rec.b64), bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    const dl = ov.querySelector('#sb-pdf-dl');
+    dl.href = URL.createObjectURL(new Blob([bytes], {type:'application/pdf'})); dl.download = rec.name || 'quote.pdf'; dl.style.display = '';
+    const doc = await lib.getDocument({data: bytes}).promise;
+    const w = Math.min(box.clientWidth - 16, 900), dpr = Math.min(window.devicePixelRatio || 1, 2);
+    for (let n = 1; n <= doc.numPages; n++) {
+      if (!document.getElementById('sb-pdf-ov')) return;
+      const page = await doc.getPage(n);
+      const vp0 = page.getViewport({scale:1}), vp = page.getViewport({scale: w / vp0.width * dpr});
+      const cv = document.createElement('canvas');
+      cv.width = vp.width; cv.height = vp.height;
+      cv.style.cssText = `display:block;width:${w}px;margin:0 auto 8px;background:#fff;border-radius:4px`;
+      box.appendChild(cv);
+      await page.render({canvasContext: cv.getContext('2d'), viewport: vp}).promise;
+    }
+  } catch (e) {
+    title.textContent = '견적 PDF를 열 수 없어요';
+    box.innerHTML = `<div style="color:#fff;padding:16px;font-size:14px">${esc(e.message || String(e))}</div>`;
+  }
 }
 async function sbLink(kind, val){
   val = (val||'').trim(); if (!val) return;
