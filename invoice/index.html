@@ -22,7 +22,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-11-11-01';
+const APP_BUILD = '2026-11-11-02';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -11256,29 +11256,32 @@ function _loadPdfJs(){
 }
 // 견적이 여러 개인 현장 (본견적 + 변경견적, Kathleen 2026-11-11): siteBoardMoney.quotes = {key:{no, kind:'base'|'var', label, total, file, id, pdfAt, pdfName}}
 // 각 견적 PDF 는 siteBoardQuotePdf/<pid>_q<key>. quoteTotal 은 전체 합계 그대로 (남은 견적 계산은 예전과 같음).
+// kind: 'contract' 계약서(빌더와 맺은 금액, 있으면 이게 기준) | 'base' 본견적 | 'var' 변경견적 | 'ref' 보낸 견적(참고, 합계에 안 넣음)
+const SB_QKIND = {contract:{l:'계약서',o:0,c:' green'}, base:{l:'본견적',o:1,c:''}, var:{l:'변경',o:2,c:' teal'}, ref:{l:'보낸 견적',o:3,c:''}};
 function sbQuoteList(m){
   const qs = (m && m.quotes) || {};
+  const ord = q => (SB_QKIND[q.kind] || SB_QKIND.base).o;
   return Object.keys(qs).filter(k => qs[k]).map(k => Object.assign({key:k}, qs[k]))
-    .sort((a,b) => (a.kind==='var') - (b.kind==='var') || String(a.no||'').localeCompare(String(b.no||'')));
+    .sort((a,b) => ord(a) - ord(b) || String(a.no||'').localeCompare(String(b.no||'')));
 }
 function sbQuoteListHtml(pid, m){
   const list = sbQuoteList(m);
-  const sum = kind => list.filter(q => (q.kind==='var') === (kind==='var')).reduce((s,q)=>s+(parseFloat(q.total)||0),0);
-  const base = sum('base'), vr = sum('var');
+  const sum = f => list.filter(f).reduce((s,q)=>s+(parseFloat(q.total)||0),0);
+  const ctr = sum(q => q.kind==='contract'), base = sum(q => !q.kind || q.kind==='base'), vr = sum(q => q.kind==='var');
   const rows = list.map(q => {
-    const isVar = q.kind === 'var';
+    const kd = SB_QKIND[q.kind] || SB_QKIND.base;
     const url = sbQuoteUrl({quoteId:q.id, quoteFile:q.file});
     const btn = q.pdfAt
       ? `<button class="btn-secondary" style="padding:6px 10px;flex-shrink:0" onclick="sbShowQuotePdf('${pid}','${esc(q.key)}')">📄 보기</button>`
       : (url ? `<a class="btn-secondary" style="padding:6px 10px;flex-shrink:0;text-decoration:none" href="${esc(url)}" target="_blank" rel="noopener">📄 열기</a>` : '');
     return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--border)">
-      <span class="chip${isVar?' teal':''}" style="flex-shrink:0">${isVar?'변경':'본견적'}</span>
+      <span class="chip${kd.c}" style="flex-shrink:0">${kd.l}</span>
       <div style="flex:1;min-width:0;font-size:12px">
-        <div style="font-weight:700">#${esc(q.no||'')} · ${sbA0(parseFloat(q.total)||0)}</div>
+        <div style="font-weight:700">${q.no?'#'+esc(q.no):''}${q.no&&q.total!=null?' · ':''}${q.total!=null&&q.total!==''?sbA0(parseFloat(q.total)||0):''}${q.kind==='ref'?' <span style="font-weight:400;color:var(--text-4)">(참고)</span>':''}</div>
         <div style="color:var(--text-4);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(q.label || String(q.file||'').split('/').pop())}</div>
       </div>${btn}</div>`;
   }).join('');
-  return `<div style="margin-top:10px;font-size:12px;color:var(--text-3)">본견적 ${sbA0(base)}${vr?` · 변경견적 ${sbA0(vr)}`:''}${m.quoteAuto?' <span class="chip">자동</span>':''}</div>
+  return `<div style="margin-top:10px;font-size:12px;color:var(--text-3)">${[ctr?`계약 ${sbA0(ctr)}`:'', base?`본견적 ${sbA0(base)}`:'', vr?`변경견적 ${sbA0(vr)}`:''].filter(Boolean).join(' · ')}${m.quoteAuto?' <span class="chip">자동</span>':''}</div>
     <div style="margin-top:4px">${rows}</div>`;
 }
 async function sbShowQuotePdf(pid, qkey){
