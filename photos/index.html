@@ -231,7 +231,7 @@ input,textarea,select{font-family:inherit;font-size:16px}
 <div id="toast" class="toast"></div>
 <datalist id="builder-list"></datalist>
 <script>
-const APP_BUILD='2026-11-09-02';
+const APP_BUILD='2026-11-10-01';
 // 글 작성칸(textarea) 내용에 맞춰 자동으로 늘어남 (최대 화면 60%)
 function autoGrowTA(t){t.style.height='auto';t.style.height=Math.min(t.scrollHeight+3,window.innerHeight*0.6)+'px';}
 document.addEventListener('input',function(ev){if(ev.target&&ev.target.tagName==='TEXTAREA')autoGrowTA(ev.target);});
@@ -596,13 +596,15 @@ function renderFilters(){
 // A site shows NEW if its last upload is newer than what this user has seen (and newer than their first-run baseline).
 function isNew(p){const base=S.seen._baseline||0;const seen=Math.max(S.seen[p.id]||0,base);return (p.lastActivity||0)>seen+1000;}
 function renderProjectList(){
-  const q=S.q.trim().toLowerCase();
+  // Korean typed on a Mac can be stored decomposed (NFD); compare both sides as NFC or it never matches.
+  const nz=x=>String(x||'').normalize('NFC').toLowerCase();
+  const q=nz(S.q.trim());
   let list=S.projects.slice();
   if(S.bfilter==='__board__')list=list.filter(sbOpenOn);
   else if(S.bfilter)list=list.filter(p=>p.builder===S.bfilter);
   // Also matches anyone who posted or replied on the site (p.authors, kept in sync when a site is opened).
-  if(q)list=list.filter(p=>(`${title(p)} ${p.address||''} ${(p.authors||[]).join(' ')}`).toLowerCase().includes(q));
-  const whoHit=p=>q&&!(`${title(p)} ${p.address||''}`).toLowerCase().includes(q)?(p.authors||[]).filter(n=>n.toLowerCase().includes(q)):[];
+  if(q)list=list.filter(p=>nz(`${title(p)} ${p.address||''} ${(p.authors||[]).join(' ')}`).includes(q));
+  const whoHit=p=>q&&!nz(`${title(p)} ${p.address||''}`).includes(q)?(p.authors||[]).filter(n=>nz(n).includes(q)):[];
   list.sort((a,b)=>(b.lastActivity||b.updatedAt||b.createdAt||0)-(a.lastActivity||a.updatedAt||a.createdAt||0));
   const el=$('#plist');
   const newCount=S.projects.filter(isNew).length;
