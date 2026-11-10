@@ -22,7 +22,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-11-10-02';
+const APP_BUILD = '2026-11-11-01';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -11207,9 +11207,9 @@ function sbOpen(pid){
         ${kv('미수', sbA0(mc.out), mc.overdue?'var(--km-red)':mc.out>0.5?'var(--km-warn)':null)}
         ${kv('리텐션', sbA0(mc.retention))}
       </div>
-      <div style="margin-top:10px;font-size:12px;color:var(--text-3)">견적 ${m.quoteNo?esc('#'+m.quoteNo):'—'}${m.quoteFile?` · <span style="word-break:break-all">${esc(String(m.quoteFile).split('/').pop())}</span>`:''}${m.quoteAuto?' <span class="chip">자동</span>':''}</div>
+      ${sbQuoteList(m).length ? sbQuoteListHtml(pid, m) : `<div style="margin-top:10px;font-size:12px;color:var(--text-3)">견적 ${m.quoteNo?esc('#'+m.quoteNo):'—'}${m.quoteFile?` · <span style="word-break:break-all">${esc(String(m.quoteFile).split('/').pop())}</span>`:''}${m.quoteAuto?' <span class="chip">자동</span>':''}</div>
       ${m.quotePdfAt?`<button class="btn-secondary" style="display:block;width:100%;margin-top:6px;padding:8px" onclick="sbShowQuotePdf('${pid}')">📄 견적 PDF 보기</button>`:''}
-      ${!m.quotePdfAt&&sbQuoteUrl(m)?`<a class="btn-secondary" style="display:block;text-align:center;margin-top:6px;padding:8px;text-decoration:none" href="${esc(sbQuoteUrl(m))}" target="_blank" rel="noopener">📄 견적 파일 열기 (OneDrive)</a>`:''}
+      ${!m.quotePdfAt&&sbQuoteUrl(m)?`<a class="btn-secondary" style="display:block;text-align:center;margin-top:6px;padding:8px;text-decoration:none" href="${esc(sbQuoteUrl(m))}" target="_blank" rel="noopener">📄 견적 파일 열기 (OneDrive)</a>`:''}`}
       ${sec('인보이스', invRows || '<div style="font-size:12px;color:var(--text-4)">연결된 인보이스 없음</div>', 'sbLinkPrompt(\'invoiceNums\')')}
       ${sugg.length ? `<div style="font-size:11px;color:var(--text-4);margin-top:6px">주소가 비슷한 인보이스 — 눌러서 연결</div><div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">${sugg.map(i=>`<button class="chip teal" style="cursor:pointer" onclick="sbLink('invoiceNums','${esc(i.invoiceNum)}')">＋ ${esc(i.invoiceNum)} · ${esc((i.address||'').slice(0,28))} · ${fA(i.amount)}</button>`).join('')}</div>` : ''}
       ${sec('발주 (Astro)', ordRows || '<div style="font-size:12px;color:var(--text-4)">연결된 발주 없음</div>', 'sbLinkPrompt(\'orderNos\')')}
@@ -11254,7 +11254,34 @@ function _loadPdfJs(){
   });
   return _pdfjsP;
 }
-async function sbShowQuotePdf(pid){
+// 견적이 여러 개인 현장 (본견적 + 변경견적, Kathleen 2026-11-11): siteBoardMoney.quotes = {key:{no, kind:'base'|'var', label, total, file, id, pdfAt, pdfName}}
+// 각 견적 PDF 는 siteBoardQuotePdf/<pid>_q<key>. quoteTotal 은 전체 합계 그대로 (남은 견적 계산은 예전과 같음).
+function sbQuoteList(m){
+  const qs = (m && m.quotes) || {};
+  return Object.keys(qs).filter(k => qs[k]).map(k => Object.assign({key:k}, qs[k]))
+    .sort((a,b) => (a.kind==='var') - (b.kind==='var') || String(a.no||'').localeCompare(String(b.no||'')));
+}
+function sbQuoteListHtml(pid, m){
+  const list = sbQuoteList(m);
+  const sum = kind => list.filter(q => (q.kind==='var') === (kind==='var')).reduce((s,q)=>s+(parseFloat(q.total)||0),0);
+  const base = sum('base'), vr = sum('var');
+  const rows = list.map(q => {
+    const isVar = q.kind === 'var';
+    const url = sbQuoteUrl({quoteId:q.id, quoteFile:q.file});
+    const btn = q.pdfAt
+      ? `<button class="btn-secondary" style="padding:6px 10px;flex-shrink:0" onclick="sbShowQuotePdf('${pid}','${esc(q.key)}')">📄 보기</button>`
+      : (url ? `<a class="btn-secondary" style="padding:6px 10px;flex-shrink:0;text-decoration:none" href="${esc(url)}" target="_blank" rel="noopener">📄 열기</a>` : '');
+    return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--border)">
+      <span class="chip${isVar?' teal':''}" style="flex-shrink:0">${isVar?'변경':'본견적'}</span>
+      <div style="flex:1;min-width:0;font-size:12px">
+        <div style="font-weight:700">#${esc(q.no||'')} · ${sbA0(parseFloat(q.total)||0)}</div>
+        <div style="color:var(--text-4);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(q.label || String(q.file||'').split('/').pop())}</div>
+      </div>${btn}</div>`;
+  }).join('');
+  return `<div style="margin-top:10px;font-size:12px;color:var(--text-3)">본견적 ${sbA0(base)}${vr?` · 변경견적 ${sbA0(vr)}`:''}${m.quoteAuto?' <span class="chip">자동</span>':''}</div>
+    <div style="margin-top:4px">${rows}</div>`;
+}
+async function sbShowQuotePdf(pid, qkey){
   const ov = document.createElement('div');
   ov.id = 'sb-pdf-ov';
   ov.style.cssText = 'position:fixed;inset:0;z-index:10000;background:#1f2328;display:flex;flex-direction:column';
@@ -11267,7 +11294,7 @@ async function sbShowQuotePdf(pid){
   document.body.appendChild(ov);
   const title = ov.querySelector('#sb-pdf-title'), box = ov.querySelector('#sb-pdf-pages');
   try {
-    const [rec, lib] = await Promise.all([fbGet('siteBoardQuotePdf/' + pid), _loadPdfJs()]);
+    const [rec, lib] = await Promise.all([fbGet('siteBoardQuotePdf/' + pid + (qkey ? '_q' + qkey : '')), _loadPdfJs()]);
     if (!rec || !rec.b64) throw new Error('아직 올라온 견적 PDF가 없어요');
     title.textContent = rec.name || '견적 PDF';
     const bin = atob(rec.b64), bytes = new Uint8Array(bin.length);
