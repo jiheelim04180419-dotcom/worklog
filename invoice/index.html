@@ -22,7 +22,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-11-10-01';
+const APP_BUILD = '2026-11-10-02';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -2560,7 +2560,11 @@ function filterByBuilder(name) {
   window.scrollTo({top: 0, behavior: 'smooth'});
 }
 
+// 탭마다 스크롤 위치를 따로 기억 (탭을 옮기면 그 탭의 예전 위치로, 처음이면 맨 위)
+const _tabScroll = {};
 function showTab(t) {
+  const prevTab = document.body.dataset.activeTab || 'invoices';
+  if (prevTab !== t) _tabScroll[prevTab] = window.scrollY;
   ['invoices','sites','builders','stats','calendar','partners','expenses','vehicles','orders','letters'].forEach(id => {
     const el = document.getElementById('tab-'+id); if (el) el.style.display = id===t?'block':'none';
   });
@@ -2579,6 +2583,7 @@ function showTab(t) {
   if (t==='vehicles') renderVehicles();
   if (t==='orders') renderOrders();
   if (t==='letters') renderLetters();
+  if (prevTab !== t) window.scrollTo(0, _tabScroll[t] || 0);
 }
 
 // ── 회사 레터 (Company Letters) ───────────────────────────────────────────────
