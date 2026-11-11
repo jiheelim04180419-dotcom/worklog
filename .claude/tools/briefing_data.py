@@ -182,7 +182,7 @@ def mail_section(days_unanswered=14, hours_new=16):
                 except Exception:
                     when = datetime.fromtimestamp(int(last.get("internalDate", 0)) / 1000, TZ)
                 ago_h = (datetime.now(TZ) - when).total_seconds() / 3600
-                item = f"- [{when:%m/%d %H:%M}] {h.get('from','')[:50]} | {h.get('subject','')[:80]} | {last.get('snippet','')[:120]} (메시지 {len(msgs)}개) 링크 https://mail.google.com/mail/?authuser={acct}@knmtilingbathurst.com#all/thread-f:{int(t['id'], 16)}"
+                item = f"- [{when:%m/%d %H:%M}] {h.get('from','')[:50]} | {h.get('subject','')[:80]} | {last.get('snippet','')[:120]} (메시지 {len(msgs)}개) 링크 https://jiheelim04180419-dotcom.github.io/worklog/go/gmail.html?a={acct}&t={t['id']}"
                 (new if ago_h <= hours_new else unanswered).append(item)
             print(f"## 메일 {acct}@ — 최근 {hours_new}시간 새 메일(우리가 아직 답 안 함)")
             print("\n".join(new) if new else "- 없음")
