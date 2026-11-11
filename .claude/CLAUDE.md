@@ -47,4 +47,4 @@
 - 대화로만 알 수 있는 것 말고, 회사가 알아야 하고 회사에 영향이 있는 사실·결정·진행 중인 일(빌더 합의, 청구 계획, 지급 규칙, 분쟁 마감일 등)을 알게 되면 그 자리에서 `add` / `update --append`로 적고, 끝난 일은 `done`으로 표시합니다. `--by`에 프로젝트 이름을 적습니다.
 - 공유 메모에도 비밀번호·키·토큰·계좌/BSB·보험/정책 번호는 적지 않습니다. 이 파일(공개 저장소)에는 메모 내용이나 금액을 옮기지 않습니다.
 - 아침·저녁 비서 브리핑(정기 작업)은 `.claude/routines/briefing.md` 절차를 따르고, 재료는 `python3 -I .claude/tools/briefing_data.py`로 모읍니다. 두 프로젝트(개발·조회)가 같은 파일을 씁니다.
-- 매시간 새 메일 알림(정기 작업)은 `.claude/routines/mail-watch.md` 절차와 `.claude/tools/mail_watch.py`를 씁니다 (조회 프로젝트용, 상태는 각 프로젝트 폴더).
+- 매시간 새 메일 알림(정기 작업)은 `.claude/routines/mail-watch.md` 절차와 `.claude/tools/mail_watch.py`를 씁니다 (개발·조회 공용, 상태는 각 프로젝트 폴더).
