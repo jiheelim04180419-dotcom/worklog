@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gmail에서 열기</title>
+<style>
+  :root { --bg:#fff; --fg:#1f1f1f; --btn:#1a73e8; --muted:#666; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#111; --fg:#eee; --btn:#8ab4f8; --muted:#aaa; } }
+  body { margin:0; padding:24px 16px; background:var(--bg); color:var(--fg); font:16px -apple-system, system-ui, sans-serif; }
+  a.b { display:block; margin:12px 0; padding:14px; border-radius:10px; text-align:center; text-decoration:none;
+        background:var(--btn); color:var(--bg); font-weight:600; }
+  a.s { background:transparent; color:var(--btn); border:1px solid var(--btn); }
+  p { color:var(--muted); font-size:14px; }
+</style>
+</head>
+<body>
+<h3>메일 열기</h3>
+<div id="btns"></div>
+<p id="hint"></p>
+<script>
+// 브리핑/메일 알림의 [메일 보기] 링크가 이 페이지로 옴: ?t=<Gmail thread id(16진수)>&a=<accounts|info>
+// Claude 앱 안 브라우저에서는 Gmail 앱 링크가 바로 안 열려서, 여기서 Gmail 앱(googlegmail://)으로 넘김.
+// 어느 계정 번호(accountId)가 맞는지는 폰마다 달라서, 한 번 맞는 버튼을 누르면 이 폰에 기억함.
+var q = new URLSearchParams(location.search);
+var t = (q.get('t') || '').replace(/[^0-9a-f]/gi, '');
+var a = (q.get('a') || 'accounts').replace(/[^a-z]/gi, '');
+var key = 'gmailAcct_' + a, saved = null;
+try { saved = localStorage.getItem(key); } catch (e) {}
+var web = 'https://mail.google.com/mail/?authuser=' + a + '%40knmtilingbathurst.com#all/' + (t ? 'thread-f:' + BigInt('0x' + t).toString() : '');
+function app(n) { return 'googlegmail:///cv=' + t + '/accountId=' + n + '&create-new-tab'; }
+var box = document.getElementById('btns');
+function add(href, label, cls, n) {
+  var el = document.createElement('a'); el.href = href; el.textContent = label; el.className = 'b ' + (cls || '');
+  if (n) el.onclick = function () { try { localStorage.setItem(key, n); } catch (e) {} };
+  box.appendChild(el);
+}
+if (!t) { document.getElementById('hint').textContent = '메일 번호가 없는 링크입니다.'; }
+else {
+  if (saved) add(app(saved), 'Gmail 앱에서 열기 (' + a + '@)', '', saved);
+  [1, 2, 3].forEach(function (n) { if (String(n) !== saved) add(app(n), 'Gmail 앱 · 계정 ' + n + '번으로 열기', saved ? 's' : '', String(n)); });
+  add(web, '웹(Safari)에서 열기', 's');
+  document.getElementById('hint').textContent = saved
+    ? '이 폰에서는 ' + a + '@ = 계정 ' + saved + '번으로 기억돼 있어요. 다른 메일이 열리면 아래 번호를 눌러 주세요.'
+    : '처음 한 번만: ' + a + '@ 메일이 제대로 열리는 번호를 눌러 주세요. 다음부터는 맨 위 버튼 하나만 나와요.';
+  if (saved) setTimeout(function () { location.href = app(saved); }, 300);
+}
+</script>
+</body>
+</html>
