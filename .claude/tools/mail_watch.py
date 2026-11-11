@@ -30,9 +30,14 @@ def call(acct, path):
 
 
 def gmail_link(acct, thread_id, msgid="", subject=""):
-    """[메일 보기] 링크: go/gmail.html 이 검색어(rfc822msgid)를 복사하고 Gmail 앱을 연다."""
+    """[메일 보기] 링크: 폰용 Gmail 웹에서 그 메일 하나를 검색해 바로 보여 줌 (2026-11 폰 시험으로 확인).
+    Message-ID 가 없으면 go/gmail.html (검색어 복사 + Gmail 앱 열기)로."""
+    mid = (msgid or "").strip().strip("<>")
+    if mid:
+        return (f"https://mail.google.com/mail/mu/mp/?authuser={acct}@{DOMAIN}#tl/search/"
+                + urllib.parse.quote("rfc822msgid:" + mid, safe=""))
     return "https://jiheelim04180419-dotcom.github.io/worklog/go/gmail.html?" + urllib.parse.urlencode(
-        {"a": acct, "t": thread_id, "m": msgid, "s": (subject or "")[:80]})
+        {"a": acct, "t": thread_id, "s": (subject or "")[:80]})
 
 
 def text(p):
