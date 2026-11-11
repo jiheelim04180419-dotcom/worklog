@@ -29,6 +29,11 @@ def call(acct, path):
     return json.load(urllib.request.urlopen(req, timeout=60))
 
 
+def gmail_link(acct, thread_id):
+    """폰에서 누르면 Gmail 앱으로 그 메일 대화가 열리는 링크."""
+    return f"https://mail.google.com/mail/?authuser={acct}%40{DOMAIN}#all/{thread_id}"
+
+
 def text(p):
     out = ""
     if p.get("mimeType") == "text/plain" and p.get("body", {}).get("data"):
@@ -71,7 +76,8 @@ def main():
                 continue
             body = re.split(r"\n(From:|On .{5,80}wrote:|-----Original Message)", text(msg["payload"]))[0]
             att = [f for f in files(msg["payload"], []) if not re.match(r"(image\d+|Outlook-|[0-9a-f-]{36})", f)]
-            new.append({"account": acct, "id": m["id"], "threadId": msg["threadId"], "date": h.get("date"),
+            new.append({"account": acct, "id": m["id"], "threadId": msg["threadId"],
+                        "link": gmail_link(acct, msg["threadId"]), "date": h.get("date"),
                         "from": frm, "to": h.get("to"), "cc": h.get("cc"), "subject": h.get("subject"),
                         "labels": msg.get("labelIds", []), "bulk": "list-unsubscribe" in h,
                         "attachments": att, "body": re.sub(r"\s+", " ", body)[:2000]})
