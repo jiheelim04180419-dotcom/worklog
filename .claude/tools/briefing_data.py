@@ -3,6 +3,8 @@
 
   python3 -I .claude/tools/briefing_data.py            # 전부 (공유 메모 + 미입금 + 미청구 + 메일)
   python3 -I .claude/tools/briefing_data.py --no-mail  # 메일 빼고
+  python3 -I .claude/tools/briefing_data.py --inv "1650"           # 인보이스 찾기 (번호·빌더·주소 일부)
+  python3 -I .claude/tools/briefing_data.py --inv "wattle" --full  # 항목(lineItems)까지
 
 출력은 사람이 읽는 텍스트이고, 화면에만 나옵니다. 저장소에 결과를 커밋하지 않습니다.
 인증: FIREBASE_SA_B64 (Firebase), GMAIL_OAUTH_B64 (accounts@/info@ 메일). 없으면 그 부분만 건너뜁니다.
@@ -191,10 +193,35 @@ def mail_section(days_unanswered=14, hours_new=16):
             print(f"## 메일 {acct}@\n- 읽기 실패: {type(e).__name__} {getattr(e, 'code', '')}\n")
 
 
+def find_invoices(q, full=False):
+    q = q.lower()
+    invs = [v for v in (cn._req("GET", "invoices") or {}).values() if isinstance(v, dict)]
+    hits = [v for v in invs if q in " ".join(str(v.get(k, "")) for k in
+                                            ("invoiceNum", "builderName", "address", "projectName", "note")).lower()]
+    hits.sort(key=lambda v: v.get("invoiceDate", ""))
+    for v in hits[-30:]:
+        print(f"{v.get('invoiceNum')} | {v.get('invoiceDate')} | {v.get('builderName')} | {v.get('address','')} | "
+              f"{v.get('type','')} {v.get('status')} | 청구 ${float(v.get('amount') or 0):,.2f} | 입금 ${paid(v):,.2f} | "
+              f"잔액 ${remaining(v):,.2f}" + (f" | 메모 {v.get('note')}" if v.get("note") else ""))
+        if full:
+            for it in v.get("lineItems") or []:
+                if isinstance(it, dict):
+                    print(f"    - {it.get('room','')} {it.get('desc','')} | 이번 {it.get('thisPct','')}% "
+                          f"누적 {it.get('cumulativePct','')}% (이전 {it.get('prevPct','')}%) | ${float(it.get('totalAmount') or 0):,.2f}")
+            for c in (v.get("chases") or []):
+                if isinstance(c, dict):
+                    print(f"    독촉 {c.get('date')} {c.get('note','')}")
+    print(f"({len(hits)}건 중 최근 {min(len(hits), 30)}건)")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--no-mail", action="store_true")
+    ap.add_argument("--inv", help="인보이스 찾기: 번호·빌더·주소 일부")
+    ap.add_argument("--full", action="store_true")
     a = ap.parse_args()
+    if a.inv:
+        return find_invoices(a.inv, a.full)
     print(f"# 브리핑 재료 — {datetime.now(TZ):%Y-%m-%d %H:%M} (시드니)\n")
     print("## 회사 공유 메모 (claudeNotes, 진행 중)")
     items = cn.all_items()
