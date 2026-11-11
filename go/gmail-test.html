@@ -21,6 +21,9 @@ var v=[
  ['D','googlegmail:///search?q='+encodeURIComponent(k)],
  ['E','googlegmail:///cv=thread-f:'+dec],
  ['F','googlegmail:///message?id='+t],
- ['G','googlegmail:///cv='+t+'/accountId=0&create-new-tab']];
+ ['G','googlegmail:///cv='+t+'/accountId=0&create-new-tab'],
+ ['H','https://mail.google.com/mail/?authuser=accounts%40knmtilingbathurst.com#all/thread-f:'+dec],
+ ['I','https://mail.google.com/mail/u/0/#inbox/'+t],
+ ['J','https://mail.google.com/mail/mu/mp/?authuser=accounts%40knmtilingbathurst.com#cv/priority/'+t]];
 v.forEach(function(x){var a=document.createElement('a');a.href=x[1];a.innerHTML=x[0]+'<small></small>';a.lastChild.textContent=x[1];document.getElementById('b').appendChild(a);});
 </script></body></html>
