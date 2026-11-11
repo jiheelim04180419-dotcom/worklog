@@ -22,7 +22,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-11-11-04';
+const APP_BUILD = '2026-11-11-05';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -11266,8 +11266,11 @@ function _loadPdfJs(){
 }
 // 견적이 여러 개인 현장 (본견적 + 변경견적, Kathleen 2026-11-11): siteBoardMoney.quotes = {key:{no, kind:'base'|'var', label, total, file, id, pdfAt, pdfName}}
 // 각 견적 PDF 는 siteBoardQuotePdf/<pid>_q<key>. quoteTotal 은 전체 합계 그대로 (남은 견적 계산은 예전과 같음).
-// kind: 'contract' 계약서(빌더와 맺은 금액, 있으면 이게 기준) | 'base' 본견적 | 'var' 변경견적 | 'ref' 보낸 견적(참고, 합계에 안 넣음)
-const SB_QKIND = {contract:{l:'계약서',o:0,c:' green'}, base:{l:'본견적',o:1,c:''}, var:{l:'변경',o:2,c:' teal'}, ref:{l:'보낸 견적',o:3,c:''}};
+// kind: 'contract' 계약서(빌더와 맺은 금액, 있으면 이게 기준) | 'po' 빌더 PO | 'approved' 빌더가 메일로 승인한 견적(계약서 없음)
+//       | 'base' 본견적 | 'var' 변경견적 | 'ref' 보낸 견적(참고, 합계에 안 넣음)
+// contract/po/approved 는 셋 다 '기준 금액' 이지만 라벨은 실제 문서 종류대로 (견적을 계약서라고 쓰지 않기, Kathleen 2026-11-11)
+const SB_QKIND = {contract:{l:'계약서',o:0,c:' green',s:'계약'}, po:{l:'PO',o:0,c:' green',s:'PO'}, approved:{l:'견적 (승인)',o:0,c:' green',s:'승인 견적'},
+  base:{l:'본견적',o:1,c:''}, var:{l:'변경',o:2,c:' teal'}, ref:{l:'보낸 견적',o:3,c:''}};
 function sbQuoteList(m){
   const qs = (m && m.quotes) || {};
   const ord = q => (SB_QKIND[q.kind] || SB_QKIND.base).o;
@@ -11277,7 +11280,8 @@ function sbQuoteList(m){
 function sbQuoteListHtml(pid, m){
   const list = sbQuoteList(m);
   const sum = f => list.filter(f).reduce((s,q)=>s+(parseFloat(q.total)||0),0);
-  const ctr = sum(q => q.kind==='contract'), base = sum(q => !q.kind || q.kind==='base'), vr = sum(q => q.kind==='var');
+  const top = ['contract','po','approved'].map(k => { const v = sum(q => q.kind===k); return v ? `${SB_QKIND[k].s} ${sbA0(v)}` : ''; });
+  const base = sum(q => !q.kind || q.kind==='base'), vr = sum(q => q.kind==='var');
   const rows = list.map(q => {
     const kd = SB_QKIND[q.kind] || SB_QKIND.base;
     const url = sbQuoteUrl({quoteId:q.id, quoteFile:q.file});
@@ -11291,7 +11295,7 @@ function sbQuoteListHtml(pid, m){
         <div style="color:var(--text-4);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(q.label || String(q.file||'').split('/').pop())}</div>
       </div>${btn}</div>`;
   }).join('');
-  return `<div style="margin-top:10px;font-size:12px;color:var(--text-3)">${[ctr?`계약 ${sbA0(ctr)}`:'', base?`본견적 ${sbA0(base)}`:'', vr?`변경견적 ${sbA0(vr)}`:''].filter(Boolean).join(' · ')}${m.quoteAuto?' <span class="chip">자동</span>':''}</div>
+  return `<div style="margin-top:10px;font-size:12px;color:var(--text-3)">${[...top, base?`본견적 ${sbA0(base)}`:'', vr?`변경견적 ${sbA0(vr)}`:''].filter(Boolean).join(' · ')}${m.quoteAuto?' <span class="chip">자동</span>':''}</div>
     <div style="margin-top:4px">${rows}</div>`;
 }
 async function sbShowQuotePdf(pid, qkey){
@@ -11303,9 +11307,58 @@ async function sbShowQuotePdf(pid, qkey){
       <a id="sb-pdf-dl" style="display:none;color:#fff;font-size:13px;text-decoration:underline">저장</a>
       <button onclick="document.getElementById('sb-pdf-ov').remove()" style="background:#fff;color:#111;border:0;border-radius:8px;padding:6px 12px;font-weight:700">닫기</button>
     </div>
-    <div id="sb-pdf-pages" style="flex:1;overflow:auto;-webkit-overflow-scrolling:touch;padding:8px"></div>`;
+    <div id="sb-pdf-pages" style="flex:1;overflow:auto;-webkit-overflow-scrolling:touch;padding:8px;touch-action:pan-x pan-y"><div id="sb-pdf-inner" style="margin:0 auto;transform-origin:0 0"></div></div>
+    <div style="position:absolute;right:14px;bottom:calc(env(safe-area-inset-bottom) + 14px);display:flex;gap:8px">
+      <button id="sb-pdf-zo" style="width:44px;height:44px;border-radius:22px;border:0;background:rgba(255,255,255,.92);font-size:22px;font-weight:700">−</button>
+      <button id="sb-pdf-zi" style="width:44px;height:44px;border-radius:22px;border:0;background:rgba(255,255,255,.92);font-size:22px;font-weight:700">+</button>
+    </div>`;
   document.body.appendChild(ov);
-  const title = ov.querySelector('#sb-pdf-title'), box = ov.querySelector('#sb-pdf-pages');
+  const title = ov.querySelector('#sb-pdf-title'), scroller = ov.querySelector('#sb-pdf-pages'), box = ov.querySelector('#sb-pdf-inner');
+  // 손가락 두 개로 확대/축소 (앱 viewport 는 maximum-scale=1 이라 브라우저 확대가 막혀 있어서 직접 처리, Kathleen 2026-11-11)
+  // + 두 번 탭하면 2.5배 ↔ 원래 크기, 오른쪽 아래 −/+ 버튼.
+  let zoom = 1, baseW = 0, pages = [];
+  const applyZoom = (z, cx, cy) => {   // cx,cy = 화면(스크롤 박스) 기준 고정점
+    z = Math.max(1, Math.min(5, z));
+    const r = scroller.getBoundingClientRect();
+    cx = cx == null ? r.width / 2 : cx; cy = cy == null ? r.height / 2 : cy;
+    const px = (scroller.scrollLeft + cx) / zoom, py = (scroller.scrollTop + cy) / zoom;
+    zoom = z;
+    box.style.width = (baseW * zoom) + 'px';
+    pages.forEach(p => { p.cv.style.width = (baseW * zoom) + 'px'; });
+    scroller.scrollLeft = px * zoom - cx; scroller.scrollTop = py * zoom - cy;
+    clearTimeout(applyZoom._t); applyZoom._t = setTimeout(sharpen, 250);
+  };
+  const sharpen = async () => {   // 확대하면 글자가 흐려지지 않게 더 높은 해상도로 다시 그림 (iOS 캔버스 한도 안에서)
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    for (const p of pages) {
+      if (!document.getElementById('sb-pdf-ov')) return;
+      const want = Math.min(baseW * zoom * dpr, 3200);
+      if (want <= p.rendered * 1.05) continue;
+      const vp = p.page.getViewport({scale: want / p.page.getViewport({scale:1}).width});
+      if (vp.width * vp.height > 15e6) continue;
+      const cv = document.createElement('canvas'); cv.width = vp.width; cv.height = vp.height;
+      await p.page.render({canvasContext: cv.getContext('2d'), viewport: vp}).promise;
+      cv.style.cssText = p.cv.style.cssText; p.cv.replaceWith(cv); p.cv.width = 0; p.cv = cv; p.rendered = want;
+    }
+  };
+  let pinch = null, lastTap = 0;
+  const mid = t => { const r = scroller.getBoundingClientRect(); return [(t[0].clientX + t[1].clientX) / 2 - r.left, (t[0].clientY + t[1].clientY) / 2 - r.top]; };
+  const dist = t => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+  scroller.addEventListener('touchstart', e => {
+    if (e.touches.length === 2) { pinch = {d: dist(e.touches), z: zoom}; e.preventDefault(); }
+    else if (e.touches.length === 1) {
+      const now = Date.now();
+      if (now - lastTap < 300) { const r = scroller.getBoundingClientRect(); applyZoom(zoom > 1.2 ? 1 : 2.5, e.touches[0].clientX - r.left, e.touches[0].clientY - r.top); e.preventDefault(); lastTap = 0; }
+      else lastTap = now;
+    }
+  }, {passive:false});
+  scroller.addEventListener('touchmove', e => {
+    if (pinch && e.touches.length === 2) { e.preventDefault(); const [cx, cy] = mid(e.touches); applyZoom(pinch.z * dist(e.touches) / pinch.d, cx, cy); }
+  }, {passive:false});
+  scroller.addEventListener('touchend', e => { if (e.touches.length < 2) pinch = null; });
+  ['gesturestart','gesturechange'].forEach(ev => ov.addEventListener(ev, e => e.preventDefault()));
+  ov.querySelector('#sb-pdf-zi').onclick = () => applyZoom(zoom * 1.5);
+  ov.querySelector('#sb-pdf-zo').onclick = () => applyZoom(zoom / 1.5);
   try {
     const [rec, lib] = await Promise.all([fbGet('siteBoardQuotePdf/' + pid + (qkey ? '_q' + qkey : '')), _loadPdfJs()]);
     if (!rec || !rec.b64) throw new Error('아직 올라온 견적 PDF가 없어요');
@@ -11315,17 +11368,20 @@ async function sbShowQuotePdf(pid, qkey){
     const dl = ov.querySelector('#sb-pdf-dl');
     dl.href = URL.createObjectURL(new Blob([bytes], {type:'application/pdf'})); dl.download = rec.name || 'quote.pdf'; dl.style.display = '';
     const doc = await lib.getDocument({data: bytes}).promise;
-    const w = Math.min(box.clientWidth - 16, 900), dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const w = Math.min(scroller.clientWidth - 16, 900), dpr = Math.min(window.devicePixelRatio || 1, 3);
+    baseW = w; box.style.width = w + 'px';
     for (let n = 1; n <= doc.numPages; n++) {
       if (!document.getElementById('sb-pdf-ov')) return;
       const page = await doc.getPage(n);
       const vp0 = page.getViewport({scale:1}), vp = page.getViewport({scale: w / vp0.width * dpr});
       const cv = document.createElement('canvas');
       cv.width = vp.width; cv.height = vp.height;
-      cv.style.cssText = `display:block;width:${w}px;margin:0 auto 8px;background:#fff;border-radius:4px`;
+      cv.style.cssText = `display:block;width:${w * zoom}px;margin:0 0 8px;background:#fff;border-radius:4px`;
       box.appendChild(cv);
       await page.render({canvasContext: cv.getContext('2d'), viewport: vp}).promise;
+      pages.push({page, cv, rendered: w * dpr});
     }
+    if (zoom > 1) sharpen();
   } catch (e) {
     title.textContent = '견적 PDF를 열 수 없어요';
     box.innerHTML = `<div style="color:#fff;padding:16px;font-size:14px">${esc(e.message || String(e))}</div>`;
