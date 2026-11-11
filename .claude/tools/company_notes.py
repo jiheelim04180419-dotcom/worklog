@@ -51,7 +51,7 @@ def _token():
 
 
 def _req(method, path, body=None):
-    u = f"{DB}/{path.strip('/')}.json?access_token={_token()}"
+    u = f"{DB}/{urllib.parse.quote(path.strip('/'))}.json?access_token={_token()}"
     req = urllib.request.Request(u, method=method, headers={"Content-Type": "application/json"},
                                  data=json.dumps(body, ensure_ascii=False).encode() if body is not None else None)
     with urllib.request.urlopen(req, timeout=60) as r:
