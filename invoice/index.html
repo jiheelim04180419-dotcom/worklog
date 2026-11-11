@@ -22,7 +22,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-11-11-03';
+const APP_BUILD = '2026-11-11-04';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -1089,7 +1089,7 @@ body[data-active-tab="invoices"] .content,body:not([data-active-tab]) .content{p
   <!-- Hidden status field — auto-set by saveInv() based on draft vs publish -->
   <input type="hidden" id="f-st" value="INVOICE"/>
   <div id="f-po-row" class="mb"><label class="label">PO 번호 (선택)</label><input class="input" id="f-po" placeholder="PO Number (있을 때만 입력)" oninput="checkPrevInvoice();checkDraftDuplicate();checkPrevProgressInvoice()"/></div>
-  <div id="f-contract-row" class="mb"><label class="label">Contract 번호 (선택)</label><input class="input" id="f-contract" placeholder="Contract Number (PO 없이 계약번호만 있을 때 · Statement 에 기재)" oninput="checkPrevProgressInvoice()"/></div>
+  <div id="f-contract-row" class="mb"><label class="label">Contract 번호 (선택 · Renascent는 5자리 Job Number 필수)</label><input class="input" id="f-contract" placeholder="Contract Number (PO 없이 계약번호만 있을 때 · Statement 에 기재)" oninput="checkPrevProgressInvoice()"/></div>
   <!-- 이전 인보이스 자동 매칭 힌트 (일반/PO 타입) -->
   <div id="prev-inv-row" class="mb" style="display:none;background:#FEF3C7;border:1px solid #FDE68A;border-radius:8px;padding:10px 12px">
     <div id="prev-inv-hint" style="font-size:12px;color:#92400E;margin-bottom:6px;line-height:1.5"></div>
@@ -6443,6 +6443,16 @@ async function saveInv(asDraft, sendEmail) {
     }
   }
   
+  // Renascent: 모든 클레임/인보이스에 Job Number(5자리)·프로젝트명·현장 주소 필수 (Renascent accounts 안내 2026-09-27).
+  //   Job Number 는 'Contract 번호' 칸에 넣으면 인보이스에 'Job No.' 로 찍힘. 빠지면 재발행 요청 받을 수 있음.
+  if (!asDraft && /renascent/i.test(b)) {
+    const miss = [];
+    if (!/^\d{5}$/.test(document.getElementById('f-contract').value.trim())) miss.push('Renascent Job Number (5자리, Contract 번호 칸)');
+    if (!document.getElementById('f-proj').value.trim()) miss.push('프로젝트명');
+    if (!document.getElementById('f-a').value.trim()) miss.push('현장 주소');
+    if (miss.length && !confirm('⚠️ Renascent 인보이스 필수 항목이 비어 있어요:\n  • ' + miss.join('\n  • ') + '\n\n(PO가 있는 건은 PO 번호·cost code·Renascent 담당자 이름도 필요)\n\n그래도 저장할까요?')) return;
+  }
+
   const coId = document.getElementById('f-co').value;
   let invNum = document.getElementById('f-n').value.trim();
 
@@ -8775,7 +8785,7 @@ function printInvoiceKM(inv, co, b) {
         <div class="pi-meta-value">${esc(po)}</div>
       </div>` : ''; })()}
       ${inv.contractNumber ? `<div class="pi-meta-cell">
-        <div class="pi-meta-label">Contract #</div>
+        <div class="pi-meta-label">${/renascent/i.test(inv.builderName||'') ? 'Job No.' : 'Contract #'}</div>
         <div class="pi-meta-value">${esc(inv.contractNumber)}</div>
       </div>` : ''}
       <div class="pi-meta-cell" style="flex:1.5">
