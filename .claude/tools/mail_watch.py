@@ -31,7 +31,7 @@ def call(acct, path):
 
 def gmail_link(acct, thread_id):
     """폰에서 누르면 Gmail 앱으로 그 메일 대화가 열리는 링크."""
-    return f"https://mail.google.com/mail/?authuser={acct}%40{DOMAIN}#all/{thread_id}"
+    return f"https://mail.google.com/mail/?authuser={acct}@{DOMAIN}#all/thread-f:{int(thread_id, 16)}"
 
 
 def text(p):
