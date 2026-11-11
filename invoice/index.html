@@ -22,7 +22,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-11-11-02';
+const APP_BUILD = '2026-11-11-03';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -12187,6 +12187,58 @@ function filterByDate(date) {
   }, 50);
 }
 
+</script>
+<script>
+/* 상단 탭 → 맨 위로 스크롤 (아이폰 상태바 탭처럼). 세 앱 공통 코드.
+   홈 화면 앱(PWA)이나 안쪽 스크롤 상자에서는 아이폰 기본 기능이 안 먹어서 직접 처리합니다.
+   상단 헤더의 빈 곳(버튼·입력칸 말고)이나 상태바 줄을 탭하면, 지금 보고 있는 스크롤 영역을 맨 위로 올립니다. */
+(function(){
+  if (window.__kmTapTop) return; window.__kmTapTop = true;
+  var HEAD_SEL = '.header,.hdr,.mb-header,.dt-topbar,.mhead,[data-tap-top]';
+  var SKIP_SEL = 'button,a,input,select,textarea,label,summary,option,[onclick],[role="button"],[contenteditable="true"],[data-no-tap-top],.nav,.nav-overflow';
+  var safeTop = 0;
+  function measure(){
+    try {
+      var d = document.createElement('div');
+      d.style.cssText = 'position:fixed;top:0;left:0;height:env(safe-area-inset-top,0px);width:1px;visibility:hidden;pointer-events:none';
+      document.body.appendChild(d); safeTop = d.getBoundingClientRect().height || 0; d.remove();
+    } catch(e) {}
+  }
+  function scrollable(el){
+    if (!el || el === document.body || el === document.documentElement) return false;
+    var oy = getComputedStyle(el).overflowY;
+    return (oy === 'auto' || oy === 'scroll' || oy === 'overlay') && el.scrollHeight > el.clientHeight + 1;
+  }
+  function scrollerFrom(el){
+    for (; el && el.nodeType === 1; el = el.parentElement) if (scrollable(el)) return el;
+    return null;
+  }
+  function toTop(el){
+    if (el) { if (el.scrollTop > 0) el.scrollTo({ top: 0, behavior: 'smooth' }); return; }
+    if ((window.scrollY || document.documentElement.scrollTop) > 0) window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  document.addEventListener('click', function(e){
+    try {
+      if (e.defaultPrevented || e.button > 0) return;
+      var t = e.target && e.target.nodeType === 1 ? e.target : (e.target && e.target.parentElement);
+      if (!t || t.closest(SKIP_SEL)) return;
+      var sel = window.getSelection && window.getSelection();
+      if (sel && String(sel).length) return;
+      var head = t.closest(HEAD_SEL);
+      var inBar = e.clientY <= Math.max(safeTop, 0) && safeTop > 0;
+      if (!head && !inBar) return;
+      // 헤더가 스크롤 상자(예: 팝업) 안에 있으면 그 상자를, 아니면 화면 가운데 보이는 영역의 스크롤 상자를 올림
+      var sc = head ? scrollerFrom(head.parentElement) : null;
+      if (!sc) {
+        var mid = document.elementFromPoint(window.innerWidth / 2, window.innerHeight / 2);
+        sc = scrollerFrom(mid);
+      }
+      toTop(sc);
+    } catch(err) {}
+  }, false);
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', measure); else measure();
+  window.addEventListener('orientationchange', function(){ setTimeout(measure, 300); });
+})();
 </script>
 </body>
 </html>
