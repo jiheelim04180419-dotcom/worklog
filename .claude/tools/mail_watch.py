@@ -29,9 +29,10 @@ def call(acct, path):
     return json.load(urllib.request.urlopen(req, timeout=60))
 
 
-def gmail_link(acct, thread_id):
-    """폰에서 누르면 Gmail 앱으로 그 메일 대화가 열리는 링크 (go/gmail.html 이 googlegmail:// 로 넘김)."""
-    return f"https://jiheelim04180419-dotcom.github.io/worklog/go/gmail.html?a={acct}&t={thread_id}"
+def gmail_link(acct, thread_id, msgid="", subject=""):
+    """[메일 보기] 링크: go/gmail.html 이 검색어(rfc822msgid)를 복사하고 Gmail 앱을 연다."""
+    return "https://jiheelim04180419-dotcom.github.io/worklog/go/gmail.html?" + urllib.parse.urlencode(
+        {"a": acct, "t": thread_id, "m": msgid, "s": (subject or "")[:80]})
 
 
 def text(p):
@@ -77,7 +78,7 @@ def main():
             body = re.split(r"\n(From:|On .{5,80}wrote:|-----Original Message)", text(msg["payload"]))[0]
             att = [f for f in files(msg["payload"], []) if not re.match(r"(image\d+|Outlook-|[0-9a-f-]{36})", f)]
             new.append({"account": acct, "id": m["id"], "threadId": msg["threadId"],
-                        "link": gmail_link(acct, msg["threadId"]), "date": h.get("date"),
+                        "link": gmail_link(acct, msg["threadId"], h.get("message-id", ""), h.get("subject", "")), "date": h.get("date"),
                         "from": frm, "to": h.get("to"), "cc": h.get("cc"), "subject": h.get("subject"),
                         "labels": msg.get("labelIds", []), "bulk": "list-unsubscribe" in h,
                         "attachments": att, "body": re.sub(r"\s+", " ", body)[:2000]})
