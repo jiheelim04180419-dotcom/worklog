@@ -10,5 +10,29 @@
         ]
       }
     ]
+  },
+  "permissions": {
+    "allow": [
+      "Bash(python3 -I .claude/tools/mail_watch.py)",
+      "Bash(python3 -I .claude/tools/mail_watch.py *)",
+      "Bash(python3 .claude/tools/mail_watch.py)",
+      "Bash(python3 .claude/tools/mail_watch.py *)",
+      "Bash(python3 -I .claude/tools/mail_read.py)",
+      "Bash(python3 -I .claude/tools/mail_read.py *)",
+      "Bash(python3 .claude/tools/mail_read.py)",
+      "Bash(python3 .claude/tools/mail_read.py *)",
+      "Bash(python3 -I .claude/tools/briefing_data.py)",
+      "Bash(python3 -I .claude/tools/briefing_data.py *)",
+      "Bash(python3 .claude/tools/briefing_data.py)",
+      "Bash(python3 .claude/tools/briefing_data.py *)",
+      "Bash(python3 -I .claude/tools/company_notes.py)",
+      "Bash(python3 -I .claude/tools/company_notes.py *)",
+      "Bash(python3 .claude/tools/company_notes.py)",
+      "Bash(python3 .claude/tools/company_notes.py *)",
+      "Bash(python3 -I .claude/tools/app_data.py)",
+      "Bash(python3 -I .claude/tools/app_data.py *)",
+      "Bash(python3 .claude/tools/app_data.py)",
+      "Bash(python3 .claude/tools/app_data.py *)"
+    ]
   }
 }
