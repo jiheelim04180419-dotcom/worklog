@@ -45,6 +45,7 @@
 - 조회 프로젝트도 관리자가 세 앱(WorkLog·인보이스·SiteLog)에서 보는 정보를 모두 볼 수 있습니다. 앱 데이터는 전부 Firebase에 있고 서비스 계정(FIREBASE_SA_B64)으로 읽습니다.
 - 질문을 받으면 `python3 .claude/tools/app_data.py`로 찾습니다: `paths`(앱별 경로 지도), `logs`(일지), `sitelog`(현장 게시물), `board`(현황판), `get`/`keys`/`find`(아무 경로). 인보이스 하나는 `briefing_data.py --inv 번호`.
 - 조회는 보기만 합니다. 앱 데이터를 고치는 일은 개발 프로젝트에서 합니다.
+- 메일은 accounts@와 info@ 둘 다 봅니다. Claude Gmail 커넥터는 accounts@만 연결돼 있으니, 메일을 찾을 때는 `python3 .claude/tools/mail_read.py search "검색어"`(두 메일함 모두)를 씁니다. Procore 알림, 공급업체 Statement 등은 info@로 오는 경우가 많습니다.
 
 ## 회사 공유 메모 (모든 프로젝트 공통)
 - K&M 개발·조회 등 여러 Claude 프로젝트는 프로젝트 메모리를 서로 못 봅니다. 그래서 회사 공유 메모를 Firebase `claudeNotes`에 둡니다 (앱 화면에는 안 나옴).
