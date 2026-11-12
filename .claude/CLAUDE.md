@@ -41,6 +41,11 @@
   본문: "안녕하세요, Remittance advice 첨부해드립니다. 감사합니다." 보낸 뒤 요청을 '보냄'으로 표시합니다.
 - 레미턴스는 아스트로에만 보냅니다.
 
+## 앱 데이터 보기 (개발·조회 공통)
+- 조회 프로젝트도 관리자가 세 앱(WorkLog·인보이스·SiteLog)에서 보는 정보를 모두 볼 수 있습니다. 앱 데이터는 전부 Firebase에 있고 서비스 계정(FIREBASE_SA_B64)으로 읽습니다.
+- 질문을 받으면 `python3 .claude/tools/app_data.py`로 찾습니다: `paths`(앱별 경로 지도), `logs`(일지), `sitelog`(현장 게시물), `board`(현황판), `get`/`keys`/`find`(아무 경로). 인보이스 하나는 `briefing_data.py --inv 번호`.
+- 조회는 보기만 합니다. 앱 데이터를 고치는 일은 개발 프로젝트에서 합니다.
+
 ## 회사 공유 메모 (모든 프로젝트 공통)
 - K&M 개발·조회 등 여러 Claude 프로젝트는 프로젝트 메모리를 서로 못 봅니다. 그래서 회사 공유 메모를 Firebase `claudeNotes`에 둡니다 (앱 화면에는 안 나옴).
 - 세션을 시작하면 먼저 `python3 .claude/tools/company_notes.py`로 진행 중인 메모를 읽습니다.
