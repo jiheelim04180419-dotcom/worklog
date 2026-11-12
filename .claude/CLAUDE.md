@@ -47,6 +47,11 @@
 - 조회는 보기만 합니다. 앱 데이터를 고치는 일은 개발 프로젝트에서 합니다.
 - 메일은 accounts@와 info@ 둘 다 봅니다. Claude Gmail 커넥터는 accounts@만 연결돼 있으니, 메일을 찾을 때는 `python3 .claude/tools/mail_read.py search "검색어"`(두 메일함 모두)를 씁니다. Procore 알림, 공급업체 Statement 등은 info@로 오는 경우가 많습니다.
 
+## 파일 찾기 (도면·견적 등, 개발·조회 공통)
+- 도면·견적 파일은 Google Drive 커넥터(info@ 드라이브 공유 폴더)와 OneDrive 견적 검색 커넥터에서 찾습니다. "연결 안 됨"이라고 하기 전에 ToolSearch로 `Google_Drive`를 꼭 찾아봅니다.
+- OneDrive 견적 검색 커넥터는 찾기·글자 읽기만 됩니다. 큰 PDF는 채팅에 다시 올리기 어렵습니다.
+- 파일을 올려 줄 수 없으면 "못 한다"로 끝내지 말고, 찾은 파일마다 바로 열리는 링크(Google Drive의 viewUrl)를 목록으로 줍니다.
+
 ## 회사 공유 메모 (모든 프로젝트 공통)
 - K&M 개발·조회 등 여러 Claude 프로젝트는 프로젝트 메모리를 서로 못 봅니다. 그래서 회사 공유 메모를 Firebase `claudeNotes`에 둡니다 (앱 화면에는 안 나옴).
 - 세션을 시작하면 먼저 `python3 .claude/tools/company_notes.py`로 진행 중인 메모를 읽습니다.
