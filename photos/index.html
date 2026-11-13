@@ -231,7 +231,7 @@ input,textarea,select{font-family:inherit;font-size:16px}
 <div id="toast" class="toast"></div>
 <datalist id="builder-list"></datalist>
 <script>
-const APP_BUILD='2026-11-11-01';
+const APP_BUILD='2026-11-14-01';
 // 글 작성칸(textarea) 내용에 맞춰 자동으로 늘어남 (최대 화면 60%)
 function autoGrowTA(t){t.style.height='auto';t.style.height=Math.min(t.scrollHeight+3,window.innerHeight*0.6)+'px';}
 document.addEventListener('input',function(ev){if(ev.target&&ev.target.tagName==='TEXTAREA')autoGrowTA(ev.target);});
@@ -505,7 +505,7 @@ function renderLogin(){
     $('#lg-btn').innerHTML='<span class="spin"></span>';
     const r=await tryLogin(id,pw);
     if(r.err){$('#lg-err').textContent=r.err;$('#lg-btn').textContent='Sign in';return;}
-    S.user=r.user;saveSession(r.user);openProjects();};
+    S.user=r.user;saveSession(r.user);openHome();};
   $('#lg-btn').onclick=go;$('#lg-pw').onkeydown=e=>{if(e.key==='Enter')go();};
 }
 
@@ -1237,7 +1237,15 @@ function openViewer(key){
   document.body.appendChild(v);
 }
 
-(async function(){fbOnAuthLost=()=>{localStorage.removeItem('photoapp_session');S.user=null;renderLogin();};const s=loadSession();if(s&&_fbAuth&&_fbAuth.id===s.id){S.user=s;openProjects();}else{if(s)localStorage.removeItem('photoapp_session');renderLogin();}})();
+// Deep link from the invoice app's site board: ?site=<pid> opens that site once signed in (kept through the login screen).
+try{const u=new URL(location.href),sp=u.searchParams.get('site');if(sp){sessionStorage.setItem('sl_open_site',sp);u.searchParams.delete('site');history.replaceState(history.state,'',u.toString());}}catch(e){}
+async function openHome(){
+  await openProjects();
+  let pid=null;try{pid=sessionStorage.getItem('sl_open_site');sessionStorage.removeItem('sl_open_site');}catch(e){}
+  if(!pid)return;
+  try{const p=S.projects.find(x=>x.id===pid)||await rtGet('photoApp/projects/'+pid);if(p)openProject(pid);}catch(e){}
+}
+(async function(){fbOnAuthLost=()=>{localStorage.removeItem('photoapp_session');S.user=null;renderLogin();};const s=loadSession();if(s&&_fbAuth&&_fbAuth.id===s.id){S.user=s;openHome();}else{if(s)localStorage.removeItem('photoapp_session');renderLogin();}})();
 // Auto-update: compare the running build against ver.txt on the server; if newer, reload with a cache-busting ?v=.
 // ⚠️ 배포 때 APP_BUILD 와 photos/ver.txt 를 같은 값으로 올릴 것.
 async function checkUpdate(){
