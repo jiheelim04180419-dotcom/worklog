@@ -22,7 +22,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-11-13-01';
+const APP_BUILD = '2026-11-14-01';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -11096,6 +11096,8 @@ function sbNextSched(b){
   const items = sbList(b && b.schedule).filter(s=>s.date).sort((a,c)=>a.date.localeCompare(c.date));
   return items.find(s => (s.end||s.date) >= today) || null;
 }
+// SiteLog 앱(photos/)에서 그 현장을 바로 여는 주소 (Kathleen 2026-11-14). SiteLog 가 ?site=<pid> 를 읽어 로그인 뒤 그 현장을 연다.
+function sbSiteLogUrl(pid){ return '../photos/?site=' + encodeURIComponent(pid); }
 function sbDaysAgo(ts){
   if (!ts) return '';
   const d = Math.floor((Date.now() - ts) / 86400000);
@@ -11154,7 +11156,7 @@ function sbCardHtml(pid){
     <div style="font-size:12px;color:var(--text-2);margin-top:8px">
       ${nx ? `📅 ${fD(nx.date)}${nx.end&&nx.end!==nx.date?'~'+fD(nx.end):''} ${esc(nx.work||'')}${nx.crew?` <span style="color:var(--text-4)">(${esc(nx.crew)})</span>`:''}` : '<span style="color:var(--text-4)">📅 다음 일정 없음</span>'}
       
-      ${p.lastActivity ? ` · <span style="color:var(--text-4)">SiteLog ${sbDaysAgo(p.lastActivity)}</span>` : ''}
+      ${p.lastActivity ? ` · <a href="${sbSiteLogUrl(pid)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="SiteLog에서 이 현장 열기" style="color:var(--km-teal-text);text-decoration:underline;text-underline-offset:2px">SiteLog ${sbDaysAgo(p.lastActivity)} ↗</a>` : ''}
     </div>
     ${chips.length ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:8px">${chips.join('')}</div>` : ''}
   </div>`;
@@ -11261,6 +11263,7 @@ function sbOpen(pid){
         <div style="font-size:12px;color:var(--text-3)">${esc(sbSub(pid))}${p.photoCount?` · 사진 ${p.photoCount}`:''}${p.lastActivity?` · 최근 글 ${sbDaysAgo(p.lastActivity)}`:''}</div></div>
       <button onclick="closeKpiList()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#9CA3AF">×</button>
     </div>
+    <a class="btn-secondary" style="display:block;text-align:center;margin-top:10px;padding:8px;text-decoration:none" href="${sbSiteLogUrl(pid)}" target="_blank" rel="noopener">📷 SiteLog에서 이 현장 열기</a>
     <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:12px">
       ${SB_STATUS.map(s=>`<button class="fbtn${(b.status||'planned')===s.k?' active':''}" ${ro?'disabled':''} onclick="sbSetStatus('${s.k}')">${s.l}</button>`).join('')}
     </div>
