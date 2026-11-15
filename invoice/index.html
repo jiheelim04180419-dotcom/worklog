@@ -22,7 +22,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-11-14-01';
+const APP_BUILD = '2026-11-16-01';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -8017,6 +8017,15 @@ p{margin-bottom:10pt;font-size:10pt}
 }
 
 let _curPrintInv = null;  // 인쇄 모달에 현재 띄운 인보이스 (패키지 PDF 에서 사용)
+// 회사명 변경 (2026-11): "K&M Tiling Bathurst Pty Ltd" → "K&M Tiling Pty Ltd".
+// 새로 발행하는 인보이스(발행일 KM_RENAME_DATE 이후)에만 새 이름. 이미 발행한 인보이스와 은행 계좌명은 그대로.
+const KM_RENAME_DATE = '2026-11-15';
+function invCoName(co, inv) {
+  const n = (co && co.name) || '';
+  if (/K&M Tiling Bathurst/i.test(n) && (!inv || !inv.invoiceDate || inv.invoiceDate >= KM_RENAME_DATE))
+    return n.replace(/\s*Bathurst\b/i, '');
+  return n;
+}
 function printInvoice(id) {
   const inv = invoices.find(i => i.id === id);
   if (!inv) return alert('인보이스를 찾을 수 없어요');
@@ -8058,7 +8067,7 @@ function composeEmailForInvoice(inv) {
   const t = new Date();
   const pad = n => String(n).padStart(2,'0');
   const todayStr = `${pad(t.getDate())}/${pad(t.getMonth()+1)}/${String(t.getFullYear()).slice(-2)}`;
-  const coShort = (co.name || '').replace(/\s*Pty\s*Ltd\.?$/i, '').trim();
+  const coShort = invCoName(co, inv).replace(/\s*Pty\s*Ltd\.?$/i, '').trim();
   const subject = `Payment request ${todayStr} ${coShort}`;
 
   // 모달 값 채우기
@@ -8819,7 +8828,7 @@ function printInvoiceKM(inv, co, b) {
         ${builderAddrHTML ? `<div class="pi-value">${builderAddrHTML}</div>` : ''}
       </div>
       <div class="pi-info-right">
-        <div class="pi-co-name">${esc(co.name||'K&M Tiling Bathurst PTY LTD')}</div>
+        <div class="pi-co-name">${esc(invCoName(co, inv)||'K&M Tiling PTY LTD')}</div>
         <div class="pi-value" style="margin-top:4px">${fmtAddr(co.address||'')}</div>
         ${co.phone ? `<div class="pi-value" style="margin-top:8px">${esc(co.phone)}</div>` : ''}
       </div>
