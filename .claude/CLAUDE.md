@@ -59,3 +59,4 @@
 - 공유 메모에도 비밀번호·키·토큰·계좌/BSB·보험/정책 번호는 적지 않습니다. 이 파일(공개 저장소)에는 메모 내용이나 금액을 옮기지 않습니다.
 - 아침·저녁 비서 브리핑(정기 작업)은 `.claude/routines/briefing.md` 절차를 따르고, 재료는 `python3 -I .claude/tools/briefing_data.py`로 모읍니다. 두 프로젝트(개발·조회)가 같은 파일을 씁니다.
 - 매시간 새 메일 알림(정기 작업)은 `.claude/routines/mail-watch.md` 절차와 `.claude/tools/mail_watch.py`를 씁니다 (개발·조회 공용, 상태는 각 프로젝트 폴더).
+- 월말 청구 마감 알림(정기 작업)은 `.claude/routines/claim-deadline.md` 절차와 `.claude/tools/claim_deadlines.py`를 씁니다 (25일 마감은 21일, 말일 마감은 3일 전, 주말이면 앞 금요일).
