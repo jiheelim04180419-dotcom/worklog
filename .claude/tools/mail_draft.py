@@ -3,7 +3,10 @@
 
 Gmail 커넥터는 accounts@만 연결돼 있어서, info@ 메일은 이 도구로 씁니다.
 인증: env GMAIL_OAUTH_B64. 토큰은 출력하지 않습니다.
-서명: Gmail 설정의 실제 서명(HTML, 로고 포함)과 보낸 사람 이름을 그대로 붙입니다.
+서명: Gmail의 실제 서명(HTML, 로고 포함)과 보낸 사람 이름을 그대로 붙입니다.
+  --sign 이름 : 그 사람이 이 메일함에서 마지막으로 보낸 메일의 서명(맺음말 포함)을 그대로 씁니다.
+               예) --sign Kyle, --sign Max, --sign Sarah. info@는 --sign 이 없으면 Kyle.
+               --sign default 는 Gmail 설정의 기본 서명. 본문에 "Kind regards, 이름"은 쓰지 마세요.
 
   새 메일:  mail_draft.py new <accounts|info> --to a@b --subject "제목" --body-file 본문.txt [--cc x] [--attach f.pdf ...]
   답장:     mail_draft.py reply <accounts|info> <message_id> --body-file 본문.txt [--all] [--cc x] [--attach f ...]
@@ -13,7 +16,7 @@ Gmail 커넥터는 accounts@만 연결돼 있어서, info@ 메일은 이 도구�
   보내기:   mail_draft.py send <accounts|info> <draft_id> --ok
             회사 규칙: 초안을 먼저 보여주고 사람이 OK한 뒤에만 보냅니다. --ok 없이는 보내지 않습니다.
 """
-import argparse, base64, html, json, mimetypes, os, sys, urllib.parse, urllib.request
+import argparse, base64, html, json, mimetypes, os, re, sys, urllib.parse, urllib.request
 from email.message import EmailMessage
 from email.utils import getaddresses
 
@@ -61,8 +64,68 @@ def last_sent_name(acct):  # Gmail에 표시 이름 설정이 없으면, 최근 
     return getaddresses([frm])[0][0] if frm else ""
 
 
-def build(acct, text, to, subject, cc=None, attach=()):
+DEFAULT_SIGN = {"info": "Kyle"}  # info@는 요즘 거의 카일이 씀 (Kathleen 2026-11-23)
+
+
+def html_part(msg):
+    for p in walk(msg["payload"]):
+        if p.get("mimeType") == "text/html" and p.get("body", {}).get("data"):
+            return base64.urlsafe_b64decode(p["body"]["data"]).decode(errors="replace")
+    return ""
+
+
+def walk(part):
+    yield part
+    for p in part.get("parts", []) or []:
+        yield from walk(p)
+
+
+def sig_div(h):  # 내가 쓴 부분(인용 앞)의 gmail_signature div 전체
+    h = h.split('class="gmail_quote')[0]
+    i = h.find("gmail_signature")
+    if i < 0:
+        return None, h
+    start = h.rfind("<div", 0, i)
+    depth, j = 0, start
+    for m in re.finditer(r"<(/?)div\b[^>]*>", h[start:]):
+        depth += -1 if m.group(1) else 1
+        if depth == 0:
+            j = start + m.end()
+            break
+    else:
+        j = len(h)
+    return h[start:j], h[:start]
+
+
+def text_of(x):
+    return re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", x))).strip()
+
+
+def person_signature(acct, who):
+    """그 사람이 마지막으로 보낸 메일에서 서명 HTML과 (서명 밖에 쓴) 맺음말을 가져옴."""
+    ids = call(acct, "/messages?" + urllib.parse.urlencode({"q": f'in:sent "{who}"', "maxResults": 25})).get("messages", [])
+    for m in ids:
+        sig, before = sig_div(html_part(call(acct, f"/messages/{m['id']}?format=full")))
+        if not sig:
+            continue
+        if re.search(rf"\b{re.escape(who)}\b", text_of(sig), re.I):
+            return sig, ""
+        tail = re.search(rf"((?:Kind regards|Best regards|Regards|Thanks|Cheers)[^<>]{{0,3}}(?:\s|<[^>]+>)*{re.escape(who)}\b.*)$",
+                         before, re.I | re.S)
+        if tail:
+            lines = [l.strip() for l in re.split(r"<br\s*/?>|</div>|\n", tail.group(1)) if text_of(l)]
+            return sig, "\n".join(text_of(l) for l in lines[:4])
+    sys.exit(f"{acct}@ 보낸메일에서 {who}의 서명을 못 찾았습니다. 서명을 손으로 만들지 말고 사람에게 물어보세요.")
+
+
+def build(acct, text, to, subject, cc=None, attach=(), sign=None):
     sig, name = signature(acct)
+    who = sign or DEFAULT_SIGN.get(acct)
+    signoff = ""
+    if who and who.lower() != "default":
+        sig, signoff = person_signature(acct, who)
+    if signoff:
+        text = text.rstrip() + "\n\n" + signoff
     if not sig:
         sys.exit(f"{acct}@ 메일함에 Gmail 서명이 없습니다. 서명을 손으로 넣지 말고 Kathleen/Max에게 알려 주세요.")
     m = EmailMessage()
@@ -73,6 +136,7 @@ def build(acct, text, to, subject, cc=None, attach=()):
     m.set_content(text)
     m.add_alternative("<div>" + "<br>".join(html.escape(l) for l in text.splitlines()) + "</div>"
                       + '<br><div class="gmail_signature">' + sig + "</div>", subtype="html")
+    m.signer = f"{who or 'default'}: {text_of(sig)[:60]}"
     for f in attach or []:
         main, sub = (mimetypes.guess_type(f)[0] or "application/octet-stream").split("/", 1)
         m.add_attachment(open(f, "rb").read(), maintype=main, subtype=sub, filename=os.path.basename(f))
@@ -85,12 +149,12 @@ def save(acct, m, thread=None):
         msg["threadId"] = thread
     d = call(acct, "/drafts", {"message": msg})
     print(json.dumps({"draft_id": d["id"], "account": acct, "from": m["From"], "to": m["To"], "cc": m["Cc"],
-                      "subject": m["Subject"], "thread": thread,
+                      "subject": m["Subject"], "thread": thread, "sign": getattr(m, "signer", ""),
                       "attach": [p.get_filename() for p in m.iter_attachments()]}, ensure_ascii=False))
 
 
 def cmd_new(a):
-    save(a.account, build(a.account, open(a.body_file).read(), a.to, a.subject, a.cc, a.attach))
+    save(a.account, build(a.account, open(a.body_file).read(), a.to, a.subject, a.cc, a.attach, a.sign))
 
 
 def cmd_reply(a):
@@ -110,7 +174,7 @@ def cmd_reply(a):
         cc.append(a.cc)
     subj = h.get("subject", "")
     m = build(a.account, open(a.body_file).read(), to,
-              subj if subj.lower().startswith("re:") else "Re: " + subj, ", ".join(cc) or None, a.attach)
+              subj if subj.lower().startswith("re:") else "Re: " + subj, ", ".join(cc) or None, a.attach, a.sign)
     m["In-Reply-To"] = h["message-id"]
     m["References"] = (h.get("references", "") + " " + h["message-id"]).strip()
     save(a.account, m, o["threadId"])
@@ -139,9 +203,9 @@ sp = ap.add_subparsers(dest="cmd", required=True)
 acct = {"choices": ["accounts", "info"]}
 n = sp.add_parser("new"); n.add_argument("account", **acct); n.add_argument("--to", required=True)
 n.add_argument("--subject", required=True); n.add_argument("--body-file", required=True)
-n.add_argument("--cc"); n.add_argument("--attach", nargs="*")
+n.add_argument("--cc"); n.add_argument("--attach", nargs="*"); n.add_argument("--sign")
 r = sp.add_parser("reply"); r.add_argument("account", **acct); r.add_argument("id"); r.add_argument("--body-file", required=True)
-r.add_argument("--all", action="store_true"); r.add_argument("--cc"); r.add_argument("--attach", nargs="*")
+r.add_argument("--all", action="store_true"); r.add_argument("--cc"); r.add_argument("--attach", nargs="*"); r.add_argument("--sign")
 for c in ("show", "delete", "send"):
     p = sp.add_parser(c); p.add_argument("account", **acct); p.add_argument("id")
     if c == "send":

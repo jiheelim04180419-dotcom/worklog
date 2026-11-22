@@ -19,7 +19,7 @@
 - 메일은 항상 초안을 먼저 보여주고 OK를 받은 뒤 보냅니다.
 - accounts@/info@ 메일은 Gmail의 실제 서명(HTML, 로고 포함)을 붙입니다. 서명을 손으로 쳐 넣지 않습니다.
 - 보낸 사람 이름은 Max가 쓰는 이름 그대로 씁니다.
-- Gmail 커넥터는 accounts@만 됩니다. info@ 메일(또는 서명·전체 답장이 필요한 메일)은 `python3 .claude/tools/mail_draft.py`로 씁니다: `new`/`reply`(--all 전체 답장)로 초안을 만들고 내용을 보여준 뒤, OK를 받으면 `send <계정> <draft_id> --ok`. 서명·보낸 사람 이름은 도구가 Gmail에서 그대로 가져옵니다. 개발·조회 프로젝트 공용.
+- Gmail 커넥터는 accounts@만 됩니다. info@ 메일(또는 서명·전체 답장이 필요한 메일)은 `python3 .claude/tools/mail_draft.py`로 씁니다: `new`/`reply`(--all 전체 답장)로 초안을 만들고 내용을 보여준 뒤, OK를 받으면 `send <계정> <draft_id> --ok`. 서명·보낸 사람 이름은 도구가 Gmail에서 그대로 가져옵니다. info@는 쓰는 사람마다 서명이 달라서 `--sign Kyle|Max|Sarah`로 고릅니다(없으면 Kyle). 누구 이름으로 쓸지 모르면 먼저 묻고, 본문에 맺음말(Kind regards, 이름)은 쓰지 않습니다. 개발·조회 프로젝트 공용.
 
 ## 인보이스
 - 인보이스 발행일 = 보낸 날입니다. 따로 보낸 날짜를 기록하지 않습니다.
