@@ -32,7 +32,15 @@
       "Bash(python3 -I .claude/tools/app_data.py)",
       "Bash(python3 -I .claude/tools/app_data.py *)",
       "Bash(python3 .claude/tools/app_data.py)",
-      "Bash(python3 .claude/tools/app_data.py *)"
+      "Bash(python3 .claude/tools/app_data.py *)",
+      "Bash(python3 -I .claude/tools/mail_draft.py new *)",
+      "Bash(python3 .claude/tools/mail_draft.py new *)",
+      "Bash(python3 -I .claude/tools/mail_draft.py reply *)",
+      "Bash(python3 .claude/tools/mail_draft.py reply *)",
+      "Bash(python3 -I .claude/tools/mail_draft.py show *)",
+      "Bash(python3 .claude/tools/mail_draft.py show *)",
+      "Bash(python3 -I .claude/tools/mail_draft.py delete *)",
+      "Bash(python3 .claude/tools/mail_draft.py delete *)"
     ]
   }
 }
