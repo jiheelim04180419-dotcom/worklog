@@ -18,6 +18,7 @@ K&M 개발 프로젝트의 정기 작업이 매번 이 파일을 읽고 그대�
 - 청구 방법: `contractNote`·공유 메모 기준. Payapps/Premier 같은 포털이면 그렇게 적는다 (회사 규칙: 포털 빌더는 메일이 아니라 포털로 청구). 포털 빌더의 데이 도켓·서류는 따로 메일로 가는지도 적는다.
 - 현장별 직전 청구: `sites[]` 의 마지막 인보이스. `python3 -I .claude/tools/briefing_data.py --inv <번호> --full` 로 항목별 진행 %를 보고, 이번 달 더 청구할 것이 있는지 (100%면 마무리/리텐션만 남았는지) 짚는다.
 - 이번 달 작업: `python3 .claude/tools/app_data.py logs --from <지난 청구일> ` 와 `app_data.py sitelog --days 30 --site <현장>`, 현장 현황판(`app_data.py board`)으로 지난 청구 뒤에 일한 현장인지 본다. 일했는데 청구할 게 없어 보이면 그렇게 적는다.
+- 현장 메모: `sites[].board_money_note` (현황판 돈 메모)가 있으면 그 현장 줄에 꼭 적는다. 다음 청구 때 같이 낼 배리에이션처럼 사람이 남긴 청구 메모다.
 - 챙길 서류·조건: 공유 메모(`python3 -I .claude/tools/company_notes.py`)와 이 프로젝트 메모리에서 그 빌더·현장의 마감 서류, 보류 금액, 변경(Variation) 승인 대기, 인증서 요청 등을 찾는다.
 - 계약 특이사항: `contractNote` 에 다른 날짜가 있으면 따른다 (예: 12월분을 다음 해 1월에 청구하는 빌더, 포털 링크가 따로 오는 소규모 PO).
 - `fixed_date: false` 빌더(정해진 청구일 없음)는 "날짜는 정해져 있지 않지만 월말 전에 청구하면 다음 달 말에 받는다" 식으로 짧게.

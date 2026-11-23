@@ -53,6 +53,12 @@ def build(today, force=False):
     builders = ad._get("invoiceBuilders") or {}
     invoices = ad._get("invoices") or {}
     since = (today - timedelta(days=ACTIVE_DAYS)).isoformat()
+    # 현황판 돈 메모(관리자만): 인보이스 번호로 현장과 연결해서 다음 청구 때 챙길 것을 같이 보여 준다
+    money_note = {}
+    for m in (ad._get("siteBoardMoney") or {}).values():
+        if isinstance(m, dict) and (m.get("note") or "").strip():
+            for n in m.get("invoiceNums") or []:
+                money_note[n] = m["note"].strip()
 
     by_builder = {}
     for inv in invoices.values():
@@ -65,7 +71,8 @@ def build(today, force=False):
         prev = b.get(site)
         if not prev or (inv.get("invoiceDate") or "") > prev["last_date"]:
             b[site] = {"site": site, "last_inv": inv.get("invoiceNum"),
-                       "last_date": inv.get("invoiceDate"), "last_status": inv.get("status")}
+                       "last_date": inv.get("invoiceDate"), "last_status": inv.get("status"),
+                       "board_money_note": money_note.get(inv.get("invoiceNum"))}
 
     groups = {k: [] for k in due}
     for bid, b in builders.items():
