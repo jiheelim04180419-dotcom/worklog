@@ -10,13 +10,13 @@
   "orientation": "portrait",
   "icons": [
     {
-      "src": "/worklog/icon-v3.png",
+      "src": "/worklog/icon-v4.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/worklog/icon-v3.png",
+      "src": "/worklog/icon-v4.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
