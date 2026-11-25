@@ -22,7 +22,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-11-16-01';
+const APP_BUILD = '2026-11-25-01';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -3252,7 +3252,13 @@ async function closeEarlierSiteProgress(newInv) {
     upd.note = upd.note ? (upd.note + '\n' + memo) : memo;
     upd.updatedAt = new Date().toISOString();
     await fbSet('invoices/' + old.id, upd);
-    done.push(`${old.invoiceNum || old.id} → ${st}`);
+    // 왜 정리했는지 같이 보여 줌 (입금 기록이 이미 있는 건만 PAID 가 됨)
+    const pays = (old.payments || []).filter(p => p && +p.amount);
+    const lastP = pays.length ? pays[pays.length - 1] : null;
+    const why = st === 'PAID'
+      ? `입금 완료 확인 $${totalPaid(old).toFixed(2)}${lastP && lastP.date ? ' (' + lastP.date + ')' : ''}`
+      : `리텐션만 남음 (잔액 $${remaining(old).toFixed(2)})`;
+    done.push(`${old.invoiceNum || old.id} → ${st} · ${why}`);
   }
   return done;
 }
@@ -6683,7 +6689,7 @@ async function saveInv(asDraft, sendEmail) {
   if (status !== 'DRAFT') {
     try {
       const closed = await closeEarlierSiteProgress({ ...data, id: editId || savedNewId });
-      if (closed.length) alert('같은 현장 이전 인보이스를 정리했어요:\n' + closed.join('\n'));
+      if (closed.length) alert('같은 현장 이전 인보이스를 정리했어요 (이미 입금 기록이 있는 건만):\n' + closed.join('\n'));
     } catch (e) { console.error('이전 인보이스 정리 실패:', e); }
   }
   closeIM();
