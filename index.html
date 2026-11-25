@@ -18,7 +18,7 @@
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
 // ℹ️ reload 는 코드만 갱신 — Firebase 주소(wm_fb_url)·로그인 세션(wm_session)은 localStorage 라 유지됨(재로그인 불필요).
-const APP_BUILD = '2026-11-11-01';
+const APP_BUILD = '2026-11-26-01';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출. ?_=타임스탬프 + no-store 로 캐시 우회.
 function _fetchLatestBuild(){
   return fetch(location.pathname + '?_=' + Date.now(), { cache: 'no-store', headers: { 'Range': 'bytes=0-3000' } })
@@ -4236,7 +4236,7 @@ function Header({ user, onLogout, onChangePw }) {
   return (
     <div style={styles.header} className="mb-header">
       <div style={styles.headerLeft}>
-        <div style={styles.headerMono}>K<b style={{ color:"#E9A23B" }}>&amp;</b>M</div>
+        <img src="logo-mark.png" alt="K&M" style={{...styles.headerMono,objectFit:"cover"}}/>
         <div><div style={styles.headerTitle}>WorkLog</div><div style={styles.headerSub}>근무일지 · 연차 · 급여</div></div>
       </div>
       <div style={styles.headerRight}>
@@ -5499,7 +5499,7 @@ function App() {
       {isDesktop && (
         <div className="dt-sidebar">
           <div className="dt-sidebar-logo">
-            <div className="dt-sidebar-logo-title" style={{display:'flex',alignItems:'center',gap:10}}><span style={{...styles.headerMono,background:'#fff',color:'#1C2430'}}>K<b style={{color:'#E9A23B'}}>&amp;</b>M</span>WorkLog</div>
+            <div className="dt-sidebar-logo-title" style={{display:'flex',alignItems:'center',gap:10}}><img src="logo-mark.png" alt="K&M" style={{...styles.headerMono,objectFit:'cover'}}/>WorkLog</div>
             <div className="dt-sidebar-logo-sub">근무일지 · 연차 · 급여</div>
           </div>
           <div style={{flex:1,padding:'12px 0',overflowY:'auto'}}>

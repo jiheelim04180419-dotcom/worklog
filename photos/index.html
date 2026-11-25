@@ -231,7 +231,7 @@ input,textarea,select{font-family:inherit;font-size:16px}
 <div id="toast" class="toast"></div>
 <datalist id="builder-list"></datalist>
 <script>
-const APP_BUILD='2026-11-14-01';
+const APP_BUILD='2026-11-26-01';
 // 글 작성칸(textarea) 내용에 맞춰 자동으로 늘어남 (최대 화면 60%)
 function autoGrowTA(t){t.style.height='auto';t.style.height=Math.min(t.scrollHeight+3,window.innerHeight*0.6)+'px';}
 document.addEventListener('input',function(ev){if(ev.target&&ev.target.tagName==='TEXTAREA')autoGrowTA(ev.target);});
@@ -492,7 +492,7 @@ function loadSession(){try{return JSON.parse(localStorage.getItem('photoapp_sess
 function renderLogin(){
   document.getElementById('app').innerHTML=`
   <div class="login"><div class="box">
-    <img class="logo" src="icon-192.png" alt=""/>
+    <img class="logo" src="../logo-icon.png" alt="K&amp;M"/>
     <h2 style="margin:4px 0 2px;font-size:20px;letter-spacing:-0.3px">SiteLog</h2>
     <p style="color:var(--sub);font-size:13px;margin:0 0 20px">Sign in with your staff account</p>
     <div class="fld" style="text-align:left"><input id="lg-id" placeholder="Username" autocapitalize="none" autocomplete="username"/></div>
