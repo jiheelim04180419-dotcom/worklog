@@ -5,18 +5,18 @@
   "start_url": "/worklog/",
   "scope": "/worklog/",
   "display": "standalone",
-  "background_color": "#1E1B4B",
-  "theme_color": "#1E1B4B",
+  "background_color": "#2E2E2E",
+  "theme_color": "#2E2E2E",
   "orientation": "portrait",
   "icons": [
     {
-      "src": "/worklog/icon.png",
+      "src": "/worklog/icon-v3.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/worklog/icon.png",
+      "src": "/worklog/icon-v3.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"

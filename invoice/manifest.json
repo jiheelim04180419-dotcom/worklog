@@ -5,18 +5,18 @@
   "start_url": "/worklog/invoice/",
   "scope": "/worklog/invoice/",
   "display": "standalone",
-  "background_color": "#312E81",
-  "theme_color": "#1E1B4B",
+  "background_color": "#2E2E2E",
+  "theme_color": "#2E2E2E",
   "orientation": "portrait",
   "icons": [
     {
-      "src": "/worklog/invoice/icon.png",
+      "src": "/worklog/invoice/icon-v3.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/worklog/invoice/icon.png",
+      "src": "/worklog/invoice/icon-v3.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
