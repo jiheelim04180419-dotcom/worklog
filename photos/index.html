@@ -19,7 +19,9 @@
   --shadow:0 1px 2px #2E2E2E0a,0 6px 20px #2E2E2E0d;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
+html{background:#2E2E2E}
+body{min-height:100vh;background:var(--bg)}
+html,body{margin:0;padding:0;color:var(--text);
   font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Apple SD Gothic Neo",sans-serif;
   font-size:15px;-webkit-font-smoothing:antialiased}
 img{max-width:100%}
@@ -208,7 +210,7 @@ input,textarea,select{font-family:inherit;font-size:16px}
 .ccat{background:#eef1f6;color:#5a6072;border-radius:7px;padding:2px 8px;font-size:11px;font-weight:600}
 
 /* ── 2026-10 redesign: shared K&M tokens, plain text site rows (no thumbnails / color bars) ── */
-.mono{width:30px;height:30px;border-radius:8px;background:#fff;color:#2E2E2E;font-weight:700;font-size:11px;display:flex;align-items:center;justify-content:center;letter-spacing:-.3px;flex-shrink:0}
+.mono{width:38px;height:38px;border-radius:10px;object-fit:cover;background:#fff;color:#2E2E2E;font-weight:700;font-size:11px;display:flex;align-items:center;justify-content:center;letter-spacing:-.3px;flex-shrink:0}
 .mono b{color:#E9A23B}
 .hdr .sub .newc{color:#F2C27A;font-weight:700}
 .chip{box-shadow:none;border:1px solid var(--line)}
@@ -231,7 +233,7 @@ input,textarea,select{font-family:inherit;font-size:16px}
 <div id="toast" class="toast"></div>
 <datalist id="builder-list"></datalist>
 <script>
-const APP_BUILD='2026-11-26-05';
+const APP_BUILD='2026-11-26-06';
 // 글 작성칸(textarea) 내용에 맞춰 자동으로 늘어남 (최대 화면 60%)
 function autoGrowTA(t){t.style.height='auto';t.style.height=Math.min(t.scrollHeight+3,window.innerHeight*0.6)+'px';}
 document.addEventListener('input',function(ev){if(ev.target&&ev.target.tagName==='TEXTAREA')autoGrowTA(ev.target);});
@@ -540,7 +542,7 @@ async function openProjects(){
   S.pid=null;S.cat=null;S.curProj=null;
   document.getElementById('app').innerHTML=`
    <div class="hdr">
-     <div class="r1"><div class="mono">K<b>&amp;</b>M</div><div style="flex:1;min-width:0"><h1>SiteLog</h1><div class="sub" id="pcount">Loading…</div></div>
+     <div class="r1"><img class="mono" src="../logo-mark.png" alt="K&amp;M"/><div style="flex:1;min-width:0"><h1>SiteLog</h1><div class="sub" id="pcount">Loading…</div></div>
        <button class="icn" id="h-menu" title="Menu">⋯</button></div>
      <div class="search"><span class="s-ic">🔍</span><input id="q" placeholder="Search builder, address or person" value="${esc(S.q)}"/></div>
    </div>
