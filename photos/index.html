@@ -175,7 +175,7 @@ input,textarea,select{font-family:inherit;font-size:16px}
 
 /* login */
 .login{min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:22px;
-  background:radial-gradient(130% 90% at 50% 0%,#E3EFEC,#F5F6F4)}
+  background:radial-gradient(120% 80% at 50% 0%,#FBF3E2,#F5F6F4 60%)}
 .login .box{background:#fff;border-radius:24px;padding:30px 24px;width:100%;max-width:350px;box-shadow:0 20px 50px #1F6F6B1f;text-align:center}
 .login .logo{width:72px;height:72px;border-radius:20px;margin:0 auto 14px;display:block}
 
@@ -231,7 +231,7 @@ input,textarea,select{font-family:inherit;font-size:16px}
 <div id="toast" class="toast"></div>
 <datalist id="builder-list"></datalist>
 <script>
-const APP_BUILD='2026-11-26-02';
+const APP_BUILD='2026-11-26-03';
 // 글 작성칸(textarea) 내용에 맞춰 자동으로 늘어남 (최대 화면 60%)
 function autoGrowTA(t){t.style.height='auto';t.style.height=Math.min(t.scrollHeight+3,window.innerHeight*0.6)+'px';}
 document.addEventListener('input',function(ev){if(ev.target&&ev.target.tagName==='TEXTAREA')autoGrowTA(ev.target);});
@@ -492,7 +492,7 @@ function loadSession(){try{return JSON.parse(localStorage.getItem('photoapp_sess
 function renderLogin(){
   document.getElementById('app').innerHTML=`
   <div class="login"><div class="box">
-    <img class="logo" src="../logo-icon.png" alt="K&amp;M"/>
+    <img src="../logo-full.png" alt="K&amp;M Tiling" style="display:block;width:170px;max-width:65%;height:auto;margin:2px auto 0"/><div style="width:36px;height:2px;background:#E5A12E;border-radius:2px;margin:16px auto 12px"></div>
     <h2 style="margin:4px 0 2px;font-size:20px;letter-spacing:-0.3px">SiteLog</h2>
     <p style="color:var(--sub);font-size:13px;margin:0 0 20px">Sign in with your staff account</p>
     <div class="fld" style="text-align:left"><input id="lg-id" placeholder="Username" autocapitalize="none" autocomplete="username"/></div>

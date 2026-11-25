@@ -22,7 +22,7 @@
 // 🔄 앱 셸 자동 업데이트 (service worker 없이). iOS 홈화면 standalone 앱은 meta no-cache 를
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
-const APP_BUILD = '2026-11-26-02';
+const APP_BUILD = '2026-11-26-03';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출(700KB 통다운로드 회피, 단일 소스 유지).
 // ?_=타임스탬프 + no-store 로 캐시 우회. CDN 이 206 미지원이면 200(전체)이라도 파싱은 됨.
 function _fetchLatestBuild(){
@@ -2164,7 +2164,7 @@ function _showLockScreen(innerHtml) {
     overlay.style.cssText = 'position:fixed;inset:0;background:linear-gradient(180deg,#0F172A 0%,#1C2430 100%);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif';
     document.body.appendChild(overlay);
   }
-  overlay.innerHTML = `<div style="background:#fff;border-radius:18px;padding:28px 26px;max-width:380px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.4)">${innerHtml}</div>`;
+  overlay.innerHTML = `<div style="background:#fff;border-radius:18px;padding:28px 26px;max-width:380px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.4)"><img src="../logo-full.png" alt="K&amp;M Tiling" style="display:block;width:170px;max-width:65%;height:auto;margin:2px auto 0"/><div style="width:36px;height:2px;background:#E5A12E;border-radius:2px;margin:16px auto 14px"></div>${innerHtml}</div>`;
 }
 function _hideLockScreen() {
   const overlay = document.getElementById('invoice-lock-overlay');
@@ -2260,7 +2260,6 @@ async function initInvoiceAuth() {
       // 권한 확인됨 → PIN 입력하는 동안 데이터 미리 받기 (화면에는 잠금 통과 후에만 표시)
       prefetchCore();
       _showLockScreen(`
-        <div style="text-align:center;margin-bottom:14px"><div style="font-size:38px">🔒</div></div>
         <h2 style="margin:0 0 4px;font-size:18px;font-weight:800;text-align:center;color:#1C2430">K&amp;M 인보이스</h2>
         <p style="margin:0 0 18px;font-size:13px;color:#6B7280;text-align:center">
           <strong>${esc(user.name || user.id)}</strong> 님 PIN 4자리
@@ -2305,7 +2304,6 @@ async function initInvoiceAuth() {
     // ── 화면 B: 풀 로그인 (WorkLog ID + PW) ──
     const showFullLogin = (defaultId) => {
       _showLockScreen(`
-        <div style="text-align:center;margin-bottom:14px"><div style="font-size:38px">🔐</div></div>
         <h2 style="margin:0 0 6px;font-size:18px;font-weight:800;text-align:center;color:#1C2430">로그인</h2>
         <p style="margin:0 0 18px;font-size:12px;color:#6B7280;text-align:center;line-height:1.6">
           <strong>WorkLog 계정</strong>으로 로그인해주세요.<br>
@@ -2355,7 +2353,6 @@ async function initInvoiceAuth() {
     // ── 화면 C: PIN 등록 (인증 통과 후 최초 1회) ──
     const showPinRegister = (user, invUserData) => {
       _showLockScreen(`
-        <div style="text-align:center;margin-bottom:14px"><div style="font-size:38px">🔑</div></div>
         <h2 style="margin:0 0 6px;font-size:18px;font-weight:800;text-align:center;color:#1C2430">PIN 등록</h2>
         <p style="margin:0 0 18px;font-size:12px;color:#6B7280;text-align:center;line-height:1.6">
           ✅ <strong>${esc(user.name || user.id)}</strong> 님 인증 완료.<br>

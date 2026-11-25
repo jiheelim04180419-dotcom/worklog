@@ -18,7 +18,7 @@
 // 무시하고 옛 index.html 스냅샷을 계속 띄움 → 새 버전 감지 시 1회 강제 reload.
 // ⚠️ 배포할 때 코드가 바뀌면 이 APP_BUILD 값을 반드시 올릴 것 (예: 날짜+일련번호).
 // ℹ️ reload 는 코드만 갱신 — Firebase 주소(wm_fb_url)·로그인 세션(wm_session)은 localStorage 라 유지됨(재로그인 불필요).
-const APP_BUILD = '2026-11-26-02';
+const APP_BUILD = '2026-11-26-03';
 // index.html 앞부분만 Range 로 가져와 최신 APP_BUILD 추출. ?_=타임스탬프 + no-store 로 캐시 우회.
 function _fetchLatestBuild(){
   return fetch(location.pathname + '?_=' + Date.now(), { cache: 'no-store', headers: { 'Range': 'bytes=0-3000' } })
@@ -234,8 +234,8 @@ function _forceUpdate(){
 <!-- Babel 은 컴파일 캐시가 없을 때만 아래 부트스트랩이 동적으로 불러옴 (폰 첫 로딩 단축) -->
 </head><body style="margin:0;padding:0;background:#F5F6F4;font-family:'Pretendard','Apple SD Gothic Neo','Noto Sans KR',sans-serif">
 <div id="loading" style="display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:16px;background:#F5F6F4;font-family:sans-serif">
-  <div style="font-size:40px">📋</div>
-  <p style="color:#1F6F6B;font-weight:700;font-size:16px" id="loadmsg">K&M WorkLog 로딩 중...</p>
+  <img src="logo-full.png" alt="K&amp;M Tiling" style="width:170px;height:auto"/>
+  <p style="color:#8891a8;font-weight:600;font-size:14px" id="loadmsg">K&M WorkLog 로딩 중...</p>
 </div>
 <div id="root" style="display:none"></div>
 <script id="src" type="text/plain">
@@ -4202,9 +4202,10 @@ function LoginScreen({ onLogin }) {
     <div style={styles.loginWrap}>
       <div style={styles.loginBox}>
         <div style={styles.loginLogo}>
-          <div style={styles.logoIcon}>📋</div>
+          <img src="logo-full.png" alt="K&M Tiling" style={styles.logoImg}/>
+          <div style={styles.logoRule}/>
           <h1 style={styles.logoTitle}>WorkLog</h1>
-          <p style={styles.logoSub}>근무일지 & 연차 관리 시스템</p>
+          <p style={styles.logoSub}>근무일지 · 연차 관리</p>
         </div>
         <div style={styles.field}><label style={styles.label}>아이디</label><input style={styles.input} value={id} onChange={e=>setId(e.target.value)} placeholder="아이디 입력" onKeyDown={e=>e.key==="Enter"&&submit()} autoCapitalize="none"/></div>
         <div style={styles.field}><label style={styles.label}>비밀번호</label><input style={styles.input} type="password" value={pw} onChange={e=>setPw(e.target.value)} placeholder="비밀번호 입력" onKeyDown={e=>e.key==="Enter"&&submit()}/></div>
@@ -4786,11 +4787,13 @@ const styles = {
   page: { padding: "16px 18px 0" },
   pageHeader: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 },
   pageTitle: { margin: 0, fontSize: 20, fontWeight: 800, color: C.text, letterSpacing: "-0.5px" },
-  loginWrap: { minHeight: "100vh", minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: "#F5F6F4" },
-  loginBox: { background: "#fff", borderRadius: 24, padding: "36px 28px", width: "100%", maxWidth: 380, boxShadow: "0 20px 60px rgba(28,36,48,0.15)", border: "1px solid #E4E7E4" },
-  loginLogo: { textAlign: "center", marginBottom: 28 },
+  loginWrap: { minHeight: "100vh", minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px 16px", boxSizing: "border-box", background: "radial-gradient(120% 80% at 50% 0%, #FBF3E2 0%, #F5F6F4 60%)" },
+  loginBox: { background: "#fff", borderRadius: 24, padding: "34px 28px 30px", width: "100%", maxWidth: 380, boxShadow: "0 20px 60px rgba(28,36,48,0.12)", border: "1px solid #ECE8DF" },
+  loginLogo: { textAlign: "center", marginBottom: 26 },
+  logoImg: { width: 190, maxWidth: "70%", height: "auto", display: "block", margin: "0 auto" },
+  logoRule: { width: 36, height: 2, background: "#E5A12E", borderRadius: 2, margin: "18px auto 14px" },
   logoIcon: { fontSize: 44, marginBottom: 8 },
-  logoTitle: { margin: 0, fontSize: 28, fontWeight: 900, color: "#1F6F6B", letterSpacing: "-0.5px" },
+  logoTitle: { margin: 0, fontSize: 22, fontWeight: 800, color: "#2E2E2E", letterSpacing: "-0.3px" },
   logoSub: { margin: "4px 0 0", fontSize: 13, color: "#8891a8" },
   header: { background: "#1C2430", borderBottom: "1px solid #1C2430", padding: "12px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 10, boxShadow: "0 1px 3px rgba(28,36,48,0.06)" },
   headerLeft: { display: "flex", alignItems: "center", gap: 10 },
@@ -5480,11 +5483,11 @@ function App() {
   const clearData=()=>{gotRef.current={};selfRef.current=null;dirRef.current={};scopeRef.current=null;leavesRef.current={};logsRef.current=[];setDataReady(false);setUsers([]);setLogs([]);setLeaves({});};
   const logout=async()=>{liveWantedRef.current=false;stopLive();clearData();fbSignOut();await sessionRemove();setSession(null);};
 
-  if(!ready)return(<div style={{ minHeight:"100dvh",display:"flex",alignItems:"center",justifyContent:"center",background:"#F5F6F4" }}><div style={{ textAlign:"center" }}><div style={{ fontSize:40,marginBottom:12 }}>📋</div><p style={{ color:"#1F6F6B",fontWeight:700,fontSize:16 }}>WorkLog 로딩 중...</p></div></div>);
+  if(!ready)return(<div style={{ minHeight:"100dvh",display:"flex",alignItems:"center",justifyContent:"center",background:"#F5F6F4" }}><div style={{ textAlign:"center" }}><img src="logo-full.png" alt="K&M Tiling" style={{ width:170,height:"auto",marginBottom:14 }}/><p style={{ color:"#8891a8",fontWeight:600,fontSize:14 }}>WorkLog 로딩 중...</p></div></div>);
   if(!getFbUrl())return(<FirebaseSetup onDone={async(url)=>{setFbUrl(url);_fbUrl=url;const r=await loadFromFb();if(!r.any){await saveFb(SEED_USERS,[],SEED_LEAVES);}startLive();setFbConfigured(true);}}/>);
   if(!session)return<LoginScreen onLogin={login}/>;
   // 핵심 데이터(직원·근무일지·연차)가 다 로드되기 전엔 잘못된 수치(연차/미제출 등)가 잠깐 보이므로 로딩 표시
-  if(!dataReady)return(<div style={{ minHeight:"100dvh",display:"flex",alignItems:"center",justifyContent:"center",background:"#F5F6F4" }}><div style={{ textAlign:"center" }}><div style={{ fontSize:40,marginBottom:12 }}>📋</div><p style={{ color:"#1F6F6B",fontWeight:700,fontSize:16 }}>데이터 불러오는 중...</p><p style={{ color:"#9aa3b5",fontSize:12,marginTop:4 }}>잠시만 기다려주세요</p></div></div>);
+  if(!dataReady)return(<div style={{ minHeight:"100dvh",display:"flex",alignItems:"center",justifyContent:"center",background:"#F5F6F4" }}><div style={{ textAlign:"center" }}><img src="logo-full.png" alt="K&M Tiling" style={{ width:170,height:"auto",marginBottom:14 }}/><p style={{ color:"#8891a8",fontWeight:600,fontSize:14 }}>데이터 불러오는 중...</p><p style={{ color:"#9aa3b5",fontSize:12,marginTop:4 }}>잠시만 기다려주세요</p></div></div>);
 
   const currentUser=users.find(u=>u.id===session.id)||session;
   // 퇴사 처리된 계정은 이미 로그인돼 있어도 접근 차단 (users 는 30초마다 갱신되므로 곧 반영됨)
