@@ -231,7 +231,7 @@ input,textarea,select{font-family:inherit;font-size:16px}
 <div id="toast" class="toast"></div>
 <datalist id="builder-list"></datalist>
 <script>
-const APP_BUILD='2026-11-26-01';
+const APP_BUILD='2026-11-26-02';
 // 글 작성칸(textarea) 내용에 맞춰 자동으로 늘어남 (최대 화면 60%)
 function autoGrowTA(t){t.style.height='auto';t.style.height=Math.min(t.scrollHeight+3,window.innerHeight*0.6)+'px';}
 document.addEventListener('input',function(ev){if(ev.target&&ev.target.tagName==='TEXTAREA')autoGrowTA(ev.target);});
