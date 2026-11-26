@@ -10,6 +10,7 @@
 ## 앱 코드 (이 저장소)
 - 작업 전에 `git pull` (SessionStart 훅이 자동으로 함).
 - 앱 코드를 고치면 그 파일의 `APP_BUILD`를 꼭 올립니다. 안 올리면 폰 PWA 캐시가 안 바뀝니다.
+  SiteLog(`photos/index.html`)는 `photos/ver.txt`도 같은 값으로 올려야 폰이 새 버전을 받습니다.
   대상: `index.html`(WorkLog), `invoice/index.html`(인보이스), `photos/index.html`(SiteLog).
 - 앱 코드 수정과 정기 점검은 클라우드에서, 맥 파일 작업(현장 사진 분류 등)은 맥 Claude Code에서 합니다.
 - PR은 스레드가 끝나면 직접 머지하고 Max에게 알려줍니다 (1~2분 뒤 반영). 크거나 위험한 변경은 먼저 물어봅니다.
