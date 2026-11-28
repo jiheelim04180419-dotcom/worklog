@@ -25,6 +25,8 @@
 ## 인보이스
 - 인보이스 발행일 = 보낸 날입니다. 따로 보낸 날짜를 기록하지 않습니다.
 - 인보이스 메일은 accounts@에서 보내고, 빌더 설정에 따라 Statement PDF를 같이 첨부합니다.
+- 인보이스 메일은 `python3 .claude/tools/invoice_mail/invoice_draft.py INV-번호`로 만듭니다 (PDF·Statement·서명·참조 자동, 사용법은 같은 폴더 README). OK를 받으면 `--send <draft_id>`. 개발·조회 프로젝트 공용.
+- 회사 이름 변경 안내: 새 이름(K&M Tiling Pty Ltd)으로 나가는 인보이스 메일은 빌더마다 처음 한 번 본문에 이름이 바뀌었다는 한 줄을 넣습니다. 도구가 자동으로 넣고, 받은 빌더는 Firebase `claudeMeta/renameNotice`에 기록합니다. 도구 없이 보낼 때도 그 기록을 확인하고 넣습니다.
 - Max가 인보이스를 만들거나 보내 달라고 하면, 그 빌더가 메일이 아니라 포털(Payapps, Premier 등)로 청구하는 곳인지 먼저 알려줍니다.
 - 인보이스를 새로 만들 때는 Firebase에 DRAFT로 넣고 Max가 앱에서 확인합니다. 번호 순서·GST·PROGRESS 타입은 앱 저장 방식과 똑같이 맞춥니다.
 - 독촉 메일을 실제로 보낸 뒤에는 그 인보이스에 독촉 기록(`chases`)을 남깁니다. 초안만 만든 경우는 남기지 않습니다.
